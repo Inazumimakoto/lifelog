@@ -1,4 +1,4 @@
-### 🧪 AI-Only Development Project
+## 🧪 AI-Only Development Project
 This entire iOS app was built end-to-end using AI — including requirements, architecture, SwiftUI code, refactors, bug fixes, and documentation.  
 No hand-written code. No manual UI building. Fully AI-driven.
 
