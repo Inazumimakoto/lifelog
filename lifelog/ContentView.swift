@@ -8,17 +8,37 @@
 import SwiftUI
 
 struct ContentView: View {
-    var body: some View {
-        VStack {
-            Image(systemName: "globe")
-                .imageScale(.large)
-                .foregroundStyle(.tint)
-            Text("Hello, world!")
-        }
-        .padding()
-    }
-}
+    @EnvironmentObject private var store: AppDataStore
 
-#Preview {
-    ContentView()
+    var body: some View {
+        TabView {
+            NavigationStack {
+                TodayView(store: store)
+            }
+            .tabItem {
+                Label("今日", systemImage: "sun.max.fill")
+            }
+
+            NavigationStack {
+                JournalView(store: store)
+            }
+            .tabItem {
+                Label("ジャーナル", systemImage: "calendar")
+            }
+
+            NavigationStack {
+                HabitsCountdownView(store: store)
+            }
+            .tabItem {
+                Label("習慣", systemImage: "checkmark.circle")
+            }
+
+            NavigationStack {
+                HealthDashboardView(store: store)
+            }
+            .tabItem {
+                Label("ヘルス", systemImage: "heart.fill")
+            }
+        }
+    }
 }

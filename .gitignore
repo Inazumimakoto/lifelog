@@ -1,0 +1,17 @@
+# macOS
+.DS_Store
+
+# Xcode
+DerivedData/
+*.xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+
+# Swift Package Manager
+.build/
+
+# Logs
+build.log
+
+# App assets generated at runtime
+lifelog/DiaryPhotos/
