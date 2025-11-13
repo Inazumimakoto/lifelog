@@ -1,3 +1,7 @@
+### 🧪 AI-Only Development Project
+This entire iOS app was built end-to-end using AI — including requirements, architecture, SwiftUI code, refactors, bug fixes, and documentation.  
+No hand-written code. No manual UI building. Fully AI-driven.
+
 # lifelog
 
 統合ライフログ (Bullet Journal 風) iOS アプリ。Today / Journal / Habits & Countdown / Health の 4 タブで予定・タスク・日記・習慣・ヘルスデータをまとめて管理します。
