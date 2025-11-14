@@ -11,6 +11,7 @@ struct JournalView: View {
     private let store: AppDataStore
     @StateObject private var viewModel: JournalViewModel
     private let monthPagerHeight: CGFloat = 640
+    @State private var detailPanelHeight: CGFloat = 520
     private let monthPagerRadius = 18
     @State private var monthPagerAnchors: [Date] = []
     @State private var monthPagerSelection: Int = 0
@@ -31,6 +32,11 @@ struct JournalView: View {
     @State private var diaryEditorDate: Date = Date()
     @State private var todayAnimationDuration: Double?
     @State private var isProgrammaticWeekPagerChange = false
+    private let detailPagerRadius = 14
+    @State private var detailPagerAnchors: [Date] = []
+    @State private var detailPagerSelection: Int = 0
+    @State private var isSyncingDetailPager = false
+    @State private var detailHeights: [Int: CGFloat] = [:]
     @Namespace private var selectionNamespace
 
     init(store: AppDataStore) {
@@ -117,6 +123,7 @@ struct JournalView: View {
         .onAppear {
             prepareMonthPagerIfNeeded()
             prepareWeekPagerIfNeeded()
+            prepareDetailPagerIfNeeded()
             viewModel.preloadMonths(around: viewModel.monthAnchor, radius: 1)
         }
         .onChange(of: viewModel.displayMode) { mode in
@@ -125,12 +132,18 @@ struct JournalView: View {
             } else {
                 ensureMonthPagerIncludes(date: viewModel.selectedDate)
             }
+            ensureDetailPagerIncludes(date: viewModel.selectedDate)
         }
         .onChange(of: viewModel.selectedDate) { newValue in
             if viewModel.displayMode == .week, isSyncingWeekPager == false {
                 ensureWeekPagerIncludes(date: newValue)
             } else if viewModel.displayMode == .month, isSyncingMonthPager == false {
                 ensureMonthPagerIncludes(date: newValue)
+            }
+            if isSyncingDetailPager == false {
+                ensureDetailPagerIncludes(date: newValue)
+            } else {
+                isSyncingDetailPager = false
             }
         }
         .onChange(of: viewModel.monthAnchor) { newAnchor in
@@ -302,24 +315,7 @@ struct JournalView: View {
     }
 
     private var daySummary: some View {
-        let snapshot = calendarSnapshot(for: viewModel.selectedDate)
-        return SectionCard(title: "選択中の日") {
-            CalendarDetailPanel(snapshot: snapshot,
-                                includeAddButtons: true,
-                                onAddTask: {
-                                    newItemDate = snapshot.date
-                                    showTaskEditor = true
-                                },
-                                onAddEvent: {
-                                    newItemDate = snapshot.date
-                                    showEventEditor = true
-                                },
-                                onEditTask: { task in editingTask = task },
-                                onEditEvent: { event in editingEvent = event },
-                                onToggleTask: { toggleTask($0) },
-                                onToggleHabit: { toggleHabit($0, on: snapshot.date) },
-                                onOpenDiary: { openDiaryEditor(for: $0) })
-        }
+        detailPager(includeAddButtons: true)
     }
 
     // 週表示仕様: docs/requirements.md 4.5 + docs/ui-guidelines.md (Journal)
@@ -397,18 +393,7 @@ struct JournalView: View {
     }
 
     private var weekDayDetail: some View {
-        let snapshot = calendarSnapshot(for: viewModel.selectedDate)
-        return SectionCard(title: "選択中の日") {
-            CalendarDetailPanel(snapshot: snapshot,
-                                includeAddButtons: false,
-                                onAddTask: {},
-                                onAddEvent: {},
-                                onEditTask: { task in editingTask = task },
-                                onEditEvent: { event in editingEvent = event },
-                                onToggleTask: { toggleTask($0) },
-                                onToggleHabit: { toggleHabit($0, on: snapshot.date) },
-                                onOpenDiary: { openDiaryEditor(for: $0) })
-        }
+        detailPager(includeAddButtons: false)
     }
 
     private func weekCalendar(for anchor: Date) -> some View {
@@ -579,6 +564,121 @@ struct JournalView: View {
 
     private func taskDisplayDate(for task: Task) -> Date? {
         task.startDate ?? task.endDate
+    }
+
+    private func detailPager(includeAddButtons: Bool) -> some View {
+        SectionCard(title: "選択中の日") {
+            TabView(selection: $detailPagerSelection) {
+                ForEach(Array(detailPagerAnchors.enumerated()), id: \.offset) { index, anchor in
+                    let snapshot = calendarSnapshot(for: anchor)
+                    CalendarDetailPanel(snapshot: snapshot,
+                                        includeAddButtons: includeAddButtons,
+                                        onAddTask: {
+                                            newItemDate = snapshot.date
+                                            showTaskEditor = true
+                                        },
+                                        onAddEvent: {
+                                            newItemDate = snapshot.date
+                                            showEventEditor = true
+                                        },
+                                        onEditTask: { task in editingTask = task },
+                                        onEditEvent: { event in editingEvent = event },
+                                        onToggleTask: { toggleTask($0) },
+                                        onToggleHabit: { toggleHabit($0, on: snapshot.date) },
+                                        onOpenDiary: { openDiaryEditor(for: $0) })
+                    .tag(index)
+                    .background(
+                        GeometryReader { proxy in
+                            Color.clear.preference(key: DetailPagerHeightKey.self,
+                                                   value: [index: proxy.size.height])
+                        }
+                    )
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(maxWidth: .infinity)
+            .frame(height: detailPanelHeight)
+            .onPreferenceChange(DetailPagerHeightKey.self) { heights in
+                detailHeights.merge(heights, uniquingKeysWith: { _, new in new })
+                updateDetailHeightIfNeeded(detailHeights[detailPagerSelection])
+            }
+            .onChange(of: detailPagerSelection) { newValue in
+                guard detailPagerAnchors.indices.contains(newValue) else { return }
+                let date = detailPagerAnchors[newValue]
+                if date.startOfDay != viewModel.selectedDate.startOfDay {
+                    isSyncingDetailPager = true
+                    viewModel.selectedDate = date
+                }
+                updateDetailHeightIfNeeded(detailHeights[newValue])
+                extendDetailPagerIfNeeded(at: newValue)
+            }
+        }
+    }
+
+    private func prepareDetailPagerIfNeeded() {
+        if detailPagerAnchors.isEmpty {
+            regenerateDetailPager(centeredAt: viewModel.selectedDate)
+        }
+    }
+
+    private func regenerateDetailPager(centeredAt date: Date) {
+        isSyncingDetailPager = true
+        let start = date.startOfDay
+        let calendar = Calendar.current
+        let offsets = Array(-detailPagerRadius...detailPagerRadius)
+        detailPagerAnchors = offsets.compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+        detailPagerSelection = detailPagerAnchors.firstIndex(where: { $0.startOfDay == start }) ?? detailPagerRadius
+        DispatchQueue.main.async { self.isSyncingDetailPager = false }
+    }
+
+    private func ensureDetailPagerIncludes(date: Date) {
+        let normalized = date.startOfDay
+        if let index = detailPagerAnchors.firstIndex(where: { $0.startOfDay == normalized }) {
+            detailPagerSelection = index
+        } else {
+            regenerateDetailPager(centeredAt: normalized)
+        }
+    }
+
+    private func extendDetailPagerIfNeeded(at index: Int) {
+        let threshold = 5
+        if index <= threshold {
+            prependDetailAnchors(count: detailPagerRadius)
+        } else if index >= detailPagerAnchors.count - threshold - 1 {
+            appendDetailAnchors(count: detailPagerRadius)
+        }
+    }
+
+    private func prependDetailAnchors(count: Int) {
+        guard let first = detailPagerAnchors.first else { return }
+        let calendar = Calendar.current
+        var newDates: [Date] = []
+        for step in 1...count {
+            if let date = calendar.date(byAdding: .day, value: -step, to: first.startOfDay) {
+                newDates.insert(date.startOfDay, at: 0)
+            }
+        }
+        guard newDates.isEmpty == false else { return }
+        detailPagerAnchors.insert(contentsOf: newDates, at: 0)
+        detailPagerSelection += newDates.count
+    }
+
+    private func appendDetailAnchors(count: Int) {
+        guard let last = detailPagerAnchors.last else { return }
+        let calendar = Calendar.current
+        for step in 1...count {
+            if let date = calendar.date(byAdding: .day, value: step, to: last.startOfDay) {
+                detailPagerAnchors.append(date.startOfDay)
+            }
+        }
+    }
+
+    private func updateDetailHeightIfNeeded(_ height: CGFloat?) {
+        guard let height else { return }
+        let target = max(360, height + 24)
+        if abs(detailPanelHeight - target) > 4 {
+            detailPanelHeight = target
+        }
     }
 
     private func prepareMonthPagerIfNeeded() {
@@ -1065,6 +1165,13 @@ private struct OverviewSection<Content: View>: View {
                 .foregroundStyle(.secondary)
             content()
         }
+    }
+}
+
+private struct DetailPagerHeightKey: PreferenceKey {
+    static var defaultValue: [Int: CGFloat] = [:]
+    static func reduce(value: inout [Int: CGFloat], nextValue: () -> [Int: CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
 
