@@ -10,6 +10,16 @@ import SwiftUI
 struct JournalView: View {
     private let store: AppDataStore
     @StateObject private var viewModel: JournalViewModel
+    private let monthPagerHeight: CGFloat = 640
+    private let monthPagerRadius = 18
+    @State private var monthPagerAnchors: [Date] = []
+    @State private var monthPagerSelection: Int = 0
+    @State private var isSyncingMonthPager = false
+    private let weekPagerHeight: CGFloat = 460
+    private let weekPagerRadius = 52
+    @State private var weekPagerAnchors: [Date] = []
+    @State private var weekPagerSelection: Int = 0
+    @State private var isSyncingWeekPager = false
     @State private var showTaskEditor = false
     @State private var showEventEditor = false
     @State private var editingEvent: CalendarEvent?
@@ -17,6 +27,9 @@ struct JournalView: View {
     @State private var showAddMenu = false
     @State private var pendingAddDate: Date?
     @State private var newItemDate: Date?
+    @State private var todayAnimationDuration: Double?
+    @State private var isProgrammaticWeekPagerChange = false
+    @Namespace private var selectionNamespace
 
     init(store: AppDataStore) {
         self.store = store
@@ -29,9 +42,6 @@ struct JournalView: View {
                 monthHeader
                 modePicker
                 calendarSwitcher
-                Text("※日付をダブルタップすると予定やタスクを追加できます。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
                 contentArea
             }
             .padding()
@@ -82,9 +92,6 @@ struct JournalView: View {
                 }
             }
         }
-        .onChange(of: viewModel.displayMode) { newMode in
-            viewModel.alignAnchorIfNeeded(for: newMode)
-        }
         .confirmationDialog("この日に何を追加しますか？", isPresented: $showAddMenu, titleVisibility: .visible) {
             Button("タスクを追加") {
                 guard let date = pendingAddDate else { return }
@@ -100,6 +107,29 @@ struct JournalView: View {
             }
             Button("キャンセル", role: .cancel) { pendingAddDate = nil }
         }
+        .onAppear {
+            prepareMonthPagerIfNeeded()
+            prepareWeekPagerIfNeeded()
+            viewModel.preloadMonths(around: viewModel.monthAnchor, radius: 1)
+        }
+        .onChange(of: viewModel.displayMode) { mode in
+            if mode == .week {
+                ensureWeekPagerIncludes(date: viewModel.selectedDate)
+            } else {
+                ensureMonthPagerIncludes(date: viewModel.selectedDate)
+            }
+        }
+        .onChange(of: viewModel.selectedDate) { newValue in
+            if viewModel.displayMode == .week, isSyncingWeekPager == false {
+                ensureWeekPagerIncludes(date: newValue)
+            } else if viewModel.displayMode == .month, isSyncingMonthPager == false {
+                ensureMonthPagerIncludes(date: newValue)
+            }
+        }
+        .onChange(of: viewModel.monthAnchor) { newAnchor in
+            guard viewModel.displayMode == .month else { return }
+            ensureMonthPagerIncludes(date: newAnchor)
+        }
     }
 
     private var monthHeader: some View {
@@ -113,7 +143,25 @@ struct JournalView: View {
             Spacer()
             if viewModel.selectedDate.startOfDay != Date().startOfDay {
                 Button("今日へ") {
-                    viewModel.jumpToToday()
+                    let today = Date().startOfDay
+                    let calendar = Calendar.current
+                    let longDuration = 0.55
+                    let shortDuration = 0.25
+                    let needsLongAnimation: Bool
+                    switch viewModel.displayMode {
+                    case .month:
+                        needsLongAnimation = calendar.isDate(viewModel.monthAnchor, equalTo: today, toGranularity: .month) == false
+                    case .week:
+                        needsLongAnimation = calendar.isDate(viewModel.selectedDate, equalTo: today, toGranularity: .weekOfYear) == false
+                    }
+                    let duration = needsLongAnimation ? longDuration : shortDuration
+                    todayAnimationDuration = duration
+                    withAnimation(.easeInOut(duration: duration)) {
+                        viewModel.jumpToToday()
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
+                        todayAnimationDuration = nil
+                    }
                 }
                 .font(.caption)
             }
@@ -149,72 +197,90 @@ struct JournalView: View {
     private var calendarSwitcher: some View {
         Group {
             if viewModel.displayMode == .month {
-                monthCalendar
-            } else {
-                weekCalendar
+                monthPager
             }
         }
     }
 
-    private var monthCalendar: some View {
+    private var monthPager: some View {
+        TabView(selection: $monthPagerSelection) {
+            ForEach(Array(monthPagerAnchors.enumerated()), id: \.offset) { index, anchor in
+                VStack(spacing: 0) {
+                    monthCalendar(for: anchor)
+                        .padding(.top, 4)
+                        .padding(.bottom, 8)
+                        .padding(.horizontal, 4)
+                    Spacer(minLength: 0)
+                }
+                .frame(maxHeight: .infinity, alignment: .top)
+                .tag(index)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .frame(height: monthPagerHeight, alignment: .top)
+        .onChange(of: monthPagerSelection) { newValue in
+            guard monthPagerAnchors.indices.contains(newValue) else { return }
+            let anchor = monthPagerAnchors[newValue]
+            let calendar = Calendar.current
+            if calendar.isDate(anchor, equalTo: viewModel.monthAnchor, toGranularity: .month) == false {
+                isSyncingMonthPager = true
+                let duration = todayAnimationDuration ?? 0.18
+                withAnimation(.easeInOut(duration: duration)) {
+                    viewModel.selectedDate = anchor
+                }
+                viewModel.alignAnchorIfNeeded(for: .month)
+                DispatchQueue.main.async { self.isSyncingMonthPager = false }
+            }
+            extendMonthPagerIfNeeded(at: newValue)
+        }
+    }
+
+    private func monthCalendar(for anchor: Date) -> some View {
         let columns = Array(repeating: GridItem(.flexible()), count: 7)
-        return LazyVGrid(columns: columns, spacing: 12) {
-            ForEach(viewModel.days) { day in
+        let days = viewModel.calendarDays(for: anchor)
+        return LazyVGrid(columns: columns, spacing: 6) {
+            ForEach(days) { day in
                 VStack(spacing: 6) {
                     Text("\(Calendar.current.component(.day, from: day.date))")
                         .font(.body)
                         .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
                     indicatorRow(events: eventCount(on: day.date),
                                  tasks: taskCount(on: day.date))
+                    wellnessRow(for: day.date)
                 }
-                .frame(maxWidth: .infinity, minHeight: 48)
-                .padding(6)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(viewModel.selectedDate.isSameDay(as: day.date) ? Color.accentColor : .clear, lineWidth: 2)
-                )
-                .background(
-                    day.isToday ? Color.accentColor.opacity(0.08) : Color.clear
-                )
-                .onTapGesture {
-                    viewModel.selectedDate = day.date
-                }
-                .onTapGesture(count: 2) {
-                    handleDoubleTap(on: day.date)
-                }
-            }
-        }
-    }
-
-    private var weekCalendar: some View {
-        HStack(spacing: 12) {
-            ForEach(viewModel.weekDates, id: \.self) { date in
-                VStack(spacing: 6) {
-                    Text(date.jaMonthDayString)
-                        .font(.caption)
-                    Text(date.jaWeekdayNarrowString)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                    Text(summaryLabel(for: date, limit: 2))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.center)
-                }
-                .padding(8)
                 .frame(maxWidth: .infinity)
+                .frame(minWidth: 42, idealWidth: 44)
+                .frame(minHeight: 90)
+                .padding(.top, 0)
+                .padding(.bottom, 4)
+                .padding(.horizontal, 6)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(date.startOfDay == viewModel.selectedDate.startOfDay ? Color.accentColor : .clear, lineWidth: 2)
+                        .fill(day.isToday ? Color.accentColor.opacity(0.12) : Color.clear)
                 )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.clear, lineWidth: 2)
+                )
+                .overlay(alignment: .center) {
+                    if viewModel.selectedDate.isSameDay(as: day.date) {
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.accentColor, lineWidth: 2)
+                            .matchedGeometryEffect(id: "calendar-selection", in: selectionNamespace)
+                    }
+                }
+                .contentShape(Rectangle())
                 .onTapGesture {
-                    viewModel.selectedDate = date
+                    withAnimation(.easeInOut(duration: 0.06)) {
+                        viewModel.selectedDate = day.date
+                    }
                 }
-                .onTapGesture(count: 2) {
-                    handleDoubleTap(on: date)
-                }
+                .simultaneousGesture(TapGesture(count: 2).onEnded {
+                    handleDoubleTap(on: day.date)
+                })
             }
         }
+        .animation(.easeInOut(duration: 0.55), value: viewModel.selectedDate)
     }
 
     private var contentArea: some View {
@@ -222,7 +288,7 @@ struct JournalView: View {
             if viewModel.displayMode == .month {
                 daySummary
             } else {
-                weeklyTimeline
+                weekPager
                 weekDayDetail
             }
         }
@@ -236,15 +302,144 @@ struct JournalView: View {
     }
 
     // 週表示仕様: docs/requirements.md 4.5 + docs/ui-guidelines.md (Journal)
-    private var weeklyTimeline: some View {
-        SectionCard(title: "週のタイムライン") {
-            let timelineHeight: CGFloat = 220
-            let headerHeight: CGFloat = 40
+    private var weekPager: some View {
+        TabView(selection: $weekPagerSelection) {
+            ForEach(Array(weekPagerAnchors.enumerated()), id: \.offset) { index, anchor in
+                VStack(spacing: 12) {
+                    weekCalendar(for: anchor)
+                    weekTimeline(for: anchor)
+                }
+                .padding(.top, 24)
+                .padding(.bottom, 8)
+                .padding(.horizontal, 4)
+                .frame(maxHeight: .infinity, alignment: .top)
+                .tag(index)
+            }
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .frame(height: weekPagerHeight)
+        .onChange(of: weekPagerSelection) { newValue in
+            guard weekPagerAnchors.indices.contains(newValue) else { return }
+            let anchor = weekPagerAnchors[newValue]
+            if isProgrammaticWeekPagerChange {
+                isProgrammaticWeekPagerChange = false
+            } else if Calendar.current.isDate(anchor, inSameDayAs: viewModel.selectedDate) == false {
+                isSyncingWeekPager = true
+                let duration = todayAnimationDuration ?? 0.18
+                withAnimation(.easeInOut(duration: duration)) {
+                    viewModel.selectedDate = anchor
+                }
+                DispatchQueue.main.async { self.isSyncingWeekPager = false }
+            }
+            extendWeekPagerIfNeeded(at: newValue)
+        }
+    }
+
+    private func extendWeekPagerIfNeeded(at index: Int) {
+        let threshold = 6
+        if index <= threshold {
+            prependWeekAnchors(count: threshold)
+        } else if index >= weekPagerAnchors.count - threshold - 1 {
+            appendWeekAnchors(count: threshold)
+        }
+    }
+
+    private func prependWeekAnchors(count: Int) {
+        guard let first = weekPagerAnchors.first else { return }
+        let calendar = Calendar.current
+        let start = weekStart(for: first)
+        var newDates: [Date] = []
+        for step in 1...count {
+            if let newDate = calendar.date(byAdding: .weekOfYear, value: -step, to: start) {
+                newDates.insert(newDate, at: 0)
+            }
+        }
+        if newDates.isEmpty { return }
+        weekPagerAnchors.insert(contentsOf: newDates, at: 0)
+        weekPagerSelection += newDates.count
+    }
+
+    private func appendWeekAnchors(count: Int) {
+        guard let last = weekPagerAnchors.last else { return }
+        let calendar = Calendar.current
+        let start = weekStart(for: last)
+        for step in 1...count {
+            if let newDate = calendar.date(byAdding: .weekOfYear, value: step, to: start) {
+                weekPagerAnchors.append(newDate)
+            }
+        }
+    }
+
+    private func weekStart(for date: Date) -> Date {
+        let calendar = Calendar.current
+        return calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)) ?? date
+    }
+
+    private var weekDayDetail: some View {
+        SectionCard(title: "\(viewModel.selectedDate.formatted(.dateTime.weekday(.wide))) の概要") {
+            dayDetailContent(for: viewModel.selectedDate, includeAddButtons: false)
+        }
+    }
+
+    private func weekCalendar(for anchor: Date) -> some View {
+        let dates = weekDates(for: anchor)
+        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 6) {
+            ForEach(dates, id: \.self) { date in
+                VStack(spacing: 6) {
+                    Text("\(Calendar.current.component(.day, from: date))日")
+                        .font(.caption)
+                    Text(date.jaWeekdayNarrowString)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    indicatorRow(events: eventCount(on: date),
+                                 tasks: taskCount(on: date))
+                    wellnessRow(for: date)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(minWidth: 42, idealWidth: 44)
+                .frame(minHeight: 90)
+                .padding(.top, 0)
+                .padding(.bottom, 4)
+                .padding(.horizontal, 6)
+                .background(
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(date.isSameDay(as: Date()) ? Color.accentColor.opacity(0.12) : Color.clear)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.clear, lineWidth: 2)
+                )
+                .overlay(alignment: .center) {
+                    if date.startOfDay == viewModel.selectedDate.startOfDay {
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.accentColor, lineWidth: 2)
+                            .matchedGeometryEffect(id: "calendar-selection", in: selectionNamespace)
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.06)) {
+                        viewModel.selectedDate = date
+                    }
+                }
+                .simultaneousGesture(TapGesture(count: 2).onEnded {
+                    handleDoubleTap(on: date)
+                })
+            }
+        }
+        .animation(.easeInOut(duration: 0.55), value: viewModel.selectedDate)
+    }
+
+    private func weekTimeline(for anchor: Date) -> some View {
+        let timelineHeight: CGFloat = 220
+        let headerHeight: CGFloat = 40
+        let dates = weekDates(for: anchor)
+        return SectionCard(title: "週のタイムライン") {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 12) {
                     TimelineAxisColumn(headerHeight: headerHeight,
                                        timelineHeight: timelineHeight)
-                    ForEach(viewModel.weekDates, id: \.self) { date in
+                    ForEach(dates, id: \.self) { date in
                         TimelineColumnView(date: date,
                                            items: viewModel.timelineItems(for: date),
                                            isSelected: date.startOfDay == viewModel.selectedDate.startOfDay,
@@ -262,15 +457,6 @@ struct JournalView: View {
                 .padding(.vertical, 4)
             }
             .frame(height: timelineHeight + headerHeight + 8)
-            Text("※タイムライン上の日付をダブルタップすると予定やタスクを追加できます。スワイプでシームレスに移動できます。")
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-    }
-
-    private var weekDayDetail: some View {
-        SectionCard(title: "\(viewModel.selectedDate.formatted(.dateTime.weekday(.wide))) の概要") {
-            dayDetailContent(for: viewModel.selectedDate, includeAddButtons: false)
         }
     }
 
@@ -433,49 +619,171 @@ struct JournalView: View {
         showAddMenu = true
     }
 
-    private func summaryLabel(for date: Date, limit: Int) -> String {
-        let eventTitles = store.events(on: date).map(\.title)
-        let taskTitles = viewModel.tasks(on: date).map(\.title)
-        let combined = eventTitles + taskTitles
-        guard combined.isEmpty == false else { return "" }
-        let primary = combined.prefix(limit).joined(separator: " / ")
-        let remainder = combined.count - limit
-        if remainder > 0 {
-            return "\(primary) +\(remainder)"
+    @ViewBuilder
+    private func wellnessRow(for date: Date) -> some View {
+        let sleep = sleepHours(on: date)
+        let steps = stepsCount(on: date)
+        let diary = hasDiaryEntry(on: date)
+
+        if sleep == nil && steps == nil && diary == false {
+            Color.clear.frame(height: 16)
+        } else {
+            HStack(spacing: 2) {
+                if let hours = sleep {
+                    wellnessEmoji("🛌", isActive: hours >= 8)
+                }
+                if let step = steps {
+                    wellnessEmoji("👣", isActive: step >= 10_000)
+                }
+                if diary {
+                    wellnessEmoji("📔", isActive: true)
+                }
+            }
+            .frame(height: 16, alignment: .center)
         }
-        return primary
     }
 
-    private func eventCount(on date: Date) -> Int {
-        store.events(on: date).count
+    @ViewBuilder
+    private func weekDates(for anchor: Date) -> [Date] {
+        let calendar = Calendar.current
+        let start = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: anchor)) ?? anchor
+        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
     }
 
-    private func taskCount(on date: Date) -> Int {
-        viewModel.tasks(on: date).count
+    private func prepareMonthPagerIfNeeded() {
+        if monthPagerAnchors.isEmpty {
+            regenerateMonthPager(centeredAt: viewModel.monthAnchor)
+        }
+    }
+
+    private func regenerateMonthPager(centeredAt date: Date) {
+        isSyncingMonthPager = true
+        let start = monthStart(for: date)
+        let calendar = Calendar.current
+        let offsets = Array(-monthPagerRadius...monthPagerRadius)
+        monthPagerAnchors = offsets.compactMap { calendar.date(byAdding: .month, value: $0, to: start) }
+            .map { monthStart(for: $0) }
+        viewModel.preloadMonths(around: start, radius: 1)
+        if let index = monthPagerAnchors.firstIndex(where: { calendar.isDate($0, equalTo: start, toGranularity: .month) }) {
+            applyCalendarAnimationIfNeeded {
+                monthPagerSelection = index
+            }
+        } else {
+            applyCalendarAnimationIfNeeded {
+                monthPagerSelection = monthPagerRadius
+            }
+        }
+        DispatchQueue.main.async {
+            self.isSyncingMonthPager = false
+        }
+    }
+
+    private func ensureMonthPagerIncludes(date: Date) {
+        let calendar = Calendar.current
+        let start = monthStart(for: date)
+        if let index = monthPagerAnchors.firstIndex(where: { calendar.isDate($0, equalTo: start, toGranularity: .month) }) {
+            applyCalendarAnimationIfNeeded {
+                monthPagerSelection = index
+            }
+        } else {
+            regenerateMonthPager(centeredAt: start)
+        }
+        viewModel.preloadMonths(around: start, radius: 1)
+    }
+
+    private func extendMonthPagerIfNeeded(at index: Int) {
+        let threshold = 3
+        if index <= threshold {
+            prependMonthAnchors(count: threshold)
+        } else if index >= monthPagerAnchors.count - threshold - 1 {
+            appendMonthAnchors(count: threshold)
+        }
+    }
+
+    private func prependMonthAnchors(count: Int) {
+        guard let first = monthPagerAnchors.first else { return }
+        let calendar = Calendar.current
+        let start = monthStart(for: first)
+        var newDates: [Date] = []
+        for step in 1...count {
+            if let newDate = calendar.date(byAdding: .month, value: -step, to: start) {
+                newDates.insert(monthStart(for: newDate), at: 0)
+            }
+        }
+        guard newDates.isEmpty == false else { return }
+        monthPagerAnchors.insert(contentsOf: newDates, at: 0)
+        monthPagerSelection += newDates.count
+        newDates.forEach { viewModel.preloadMonths(around: $0, radius: 0) }
+    }
+
+    private func appendMonthAnchors(count: Int) {
+        guard let last = monthPagerAnchors.last else { return }
+        let calendar = Calendar.current
+        let start = monthStart(for: last)
+        for step in 1...count {
+            if let newDate = calendar.date(byAdding: .month, value: step, to: start) {
+                let monthStartDate = monthStart(for: newDate)
+                monthPagerAnchors.append(monthStartDate)
+                viewModel.preloadMonths(around: monthStartDate, radius: 0)
+            }
+        }
+    }
+
+    private func monthStart(for date: Date) -> Date {
+        let calendar = Calendar.current
+        return calendar.date(from: calendar.dateComponents([.year, .month], from: date)) ?? date
+    }
+
+    private func prepareWeekPagerIfNeeded() {
+        if weekPagerAnchors.isEmpty {
+            regenerateWeekPager(centeredAt: viewModel.selectedDate)
+        }
+    }
+
+    private func regenerateWeekPager(centeredAt date: Date) {
+        isSyncingWeekPager = true
+        let start = weekStart(for: date)
+        let calendar = Calendar.current
+        let offsets = Array(-weekPagerRadius...weekPagerRadius)
+        weekPagerAnchors = offsets.compactMap { calendar.date(byAdding: .weekOfYear, value: $0, to: start) }
+        let target = weekPagerAnchors.firstIndex(where: { calendar.isDate($0, inSameDayAs: start) }) ?? weekPagerRadius
+        setWeekPagerSelection(target)
+        DispatchQueue.main.async {
+            self.isSyncingWeekPager = false
+        }
+    }
+
+    private func ensureWeekPagerIncludes(date: Date) {
+        let calendar = Calendar.current
+        let start = weekStart(for: date)
+        if let index = weekPagerAnchors.firstIndex(where: { calendar.isDate($0, inSameDayAs: start) }) {
+            setWeekPagerSelection(index)
+        } else {
+            regenerateWeekPager(centeredAt: start)
+        }
     }
 
     @ViewBuilder
     private func indicatorRow(events: Int, tasks: Int) -> some View {
         if events == 0 && tasks == 0 {
-            Circle()
-                .fill(Color.gray.opacity(0.15))
-                .frame(width: 8, height: 8)
+            Color.clear.frame(height: 16)
         } else {
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 if events > 0 {
-                    indicator(color: .accentColor, count: events)
+                    dotIndicator(color: .accentColor, count: events)
                 }
                 if tasks > 0 {
-                    indicator(color: .yellow, count: tasks)
+                    dotIndicator(color: .yellow, count: tasks)
                 }
             }
+            .frame(height: 16, alignment: .center)
         }
     }
 
-    private func indicator(color: Color, count: Int) -> some View {
+    private func dotIndicator(color: Color, count: Int) -> some View {
         ZStack(alignment: .topTrailing) {
             Circle()
-                .fill(color.opacity(0.9))
+                .fill(color.opacity(0.85))
                 .frame(width: 10, height: 10)
             if count > 1 {
                 Text(count > 9 ? "9+" : "\(count)")
@@ -484,7 +792,44 @@ struct JournalView: View {
                     .offset(x: 8, y: -6)
             }
         }
-        .frame(width: 18, height: 18, alignment: .center)
+        .frame(width: 18, height: 18)
+    }
+
+    private func wellnessEmoji(_ symbol: String, isActive: Bool) -> some View {
+        Text(symbol)
+            .font(.system(size: 9))
+            .opacity(isActive ? 1 : 0.25)
+    }
+
+    private func hasDiaryEntry(on date: Date) -> Bool {
+        if let entry = store.entry(for: date) {
+            return entry.text.isEmpty == false || entry.photoPaths.isEmpty == false || entry.mood != nil || entry.conditionScore != nil
+        }
+        return false
+    }
+
+    private func sleepHours(on date: Date) -> Double? {
+        guard let summary = store.healthSummaries.first(where: { Calendar.current.isDate($0.date, inSameDayAs: date) }),
+              let hours = summary.sleepHours, hours > 0 else {
+            return nil
+        }
+        return hours
+    }
+
+    private func stepsCount(on date: Date) -> Int? {
+        guard let summary = store.healthSummaries.first(where: { Calendar.current.isDate($0.date, inSameDayAs: date) }),
+              let steps = summary.steps, steps > 0 else {
+            return nil
+        }
+        return steps
+    }
+
+    private func eventCount(on date: Date) -> Int {
+        store.events(on: date).count
+    }
+
+    private func taskCount(on date: Date) -> Int {
+        viewModel.tasks(on: date).count
     }
 
     private func conditionLabel(for score: Int) -> String {
@@ -497,6 +842,21 @@ struct JournalView: View {
         default: emoji = "😫"
         }
         return "\(emoji) \(score)"
+    }
+
+    private func setWeekPagerSelection(_ index: Int) {
+        isProgrammaticWeekPagerChange = true
+        applyCalendarAnimationIfNeeded {
+            weekPagerSelection = index
+        }
+    }
+
+    private func applyCalendarAnimationIfNeeded(_ updates: @escaping () -> Void) {
+        if let duration = todayAnimationDuration {
+            withAnimation(.easeInOut(duration: duration), updates)
+        } else {
+            updates()
+        }
     }
 }
 

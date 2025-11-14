@@ -12,7 +12,7 @@ import Combine
 final class JournalViewModel: ObservableObject {
 
     struct CalendarDay: Identifiable {
-        let id = UUID()
+        var id: Date { date }
         let date: Date
         let isWithinDisplayedMonth: Bool
         let tasks: [Task]
@@ -49,10 +49,11 @@ final class JournalViewModel: ObservableObject {
     @Published var selectedDate: Date
     @Published private(set) var monthTitle: String = ""
     @Published var displayMode: DisplayMode = .month
+    @Published private(set) var monthAnchor: Date
 
     private let store: AppDataStore
     private var cancellables = Set<AnyCancellable>()
-    private var monthAnchor: Date
+    private var monthCache: [Date: [CalendarDay]] = [:]
 
     init(store: AppDataStore, anchorDate: Date = Date()) {
         self.store = store
@@ -73,29 +74,12 @@ final class JournalViewModel: ObservableObject {
     }
 
     private func rebuild() {
-        let calendar = Calendar.current
+        monthCache.removeAll()
         monthTitle = DateFormatter.monthAndYear.string(from: monthAnchor)
-
-        guard let range = calendar.range(of: .day, in: .month, for: monthAnchor),
-              let firstDay = calendar.date(from: calendar.dateComponents([.year, .month], from: monthAnchor))
-        else { return }
-
-        var tempDays: [CalendarDay] = []
-        let firstWeekday = calendar.component(.weekday, from: firstDay)
-        let leadingDays = (firstWeekday + 6) % 7
-
-        for offset in -leadingDays..<(range.count) {
-            guard let date = calendar.date(byAdding: .day, value: offset, to: firstDay) else { continue }
-            let isWithinMonth = calendar.isDate(date, equalTo: monthAnchor, toGranularity: .month)
-            let tasks = store.tasks.filter { isTask($0, on: date, calendar: calendar) }
-            let records = store.habitRecords.filter { $0.date.startOfDay == date.startOfDay }
-            let diary = store.diaryEntries.first { $0.date.startOfDay == date.startOfDay }
-            tempDays.append(.init(date: date, isWithinDisplayedMonth: isWithinMonth, tasks: tasks, habits: records, diary: diary))
-        }
-
-        days = tempDays
-        if tempDays.contains(where: { $0.date.startOfDay == selectedDate.startOfDay }) == false {
-            selectedDate = tempDays.first(where: { $0.isWithinDisplayedMonth })?.date ?? monthAnchor
+        let calendarDays = calendarDays(for: monthAnchor)
+        days = calendarDays
+        if calendarDays.contains(where: { $0.date.startOfDay == selectedDate.startOfDay }) == false {
+            selectedDate = calendarDays.first(where: { $0.isWithinDisplayedMonth })?.date ?? monthAnchor
         }
     }
 
@@ -186,6 +170,65 @@ final class JournalViewModel: ObservableObject {
         let end = calendar.startOfDay(for: task.endDate ?? task.startDate ?? date)
         let target = calendar.startOfDay(for: date)
         return start...end ~= target
+    }
+
+    func calendarDays(for anchor: Date) -> [CalendarDay] {
+        let calendar = Calendar.current
+        let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: anchor)) ?? anchor
+        if let cached = monthCache[monthStart] {
+            return cached
+        }
+        guard let range = calendar.range(of: .day, in: .month, for: monthStart) else {
+            return []
+        }
+
+        let firstDay = monthStart
+        var tempDays: [CalendarDay] = []
+        let firstWeekday = calendar.component(.weekday, from: firstDay)
+        let leadingDays = (firstWeekday + 6) % 7
+        let totalDays = range.count
+        let totalCells = leadingDays + totalDays
+        let targetCells = ((totalCells + 6) / 7) * 7
+
+        for offset in -leadingDays..<totalDays {
+            guard let date = calendar.date(byAdding: .day, value: offset, to: firstDay) else { continue }
+            let isWithinMonth = calendar.isDate(date, equalTo: anchor, toGranularity: .month)
+            let tasks = store.tasks.filter { isTask($0, on: date, calendar: calendar) }
+            let records = store.habitRecords.filter { $0.date.startOfDay == date.startOfDay }
+            let diary = store.diaryEntries.first { $0.date.startOfDay == date.startOfDay }
+            tempDays.append(.init(date: date,
+                                  isWithinDisplayedMonth: isWithinMonth,
+                                  tasks: tasks,
+                                  habits: records,
+                                  diary: diary))
+        }
+
+        let trailingDays = max(0, targetCells - (leadingDays + totalDays))
+        if trailingDays > 0 {
+            for offset in totalDays..<(totalDays + trailingDays) {
+                guard let date = calendar.date(byAdding: .day, value: offset, to: firstDay) else { continue }
+                let tasks = store.tasks.filter { isTask($0, on: date, calendar: calendar) }
+                let records = store.habitRecords.filter { $0.date.startOfDay == date.startOfDay }
+                let diary = store.diaryEntries.first { $0.date.startOfDay == date.startOfDay }
+                tempDays.append(.init(date: date,
+                                      isWithinDisplayedMonth: false,
+                                      tasks: tasks,
+                                      habits: records,
+                                      diary: diary))
+            }
+        }
+
+        monthCache[monthStart] = tempDays
+        return tempDays
+    }
+
+    func preloadMonths(around anchor: Date, radius: Int = 1) {
+        let calendar = Calendar.current
+        let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: anchor)) ?? anchor
+        for offset in -radius...radius {
+            guard let date = calendar.date(byAdding: .month, value: offset, to: monthStart) else { continue }
+            _ = calendarDays(for: date)
+        }
     }
 }
 
