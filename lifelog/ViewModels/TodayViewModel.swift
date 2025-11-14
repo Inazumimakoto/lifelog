@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import SwiftUI
 
 @MainActor
 final class TodayViewModel: ObservableObject {
@@ -33,6 +34,7 @@ final class TodayViewModel: ObservableObject {
 
     private let store: AppDataStore
     private var cancellables = Set<AnyCancellable>()
+    private var pendingAnimation: Animation?
 
     init(store: AppDataStore, date: Date = Date()) {
         self.store = store
@@ -53,30 +55,42 @@ final class TodayViewModel: ObservableObject {
     }
 
     private func refreshAll() {
-        events = store.events(on: date)
-        let todaysTasks = store.tasks
-            .filter { isTask($0, scheduledOn: date) }
-            .sorted(by: sortTasks)
-        tasksDueToday = todaysTasks.filter { !$0.isCompleted }
-        completedTasksToday = todaysTasks.filter(\.isCompleted)
+        let updates = {
+            self.events = self.store.events(on: self.date)
+            let todaysTasks = self.store.tasks
+                .filter { self.isTask($0, scheduledOn: self.date) }
+                .sorted(by: self.sortTasks)
+            self.tasksDueToday = todaysTasks.filter { !$0.isCompleted }
+            self.completedTasksToday = todaysTasks.filter(\.isCompleted)
 
-        habitStatuses = store.habits
-            .filter { $0.schedule.isActive(on: date) }
-            .map { habit in
-                DailyHabitStatus(habit: habit,
-                                 record: store.habitRecords.first {
-                                    $0.habitID == habit.id && Calendar.current.isDate($0.date, inSameDayAs: date)
-                                 })
+            self.habitStatuses = self.store.habits
+                .filter { $0.schedule.isActive(on: self.date) }
+                .map { habit in
+                    DailyHabitStatus(habit: habit,
+                                     record: self.store.habitRecords.first {
+                                        $0.habitID == habit.id && Calendar.current.isDate($0.date, inSameDayAs: self.date)
+                                     })
+                }
+
+            self.healthSummary = self.store.healthSummaries.first { Calendar.current.isDate($0.date, inSameDayAs: self.date) }
+            self.diaryEntry = self.store.entry(for: self.date)
+            self.timelineItems = self.buildTimelineItems()
         }
 
-        healthSummary = store.healthSummaries.first { Calendar.current.isDate($0.date, inSameDayAs: date) }
-        diaryEntry = store.entry(for: date)
-        timelineItems = buildTimelineItems()
+        if let animation = pendingAnimation {
+            withAnimation(animation) {
+                updates()
+            }
+            pendingAnimation = nil
+        } else {
+            updates()
+        }
     }
 
     // MARK: - Actions
 
     func toggleTask(_ task: Task) {
+        pendingAnimation = .spring(response: 0.35, dampingFraction: 0.8)
         store.toggleTaskCompletion(task.id)
     }
 

@@ -25,14 +25,11 @@ struct TaskRowView: View {
         HStack(alignment: .top, spacing: 12) {
             if let onToggle {
                 Button(action: onToggle) {
-                    Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 20))
-                        .foregroundStyle(task.isCompleted ? Color.accentColor : .secondary)
+                    toggleIcon
                 }
+                .buttonStyle(.plain)
             } else {
-                Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 20))
-                    .foregroundStyle(task.isCompleted ? Color.accentColor : .secondary)
+                toggleIcon
             }
             VStack(alignment: .leading, spacing: 4) {
                 HStack {
@@ -57,6 +54,13 @@ struct TaskRowView: View {
                 }
             }
         }
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: task.isCompleted)
+    }
+
+    private var toggleIcon: some View {
+        Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
+            .font(.system(size: 20))
+            .foregroundStyle(task.isCompleted ? Color.accentColor : .secondary)
     }
 
     @ViewBuilder

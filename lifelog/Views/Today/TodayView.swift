@@ -299,7 +299,9 @@ struct TodayView: View {
                 LazyVStack(spacing: 12) {
                     ForEach(viewModel.habitStatuses) { status in
                         Button {
-                            viewModel.toggleHabit(status.habit)
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                viewModel.toggleHabit(status.habit)
+                            }
                         } label: {
                             HStack {
                                 Label(status.habit.title, systemImage: status.habit.iconName)
@@ -307,6 +309,8 @@ struct TodayView: View {
                                 Spacer()
                                 Image(systemName: status.isCompleted ? "checkmark.circle.fill" : "circle")
                                     .foregroundStyle(status.isCompleted ? Color.accentColor : .secondary)
+                                    .scaleEffect(status.isCompleted ? 1.05 : 0.95)
+                                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: status.isCompleted)
                             }
                         }
                         .buttonStyle(.plain)

@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import SwiftUI
 
 @MainActor
 final class TasksViewModel: ObservableObject {
@@ -20,6 +21,7 @@ final class TasksViewModel: ObservableObject {
     }
 
     @Published private(set) var tasks: [Task] = []
+    private var pendingAnimation: Animation?
 
     private let store: AppDataStore
     private var cancellables = Set<AnyCancellable>()
@@ -33,7 +35,16 @@ final class TasksViewModel: ObservableObject {
         store.$tasks
             .receive(on: DispatchQueue.main)
             .sink { [weak self] tasks in
-                self?.tasks = tasks
+                guard let self else { return }
+                let updates = { self.tasks = tasks }
+                if let animation = self.pendingAnimation {
+                    withAnimation(animation) {
+                        updates()
+                    }
+                    self.pendingAnimation = nil
+                } else {
+                    updates()
+                }
             }
             .store(in: &cancellables)
     }
@@ -91,6 +102,7 @@ final class TasksViewModel: ObservableObject {
     }
 
     func toggle(task: Task) {
+        pendingAnimation = .spring(response: 0.35, dampingFraction: 0.8)
         store.toggleTaskCompletion(task.id)
     }
 
