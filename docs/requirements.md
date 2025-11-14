@@ -8,7 +8,7 @@
 ## 1. アプリ概要
 
 バレットジャーナル (Bullet Journal) の思想をベースに、予定・タスク・日記・習慣・ヘルスデータなど日々の記録を 1 つの iOS アプリで統合管理する。参考イメージは COMO Bujo。  
-主要タブ: Today / Journal / Habits & Countdown / Health。
+主要タブ: Today / カレンダー / Habits & Countdown / Health。
 
 ## 2. ターゲットユーザー
 - iPhone ユーザー (iOS 17 以上を推奨)
@@ -34,11 +34,11 @@
 - 予定カードをタップで編集、ダブルタップ手順の案内
 - 「今日」という見出しは表示しない
 
-### 4.2 カレンダー
+### 4.2 カレンダー (月ビュー)
 - 月表示 (標準 or カスタム)・日付タップで詳細へ
 - EventKit で予定を読み取り (タイトル / 時間 / カレンダー名)
 - アプリ内から予定作成・編集を可能にする (カレンダー名の代わりにカテゴリ表記)
-- Today / Journal どちらからでも予定追加・編集できる
+- Today / カレンダー どちらからでも予定追加・編集できる
 
 ### 4.3 ToDo
 - CRUD + 完了チェック
@@ -51,13 +51,13 @@
 - 入力: テキスト (初期値は空)、写真(最大 50 枚、PhotosPicker から取得し Documents 保存)、気分スコア(1~5)、体調(5段階・絵文字)、位置情報 (MapKit 検索 + 訪れた場所説明文)
 - 体調/気分/睡眠/歩数の相関を Health 画面にグラフとして表示
 
-### 4.5 ジャーナル (Bujo)
+### 4.5 カレンダー詳細 (Bujo)
 - 週 / 月切替 (週は週次カレンダー + タイムライン、月は従来表示)
 - 週タイムライン: 時間軸整列、重なり解消、下部に日詳細 (月表示と同じ内容)
 - 週移動は 7 日単位、月ヘッダーは数字表記 (例: 2025年11月)
 - 今日以外の日選択時のみ「今日へ」ボタン表示
 - 日付ダブルタップで予定/タスク追加できる旨を明示
-- 予定/タスクをジャーナル上からも追加・編集可能
+- 予定/タスクをカレンダー上からも追加・編集可能
 - 他日へ移動後に戻るボタン
 
 ### 4.6 習慣 (Habit Tracker)
@@ -103,7 +103,7 @@ TabView
  │    ├─ 日記編集
  │    ├─ タスク編集 (TasksView)
  │    └─ 予定編集 (CalendarEventEditorView)
- ├─ Journal
+ ├─ カレンダー
  │    ├─ 日付詳細
  │    ├─ タスク/予定編集
  │    └─ 戻る(今日へ)ボタン
@@ -135,6 +135,6 @@ TabView
 
 ## 10. 実装メモ & 参照
 - 実装は SwiftUI + MVVM。`AppDataStore` で状態共有、各画面 ViewModel でロジック分離。
-- Today/Journal のタイムライン仕様: `ViewModels/TodayViewModel.swift`, `ViewModels/JournalViewModel.swift`。
+- Today/カレンダー のタイムライン仕様: `ViewModels/TodayViewModel.swift`, `ViewModels/JournalViewModel.swift`。
 - ヘルス系グラフ: `Views/Health/*`。
 - 本ドキュメントは `/docs/requirements.md`。必要に応じて README、コードコメントから参照すること。

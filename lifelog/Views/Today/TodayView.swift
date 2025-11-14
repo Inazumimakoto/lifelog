@@ -11,9 +11,15 @@ import PhotosUI
 struct TodayView: View {
     @StateObject private var viewModel: TodayViewModel
     @State private var showTaskManager = false
+    @State private var showTaskEditor = false
     @State private var showDiaryEditor = false
     @State private var showEventEditor = false
     @State private var editingEvent: CalendarEvent?
+    @State private var editingTask: Task?
+    @State private var eventToDelete: CalendarEvent?
+    @State private var taskToDelete: Task?
+    @State private var showEventDeleteConfirmation = false
+    @State private var showTaskDeleteConfirmation = false
     private let store: AppDataStore
 
     init(store: AppDataStore) {
@@ -26,7 +32,7 @@ struct TodayView: View {
             VStack(spacing: 16) {
                 header
                 eventsSection
-                todayTimelineSection
+//                todayTimelineSection
                 tasksSection
                 habitsSection
                 healthSection
@@ -37,17 +43,34 @@ struct TodayView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
+            ToolbarItemGroup(placement: .topBarTrailing) {
                 Button {
                     showTaskManager = true
                 } label: {
                     Image(systemName: "checklist")
+                }
+                Menu {
+                    Button("タスクを追加") {
+                        showTaskEditor = true
+                    }
+                    Button("予定を追加") {
+                        showEventEditor = true
+                    }
+                } label: {
+                    Image(systemName: "plus")
                 }
             }
         }
         .sheet(isPresented: $showTaskManager) {
             NavigationStack {
                 TasksView(store: store)
+            }
+        }
+        .sheet(isPresented: $showTaskEditor) {
+            NavigationStack {
+                TaskEditorView(defaultDate: viewModel.date) { task in
+                    store.addTask(task)
+                }
             }
         }
         .sheet(isPresented: $showDiaryEditor) {
@@ -69,11 +92,49 @@ struct TodayView: View {
                 }
             }
         }
+        .sheet(item: $editingTask) { task in
+            NavigationStack {
+                TaskEditorView(task: task,
+                               defaultDate: task.startDate ?? task.endDate ?? viewModel.date) { updated in
+                    store.updateTask(updated)
+                }
+            }
+        }
+        .confirmationDialog("予定を削除", isPresented: $showEventDeleteConfirmation) {
+            Button("削除", role: .destructive) {
+                if let event = eventToDelete {
+                    viewModel.deleteEvent(event)
+                }
+                eventToDelete = nil
+            }
+            Button("キャンセル", role: .cancel) {
+                eventToDelete = nil
+            }
+        } message: {
+            if let event = eventToDelete {
+                Text("\"\(event.title)\" を削除しますか？")
+            }
+        }
+        .confirmationDialog("タスクを削除", isPresented: $showTaskDeleteConfirmation) {
+            Button("削除", role: .destructive) {
+                if let task = taskToDelete {
+                    viewModel.deleteTask(task)
+                }
+                taskToDelete = nil
+            }
+            Button("キャンセル", role: .cancel) {
+                taskToDelete = nil
+            }
+        } message: {
+            if let task = taskToDelete {
+                Text("\"\(task.title)\" を削除しますか？")
+            }
+        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(viewModel.date, style: .date)
+            Text(viewModel.date.jaYearMonthDayString)
                 .font(.largeTitle.bold())
             Text("今日の予定・タスク・記録をここでまとめて確認できます。")
                 .foregroundStyle(.secondary)
@@ -92,36 +153,49 @@ struct TodayView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(viewModel.events) { event in
-                        HStack(alignment: .top, spacing: 12) {
-                            Circle()
-                                .fill(color(for: event.calendarName))
-                                .frame(width: 10, height: 10)
-                                .padding(.top, 6)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(event.title)
-                                    .font(.body.weight(.semibold))
-                                Label("\(event.startDate.formattedTime()) - \(event.endDate.formattedTime())", systemImage: "clock")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                                Text(event.calendarName)
-                                    .font(.caption2)
-                                    .foregroundStyle(color(for: event.calendarName))
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(color(for: event.calendarName).opacity(0.15), in: Capsule())
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(alignment: .top, spacing: 12) {
+                                Circle()
+                                    .fill(color(for: event.calendarName))
+                                    .frame(width: 10, height: 10)
+                                    .padding(.top, 6)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(event.title)
+                                        .font(.body.weight(.semibold))
+                                    Label("\(event.startDate.formattedTime()) - \(event.endDate.formattedTime())", systemImage: "clock")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Text(event.calendarName)
+                                        .font(.caption2)
+                                        .foregroundStyle(color(for: event.calendarName))
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(color(for: event.calendarName).opacity(0.15), in: Capsule())
+                                }
                             }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            editingEvent = event
+                            HStack(spacing: 12) {
+                                Button {
+                                    editingEvent = event
+                                } label: {
+                                    Label("編集", systemImage: "square.and.pencil")
+                                }
+                                Button(role: .destructive) {
+                                    eventToDelete = event
+                                    showEventDeleteConfirmation = true
+                                } label: {
+                                    Label("削除", systemImage: "trash")
+                                }
+                            }
+                            .font(.caption.weight(.semibold))
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                         }
                         if event.id != viewModel.events.last?.id {
                             Divider()
                         }
                     }
                 }
-                Text("予定を追加するとジャーナルとTodayで共有されます。")
+                Text("予定を追加するとカレンダーとTodayで共有されます。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -130,26 +204,78 @@ struct TodayView: View {
 
     private var tasksSection: some View {
         SectionCard(title: "今日のタスク",
-                    actionTitle: "追加",
-                    action: { showTaskManager = true }) {
+                    actionTitle: "タスクを追加",
+                    action: { showTaskEditor = true }) {
             VStack(spacing: 12) {
                 if viewModel.tasksDueToday.isEmpty {
-                    Text("今日が期限のタスクはありません")
+                    Text("今日のタスクはありません")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(viewModel.tasksDueToday) { task in
-                        TaskRowView(task: task) {
-                            viewModel.toggleTask(task)
+                        VStack(alignment: .leading, spacing: 8) {
+                            TaskRowView(task: task, onToggle: {
+                                viewModel.toggleTask(task)
+                            })
+                            HStack(spacing: 12) {
+                                Button {
+                                    editingTask = task
+                                } label: {
+                                    Label("編集", systemImage: "square.and.pencil")
+                                }
+                                Button(role: .destructive) {
+                                    taskToDelete = task
+                                    showTaskDeleteConfirmation = true
+                                } label: {
+                                    Label("削除", systemImage: "trash")
+                                }
+                            }
+                            .font(.caption.weight(.semibold))
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
                         }
                         if task.id != viewModel.tasksDueToday.last?.id {
                             Divider()
                         }
                     }
                 }
+                if viewModel.completedTasksToday.isEmpty == false {
+                    Divider()
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("完了済み")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        ForEach(viewModel.completedTasksToday) { task in
+                            VStack(alignment: .leading, spacing: 8) {
+                                TaskRowView(task: task, onToggle: {
+                                    viewModel.toggleTask(task)
+                                })
+                                HStack(spacing: 12) {
+                                    Button {
+                                        editingTask = task
+                                    } label: {
+                                        Label("編集", systemImage: "square.and.pencil")
+                                    }
+                                    Button(role: .destructive) {
+                                        taskToDelete = task
+                                        showTaskDeleteConfirmation = true
+                                    } label: {
+                                        Label("削除", systemImage: "trash")
+                                    }
+                                }
+                                .font(.caption.weight(.semibold))
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            }
+                            if task.id != viewModel.completedTasksToday.last?.id {
+                                Divider()
+                            }
+                        }
+                    }
+                }
                 Divider()
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("別日のタスクを追加したい場合はフルタスクリストで期限を設定してください。")
+                    Text("別日のタスクや詳細な整理はタスクリストで管理してください。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Button {
@@ -237,19 +363,8 @@ struct TodayView: View {
     }
 
     // タイムライン仕様: docs/requirements.md 4.1 + docs/ui-guidelines.md (Today)
+    @ViewBuilder
     private var todayTimelineSection: some View {
-        let items = viewModel.timelineItems
-        return SectionCard(title: "今日のタイムライン") {
-            if items.isEmpty {
-                Text("今日の予定・タスクはありません")
-                    .foregroundStyle(.secondary)
-            } else {
-                TodayTimelineView(items: items)
-                    .frame(height: 200)
-                Text("※時間軸は 6:00〜24:00。予定やタスクはタップで詳細を確認できます。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
+        EmptyView() // Temporarily hidden; keep implementation for future re-enable.
     }
 }

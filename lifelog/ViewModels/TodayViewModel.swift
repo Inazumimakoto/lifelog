@@ -25,6 +25,7 @@ final class TodayViewModel: ObservableObject {
     @Published var date: Date
     @Published private(set) var events: [CalendarEvent] = []
     @Published private(set) var tasksDueToday: [Task] = []
+    @Published private(set) var completedTasksToday: [Task] = []
     @Published private(set) var habitStatuses: [DailyHabitStatus] = []
     @Published private(set) var healthSummary: HealthSummary?
     @Published private(set) var diaryEntry: DiaryEntry?
@@ -53,19 +54,11 @@ final class TodayViewModel: ObservableObject {
 
     private func refreshAll() {
         events = store.events(on: date)
-        tasksDueToday = store.tasks.filter { task in
-            guard let dueDate = task.dueDate else { return false }
-            let calendar = Calendar.current
-            let dueStart = dueDate.startOfDay
-            let targetStart = date.startOfDay
-            return dueStart <= targetStart && task.isCompleted == false
-        }
-        .sorted { lhs, rhs in
-            if lhs.priority.rawValue != rhs.priority.rawValue {
-                return lhs.priority.rawValue > rhs.priority.rawValue
-            }
-            return (lhs.dueDate ?? Date.distantPast) < (rhs.dueDate ?? Date.distantPast)
-        }
+        let todaysTasks = store.tasks
+            .filter { isTask($0, scheduledOn: date) }
+            .sorted(by: sortTasks)
+        tasksDueToday = todaysTasks.filter { !$0.isCompleted }
+        completedTasksToday = todaysTasks.filter(\.isCompleted)
 
         habitStatuses = store.habits
             .filter { $0.schedule.isActive(on: date) }
@@ -91,6 +84,10 @@ final class TodayViewModel: ObservableObject {
         store.toggleHabit(habit.id, on: date)
     }
 
+    func deleteTask(_ task: Task) {
+        store.deleteTasks(withIDs: [task.id])
+    }
+
     func ensureDiaryEntry() -> DiaryEntry {
         if let diaryEntry {
             return diaryEntry
@@ -104,6 +101,10 @@ final class TodayViewModel: ObservableObject {
         store.upsert(entry: entry)
     }
 
+    func deleteEvent(_ event: CalendarEvent) {
+        store.deleteCalendarEvent(event.id)
+    }
+
     private func buildTimelineItems() -> [JournalViewModel.TimelineItem] {
         var items: [JournalViewModel.TimelineItem] = []
         items.append(contentsOf: events.map {
@@ -114,15 +115,60 @@ final class TodayViewModel: ObservableObject {
                                           detail: $0.calendarName)
         })
 
-        for task in tasksDueToday {
-            guard let due = task.dueDate ?? Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: date) else { continue }
-            let start = due.addingTimeInterval(-900)
+        let completedTimeline = completedTasksToday.map { task -> JournalViewModel.TimelineItem in
+            JournalViewModel.TimelineItem(title: task.title,
+                                          start: task.startDate ?? date,
+                                          end: task.endDate ?? date,
+                                          kind: .task,
+                                          detail: "__completed__")
+        }
+        let pendingTimeline = tasksDueToday.map { task -> JournalViewModel.TimelineItem in
+            JournalViewModel.TimelineItem(title: task.title,
+                                          start: task.startDate ?? date,
+                                          end: task.endDate ?? date,
+                                          kind: .task,
+                                          detail: task.detail)
+        }
+        (pendingTimeline + completedTimeline).forEach { task in
+            let anchorDate = timelineAnchor(for: task, defaultingTo: date)
+            let start = anchorDate.addingTimeInterval(-900)
             items.append(JournalViewModel.TimelineItem(title: task.title,
                                                        start: start,
-                                                       end: due,
-                                                       kind: .task,
+                                                       end: anchorDate,
+                                                       kind: task.kind,
                                                        detail: task.detail))
         }
         return items.sorted(by: { $0.start < $1.start })
+    }
+
+    private func isTask(_ task: Task, scheduledOn date: Date) -> Bool {
+        let calendar = Calendar.current
+        let start = task.startDate ?? task.endDate
+        let end = task.endDate ?? task.startDate
+        guard let anchor = start ?? end else { return false }
+        let normalizedStart = calendar.startOfDay(for: start ?? anchor)
+        let normalizedEnd = calendar.startOfDay(for: end ?? anchor)
+        let target = calendar.startOfDay(for: date)
+        return normalizedStart...normalizedEnd ~= target
+    }
+
+    private func sortTasks(_ lhs: Task, _ rhs: Task) -> Bool {
+        if lhs.priority.rawValue != rhs.priority.rawValue {
+            return lhs.priority.rawValue > rhs.priority.rawValue
+        }
+        let lhsDate = displayDate(for: lhs) ?? .distantFuture
+        let rhsDate = displayDate(for: rhs) ?? .distantFuture
+        if lhsDate != rhsDate {
+            return lhsDate < rhsDate
+        }
+        return lhs.title < rhs.title
+    }
+
+    private func displayDate(for task: Task) -> Date? {
+        task.startDate ?? task.endDate
+    }
+
+    private func timelineAnchor(for task: JournalViewModel.TimelineItem, defaultingTo date: Date) -> Date {
+        task.start ?? Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: date) ?? date
     }
 }

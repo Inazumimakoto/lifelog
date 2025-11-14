@@ -123,7 +123,7 @@ struct HabitsCountdownView: View {
                         VStack(alignment: .leading) {
                             Text(row.anniversary.title)
                                 .font(.headline)
-                            Text(row.anniversary.targetDate.formatted(.dateTime.year().month().day()))
+                            Text(row.anniversary.targetDate.jaYearMonthDayString)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

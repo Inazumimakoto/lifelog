@@ -23,7 +23,7 @@ struct ContentView: View {
                 JournalView(store: store)
             }
             .tabItem {
-                Label("ジャーナル", systemImage: "calendar")
+                Label("カレンダー", systemImage: "calendar")
             }
 
             NavigationStack {

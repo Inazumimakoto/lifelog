@@ -11,6 +11,12 @@ struct TaskRowView: View {
     let task: Task
     var onToggle: (() -> Void)?
 
+    init(task: Task,
+         onToggle: (() -> Void)? = nil) {
+        self.task = task
+        self.onToggle = onToggle
+    }
+
     private var priorityColor: Color {
         task.priority.color.opacity(0.8)
     }
@@ -44,12 +50,25 @@ struct TaskRowView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                if let dueDate = task.dueDate {
-                    Text(dueDate.formattedTime())
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                if let start = task.startDate {
+                    dateSummary(start: start, end: task.endDate)
+                } else if let end = task.endDate {
+                    dateSummary(start: end, end: end)
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func dateSummary(start: Date, end: Date?) -> some View {
+        if let end, end != start {
+            Text("\(start.jaMonthDayString) 〜 \(end.jaMonthDayString)")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        } else {
+            Text(start.jaMonthDayString)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
     }
 }

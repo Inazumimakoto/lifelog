@@ -87,7 +87,7 @@ final class JournalViewModel: ObservableObject {
         for offset in -leadingDays..<(range.count) {
             guard let date = calendar.date(byAdding: .day, value: offset, to: firstDay) else { continue }
             let isWithinMonth = calendar.isDate(date, equalTo: monthAnchor, toGranularity: .month)
-            let tasks = store.tasks.filter { $0.dueDate?.startOfDay == date.startOfDay }
+            let tasks = store.tasks.filter { isTask($0, on: date, calendar: calendar) }
             let records = store.habitRecords.filter { $0.date.startOfDay == date.startOfDay }
             let diary = store.diaryEntries.first { $0.date.startOfDay == date.startOfDay }
             tempDays.append(.init(date: date, isWithinDisplayedMonth: isWithinMonth, tasks: tasks, habits: records, diary: diary))
@@ -144,7 +144,8 @@ final class JournalViewModel: ObservableObject {
     }
 
     func tasks(on date: Date) -> [Task] {
-        store.tasks.filter { $0.dueDate?.startOfDay == date.startOfDay }
+        let calendar = Calendar.current
+        return store.tasks.filter { isTask($0, on: date, calendar: calendar) }
     }
 
     func habits(on date: Date) -> [HabitRecord] {
@@ -163,11 +164,11 @@ final class JournalViewModel: ObservableObject {
         })
 
         for task in tasks(on: date) {
-            guard let due = task.dueDate ?? Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: date) else { continue }
-            let start = due.addingTimeInterval(-1800)
+            let anchor = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: date) ?? date
+            let start = anchor.addingTimeInterval(-1800)
             items.append(TimelineItem(title: task.title,
                                       start: start,
-                                      end: due,
+                                      end: anchor,
                                       kind: .task,
                                       detail: task.detail))
         }
@@ -178,6 +179,13 @@ final class JournalViewModel: ObservableObject {
         let calendar = Calendar.current
         let startOfWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: selectedDate)) ?? selectedDate
         return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: startOfWeek) }
+    }
+
+    private func isTask(_ task: Task, on date: Date, calendar: Calendar) -> Bool {
+        let start = calendar.startOfDay(for: task.startDate ?? task.endDate ?? date)
+        let end = calendar.startOfDay(for: task.endDate ?? task.startDate ?? date)
+        let target = calendar.startOfDay(for: date)
+        return start...end ~= target
     }
 }
 

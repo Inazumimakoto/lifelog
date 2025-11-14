@@ -141,13 +141,13 @@ enum Weekday: Int, CaseIterable, Identifiable, Codable {
 
     var shortLabel: String {
         switch self {
-        case .sunday: return "Sun"
-        case .monday: return "Mon"
-        case .tuesday: return "Tue"
-        case .wednesday: return "Wed"
-        case .thursday: return "Thu"
-        case .friday: return "Fri"
-        case .saturday: return "Sat"
+        case .sunday: return "日"
+        case .monday: return "月"
+        case .tuesday: return "火"
+        case .wednesday: return "水"
+        case .thursday: return "木"
+        case .friday: return "金"
+        case .saturday: return "土"
         }
     }
 }
@@ -158,20 +158,23 @@ struct Task: Identifiable, Codable, Hashable {
     let id: UUID
     var title: String
     var detail: String
-    var dueDate: Date?
+    var startDate: Date?
+    var endDate: Date?
     var priority: TaskPriority
     var isCompleted: Bool
 
     init(id: UUID = UUID(),
          title: String,
          detail: String = "",
-         dueDate: Date? = nil,
+         startDate: Date? = nil,
+         endDate: Date? = nil,
          priority: TaskPriority = .medium,
          isCompleted: Bool = false) {
         self.id = id
         self.title = title
         self.detail = detail
-        self.dueDate = dueDate
+        self.startDate = startDate
+        self.endDate = endDate
         self.priority = priority
         self.isCompleted = isCompleted
     }

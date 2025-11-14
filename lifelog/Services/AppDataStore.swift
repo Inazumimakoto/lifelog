@@ -43,6 +43,10 @@ final class AppDataStore: ObservableObject {
         calendarEvents[index] = event
     }
 
+    func deleteCalendarEvent(_ eventID: UUID) {
+        calendarEvents.removeAll { $0.id == eventID }
+    }
+
     // MARK: - Task CRUD
 
     func addTask(_ task: Task) {
@@ -120,10 +124,23 @@ final class AppDataStore: ObservableObject {
     private func seedSampleData() {
         let now = Date()
         let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: now)
+        let tomorrow = calendar.startOfDay(for: calendar.date(byAdding: .day, value: 1, to: todayStart) ?? todayStart)
         tasks = [
-            Task(title: "Morning workout", detail: "20 min yoga", dueDate: now, priority: .medium),
-            Task(title: "Design review", detail: "Bujo dashboard layout", dueDate: now, priority: .high),
-            Task(title: "Buy groceries", dueDate: calendar.date(byAdding: .day, value: 1, to: now), priority: .low)
+            Task(title: "Morning workout",
+                 detail: "20 min yoga",
+                 startDate: todayStart,
+                 endDate: todayStart,
+                 priority: .medium),
+            Task(title: "Design review",
+                 detail: "Bujo dashboard layout",
+                 startDate: todayStart,
+                 endDate: todayStart,
+                 priority: .high),
+            Task(title: "Buy groceries",
+                 startDate: tomorrow,
+                 endDate: calendar.date(byAdding: .day, value: 2, to: tomorrow) ?? tomorrow,
+                 priority: .low)
         ]
 
         diaryEntries = [

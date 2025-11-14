@@ -20,7 +20,7 @@ struct TasksView: View {
     var body: some View {
         List {
             Section {
-                Text("締切日を指定するとToday以外の画面でもタスクを管理できます。終わらせたタスクはスワイプで削除できます。")
+                Text("開始・終了日時を設定するとTodayやカレンダーのタイムラインに反映されます。終わったタスクはスワイプで削除できます。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -29,9 +29,9 @@ struct TasksView: View {
                 if tasks.isEmpty == false {
                     Section(section.rawValue) {
                         ForEach(tasks) { task in
-                            TaskRowView(task: task) {
+                            TaskRowView(task: task, onToggle: {
                                 viewModel.toggle(task: task)
-                            }
+                            })
                             .contentShape(Rectangle())
                             .onTapGesture {
                                 editingTask = task

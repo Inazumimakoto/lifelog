@@ -36,7 +36,7 @@ struct JournalView: View {
             }
             .padding()
         }
-        .navigationTitle("ジャーナル")
+        .navigationTitle("カレンダー")
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Menu {
@@ -55,7 +55,7 @@ struct JournalView: View {
         }
         .sheet(isPresented: $showTaskEditor) {
             NavigationStack {
-                TaskEditorView(defaultDueDate: newItemDate ?? viewModel.selectedDate) { task in
+                TaskEditorView(defaultDate: newItemDate ?? viewModel.selectedDate) { task in
                     store.addTask(task)
                 }
             }
@@ -76,7 +76,8 @@ struct JournalView: View {
         }
         .sheet(item: $editingTask) { task in
             NavigationStack {
-                TaskEditorView(task: task, defaultDueDate: task.dueDate ?? viewModel.selectedDate) { updated in
+                TaskEditorView(task: task,
+                               defaultDate: task.startDate ?? task.endDate ?? viewModel.selectedDate) { updated in
                     store.updateTask(updated)
                 }
             }
@@ -110,14 +111,14 @@ struct JournalView: View {
             Text(headerTitle)
                 .font(.headline)
             Spacer()
-            Button(action: { viewModel.stepForward(displayMode: viewModel.displayMode) }) {
-                Image(systemName: "chevron.right")
-            }
             if viewModel.selectedDate.startOfDay != Date().startOfDay {
                 Button("今日へ") {
                     viewModel.jumpToToday()
                 }
                 .font(.caption)
+            }
+            Button(action: { viewModel.stepForward(displayMode: viewModel.displayMode) }) {
+                Image(systemName: "chevron.right")
             }
         }
     }
@@ -163,11 +164,8 @@ struct JournalView: View {
                     Text("\(Calendar.current.component(.day, from: day.date))")
                         .font(.body)
                         .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
-                    if day.tasks.isEmpty == false {
-                        Circle()
-                            .fill(Color.accentColor)
-                            .frame(width: 6, height: 6)
-                    }
+                    indicatorRow(events: eventCount(on: day.date),
+                                 tasks: taskCount(on: day.date))
                 }
                 .frame(maxWidth: .infinity, minHeight: 48)
                 .padding(6)
@@ -192,14 +190,16 @@ struct JournalView: View {
         HStack(spacing: 12) {
             ForEach(viewModel.weekDates, id: \.self) { date in
                 VStack(spacing: 6) {
-                    Text(date.formatted(.dateTime.month().day()))
+                    Text(date.jaMonthDayString)
                         .font(.caption)
-                    Text(date, format: .dateTime.weekday(.narrow))
+                    Text(date.jaWeekdayNarrowString)
                         .font(.caption2)
                         .foregroundStyle(.secondary)
-                    Circle()
-                        .fill(store.events(on: date).isEmpty ? Color.clear : Color.accentColor)
-                        .frame(width: 6, height: 6)
+                    Text(summaryLabel(for: date, limit: 2))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.center)
                 }
                 .padding(8)
                 .frame(maxWidth: .infinity)
@@ -301,8 +301,13 @@ struct JournalView: View {
                             Text(task.title)
                                 .font(.body.weight(.semibold))
                             Spacer()
-                            if let due = task.dueDate {
-                                Text(due.formattedTime())
+                            if let start = task.startDate {
+                                Text("開始 \(start.formattedTime())")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if let end = task.endDate {
+                                Text("終了 \(end.formattedTime())")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -428,6 +433,60 @@ struct JournalView: View {
         showAddMenu = true
     }
 
+    private func summaryLabel(for date: Date, limit: Int) -> String {
+        let eventTitles = store.events(on: date).map(\.title)
+        let taskTitles = viewModel.tasks(on: date).map(\.title)
+        let combined = eventTitles + taskTitles
+        guard combined.isEmpty == false else { return "" }
+        let primary = combined.prefix(limit).joined(separator: " / ")
+        let remainder = combined.count - limit
+        if remainder > 0 {
+            return "\(primary) +\(remainder)"
+        }
+        return primary
+    }
+
+    private func eventCount(on date: Date) -> Int {
+        store.events(on: date).count
+    }
+
+    private func taskCount(on date: Date) -> Int {
+        viewModel.tasks(on: date).count
+    }
+
+    @ViewBuilder
+    private func indicatorRow(events: Int, tasks: Int) -> some View {
+        if events == 0 && tasks == 0 {
+            Circle()
+                .fill(Color.gray.opacity(0.15))
+                .frame(width: 8, height: 8)
+        } else {
+            HStack(spacing: 4) {
+                if events > 0 {
+                    indicator(color: .accentColor, count: events)
+                }
+                if tasks > 0 {
+                    indicator(color: .yellow, count: tasks)
+                }
+            }
+        }
+    }
+
+    private func indicator(color: Color, count: Int) -> some View {
+        ZStack(alignment: .topTrailing) {
+            Circle()
+                .fill(color.opacity(0.9))
+                .frame(width: 10, height: 10)
+            if count > 1 {
+                Text(count > 9 ? "9+" : "\(count)")
+                    .font(.caption2.bold())
+                    .foregroundStyle(.secondary)
+                    .offset(x: 8, y: -6)
+            }
+        }
+        .frame(width: 18, height: 18, alignment: .center)
+    }
+
     private func conditionLabel(for score: Int) -> String {
         let emoji: String
         switch score {
@@ -486,12 +545,12 @@ private struct TimelineColumnView: View {
     var timelineHeight: CGFloat
 
     private var dayLabel: String {
-        date.formatted(.dateTime.weekday(.narrow))
+        date.jaWeekdayNarrowString
     }
 
     var body: some View {
         VStack(spacing: 8) {
-            Text(date.formatted(.dateTime.month().day()))
+            Text(date.jaMonthDayString)
                 .font(.caption.bold())
             Text(dayLabel)
                 .font(.caption2)

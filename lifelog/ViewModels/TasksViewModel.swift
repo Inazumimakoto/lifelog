@@ -12,7 +12,7 @@ import Combine
 final class TasksViewModel: ObservableObject {
 
     enum TaskSection: String, CaseIterable, Identifiable {
-        case today = "今日が期限"
+        case today = "今日のタスク"
         case upcoming = "今後のタスク"
         case completed = "完了済み"
 
@@ -40,29 +40,37 @@ final class TasksViewModel: ObservableObject {
 
     func tasks(for section: TaskSection) -> [Task] {
         let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
         switch section {
         case .today:
-            return tasks.filter { task in
-                guard let dueDate = task.dueDate else { return false }
-                return calendar.isDateInToday(dueDate) && !task.isCompleted
-            }
+            return tasks
+                .filter { isTask($0, on: todayStart, calendar: calendar) && !$0.isCompleted }
+                .sorted(by: sortTasks)
         case .upcoming:
             return tasks.filter { task in
-                guard let dueDate = task.dueDate else { return false }
-                return dueDate > Date() && !calendar.isDateInToday(dueDate) && !task.isCompleted
-            }.sorted(by: { ($0.dueDate ?? Date.distantFuture) < ($1.dueDate ?? Date.distantFuture) })
+                guard let displayDate = displayDate(for: task) else { return false }
+                return calendar.startOfDay(for: displayDate) > todayStart && !task.isCompleted
+            }
+            .sorted(by: sortTasks)
         case .completed:
-            return tasks.filter { $0.isCompleted }
+            return tasks
+                .filter(\.isCompleted)
+                .sorted(by: sortTasks)
         }
     }
 
     func addTask(title: String,
                  detail: String,
-                 dueDate: Date?,
+                 startDate: Date?,
+                 endDate: Date?,
                  priority: TaskPriority) {
+        let calendar = Calendar.current
+        let normalizedStart = calendar.startOfDay(for: startDate ?? Date())
+        let normalizedEnd = calendar.startOfDay(for: endDate ?? normalizedStart)
         let task = Task(title: title,
                         detail: detail,
-                        dueDate: dueDate,
+                        startDate: normalizedStart,
+                        endDate: max(normalizedStart, normalizedEnd),
                         priority: priority,
                         isCompleted: false)
         store.addTask(task)
@@ -84,6 +92,29 @@ final class TasksViewModel: ObservableObject {
 
     func toggle(task: Task) {
         store.toggleTaskCompletion(task.id)
+    }
+
+    private func isTask(_ task: Task, on date: Date, calendar: Calendar) -> Bool {
+        let start = calendar.startOfDay(for: task.startDate ?? task.endDate ?? date)
+        let end = calendar.startOfDay(for: task.endDate ?? task.startDate ?? date)
+        let target = calendar.startOfDay(for: date)
+        return start...end ~= target
+    }
+
+    private func displayDate(for task: Task) -> Date? {
+        task.startDate ?? task.endDate
+    }
+
+    private func sortTasks(_ lhs: Task, _ rhs: Task) -> Bool {
+        if lhs.priority.rawValue != rhs.priority.rawValue {
+            return lhs.priority.rawValue > rhs.priority.rawValue
+        }
+        let lhsDate = displayDate(for: lhs) ?? .distantFuture
+        let rhsDate = displayDate(for: rhs) ?? .distantFuture
+        if lhsDate != rhsDate {
+            return lhsDate < rhsDate
+        }
+        return lhs.title < rhs.title
     }
 }
 

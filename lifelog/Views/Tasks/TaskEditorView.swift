@@ -13,20 +13,27 @@ struct TaskEditorView: View {
     var onSave: (Task) -> Void
 
     private let originalTask: Task?
+    private let defaultDate: Date?
+    private let calendar = Calendar.current
 
     @State private var title: String
     @State private var detail: String
-    @State private var dueDate: Date?
+    @State private var startDate: Date
+    @State private var endDate: Date
     @State private var priority: TaskPriority
 
     init(task: Task? = nil,
-         defaultDueDate: Date? = nil,
+         defaultDate: Date? = nil,
          onSave: @escaping (Task) -> Void) {
         self.onSave = onSave
         self.originalTask = task
+        self.defaultDate = defaultDate
+        let base = calendar.startOfDay(for: task?.startDate ?? defaultDate ?? Date())
+        let end = calendar.startOfDay(for: task?.endDate ?? base)
         _title = State(initialValue: task?.title ?? "")
         _detail = State(initialValue: task?.detail ?? "")
-        _dueDate = State(initialValue: task?.dueDate ?? defaultDueDate)
+        _startDate = State(initialValue: base)
+        _endDate = State(initialValue: max(base, end))
         _priority = State(initialValue: task?.priority ?? .medium)
     }
 
@@ -35,21 +42,23 @@ struct TaskEditorView: View {
             Section("タスク内容") {
                 TextField("タイトルを入力", text: $title)
                 TextField("詳細メモ（任意）", text: $detail, axis: .vertical)
-                Toggle("期限を設定する", isOn: Binding(
-                    get: { dueDate != nil },
-                    set: { hasDate in
-                        dueDate = hasDate ? (dueDate ?? Date()) : nil
+                DatePicker("開始日", selection: $startDate, displayedComponents: [.date])
+                    .onChange(of: startDate) { newValue in
+                        startDate = calendar.startOfDay(for: newValue)
+                        if endDate < startDate {
+                            endDate = startDate
+                        }
                     }
-                ))
-                if dueDate != nil {
-                    DatePicker("期限", selection: dueDateBinding, displayedComponents: [.date, .hourAndMinute])
-                }
+                DatePicker("終了日", selection: $endDate, in: startDate..., displayedComponents: [.date])
+                    .onChange(of: endDate) { newValue in
+                        endDate = max(calendar.startOfDay(for: newValue), startDate)
+                    }
                 Picker("優先度", selection: $priority) {
                     ForEach(TaskPriority.allCases) { level in
                         Text(level.label).tag(level)
                     }
                 }
-                Text("期限を指定するとToday以外の日にも表示されます。")
+                Text("開始日と終了日が同じ場合は単日タスクとして扱われます。複数日にまたがる場合は期間全体に表示されます。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -61,7 +70,8 @@ struct TaskEditorView: View {
                     let task = Task(id: originalTask?.id ?? UUID(),
                                     title: title,
                                     detail: detail,
-                                    dueDate: dueDate,
+                                    startDate: calendar.startOfDay(for: startDate),
+                                    endDate: calendar.startOfDay(for: endDate),
                                     priority: priority,
                                     isCompleted: originalTask?.isCompleted ?? false)
                     onSave(task)
@@ -75,11 +85,5 @@ struct TaskEditorView: View {
                 }
             }
         }
-    }
-    private var dueDateBinding: Binding<Date> {
-        Binding<Date>(
-            get: { dueDate ?? Date() },
-            set: { newValue in dueDate = newValue }
-        )
     }
 }

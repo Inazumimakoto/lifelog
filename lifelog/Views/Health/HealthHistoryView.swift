@@ -78,7 +78,7 @@ struct HealthHistoryView: View {
                 .foregroundStyle(.secondary)
             List(filteredRows) { summary in
                 HStack {
-                    Text(summary.date.formatted(.dateTime.year().month().day()))
+                    Text(summary.date.jaYearMonthDayString)
                     Spacer()
                     Text(value(for: summary))
                         .font(.headline)

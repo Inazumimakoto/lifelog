@@ -31,6 +31,48 @@ extension Color {
     }
 }
 
+private enum JapaneseLocaleProvider {
+    static let locale = Locale(identifier: "ja_JP")
+}
+
+extension DateFormatter {
+    static let japaneseMonthDay: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = JapaneseLocaleProvider.locale
+        formatter.dateFormat = "M月d日"
+        return formatter
+    }()
+
+    static let japaneseYearMonthDay: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = JapaneseLocaleProvider.locale
+        formatter.dateFormat = "yyyy年M月d日"
+        return formatter
+    }()
+
+    static let japaneseWeekdayWide: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = JapaneseLocaleProvider.locale
+        formatter.dateFormat = "EEEE"
+        return formatter
+    }()
+
+    static let japaneseWeekdayNarrow: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = JapaneseLocaleProvider.locale
+        formatter.dateFormat = "EEEEE"
+        return formatter
+    }()
+
+    static let japaneseTime: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = JapaneseLocaleProvider.locale
+        formatter.dateStyle = .none
+        formatter.timeStyle = .short
+        return formatter
+    }()
+}
+
 extension Date {
     var startOfDay: Date {
         Calendar.current.startOfDay(for: self)
@@ -48,10 +90,23 @@ extension Date {
     }
 
     func formattedTime() -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .none
-        formatter.timeStyle = .short
-        return formatter.string(from: self)
+        DateFormatter.japaneseTime.string(from: self)
+    }
+
+    var jaMonthDayString: String {
+        DateFormatter.japaneseMonthDay.string(from: self)
+    }
+
+    var jaYearMonthDayString: String {
+        DateFormatter.japaneseYearMonthDay.string(from: self)
+    }
+
+    var jaWeekdayWideString: String {
+        DateFormatter.japaneseWeekdayWide.string(from: self)
+    }
+
+    var jaWeekdayNarrowString: String {
+        DateFormatter.japaneseWeekdayNarrow.string(from: self)
     }
 }
 
@@ -60,4 +115,3 @@ extension Collection where Element == HabitRecord {
         first { $0.habitID == habit.id && Calendar.current.isDate($0.date, inSameDayAs: date) }
     }
 }
-
