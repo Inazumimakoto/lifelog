@@ -59,31 +59,31 @@ final class HealthViewModel: ObservableObject {
 
     var averageSteps: Int {
         let steps = weeklySummaries.compactMap { $0.steps }
-        guard steps.isEmpty == false else { return 0 }
+        guard !steps.isEmpty else { return 0 }
         return steps.reduce(0, +) / steps.count
     }
 
     var averageSleep: Double {
         let sleeps = weeklySummaries.compactMap { $0.sleepHours }
-        guard sleeps.isEmpty == false else { return 0 }
+        guard !sleeps.isEmpty else { return 0 }
         return sleeps.reduce(0, +) / Double(sleeps.count)
     }
 
     var averageMoveMinutes: Double {
         let values = weeklySummaries.compactMap { $0.moveMinutes }
-        guard values.isEmpty == false else { return 0 }
+        guard !values.isEmpty else { return 0 }
         return values.reduce(0, +) / Double(values.count)
     }
 
     var averageExerciseMinutes: Double {
         let values = weeklySummaries.compactMap { $0.exerciseMinutes }
-        guard values.isEmpty == false else { return 0 }
+        guard !values.isEmpty else { return 0 }
         return values.reduce(0, +) / Double(values.count)
     }
 
     var averageStandHours: Double {
         let values = weeklySummaries.compactMap { $0.standHours }
-        guard values.isEmpty == false else { return 0 }
+        guard !values.isEmpty else { return 0 }
         return values.reduce(0, +) / Double(values.count)
     }
 

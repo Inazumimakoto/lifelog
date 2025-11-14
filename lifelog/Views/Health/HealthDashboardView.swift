@@ -67,7 +67,7 @@ struct HealthDashboardView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .fill(Color.accentColor)
                                     .frame(height: barHeight(for: steps))
-                                Text(summary.date, format: .dateTime.weekday(.narrow))
+                                Text(summary.date.jaWeekdayString)
                                     .font(.caption2)
                             }
                             .frame(width: 44)
@@ -115,11 +115,25 @@ struct HealthDashboardView: View {
                     yEnd: .value("終了", segment.endHour),
                     width: .fixed(20)
                 )
+                .cornerRadius(8)
                 .foregroundStyle(Color.purple.opacity(0.6))
-                .annotation(position: .overlay) {
-                    Text(segment.durationText)
-                        .font(.caption2)
-                        .foregroundStyle(.white)
+                .annotation(position: .bottom, alignment: .center, spacing: 4) {
+                    if segment.durationHours > 0.5 { // Don't show for very short segments
+                        Text(segment.durationText)
+                            .font(.caption2.bold())
+                            .foregroundStyle(Color.purple)
+                    }
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .day)) { value in
+                    AxisGridLine()
+                    AxisValueLabel {
+                        if let date = value.as(Date.self) {
+                            Text(date.jaWeekdayString)
+                                .font(.caption)
+                        }
+                    }
                 }
             }
             .chartYScale(domain: viewModel.sleepYDomain)

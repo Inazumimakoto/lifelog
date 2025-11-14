@@ -108,6 +108,10 @@ extension Date {
     var jaWeekdayNarrowString: String {
         DateFormatter.japaneseWeekdayNarrow.string(from: self)
     }
+
+    var jaWeekdayString: String {
+        jaWeekdayNarrowString
+    }
 }
 
 extension Collection where Element == HabitRecord {

@@ -13,6 +13,7 @@ struct HabitsCountdownView: View {
     @State private var showHabitEditor = false
     @State private var showAnniversaryEditor = false
     @State private var editingHabit: Habit?
+    @State private var displayMode: DisplayMode = .habits
 
     init(store: AppDataStore) {
         _habitsViewModel = StateObject(wrappedValue: HabitsViewModel(store: store))
@@ -22,8 +23,12 @@ struct HabitsCountdownView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
-                habitsSection
-                anniversarySection
+                modePicker
+                if displayMode == .habits {
+                    habitsSection
+                } else {
+                    anniversarySection
+                }
             }
             .padding()
         }
@@ -51,12 +56,21 @@ struct HabitsCountdownView: View {
         }
     }
 
+    private var modePicker: some View {
+        Picker("表示切替", selection: $displayMode) {
+            ForEach(DisplayMode.allCases) { mode in
+                Text(mode.rawValue).tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+    }
+
     private var habitsSection: some View {
         SectionCard(title: "習慣",
                     actionTitle: "追加",
                     action: { showHabitEditor = true }) {
             VStack(alignment: .leading, spacing: 8) {
-                Text("アイコンはSF Symbols名（例: flame, book.fill）を入力、色はパレットから選べます。行をタップすると編集できます。")
+                Text("アイコンをタップして編集できます。色もパレットから選択してください。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 HStack {
@@ -85,7 +99,15 @@ struct HabitsCountdownView: View {
                                     Circle()
                                         .fill(Color(hex: status.habit.colorHex) ?? .accentColor)
                                         .frame(width: 10, height: 10)
-                                    Label(status.habit.title, systemImage: status.habit.iconName)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Label(status.habit.title, systemImage: status.habit.iconName)
+                                        Text(scheduleDescription(for: status.habit.schedule))
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                        Text(statsDescription(for: status.habit))
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                    }
                                 }
                             }
                             .buttonStyle(.plain)
@@ -94,11 +116,17 @@ struct HabitsCountdownView: View {
                                 Button {
                                     habitsViewModel.toggle(habit: status.habit, on: date)
                                 } label: {
-                                    Image(systemName: status.isCompleted(on: date) ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(status.isCompleted(on: date) ? Color(hex: status.habit.colorHex) ?? .accentColor : .secondary)
+                                    let isActive = status.isActive(on: date)
+                                    Image(systemName: symbolName(for: status, on: date, isActive: isActive))
+                                        .foregroundStyle(
+                                            isActive
+                                            ? (status.isCompleted(on: date) ? Color(hex: status.habit.colorHex) ?? .accentColor : .secondary)
+                                            : Color.black
+                                        )
                                         .frame(maxWidth: .infinity)
                                 }
                                 .buttonStyle(.plain)
+                                .disabled(status.isActive(on: date) == false)
                             }
                         }
                         if index < habitsViewModel.statuses.count - 1 {
@@ -137,5 +165,39 @@ struct HabitsCountdownView: View {
                 }
             }
         }
+    }
+}
+
+extension HabitsCountdownView {
+    enum DisplayMode: String, CaseIterable, Identifiable {
+        case habits = "習慣"
+        case countdown = "カウントダウン"
+
+        var id: String { rawValue }
+    }
+
+    private func scheduleDescription(for schedule: HabitSchedule) -> String {
+        switch schedule {
+        case .daily:
+            return "毎日"
+        case .weekdays:
+            return "平日"
+        case .custom(let days):
+            let labels = days.sorted { $0.rawValue < $1.rawValue }.map(\.shortLabel)
+            return labels.joined(separator: " ")
+        }
+    }
+
+    private func symbolName(for status: HabitsViewModel.HabitWeekStatus, on date: Date, isActive: Bool) -> String {
+        if isActive == false {
+            return "circle.fill"
+        }
+        return status.isCompleted(on: date) ? "checkmark.circle.fill" : "circle"
+    }
+
+    private func statsDescription(for habit: Habit) -> String {
+        let monthCount = habitsViewModel.monthlyCompletionCount(for: habit)
+        let streak = habitsViewModel.currentStreak(for: habit)
+        return "今月 \(monthCount) 回 / 連続 \(streak) 日"
     }
 }
