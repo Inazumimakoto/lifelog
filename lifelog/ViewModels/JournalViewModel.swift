@@ -28,6 +28,7 @@ final class JournalViewModel: ObservableObject {
         enum ItemKind {
             case event
             case task
+            case sleep
         }
 
         let id = UUID()
@@ -138,6 +139,18 @@ final class JournalViewModel: ObservableObject {
 
     func timelineItems(for date: Date) -> [TimelineItem] {
         var items: [TimelineItem] = []
+
+        // Add sleep item if it exists for this day
+        if let summary = store.healthSummaries.first(where: { Calendar.current.isDate($0.date, inSameDayAs: date) }),
+           let sleepStart = summary.sleepStart,
+           let sleepEnd = summary.sleepEnd {
+            items.append(TimelineItem(title: "睡眠",
+                                      start: sleepStart,
+                                      end: sleepEnd,
+                                      kind: .sleep,
+                                      detail: nil))
+        }
+
         let events = store.events(on: date)
         items.append(contentsOf: events.map {
             TimelineItem(title: $0.title,
@@ -235,6 +248,7 @@ final class JournalViewModel: ObservableObject {
 private extension DateFormatter {
     static let monthAndYear: DateFormatter = {
         let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
         formatter.dateFormat = "yyyy年M月"
         return formatter
     }()

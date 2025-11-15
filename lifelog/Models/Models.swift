@@ -293,6 +293,7 @@ struct HealthSummary: Identifiable, Hashable {
     var standHours: Double?
     var sleepStart: Date?
     var sleepEnd: Date?
+    var sleepStages: [SleepStage] = []
 }
 
 struct CalendarEvent: Identifiable, Hashable {
@@ -312,5 +313,79 @@ struct CalendarEvent: Identifiable, Hashable {
         self.startDate = startDate
         self.endDate = endDate
         self.calendarName = calendarName
+    }
+}
+
+enum SleepStageType: String, Codable, CaseIterable, Identifiable {
+    case awake
+    case rem
+    case core
+    case deep
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .awake: return "覚醒"
+        case .rem: return "レム"
+        case .core: return "コア"
+        case .deep: return "深い"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .awake: return .orange
+        case .rem: return .pink
+        case .core: return .blue
+        case .deep: return .indigo
+        }
+    }
+
+    static var timelineOrder: [SleepStageType] { [.awake, .rem, .core, .deep] }
+}
+
+struct SleepStage: Identifiable, Codable, Hashable {
+    let id = UUID()
+    var start: Date
+    var end: Date
+    var stage: SleepStageType
+
+    var durationMinutes: Double {
+        end.timeIntervalSince(start) / 60
+    }
+}
+
+extension SleepStage {
+    static func demoSequence(referenceDate: Date = Date()) -> [SleepStage] {
+        let calendar = Calendar.current
+        let startOfDay = calendar.startOfDay(for: referenceDate)
+        guard
+            let previousEvening = calendar.date(byAdding: .hour, value: -3, to: startOfDay),
+            let bedtime = calendar.date(byAdding: .hour, value: -1, to: startOfDay),
+            let midnight = calendar.date(byAdding: .hour, value: 0, to: startOfDay),
+            let earlyMorning = calendar.date(byAdding: .hour, value: 3, to: startOfDay),
+            let wakeUp = calendar.date(byAdding: .hour, value: 6, to: startOfDay)
+        else {
+            return []
+        }
+
+        return [
+            SleepStage(start: previousEvening,
+                       end: bedtime,
+                       stage: .awake),
+            SleepStage(start: bedtime,
+                       end: midnight,
+                       stage: .core),
+            SleepStage(start: midnight,
+                       end: earlyMorning,
+                       stage: .deep),
+            SleepStage(start: earlyMorning,
+                       end: earlyMorning.addingTimeInterval(60 * 60),
+                       stage: .rem),
+            SleepStage(start: earlyMorning.addingTimeInterval(60 * 60),
+                       end: wakeUp,
+                       stage: .core)
+        ]
     }
 }

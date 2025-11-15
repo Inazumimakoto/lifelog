@@ -121,6 +121,15 @@ final class TodayViewModel: ObservableObject {
 
     private func buildTimelineItems() -> [JournalViewModel.TimelineItem] {
         var items: [JournalViewModel.TimelineItem] = []
+
+        if let sleepStart = healthSummary?.sleepStart, let sleepEnd = healthSummary?.sleepEnd {
+            items.append(.init(title: "睡眠",
+                               start: sleepStart,
+                               end: sleepEnd,
+                               kind: .sleep,
+                               detail: nil))
+        }
+
         items.append(contentsOf: events.map {
             JournalViewModel.TimelineItem(title: $0.title,
                                           start: $0.startDate,

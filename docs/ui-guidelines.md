@@ -55,6 +55,9 @@
 - 週ビューの移動は週単位、月ビューは月単位。週カレンダーの時間軸左側がずれないよう GeometryReader で調整。
 - 予定/タスク/習慣などの編集シートのタイトル・説明は日本語で統一。
 
+## 表記ルール
+- 日付・曜日・時間はすべて日本語ロケール (`ja-JP`) で表記する。 `DateFormatter` や `.formatted(.dateTime…)` を利用する場合も、必ずロケール設定を見直し、月や曜日が英語にならないようにする。
+
 ## 参照
 - 仕様書: `/docs/requirements.md`
 - 実装: `Views/Today/TodayView.swift`, `Views/Journal/JournalView.swift`, `Views/Health/`, `Views/Habits/`, `Views/Diary/DiaryEditorView.swift`

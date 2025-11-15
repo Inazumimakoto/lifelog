@@ -9,8 +9,63 @@ import SwiftUI
 
 struct TodayTimelineView: View {
     var items: [JournalViewModel.TimelineItem]
-    private let startHour: Double = 0
-    private let endHour: Double = 24
+    var anchorDate: Date
+    
+    // Dynamic startHour and endHour
+    private var dynamicStartHour: Double {
+        let allHours = items.flatMap { [hourValue($0.start), hourValue($0.end)] }
+        let minDataHour = allHours.min() ?? 0
+        let maxDataHour = allHours.max() ?? 24
+
+        var effectiveStartHour = minDataHour - 2 // 2 hours padding
+        var effectiveEndHour = maxDataHour + 2 // 2 hours padding
+
+        let minSpan: Double = 12.0 // Minimum 12-hour view
+        let currentSpan = effectiveEndHour - effectiveStartHour // Changed to let
+
+        if currentSpan < minSpan {
+            let midPoint = (effectiveStartHour + effectiveEndHour) / 2
+            effectiveStartHour = midPoint - minSpan / 2
+            effectiveEndHour = midPoint + minSpan / 2
+        }
+        
+        // Ensure the range is always at least 24 hours if it contains overnight sleep
+        let hasOvernightSleep = items.contains(where: { $0.kind == .sleep && hourValue($0.end) < hourValue($0.start) })
+        if hasOvernightSleep && effectiveEndHour - effectiveStartHour < 24 {
+            let midPoint = (effectiveStartHour + effectiveEndHour) / 2
+            effectiveStartHour = midPoint - 12
+            effectiveEndHour = midPoint + 12
+        }
+
+        return effectiveStartHour
+    }
+
+    private var dynamicEndHour: Double {
+        let allHours = items.flatMap { [hourValue($0.start), hourValue($0.end)] }
+        let minDataHour = allHours.min() ?? 0
+        let maxDataHour = allHours.max() ?? 24
+
+        var effectiveStartHour = minDataHour - 2 // 2 hours padding
+        var effectiveEndHour = maxDataHour + 2 // 2 hours padding
+
+        let minSpan: Double = 12.0 // Minimum 12-hour view
+        let currentSpan = effectiveEndHour - effectiveStartHour // Changed to let
+
+        if currentSpan < minSpan {
+            let midPoint = (effectiveStartHour + effectiveEndHour) / 2
+            effectiveStartHour = midPoint - minSpan / 2
+            effectiveEndHour = midPoint + minSpan / 2
+        }
+
+        let hasOvernightSleep = items.contains(where: { $0.kind == .sleep && hourValue($0.end) < hourValue($0.start) })
+        if hasOvernightSleep && effectiveEndHour - effectiveStartHour < 24 {
+            let midPoint = (effectiveStartHour + effectiveEndHour) / 2
+            effectiveStartHour = midPoint - 12
+            effectiveEndHour = midPoint + 12
+        }
+        
+        return effectiveEndHour
+    }
 
     private var tasks: [JournalViewModel.TimelineItem] {
         items.filter { $0.kind == .task && $0.title.isEmpty == false }
@@ -20,19 +75,19 @@ struct TodayTimelineView: View {
         let timelineHeight: CGFloat = 360
         HStack(alignment: .top, spacing: 16) {
             timelineColumn(height: timelineHeight)
-            tasksColumn
+            // tasksColumn // Removed reference from body
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 12)
         .frame(height: timelineHeight + 48)
     }
 
-    private var tasksColumn: some View {
+    private var tasksColumn: some View { // Re-added tasksColumn as private var
         VStack(alignment: .leading, spacing: 12) {
             Text("今日のタスク")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            let activeTasks = items.filter { $0.kind == .task && $0.detail != "__completed__" }
+            let activeTasks = items.filter { $0.kind == .task && $0.title.isEmpty == false }
             if activeTasks.isEmpty {
                 Text("予定されたタスクはありません")
                     .font(.caption)
@@ -67,29 +122,31 @@ struct TodayTimelineView: View {
             RoundedRectangle(cornerRadius: 16)
                 .fill(LinearGradient(colors: [Color(.systemBackground), Color(.systemGray6)], startPoint: .top, endPoint: .bottom))
                 .frame(height: height)
-            TodayAxisView(height: height)
-            TimelineGrid(height: height, startHour: startHour, endHour: endHour)
+            TodayAxisView(height: height, startHour: dynamicStartHour, endHour: dynamicEndHour)
+            TimelineGrid(height: height, startHour: dynamicStartHour, endHour: dynamicEndHour)
                 .clipShape(RoundedRectangle(cornerRadius: 16))
-            ForEach(items) { item in
+            ForEach(items) { item in // Changed $0 to item
                 let (offset, blockHeight) = position(for: item, contentHeight: height)
-                let detailText = item.detail == "__completed__" ? nil : item.detail
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(item.title)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(2)
-                    if let detail = detailText, detail.isEmpty == false {
-                        Text(detail)
-                            .font(.caption2)
-                            .foregroundStyle(.white.opacity(0.9))
+                if blockHeight > 0 {
+                    let detailText = item.detail == "__completed__" ? nil : item.detail
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(item.title) // Changed $0.title to item.title
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(2)
+                        if let detail = detailText, detail.isEmpty == false {
+                            Text(detail)
+                                .font(.caption2)
+                                .foregroundStyle(.white.opacity(0.9))
+                        }
                     }
+                    .padding(8)
+                    .frame(maxWidth: 240, alignment: .leading)
+                    .background(item.kind == .sleep ? Color.purple.gradient : (item.kind == .event ? Color.accentColor.gradient : Color.green.gradient))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .frame(height: blockHeight, alignment: .topLeading)
+                    .offset(x: 48, y: offset)
                 }
-                .padding(8)
-                .frame(maxWidth: 240, alignment: .leading)
-                .background(item.kind == .event ? Color.accentColor.gradient : Color.green.gradient)
-                .clipShape(RoundedRectangle(cornerRadius: 8))
-                .frame(height: blockHeight, alignment: .topLeading)
-                .offset(x: 48, y: offset)
             }
         }
         .frame(width: 220, height: height)
@@ -105,35 +162,48 @@ struct TodayTimelineView: View {
     }
 
     private func hourValue(_ date: Date) -> Double {
-        Double(Calendar.current.component(.hour, from: date)) + Double(Calendar.current.component(.minute, from: date)) / 60
+        let calendar = Calendar.current
+        let dayDifference = calendar.dateComponents([.day], from: calendar.startOfDay(for: anchorDate), to: calendar.startOfDay(for: date)).day ?? 0
+        
+        let hour = Double(calendar.component(.hour, from: date))
+        let minute = Double(calendar.component(.minute, from: date)) // Changed calendar.current.component to calendar.component
+        
+        return hour + (minute / 60.0) + (Double(dayDifference) * 24.0)
     }
 
     private func position(for item: JournalViewModel.TimelineItem, contentHeight: CGFloat) -> (CGFloat, CGFloat) {
         let start = hourValue(item.start)
-        var end = hourValue(item.end)
-        var normalizedStart = max(start - startHour, 0)
-        var normalizedEnd = max(end - startHour, 0)
-        if normalizedEnd < normalizedStart {
-            normalizedEnd += 24
+        let end = hourValue(item.end)
+
+        let totalHours = dynamicEndHour - dynamicStartHour
+        
+        let clippedStart = max(start, dynamicStartHour)
+        let clippedEnd = min(end, dynamicEndHour)
+
+        if clippedStart >= clippedEnd {
+            return (0, 0)
         }
-        let totalHours = endHour - startHour
-        normalizedStart = min(normalizedStart, totalHours)
-        normalizedEnd = min(normalizedEnd, totalHours + 6)
+
+        let normalizedStart = clippedStart - dynamicStartHour
+        let normalizedEnd = clippedEnd - dynamicStartHour
+        
         let offset = CGFloat(normalizedStart / totalHours) * contentHeight
-        let height = CGFloat(max((normalizedEnd - normalizedStart) / totalHours, 0.05)) * contentHeight
+        let height = CGFloat((normalizedEnd - normalizedStart) / totalHours) * contentHeight
+        
         return (offset, height)
     }
 }
 
 private struct TodayAxisView: View {
     var height: CGFloat
-    private let startHour: Double = 0
-    private let endHour: Double = 24
+    var startHour: Double
+    var endHour: Double
 
     var body: some View {
         ZStack(alignment: .topLeading) {
             ForEach(Array(stride(from: startHour, through: endHour, by: 4)), id: \.self) { hour in
-                Text(String(format: "%02.0f:00", hour))
+                let displayHour = (Int(hour) % 24 + 24) % 24
+                Text(String(format: "%02d:00", displayHour))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .offset(y: yOffset(for: hour))

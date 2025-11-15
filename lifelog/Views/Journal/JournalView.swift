@@ -209,9 +209,7 @@ struct JournalView: View {
                   let last = viewModel.weekDates.last else {
                 return viewModel.monthTitle
             }
-            let formatter = DateFormatter()
-            formatter.dateFormat = "M/d"
-            return "\(formatter.string(from: first)) - \(formatter.string(from: last))"
+            return "\(first.jaMonthDayString) - \(last.jaMonthDayString)"
         }
     }
 
@@ -287,7 +285,9 @@ struct JournalView: View {
                     if viewModel.selectedDate.isSameDay(as: day.date) {
                         RoundedRectangle(cornerRadius: 10)
                             .stroke(Color.accentColor, lineWidth: 2)
-                            .matchedGeometryEffect(id: "calendar-selection", in: selectionNamespace)
+                            .matchedGeometryEffect(id: "calendar-selection",
+                                                   in: selectionNamespace,
+                                                   isSource: viewModel.displayMode == .month)
                     }
                 }
                 .contentShape(Rectangle())
@@ -429,7 +429,9 @@ struct JournalView: View {
                     if date.startOfDay == viewModel.selectedDate.startOfDay {
                         RoundedRectangle(cornerRadius: 10)
                             .stroke(Color.accentColor, lineWidth: 2)
-                            .matchedGeometryEffect(id: "calendar-selection", in: selectionNamespace)
+                            .matchedGeometryEffect(id: "calendar-selection",
+                                                   in: selectionNamespace,
+                                                   isSource: viewModel.displayMode == .week)
                     }
                 }
                 .contentShape(Rectangle())

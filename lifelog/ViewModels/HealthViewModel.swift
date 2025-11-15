@@ -14,6 +14,8 @@ final class HealthViewModel: ObservableObject {
     @Published private(set) var summaries: [HealthSummary] = []
     @Published private(set) var correlationPoints: [HealthCorrelationPoint] = []
     @Published private(set) var sleepSegments: [SleepSegment] = []
+    @Published private(set) var sleepQualityPoints: [SleepQualityPoint] = []
+    @Published private(set) var sleepQualityScore: Int = 0
 
     private let store: AppDataStore
     private var cancellables = Set<AnyCancellable>()
@@ -22,6 +24,10 @@ final class HealthViewModel: ObservableObject {
         self.store = store
         bind()
         refresh()
+    }
+
+    func requestHealthKitAuthorization() async {
+        await store.loadHealthData()
     }
 
     private func bind() {
@@ -51,6 +57,7 @@ final class HealthViewModel: ObservableObject {
                   let end = summary.sleepEnd else { return nil }
             return SleepSegment(date: summary.date, start: start, end: end)
         }
+        updateSleepQuality()
     }
 
     var weeklySummaries: [HealthSummary] {
@@ -87,31 +94,70 @@ final class HealthViewModel: ObservableObject {
         return values.reduce(0, +) / Double(values.count)
     }
 
-    // docs/ui-guidelines.md > Health で定義された就寝/起床レンジ算出ルール
-    var sleepYDomain: ClosedRange<Double> {
-        let startValues = sleepSegments.map { $0.startHour }
-        let endValues = sleepSegments.map { $0.endHour }
-        guard let minStart = startValues.min(),
-              let maxEnd = endValues.max(),
-              minStart < maxEnd else {
-            return 0...24
+    private func updateSleepQuality() {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let todaySegment = sleepSegments.first { calendar.isDate($0.date, inSameDayAs: today) }
+        let latestSegment = todaySegment ?? sleepSegments.max(by: { $0.date < $1.date })
+
+        guard let segment = latestSegment,
+              segment.durationHours > 0 else {
+            sleepQualityPoints = []
+            sleepQualityScore = 0
+            return
         }
-        return minStart...maxEnd
+
+        let curve = generateQualityCurve(for: segment)
+        sleepQualityPoints = curve
+
+        guard curve.isEmpty == false else {
+            sleepQualityScore = 0
+            return
+        }
+
+        let average = curve.map(\.quality).reduce(0, +) / Double(curve.count)
+        sleepQualityScore = Int(average.rounded())
     }
 
-    var sleepYAxisTicks: [Double] {
-        let domain = sleepYDomain
-        let range = domain.upperBound - domain.lowerBound
-        guard range > 0 else { return [domain.lowerBound] }
-        let step = max(range / 6, 1)
-        var ticks: [Double] = []
-        var current = domain.lowerBound
-        while current <= domain.upperBound + 0.01 {
-            ticks.append(current)
-            current += step
+    private func generateQualityCurve(for segment: SleepSegment) -> [SleepQualityPoint] {
+        let duration = segment.end.timeIntervalSince(segment.start)
+        guard duration > 0 else { return [] }
+
+        let step = max(duration / 12, 15 * 60) // ensure at least 15 min granularity
+        var points: [SleepQualityPoint] = []
+        var current = segment.start
+
+        let durationPenalty = max(0, 7 - segment.durationHours) * 3
+
+        while current <= segment.end {
+            let elapsed = current.timeIntervalSince(segment.start)
+            let progress = elapsed / duration // 0...1
+            let circadian = sin(progress * .pi) // peaks mid-sleep
+
+            let depthBonus: Double
+            switch progress {
+            case 0.15..<0.45:
+                depthBonus = 10
+            case 0.45..<0.75:
+                depthBonus = 18
+            default:
+                depthBonus = 0
+            }
+
+            let rawScore = 60 + (25 * circadian) + depthBonus - durationPenalty
+            let clampedScore = max(35, min(100, rawScore))
+
+            points.append(SleepQualityPoint(timestamp: current, quality: clampedScore))
+            current = current.addingTimeInterval(step)
         }
-        return ticks
+
+        if let last = points.last, last.timestamp < segment.end {
+            points.append(SleepQualityPoint(timestamp: segment.end, quality: last.quality))
+        }
+
+        return points
     }
+
 }
 
 struct HealthCorrelationPoint: Identifiable {
@@ -148,4 +194,10 @@ struct SleepSegment: Identifiable {
     var durationText: String {
         String(format: "%.1fh", durationHours)
     }
+}
+
+struct SleepQualityPoint: Identifiable {
+    let id = UUID()
+    let timestamp: Date
+    let quality: Double
 }

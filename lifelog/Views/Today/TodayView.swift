@@ -367,8 +367,7 @@ struct TodayView: View {
     }
 
     // タイムライン仕様: docs/requirements.md 4.1 + docs/ui-guidelines.md (Today)
-    @ViewBuilder
     private var todayTimelineSection: some View {
-        EmptyView() // Temporarily hidden; keep implementation for future re-enable.
+        TodayTimelineView(items: viewModel.timelineItems, anchorDate: viewModel.date)
     }
 }

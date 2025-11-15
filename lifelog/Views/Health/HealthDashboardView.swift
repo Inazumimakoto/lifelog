@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Charts
+import HealthKit
 
 struct HealthDashboardView: View {
     @StateObject private var viewModel: HealthViewModel
@@ -21,13 +22,41 @@ struct HealthDashboardView: View {
             VStack(spacing: 16) {
                 summarySection
                 stepsChart
-                sleepTimeline
+                sleepDurationChart
+//                sleepStageTimeline
                 correlationSection
                 fitnessSection
             }
             .padding()
         }
         .navigationTitle("ヘルスケア")
+        .overlay(
+            Group {
+                if viewModel.summaries.isEmpty {
+                    VStack(spacing: 12) {
+                        Text("ヘルスケアデータがありません")
+                            .font(.headline)
+                        if HKHealthStore.isHealthDataAvailable() {
+                            Text("iPhoneの「ヘルスケア」アプリとの連携が必要です。")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Button("ヘルスケアに接続") {
+                                _Concurrency.Task {
+                                    await viewModel.requestHealthKitAuthorization()
+                                }
+                            }
+                            .buttonStyle(.borderedProminent)
+                        } else {
+                            Text("お使いのデバイスではヘルスケアを利用できません。")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding()
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                }
+            }
+        )
         .sheet(item: $presentedMetric) { metric in
             NavigationStack {
                 HealthHistoryView(metric: metric,
@@ -55,10 +84,15 @@ struct HealthDashboardView: View {
 
     private var stepsChart: some View {
         SectionCard(title: "歩数グラフ") {
-            VStack(alignment: .leading, spacing: 12) {
-                ScrollView(.horizontal, showsIndicators: false) {
+            let summaries = Array(viewModel.weeklySummaries.suffix(7))
+            if summaries.isEmpty {
+                Text("まだ歩数データがありません。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .bottom, spacing: 8) {
-                        ForEach(Array(viewModel.weeklySummaries.enumerated()), id: \.offset) { _, summary in
+                        ForEach(Array(summaries.enumerated()), id: \.offset) { _, summary in
                             let steps = summary.steps ?? 0
                             VStack(spacing: 4) {
                                 Text("\(steps)")
@@ -66,17 +100,50 @@ struct HealthDashboardView: View {
                                     .foregroundStyle(.secondary)
                                 RoundedRectangle(cornerRadius: 6)
                                     .fill(Color.accentColor)
-                                    .frame(height: barHeight(for: steps))
+                                    .frame(height: barHeight(for: steps, in: summaries))
                                 Text(summary.date.jaWeekdayString)
                                     .font(.caption2)
                             }
-                            .frame(width: 44)
+                            .frame(maxWidth: .infinity)
                         }
                     }
-                }
-                Text("バーを左右にスワイプして過去の週も確認できます。")
+                Text("直近7日分の歩数です。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private var sleepDurationChart: some View {
+        SectionCard(title: "睡眠時間") {
+            let summaries = Array(viewModel.weeklySummaries.suffix(7))
+            if summaries.isEmpty {
+                Text("まだ睡眠データがありません。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .bottom, spacing: 8) {
+                        ForEach(Array(summaries.enumerated()), id: \.offset) { _, summary in
+                            let hours = summary.sleepHours ?? 0
+                            VStack(spacing: 4) {
+                                Text(String(format: "%.1f h", hours))
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color.purple)
+                                    .frame(height: sleepBarHeight(for: hours, in: summaries))
+                                Text(summary.date.jaWeekdayString)
+                                    .font(.caption2)
+                            }
+                            .frame(maxWidth: .infinity)
+                        }
+                    }
+                    Text("直近7日分の睡眠時間です。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }
@@ -105,55 +172,6 @@ struct HealthDashboardView: View {
         }
     }
 
-    // Apple Health 風タイムライン要件: docs/requirements.md 4.8 + docs/ui-guidelines.md (Health)
-    private var sleepTimeline: some View {
-        SectionCard(title: "就寝・起床のタイムライン") {
-            Chart(viewModel.sleepSegments) { segment in
-                RectangleMark(
-                    x: .value("日付", segment.date, unit: .day),
-                    yStart: .value("開始", segment.startHour),
-                    yEnd: .value("終了", segment.endHour),
-                    width: .fixed(20)
-                )
-                .cornerRadius(8)
-                .foregroundStyle(Color.purple.opacity(0.6))
-                .annotation(position: .bottom, alignment: .center, spacing: 4) {
-                    if segment.durationHours > 0.5 { // Don't show for very short segments
-                        Text(segment.durationText)
-                            .font(.caption2.bold())
-                            .foregroundStyle(Color.purple)
-                    }
-                }
-            }
-            .chartXAxis {
-                AxisMarks(values: .stride(by: .day)) { value in
-                    AxisGridLine()
-                    AxisValueLabel {
-                        if let date = value.as(Date.self) {
-                            Text(date.jaWeekdayString)
-                                .font(.caption)
-                        }
-                    }
-                }
-            }
-            .chartYScale(domain: viewModel.sleepYDomain)
-            .chartYAxis {
-                AxisMarks(position: .leading, values: viewModel.sleepYAxisTicks) { value in
-                    AxisGridLine()
-                    AxisValueLabel {
-                        if let raw = value.as(Double.self) {
-                            Text(timeLabel(for: raw))
-                        }
-                    }
-                }
-            }
-            .frame(height: 220)
-            Text("縦方向が睡眠の時間帯です。24時を過ぎると翌日（24時以降）まで表示します。")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
-    }
-
     private var fitnessSection: some View {
         SectionCard(title: "Appleフィットネス連携（サンプル）") {
             let latest = viewModel.weeklySummaries.first { Calendar.current.isDateInToday($0.date) } ?? viewModel.weeklySummaries.last
@@ -178,10 +196,16 @@ struct HealthDashboardView: View {
         }
     }
 
-    private func barHeight(for steps: Int) -> CGFloat {
-        let maxSteps = max(viewModel.weeklySummaries.compactMap { $0.steps }.max() ?? 1, 1)
+    private func barHeight(for steps: Int, in summaries: [HealthSummary]) -> CGFloat {
+        let maxSteps = max(summaries.compactMap { $0.steps }.max() ?? 1, 1)
         guard maxSteps > 0 else { return 0 }
         return CGFloat(steps) / CGFloat(maxSteps) * 160
+    }
+
+    private func sleepBarHeight(for hours: Double, in summaries: [HealthSummary]) -> CGFloat {
+        let maxHours = max(summaries.compactMap { $0.sleepHours }.max() ?? 1, 1)
+        guard maxHours > 0 else { return 0 }
+        return CGFloat(hours) / CGFloat(maxHours) * 160
     }
 
     private func color(for condition: Int?) -> Color {
@@ -194,11 +218,6 @@ struct HealthDashboardView: View {
         }
     }
 
-    private func timeLabel(for hourValue: Double) -> String {
-        let hour = Int(floor(hourValue)) % 24
-        let minutes = Int((hourValue - floor(hourValue)) * 60)
-        return String(format: "%02d:%02d", hour, minutes)
-    }
 }
 
 private struct FitnessProgressRow: View {
