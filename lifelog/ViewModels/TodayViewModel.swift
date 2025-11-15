@@ -192,6 +192,6 @@ final class TodayViewModel: ObservableObject {
     }
 
     private func timelineAnchor(for task: JournalViewModel.TimelineItem, defaultingTo date: Date) -> Date {
-        task.start ?? Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: date) ?? date
+        task.start
     }
 }

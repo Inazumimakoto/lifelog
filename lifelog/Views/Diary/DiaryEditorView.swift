@@ -43,9 +43,9 @@ struct DiaryEditorView: View {
                 selectedCoordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
             }
         }
-        .onChange(of: selection) { newValue in
+        .onChange(of: selection) {
             _Concurrency.Task {
-                for item in newValue {
+                for item in selection {
                     if let data = try? await item.loadTransferable(type: Data.self) {
                         viewModel.addPhoto(data: data)
                     }
@@ -130,8 +130,8 @@ struct DiaryEditorView: View {
                     .foregroundStyle(.secondary)
             }
             TextField("場所を入力", text: $selectedPlaceName)
-                .onChange(of: selectedPlaceName) { newValue in
-                    viewModel.update(locationName: newValue.isEmpty ? nil : newValue,
+                .onChange(of: selectedPlaceName) {
+                    viewModel.update(locationName: selectedPlaceName.isEmpty ? nil : selectedPlaceName,
                                      coordinate: selectedCoordinate)
                 }
             Button {

@@ -31,7 +31,6 @@ struct JournalView: View {
     @State private var pendingAddDate: Date?
     @State private var newItemDate: Date?
     @State private var diaryEditorDate: Date = Date()
-    @State private var todayAnimationDuration: Double?
     @State private var isProgrammaticWeekPagerChange = false
     private let detailPagerRadius = 14
     @State private var detailPagerAnchors: [Date] = []
@@ -39,6 +38,7 @@ struct JournalView: View {
     @State private var isSyncingDetailPager = false
     @State private var detailHeights: [Int: CGFloat] = [:]
     @Namespace private var selectionNamespace
+    @State private var scrollProxy: ScrollViewProxy?
 
     init(store: AppDataStore) {
         self.store = store
@@ -46,14 +46,17 @@ struct JournalView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                monthHeader
-                modePicker
-                calendarSwitcher
-                contentArea
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: 16) {
+                    monthHeader
+                    modePicker
+                    calendarSwitcher
+                    contentArea
+                }
+                .padding()
             }
-            .padding()
+            .onAppear { scrollProxy = proxy }
         }
         .navigationTitle("カレンダー")
         .toolbar {
@@ -127,42 +130,59 @@ struct JournalView: View {
             prepareDetailPagerIfNeeded()
             viewModel.preloadMonths(around: viewModel.monthAnchor, radius: 1)
         }
-        .onChange(of: viewModel.displayMode) { mode in
-            if mode == .week {
+        .onChange(of: viewModel.displayMode) {
+            if viewModel.displayMode == .week {
                 ensureWeekPagerIncludes(date: viewModel.selectedDate)
             } else {
                 ensureMonthPagerIncludes(date: viewModel.selectedDate)
             }
             ensureDetailPagerIncludes(date: viewModel.selectedDate)
         }
-        .onChange(of: viewModel.selectedDate) { newValue in
+        .onChange(of: viewModel.selectedDate) {
             if viewModel.displayMode == .week, isSyncingWeekPager == false {
-                ensureWeekPagerIncludes(date: newValue)
+                ensureWeekPagerIncludes(date: viewModel.selectedDate)
             } else if viewModel.displayMode == .month, isSyncingMonthPager == false {
-                ensureMonthPagerIncludes(date: newValue)
+                ensureMonthPagerIncludes(date: viewModel.selectedDate)
             }
             if isSyncingDetailPager == false {
-                ensureDetailPagerIncludes(date: newValue)
+                ensureDetailPagerIncludes(date: viewModel.selectedDate)
             } else {
                 isSyncingDetailPager = false
             }
         }
-        .onChange(of: viewModel.monthAnchor) { newAnchor in
+        .onChange(of: viewModel.monthAnchor) {
             guard viewModel.displayMode == .month else { return }
-            ensureMonthPagerIncludes(date: newAnchor)
+            ensureMonthPagerIncludes(date: viewModel.monthAnchor)
+        }
+    }
+
+    private var shouldShowTodayButton: Bool {
+        let today = Date().startOfDay
+        let calendar = Calendar.current
+        switch viewModel.displayMode {
+        case .month:
+            return !calendar.isDate(viewModel.monthAnchor, equalTo: today, toGranularity: .month)
+        case .week:
+            guard weekPagerAnchors.indices.contains(weekPagerSelection) else { return false }
+            let currentWeekAnchor = weekPagerAnchors[weekPagerSelection]
+            return !calendar.isDate(currentWeekAnchor, equalTo: today, toGranularity: .weekOfYear)
         }
     }
 
     private var monthHeader: some View {
         HStack {
-            Button(action: { viewModel.stepBackward(displayMode: viewModel.displayMode) }) {
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.4)) {
+                    viewModel.stepBackward(displayMode: viewModel.displayMode)
+                }
+            }) {
                 Image(systemName: "chevron.left")
             }
             Spacer()
             Text(headerTitle)
                 .font(.headline)
             Spacer()
-            if viewModel.selectedDate.startOfDay != Date().startOfDay {
+            if shouldShowTodayButton {
                 Button("今日へ") {
                     let today = Date().startOfDay
                     let calendar = Calendar.current
@@ -176,17 +196,17 @@ struct JournalView: View {
                         needsLongAnimation = calendar.isDate(viewModel.selectedDate, equalTo: today, toGranularity: .weekOfYear) == false
                     }
                     let duration = needsLongAnimation ? longDuration : shortDuration
-                    todayAnimationDuration = duration
                     withAnimation(.easeInOut(duration: duration)) {
                         viewModel.jumpToToday()
-                    }
-                    DispatchQueue.main.asyncAfter(deadline: .now() + duration) {
-                        todayAnimationDuration = nil
                     }
                 }
                 .font(.caption)
             }
-            Button(action: { viewModel.stepForward(displayMode: viewModel.displayMode) }) {
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.4)) {
+                    viewModel.stepForward(displayMode: viewModel.displayMode)
+                }
+            }) {
                 Image(systemName: "chevron.right")
             }
         }
@@ -237,20 +257,16 @@ struct JournalView: View {
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .frame(height: monthPagerHeight, alignment: .top)
-        .onChange(of: monthPagerSelection) { newValue in
-            guard monthPagerAnchors.indices.contains(newValue) else { return }
-            let anchor = monthPagerAnchors[newValue]
+        .onChange(of: monthPagerSelection) {
+            guard monthPagerAnchors.indices.contains(monthPagerSelection) else { return }
+            let anchor = monthPagerAnchors[monthPagerSelection]
             let calendar = Calendar.current
             if calendar.isDate(anchor, equalTo: viewModel.monthAnchor, toGranularity: .month) == false {
                 isSyncingMonthPager = true
-                let duration = todayAnimationDuration ?? 0.18
-                withAnimation(.easeInOut(duration: duration)) {
-                    viewModel.selectedDate = anchor
-                }
-                viewModel.alignAnchorIfNeeded(for: .month)
+                viewModel.setMonthAnchor(anchor)
                 DispatchQueue.main.async { self.isSyncingMonthPager = false }
             }
-            extendMonthPagerIfNeeded(at: newValue)
+            extendMonthPagerIfNeeded(at: monthPagerSelection)
         }
     }
 
@@ -291,16 +307,15 @@ struct JournalView: View {
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    withAnimation(.easeInOut(duration: 0.06)) {
-                        viewModel.selectedDate = day.date
-                    }
+                    viewModel.selectedDate = day.date
+                    scrollToDetailPanel()
                 }
                 .simultaneousGesture(TapGesture(count: 2).onEnded {
                     handleDoubleTap(on: day.date)
                 })
             }
         }
-        .animation(.easeInOut(duration: 0.55), value: viewModel.selectedDate)
+        .animation(.easeInOut, value: viewModel.selectedDate)
     }
 
     private var contentArea: some View {
@@ -335,20 +350,15 @@ struct JournalView: View {
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .frame(height: weekPagerHeight)
-        .onChange(of: weekPagerSelection) { newValue in
-            guard weekPagerAnchors.indices.contains(newValue) else { return }
-            let anchor = weekPagerAnchors[newValue]
+        .onChange(of: weekPagerSelection) {
+            guard weekPagerAnchors.indices.contains(weekPagerSelection) else { return }
+            let anchor = weekPagerAnchors[weekPagerSelection]
             if isProgrammaticWeekPagerChange {
                 isProgrammaticWeekPagerChange = false
             } else if Calendar.current.isDate(anchor, inSameDayAs: viewModel.selectedDate) == false {
-                isSyncingWeekPager = true
-                let duration = todayAnimationDuration ?? 0.18
-                withAnimation(.easeInOut(duration: duration)) {
-                    viewModel.selectedDate = anchor
-                }
-                DispatchQueue.main.async { self.isSyncingWeekPager = false }
+                // Do nothing to keep the selected date
             }
-            extendWeekPagerIfNeeded(at: newValue)
+            extendWeekPagerIfNeeded(at: weekPagerSelection)
         }
     }
 
@@ -434,16 +444,14 @@ struct JournalView: View {
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    withAnimation(.easeInOut(duration: 0.06)) {
-                        viewModel.selectedDate = date
-                    }
+                    viewModel.selectedDate = date
                 }
                 .simultaneousGesture(TapGesture(count: 2).onEnded {
                     handleDoubleTap(on: date)
                 })
             }
         }
-        .animation(.easeInOut(duration: 0.55), value: viewModel.selectedDate)
+        .animation(.easeInOut, value: viewModel.selectedDate)
     }
 
     private func weekTimeline(for anchor: Date) -> some View {
@@ -603,17 +611,18 @@ struct JournalView: View {
                 detailHeights.merge(heights, uniquingKeysWith: { _, new in new })
                 updateDetailHeightIfNeeded(detailHeights[detailPagerSelection])
             }
-            .onChange(of: detailPagerSelection) { newValue in
-                guard detailPagerAnchors.indices.contains(newValue) else { return }
-                let date = detailPagerAnchors[newValue]
+            .onChange(of: detailPagerSelection) {
+                guard detailPagerAnchors.indices.contains(detailPagerSelection) else { return }
+                let date = detailPagerAnchors[detailPagerSelection]
                 if date.startOfDay != viewModel.selectedDate.startOfDay {
                     isSyncingDetailPager = true
                     viewModel.selectedDate = date
                 }
-                updateDetailHeightIfNeeded(detailHeights[newValue])
-                extendDetailPagerIfNeeded(at: newValue)
+                updateDetailHeightIfNeeded(detailHeights[detailPagerSelection])
+                extendDetailPagerIfNeeded(at: detailPagerSelection)
             }
         }
+        .id(ScrollTarget.detailPanel)
     }
 
     private func prepareDetailPagerIfNeeded() {
@@ -628,14 +637,15 @@ struct JournalView: View {
         let calendar = Calendar.current
         let offsets = Array(-detailPagerRadius...detailPagerRadius)
         detailPagerAnchors = offsets.compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
-        detailPagerSelection = detailPagerAnchors.firstIndex(where: { $0.startOfDay == start }) ?? detailPagerRadius
+        let targetIndex = detailPagerAnchors.firstIndex(where: { $0.startOfDay == start }) ?? detailPagerRadius
+        setDetailPagerSelection(targetIndex, animated: false)
         DispatchQueue.main.async { self.isSyncingDetailPager = false }
     }
 
     private func ensureDetailPagerIncludes(date: Date) {
         let normalized = date.startOfDay
         if let index = detailPagerAnchors.firstIndex(where: { $0.startOfDay == normalized }) {
-            detailPagerSelection = index
+            setDetailPagerSelection(index)
         } else {
             regenerateDetailPager(centeredAt: normalized)
         }
@@ -674,11 +684,31 @@ struct JournalView: View {
         }
     }
 
+    private func setDetailPagerSelection(_ index: Int, animated: Bool = true) {
+        guard detailPagerSelection != index else { return }
+        if animated {
+            withAnimation(.easeInOut(duration: 0.4)) {
+                detailPagerSelection = index
+            }
+        } else {
+            detailPagerSelection = index
+        }
+    }
+
+    private func scrollToDetailPanel() {
+        guard let proxy = scrollProxy else { return }
+        withAnimation(.linear(duration: 0.5)) {
+            proxy.scrollTo(ScrollTarget.detailPanel, anchor: .top)
+        }
+    }
+
     private func updateDetailHeightIfNeeded(_ height: CGFloat?) {
         guard let height else { return }
         let target = max(360, height + 24)
         if abs(detailPanelHeight - target) > 4 {
-            detailPanelHeight = target
+            withAnimation(.spring(response: 0.6, dampingFraction: 0.85)) {
+                detailPanelHeight = target
+            }
         }
     }
 
@@ -697,13 +727,9 @@ struct JournalView: View {
             .map { monthStart(for: $0) }
         viewModel.preloadMonths(around: start, radius: 1)
         if let index = monthPagerAnchors.firstIndex(where: { calendar.isDate($0, equalTo: start, toGranularity: .month) }) {
-            applyCalendarAnimationIfNeeded {
-                monthPagerSelection = index
-            }
+            monthPagerSelection = index
         } else {
-            applyCalendarAnimationIfNeeded {
-                monthPagerSelection = monthPagerRadius
-            }
+            monthPagerSelection = monthPagerRadius
         }
         DispatchQueue.main.async {
             self.isSyncingMonthPager = false
@@ -714,9 +740,7 @@ struct JournalView: View {
         let calendar = Calendar.current
         let start = monthStart(for: date)
         if let index = monthPagerAnchors.firstIndex(where: { calendar.isDate($0, equalTo: start, toGranularity: .month) }) {
-            applyCalendarAnimationIfNeeded {
-                monthPagerSelection = index
-            }
+            monthPagerSelection = index
         } else {
             regenerateMonthPager(centeredAt: start)
         }
@@ -879,17 +903,7 @@ struct JournalView: View {
 
     private func setWeekPagerSelection(_ index: Int) {
         isProgrammaticWeekPagerChange = true
-        applyCalendarAnimationIfNeeded {
-            weekPagerSelection = index
-        }
-    }
-
-    private func applyCalendarAnimationIfNeeded(_ updates: @escaping () -> Void) {
-        if let duration = todayAnimationDuration {
-            withAnimation(.easeInOut(duration: duration), updates)
-        } else {
-            updates()
-        }
+        weekPagerSelection = index
     }
 }
 
@@ -901,6 +915,10 @@ private struct CalendarDetailSnapshot {
     let habitStatuses: [TodayViewModel.DailyHabitStatus]
     let healthSummary: HealthSummary?
     let diaryEntry: DiaryEntry?
+}
+
+private enum ScrollTarget: String {
+    case detailPanel
 }
 
 private struct CalendarDetailPanel: View {

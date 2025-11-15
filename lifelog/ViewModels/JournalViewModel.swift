@@ -96,6 +96,14 @@ final class JournalViewModel: ObservableObject {
         rebuild()
     }
 
+    func setMonthAnchor(_ date: Date) {
+        let calendar = Calendar.current
+        let newAnchor = calendar.date(from: calendar.dateComponents([.year, .month], from: date)) ?? date
+        if calendar.isDate(newAnchor, equalTo: monthAnchor, toGranularity: .month) == false {
+            monthAnchor = newAnchor
+        }
+    }
+
     func stepBackward(displayMode: DisplayMode) {
         switch displayMode {
         case .month:
