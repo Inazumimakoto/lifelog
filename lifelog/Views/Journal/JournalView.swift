@@ -310,9 +310,6 @@ struct JournalView: View {
                     viewModel.selectedDate = day.date
                     scrollToDetailPanel()
                 }
-                .simultaneousGesture(TapGesture(count: 2).onEnded {
-                    handleDoubleTap(on: day.date)
-                })
             }
         }
         .animation(.easeInOut, value: viewModel.selectedDate)
