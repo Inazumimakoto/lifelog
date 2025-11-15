@@ -159,6 +159,9 @@ struct JournalView: View {
     private var shouldShowTodayButton: Bool {
         let today = Date().startOfDay
         let calendar = Calendar.current
+        if calendar.isDate(viewModel.selectedDate, inSameDayAs: today) == false {
+            return true
+        }
         switch viewModel.displayMode {
         case .month:
             return !calendar.isDate(viewModel.monthAnchor, equalTo: today, toGranularity: .month)
@@ -198,6 +201,9 @@ struct JournalView: View {
                     let duration = needsLongAnimation ? longDuration : shortDuration
                     withAnimation(.easeInOut(duration: duration)) {
                         viewModel.jumpToToday()
+                        ensureMonthPagerIncludes(date: today)
+                        ensureWeekPagerIncludes(date: today)
+                        ensureDetailPagerIncludes(date: today)
                     }
                 }
                 .font(.caption)
@@ -310,6 +316,12 @@ struct JournalView: View {
                     viewModel.selectedDate = day.date
                     scrollToDetailPanel()
                 }
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.3)
+                        .onEnded { _ in
+                            handleQuickAction(on: day.date)
+                        }
+                )
             }
         }
         .animation(.easeInOut, value: viewModel.selectedDate)
@@ -443,9 +455,12 @@ struct JournalView: View {
                 .onTapGesture {
                     viewModel.selectedDate = date
                 }
-                .simultaneousGesture(TapGesture(count: 2).onEnded {
-                    handleDoubleTap(on: date)
-                })
+                .simultaneousGesture(
+                    LongPressGesture(minimumDuration: 0.3)
+                        .onEnded { _ in
+                            handleQuickAction(on: date)
+                        }
+                )
             }
         }
         .animation(.easeInOut, value: viewModel.selectedDate)
@@ -469,9 +484,12 @@ struct JournalView: View {
                         .onTapGesture {
                             viewModel.selectedDate = date
                         }
-                        .onTapGesture(count: 2) {
-                            handleDoubleTap(on: date)
-                        }
+                        .simultaneousGesture(
+                            LongPressGesture(minimumDuration: 0.3)
+                                .onEnded { _ in
+                                    handleQuickAction(on: date)
+                                }
+                        )
                     }
                 }
                 .padding(.horizontal, 4)
@@ -496,7 +514,7 @@ struct JournalView: View {
         showDiaryEditor = true
     }
 
-    private func handleDoubleTap(on date: Date) {
+    private func handleQuickAction(on date: Date) {
         viewModel.selectedDate = date
         pendingAddDate = date
         showAddMenu = true
