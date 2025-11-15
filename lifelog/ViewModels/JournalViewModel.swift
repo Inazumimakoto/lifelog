@@ -74,11 +74,12 @@ final class JournalViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    private func rebuild() {
+    private func rebuild(keepingSelection: Bool = false) {
         monthCache.removeAll()
         monthTitle = DateFormatter.monthAndYear.string(from: monthAnchor)
         let calendarDays = calendarDays(for: monthAnchor)
         days = calendarDays
+        guard keepingSelection == false else { return }
         if calendarDays.contains(where: { $0.date.startOfDay == selectedDate.startOfDay }) == false {
             selectedDate = calendarDays.first(where: { $0.isWithinDisplayedMonth })?.date ?? monthAnchor
         }
@@ -87,13 +88,13 @@ final class JournalViewModel: ObservableObject {
     func goToPreviousMonth() {
         guard let previous = Calendar.current.date(byAdding: .month, value: -1, to: monthAnchor) else { return }
         monthAnchor = previous
-        rebuild()
+        rebuild(keepingSelection: true)
     }
 
     func goToNextMonth() {
         guard let next = Calendar.current.date(byAdding: .month, value: 1, to: monthAnchor) else { return }
         monthAnchor = next
-        rebuild()
+        rebuild(keepingSelection: true)
     }
 
     func setMonthAnchor(_ date: Date) {
@@ -101,6 +102,7 @@ final class JournalViewModel: ObservableObject {
         let newAnchor = calendar.date(from: calendar.dateComponents([.year, .month], from: date)) ?? date
         if calendar.isDate(newAnchor, equalTo: monthAnchor, toGranularity: .month) == false {
             monthAnchor = newAnchor
+            rebuild(keepingSelection: true)
         }
     }
 
