@@ -259,7 +259,7 @@ struct JournalView: View {
         let days = viewModel.calendarDays(for: anchor)
         return LazyVGrid(columns: columns, spacing: 6) {
             ForEach(days) { day in
-                VStack(spacing: 6) {
+                VStack(spacing: 4) {
                     Text("\(Calendar.current.component(.day, from: day.date))")
                         .font(.body)
                         .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
@@ -268,11 +268,10 @@ struct JournalView: View {
                     wellnessRow(for: day.date)
                 }
                 .frame(maxWidth: .infinity)
-                .frame(minWidth: 42, idealWidth: 44)
-                .frame(minHeight: 90)
-                .padding(.top, 0)
-                .padding(.bottom, 4)
-                .padding(.horizontal, 6)
+                .frame(minWidth: 36, idealWidth: 38)
+                .frame(minHeight: 70)
+                .padding(.vertical, 2)
+                .padding(.horizontal, 4)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(day.isToday ? Color.accentColor.opacity(0.12) : Color.clear)
@@ -401,7 +400,7 @@ struct JournalView: View {
         let dates = weekDates(for: anchor)
         return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 6) {
             ForEach(dates, id: \.self) { date in
-                VStack(spacing: 6) {
+                VStack(spacing: 4) {
                     Text("\(Calendar.current.component(.day, from: date))日")
                         .font(.caption)
                     Text(date.jaWeekdayNarrowString)
@@ -412,11 +411,10 @@ struct JournalView: View {
                     wellnessRow(for: date)
                 }
                 .frame(maxWidth: .infinity)
-                .frame(minWidth: 42, idealWidth: 44)
-                .frame(minHeight: 90)
-                .padding(.top, 0)
-                .padding(.bottom, 4)
-                .padding(.horizontal, 6)
+                .frame(minWidth: 36, idealWidth: 38)
+                .frame(minHeight: 70)
+                .padding(.vertical, 2)
+                .padding(.horizontal, 4)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(date.isSameDay(as: Date()) ? Color.accentColor.opacity(0.12) : Color.clear)
@@ -800,9 +798,9 @@ struct JournalView: View {
     @ViewBuilder
     private func indicatorRow(events: Int, tasks: Int) -> some View {
         if events == 0 && tasks == 0 {
-            Color.clear.frame(height: 16)
+            Color.clear.frame(height: 12)
         } else {
-            HStack(spacing: 6) {
+            HStack(spacing: 4) {
                 if events > 0 {
                     dotIndicator(color: .accentColor, count: events)
                 }
@@ -810,7 +808,7 @@ struct JournalView: View {
                     dotIndicator(color: .yellow, count: tasks)
                 }
             }
-            .frame(height: 16, alignment: .center)
+            .frame(height: 12, alignment: .center)
         }
     }
 
@@ -818,24 +816,24 @@ struct JournalView: View {
         ZStack(alignment: .topTrailing) {
             Circle()
                 .fill(color.opacity(0.85))
-                .frame(width: 10, height: 10)
+                .frame(width: 8, height: 8)
             if count > 1 {
                 Text(count > 9 ? "9+" : "\(count)")
-                    .font(.caption2.bold())
+                    .font(.system(size: 8, weight: .bold))
                     .foregroundStyle(.secondary)
-                    .offset(x: 8, y: -6)
+                    .offset(x: 6, y: -5)
             }
         }
-        .frame(width: 18, height: 18)
+        .frame(width: 14, height: 14)
     }
 
     private func wellnessEmoji(_ symbol: String, isActive: Bool) -> some View {
         let isDarkMode = colorScheme == .dark
         // docs/ui-guidelines.md §カレンダー: calendar emojis should stay legible, even in dark mode.
         return Text(symbol)
-            .font(.system(size: 9))
-            .frame(width: 12, height: 12)
-            .padding(2)
+            .font(.system(size: 8))
+            .frame(width: 10, height: 10)
+            .padding(1)
             .background(
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
                     .fill(isDarkMode ? Color.white.opacity(0.18) : Color.black.opacity(0.04))
