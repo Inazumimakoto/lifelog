@@ -11,9 +11,9 @@ struct JournalView: View {
     @Environment(\.colorScheme) private var colorScheme
     private let store: AppDataStore
     @StateObject private var viewModel: JournalViewModel
-    private let monthPagerHeight: CGFloat = 640
+    private let monthPagerHeight: CGFloat = 560
     @State private var detailPanelHeight: CGFloat = 520
-    private let monthPagerRadius = 18
+    private let monthPagerRadius = 6
     @State private var monthPagerAnchors: [Date] = []
     @State private var monthPagerSelection: Int = 0
     @State private var isSyncingMonthPager = false
