@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct JournalView: View {
+    @Environment(\.colorScheme) private var colorScheme
     private let store: AppDataStore
     @StateObject private var viewModel: JournalViewModel
     private let monthPagerHeight: CGFloat = 640
@@ -827,9 +828,22 @@ struct JournalView: View {
     }
 
     private func wellnessEmoji(_ symbol: String, isActive: Bool) -> some View {
-        Text(symbol)
+        let isDarkMode = colorScheme == .dark
+        // docs/ui-guidelines.md §カレンダー: calendar emojis should stay legible, even in dark mode.
+        return Text(symbol)
             .font(.system(size: 9))
-            .opacity(isActive ? 1 : 0.25)
+            .frame(width: 12, height: 12)
+            .padding(2)
+            .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .fill(isDarkMode ? Color.white.opacity(0.18) : Color.black.opacity(0.04))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                    .stroke(isDarkMode ? Color.white.opacity(0.3) : Color.black.opacity(0.08), lineWidth: 0.5)
+            )
+            .shadow(color: .black.opacity(isDarkMode ? 0.25 : 0.08), radius: isDarkMode ? 1.5 : 0.8, x: 0, y: 0.5)
+            .opacity(isActive ? 1 : 0.35)
     }
 
     private func hasDiaryEntry(on date: Date) -> Bool {
