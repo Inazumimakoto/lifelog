@@ -51,6 +51,13 @@ struct JournalView: View {
                 VStack(spacing: 16) {
                     monthHeader
                     modePicker
+                    if viewModel.displayMode == .month {
+                        weekdayHeader
+                            .padding(.horizontal, 4)
+                    } else if viewModel.displayMode == .week {
+                        weekdayHeader
+                            .padding(.horizontal, 4)
+                    }
                     calendarSwitcher
                     contentArea
                 }
@@ -130,29 +137,29 @@ struct JournalView: View {
             prepareDetailPagerIfNeeded()
             viewModel.preloadMonths(around: viewModel.monthAnchor, radius: 1)
         }
-        .onChange(of: viewModel.displayMode) {
-            if viewModel.displayMode == .week {
+        .onChange(of: viewModel.displayMode) { _, newMode in
+            if newMode == .week {
                 ensureWeekPagerIncludes(date: viewModel.selectedDate)
             } else {
                 ensureMonthPagerIncludes(date: viewModel.selectedDate)
             }
             ensureDetailPagerIncludes(date: viewModel.selectedDate)
         }
-        .onChange(of: viewModel.selectedDate) {
+        .onChange(of: viewModel.selectedDate) { _, newDate in
             if viewModel.displayMode == .week, isSyncingWeekPager == false {
-                ensureWeekPagerIncludes(date: viewModel.selectedDate)
+                ensureWeekPagerIncludes(date: newDate)
             } else if viewModel.displayMode == .month, isSyncingMonthPager == false {
-                ensureMonthPagerIncludes(date: viewModel.selectedDate)
+                ensureMonthPagerIncludes(date: newDate)
             }
             if isSyncingDetailPager == false {
-                ensureDetailPagerIncludes(date: viewModel.selectedDate)
+                ensureDetailPagerIncludes(date: newDate)
             } else {
                 isSyncingDetailPager = false
             }
         }
-        .onChange(of: viewModel.monthAnchor) {
+        .onChange(of: viewModel.monthAnchor) { _, newAnchor in
             guard viewModel.displayMode == .month else { return }
-            ensureMonthPagerIncludes(date: viewModel.monthAnchor)
+            ensureMonthPagerIncludes(date: newAnchor)
         }
     }
 
@@ -239,6 +246,20 @@ struct JournalView: View {
         }
     }
 
+    private var weekdayHeader: some View {
+        var calendar = Calendar.current
+        calendar.locale = Locale(identifier: "ja_JP")
+        let weekdays = calendar.shortWeekdaySymbols
+        return HStack(spacing: 0) {
+            ForEach(weekdays, id: \.self) { weekday in
+                Text(weekday)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+    }
+
     private var calendarSwitcher: some View {
         Group {
             if viewModel.displayMode == .month {
@@ -263,16 +284,16 @@ struct JournalView: View {
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .frame(height: monthPagerHeight, alignment: .top)
-        .onChange(of: monthPagerSelection) {
-            guard monthPagerAnchors.indices.contains(monthPagerSelection) else { return }
-            let anchor = monthPagerAnchors[monthPagerSelection]
+        .onChange(of: monthPagerSelection) { _, newSelection in
+            guard monthPagerAnchors.indices.contains(newSelection) else { return }
+            let anchor = monthPagerAnchors[newSelection]
             let calendar = Calendar.current
             if calendar.isDate(anchor, equalTo: viewModel.monthAnchor, toGranularity: .month) == false {
                 isSyncingMonthPager = true
                 viewModel.setMonthAnchor(anchor)
                 DispatchQueue.main.async { self.isSyncingMonthPager = false }
             }
-            extendMonthPagerIfNeeded(at: monthPagerSelection)
+            extendMonthPagerIfNeeded(at: newSelection)
         }
     }
 
@@ -313,15 +334,12 @@ struct JournalView: View {
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    viewModel.selectedDate = day.date
-                    scrollToDetailPanel()
+                    if viewModel.selectedDate.isSameDay(as: day.date) {
+                        scrollToDetailPanel()
+                    } else {
+                        viewModel.selectedDate = day.date
+                    }
                 }
-                .simultaneousGesture(
-                    LongPressGesture(minimumDuration: 0.3)
-                        .onEnded { _ in
-                            handleQuickAction(on: day.date)
-                        }
-                )
             }
         }
         .animation(.easeInOut, value: viewModel.selectedDate)
@@ -348,9 +366,9 @@ struct JournalView: View {
             ForEach(Array(weekPagerAnchors.enumerated()), id: \.offset) { index, anchor in
                 VStack(spacing: 12) {
                     weekCalendar(for: anchor)
+                        .padding(.top, 4)
                     weekTimeline(for: anchor)
                 }
-                .padding(.top, 24)
                 .padding(.bottom, 8)
                 .padding(.horizontal, 4)
                 .frame(maxHeight: .infinity, alignment: .top)
@@ -359,15 +377,15 @@ struct JournalView: View {
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
         .frame(height: weekPagerHeight)
-        .onChange(of: weekPagerSelection) {
-            guard weekPagerAnchors.indices.contains(weekPagerSelection) else { return }
-            let anchor = weekPagerAnchors[weekPagerSelection]
+        .onChange(of: weekPagerSelection) { _, newSelection in
+            guard weekPagerAnchors.indices.contains(newSelection) else { return }
+            let anchor = weekPagerAnchors[newSelection]
             if isProgrammaticWeekPagerChange {
                 isProgrammaticWeekPagerChange = false
             } else if Calendar.current.isDate(anchor, inSameDayAs: viewModel.selectedDate) == false {
                 // Do nothing to keep the selected date
             }
-            extendWeekPagerIfNeeded(at: weekPagerSelection)
+            extendWeekPagerIfNeeded(at: newSelection)
         }
     }
 
@@ -420,11 +438,8 @@ struct JournalView: View {
         return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 6) {
             ForEach(dates, id: \.self) { date in
                 VStack(spacing: 4) {
-                    Text("\(Calendar.current.component(.day, from: date))日")
-                        .font(.caption)
-                    Text(date.jaWeekdayNarrowString)
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                    Text("\(Calendar.current.component(.day, from: date))")
+                        .font(.body)
                     indicatorRow(events: eventCount(on: date),
                                  tasks: taskCount(on: date))
                     wellnessRow(for: date)
@@ -453,14 +468,12 @@ struct JournalView: View {
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    viewModel.selectedDate = date
+                    if viewModel.selectedDate.isSameDay(as: date) {
+                        scrollToDetailPanel()
+                    } else {
+                        viewModel.selectedDate = date
+                    }
                 }
-                .simultaneousGesture(
-                    LongPressGesture(minimumDuration: 0.3)
-                        .onEnded { _ in
-                            handleQuickAction(on: date)
-                        }
-                )
             }
         }
         .animation(.easeInOut, value: viewModel.selectedDate)
@@ -484,12 +497,6 @@ struct JournalView: View {
                         .onTapGesture {
                             viewModel.selectedDate = date
                         }
-                        .simultaneousGesture(
-                            LongPressGesture(minimumDuration: 0.3)
-                                .onEnded { _ in
-                                    handleQuickAction(on: date)
-                                }
-                        )
                     }
                 }
                 .padding(.horizontal, 4)
@@ -626,15 +633,15 @@ struct JournalView: View {
                 detailHeights.merge(heights, uniquingKeysWith: { _, new in new })
                 updateDetailHeightIfNeeded(detailHeights[detailPagerSelection])
             }
-            .onChange(of: detailPagerSelection) {
-                guard detailPagerAnchors.indices.contains(detailPagerSelection) else { return }
-                let date = detailPagerAnchors[detailPagerSelection]
+            .onChange(of: detailPagerSelection) { _, newSelection in
+                guard detailPagerAnchors.indices.contains(newSelection) else { return }
+                let date = detailPagerAnchors[newSelection]
                 if date.startOfDay != viewModel.selectedDate.startOfDay {
                     isSyncingDetailPager = true
                     viewModel.selectedDate = date
                 }
-                updateDetailHeightIfNeeded(detailHeights[detailPagerSelection])
-                extendDetailPagerIfNeeded(at: detailPagerSelection)
+                updateDetailHeightIfNeeded(detailHeights[newSelection])
+                extendDetailPagerIfNeeded(at: newSelection)
             }
         }
         .id(ScrollTarget.detailPanel)
