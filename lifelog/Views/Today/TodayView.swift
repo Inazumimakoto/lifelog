@@ -134,8 +134,13 @@ struct TodayView: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(viewModel.date.jaYearMonthDayString)
-                .font(.largeTitle.bold())
+            HStack(alignment: .lastTextBaseline) {
+                Text(viewModel.date.jaYearMonthDayString)
+                    .font(.largeTitle.bold())
+                Text(viewModel.date.jaWeekdayWideString)
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+            }
             Text("今日の予定・タスク・記録をここでまとめて確認できます。")
                 .foregroundStyle(.secondary)
         }
