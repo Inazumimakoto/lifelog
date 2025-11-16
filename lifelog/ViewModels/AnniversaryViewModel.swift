@@ -44,9 +44,9 @@ final class AnniversaryViewModel: ObservableObject {
             let relative = anniversary.daysRelative(to: today)
             let text: String
             switch relative {
-            case 0: text = "D-0"
-            case let days where days > 0: text = "D-\(days)"
-            default: text = "+\(abs(relative))"
+            case 0: text = "今日"
+            case let days where days > 0: text = "まで\(days)日"
+            default: text = "から\(abs(relative))日"
             }
             return Row(anniversary: anniversary, relativeText: text)
         }.sorted(by: { $0.anniversary.targetDate < $1.anniversary.targetDate })
@@ -62,5 +62,9 @@ final class AnniversaryViewModel: ObservableObject {
 
     func add(_ anniversary: Anniversary) {
         store.addAnniversary(anniversary)
+    }
+
+    func update(_ anniversary: Anniversary) {
+        store.updateAnniversary(anniversary)
     }
 }

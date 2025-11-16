@@ -10,11 +10,21 @@ import SwiftUI
 struct AnniversaryEditorView: View {
     @Environment(\.dismiss) private var dismiss
     var onSave: (Anniversary) -> Void
+    private var editingAnniversary: Anniversary?
 
-    @State private var title = ""
-    @State private var date = Date()
-    @State private var type: AnniversaryType = .countdown
-    @State private var repeatsYearly = false
+    @State private var title: String
+    @State private var date: Date
+    @State private var type: AnniversaryType
+    @State private var repeatsYearly: Bool
+
+    init(anniversary: Anniversary? = nil, onSave: @escaping (Anniversary) -> Void) {
+        self.editingAnniversary = anniversary
+        self.onSave = onSave
+        _title = State(initialValue: anniversary?.title ?? "")
+        _date = State(initialValue: anniversary?.targetDate ?? Date())
+        _type = State(initialValue: anniversary?.type ?? .countdown)
+        _repeatsYearly = State(initialValue: anniversary?.repeatsYearly ?? false)
+    }
 
     var body: some View {
         Form {
@@ -29,14 +39,17 @@ struct AnniversaryEditorView: View {
                 Toggle("毎年繰り返す", isOn: $repeatsYearly)
             }
         }
-        .navigationTitle("記念日")
+        .navigationTitle(editingAnniversary == nil ? "記念日を追加" : "記念日を編集")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("保存") {
-                    let item = Anniversary(title: title,
-                                           targetDate: date,
-                                           type: type,
-                                           repeatsYearly: repeatsYearly)
+                    let item = Anniversary(
+                        id: editingAnniversary?.id ?? UUID(),
+                        title: title,
+                        targetDate: date,
+                        type: type,
+                        repeatsYearly: repeatsYearly
+                    )
                     onSave(item)
                     dismiss()
                 }

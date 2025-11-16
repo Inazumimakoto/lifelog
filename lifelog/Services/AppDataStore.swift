@@ -139,6 +139,11 @@ final class AppDataStore: ObservableObject {
         anniversaries.append(anniversary)
     }
 
+    func updateAnniversary(_ anniversary: Anniversary) {
+        guard let index = anniversaries.firstIndex(where: { $0.id == anniversary.id }) else { return }
+        anniversaries[index] = anniversary
+    }
+
     // MARK: - Sample Data
 
     private func seedSampleData() {

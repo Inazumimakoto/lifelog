@@ -13,6 +13,7 @@ struct HabitsCountdownView: View {
     @State private var showHabitEditor = false
     @State private var showAnniversaryEditor = false
     @State private var editingHabit: Habit?
+    @State private var editingAnniversary: Anniversary?
     @State private var displayMode: DisplayMode = .habits
 
     init(store: AppDataStore) {
@@ -51,6 +52,13 @@ struct HabitsCountdownView: View {
             NavigationStack {
                 HabitEditorView(habit: habit) { updated in
                     habitsViewModel.updateHabit(updated)
+                }
+            }
+        }
+        .sheet(item: $editingAnniversary) { anniversary in
+            NavigationStack {
+                AnniversaryEditorView(anniversary: anniversary) { updated in
+                    anniversaryViewModel.update(updated)
                 }
             }
         }
@@ -147,18 +155,23 @@ struct HabitsCountdownView: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(Array(anniversaryViewModel.rows.enumerated()), id: \.element.id) { index, row in
-                    HStack {
-                        VStack(alignment: .leading) {
-                            Text(row.anniversary.title)
+                    Button {
+                        editingAnniversary = row.anniversary
+                    } label: {
+                        HStack {
+                            VStack(alignment: .leading) {
+                                Text(row.anniversary.title)
+                                    .font(.headline)
+                                Text(row.anniversary.targetDate.jaYearMonthDayString)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Text(row.relativeText)
                                 .font(.headline)
-                            Text(row.anniversary.targetDate.jaYearMonthDayString)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
                         }
-                        Spacer()
-                        Text(row.relativeText)
-                            .font(.headline)
                     }
+                    .buttonStyle(.plain)
                     if index < anniversaryViewModel.rows.count - 1 {
                         Divider()
                     }
