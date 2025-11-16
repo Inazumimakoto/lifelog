@@ -11,7 +11,6 @@ import HealthKit
 
 struct HealthDashboardView: View {
     @StateObject private var viewModel: HealthViewModel
-    @State private var presentedMetric: HealthMetric?
 
     init(store: AppDataStore) {
         _viewModel = StateObject(wrappedValue: HealthViewModel(store: store))
@@ -57,27 +56,15 @@ struct HealthDashboardView: View {
                 }
             }
         )
-        .sheet(item: $presentedMetric) { metric in
-            NavigationStack {
-                HealthHistoryView(metric: metric,
-                                  summaries: viewModel.summaries)
-            }
-        }
     }
 
     private var summarySection: some View {
         SectionCard(title: "直近1週間の平均") {
             HStack {
                 StatTile(title: "歩数",
-                         value: "\(viewModel.averageSteps)",
-                         subtitle: "タップで履歴表示") {
-                    presentedMetric = .steps
-                }
+                         value: "\(viewModel.averageSteps)")
                 StatTile(title: "睡眠",
-                         value: String(format: "%.1f h", viewModel.averageSleep),
-                         subtitle: "タップで履歴表示") {
-                    presentedMetric = .sleep
-                }
+                         value: String(format: "%.1f h", viewModel.averageSleep))
             }
         }
     }
@@ -248,23 +235,4 @@ private struct FitnessProgressRow: View {
     }
 }
 
-enum HealthMetric: String, Identifiable {
-    case steps
-    case sleep
 
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .steps: return "歩数の履歴"
-        case .sleep: return "睡眠の履歴"
-        }
-    }
-
-    var unit: String {
-        switch self {
-        case .steps: return "歩"
-        case .sleep: return "時間"
-        }
-    }
-}
