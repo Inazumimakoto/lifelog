@@ -168,20 +168,39 @@ final class AppDataStore: ObservableObject {
                  priority: .low)
         ]
 
-        diaryEntries = [
-            DiaryEntry(date: now,
-                       text: "今日は集中力も高く、プロジェクトが順調に進んだ。",
-                       mood: .high,
-                       conditionScore: 4,
-                       locationName: "自宅デスク",
-                       latitude: 35.6804,
-                       longitude: 139.7690),
-            DiaryEntry(date: calendar.date(byAdding: .day, value: -1, to: now) ?? now,
-                       text: "",
-                       mood: .neutral,
-                       conditionScore: 3,
-                       locationName: nil)
+        let sampleNotes = [
+            "ランニングで気分がすっきり。ミーティングも穏やかに進んだ。",
+            "睡眠不足で少しぼんやり。夜は早めに休む予定。",
+            "在宅で集中できた。コードレビューも褒められた。",
+            "移動が多くて歩き疲れたけれど、夕方のコーヒーで復活。",
+            "週末モードでのんびり。散歩して深呼吸。",
+            "雨で外に出られず、ストレッチだけ。少し肩が重い。",
+            "たっぷり寝たのでエネルギー満タン。新しいアイデアが浮かんだ。"
         ]
+        diaryEntries = (0..<7).compactMap { offset -> DiaryEntry? in
+            guard let date = calendar.date(byAdding: .day, value: -offset, to: todayStart) else {
+                return nil
+            }
+            let moodLevel: MoodLevel = {
+                switch offset {
+                case 0: return .veryHigh
+                case 1: return .high
+                case 2: return .neutral
+                case 3: return .low
+                case 4: return .neutral
+                case 5: return .veryLow
+                default: return .high
+                }
+            }()
+            let condition = max(1, min(5, 5 - offset + Int.random(in: -1...1)))
+            return DiaryEntry(date: date,
+                              text: sampleNotes[min(offset, sampleNotes.count - 1)],
+                              mood: moodLevel,
+                              conditionScore: condition,
+                              locationName: "自宅",
+                              latitude: 35.68,
+                              longitude: 139.76)
+        }
 
         let habit1 = Habit(title: "Meditation", iconName: "brain.head.profile", colorHex: "#F97316", schedule: .daily)
         let habit2 = Habit(title: "Drink Water", iconName: "drop.fill", colorHex: "#0EA5E9", schedule: .custom(days: [.monday, .wednesday, .friday]))

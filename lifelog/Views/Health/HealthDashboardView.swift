@@ -22,8 +22,7 @@ struct HealthDashboardView: View {
                 summarySection
                 stepsChart
                 sleepDurationChart
-//                sleepStageTimeline
-                correlationSection
+                wellnessTrendSection
                 fitnessSection
             }
             .padding()
@@ -69,6 +68,129 @@ struct HealthDashboardView: View {
         }
     }
 
+    private var wellnessTrendSection: some View {
+        SectionCard(title: "健康状態の推移") {
+            let points = Array(viewModel.wellnessPoints.suffix(7))
+            if points.isEmpty {
+                Text("歩数・睡眠・日記が揃うと関係性を表示できます。")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            } else {
+                wellnessTrendChart(points: points)
+                Text("棒 = 歩数、線 = 睡眠時間、顔文字 = 気分/体調（1-5段階）。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func wellnessTrendChart(points: [DailyWellnessPoint]) -> some View {
+        guard let firstDate = points.first?.date,
+              let lastDate = points.last?.date else {
+            return AnyView(EmptyView())
+        }
+        let calendar = Calendar.current
+        let startDate = calendar.startOfDay(for: firstDate)
+        let endDate = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: lastDate)) ?? lastDate
+
+        let indexedPoints = Array(points.enumerated())
+
+        return AnyView(
+            Chart {
+                ForEach(indexedPoints, id: \.element.id) { _, point in
+                    BarMark(
+                        x: .value("日付", point.date, unit: .day),
+                        y: .value("歩数(%)", point.stepsPercent)
+                    )
+                    .foregroundStyle(Color.accentColor.opacity(0.45))
+                    .cornerRadius(6)
+                }
+                ForEach(indexedPoints, id: \.element.id) { _, point in
+                    LineMark(
+                        x: .value("日付", point.date, unit: .day),
+                        y: .value("睡眠(%)", point.sleepPercent)
+                    )
+                    .interpolationMethod(.catmullRom)
+                    .foregroundStyle(Color.purple)
+                    .lineStyle(StrokeStyle(lineWidth: 3))
+                    PointMark(
+                        x: .value("日付", point.date, unit: .day),
+                        y: .value("睡眠(%)", point.sleepPercent)
+                    )
+                    .foregroundStyle(.purple)
+                }
+                ForEach(indexedPoints, id: \.element.id) { _, point in
+                    if let moodPercent = point.moodPercent {
+                        PointMark(
+                            x: .value("日付", point.date, unit: .day),
+                            y: .value("気分", moodPercent)
+                        )
+                        .foregroundStyle(.clear)
+                        .annotation(position: .overlay) {
+                            Circle()
+                                .fill(Color.yellow.opacity(0.85))
+                                .frame(width: 8, height: 8)
+                                .blendMode(.plusLighter)
+                        }
+                        .zIndex(2)
+                    }
+                    if let conditionPercent = point.conditionPercent {
+                        PointMark(
+                            x: .value("日付", point.date, unit: .day),
+                            y: .value("体調", conditionPercent)
+                        )
+                        .foregroundStyle(.clear)
+                        .annotation(position: .overlay) {
+                            Circle()
+                                .fill(Color.blue.opacity(0.85))
+                                .frame(width: 8, height: 8)
+                                .blendMode(.plusLighter)
+                        }
+                        .zIndex(2)
+                    }
+                }
+            }
+            .chartXScale(domain: startDate...endDate)
+            .chartYScale(domain: 0...110)
+            .chartYAxis {
+                AxisMarks(preset: .automatic, position: .leading) { value in
+                    AxisGridLine()
+                    AxisTick()
+                    if let percent = value.as(Double.self) {
+                        AxisValueLabel("\(Int(percent))%")
+                    }
+                }
+            }
+            .chartYAxis {
+                AxisMarks(preset: .automatic, position: .trailing) { value in
+                    AxisGridLine().foregroundStyle(Color.gray.opacity(0.2))
+                    AxisTick()
+                    if let raw = value.as(Double.self) {
+                        let scaleValue = 1 + Int(round(raw / 25.0))
+                        AxisValueLabel("\(min(scaleValue, 5))")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .chartXAxis {
+                AxisMarks(values: .stride(by: .day)) { value in
+                    AxisGridLine()
+                    AxisTick()
+                    if let date = value.as(Date.self) {
+                        AxisValueLabel(date.formatted(
+                            .dateTime
+                                .month(.defaultDigits)
+                                .day(.twoDigits)
+                                .weekday(.abbreviated)
+                        ))
+                    }
+                }
+            }
+            .environment(\.locale, Locale(identifier: "ja_JP"))
+            .frame(height: 260)
+        )
+    }
+
     private var stepsChart: some View {
         SectionCard(title: "歩数グラフ") {
             let summaries = Array(viewModel.weeklySummaries.suffix(7))
@@ -88,7 +210,7 @@ struct HealthDashboardView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .fill(Color.accentColor)
                                     .frame(height: barHeight(for: steps, in: summaries))
-                                Text(summary.date.jaWeekdayString)
+                        Text(summary.date.jaWeekdayNarrowString)
                                     .font(.caption2)
                             }
                             .frame(maxWidth: .infinity)
@@ -121,7 +243,7 @@ struct HealthDashboardView: View {
                                 RoundedRectangle(cornerRadius: 6)
                                     .fill(Color.purple)
                                     .frame(height: sleepBarHeight(for: hours, in: summaries))
-                                Text(summary.date.jaWeekdayString)
+                        Text(summary.date.jaWeekdayNarrowString)
                                     .font(.caption2)
                             }
                             .frame(maxWidth: .infinity)
@@ -131,30 +253,6 @@ struct HealthDashboardView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
-            }
-        }
-    }
-
-    private var correlationSection: some View {
-        SectionCard(title: "睡眠・歩数と気分の関係") {
-            if viewModel.correlationPoints.isEmpty {
-                Text("まだ比較できるデータがありません")
-                    .foregroundStyle(.secondary)
-            } else {
-                Chart(viewModel.correlationPoints) { point in
-                    PointMark(
-                        x: .value("睡眠", point.sleepHours),
-                        y: .value("歩数", point.steps)
-                    )
-                    .foregroundStyle(color(for: point.condition))
-                    .annotation {
-                        Text(point.mood?.emoji ?? "•")
-                    }
-                }
-                .frame(height: 220)
-                Text("縦軸が歩数、横軸が睡眠時間です。色は体調スコアを表します。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
         }
     }
@@ -195,16 +293,6 @@ struct HealthDashboardView: View {
         return CGFloat(hours) / CGFloat(maxHours) * 160
     }
 
-    private func color(for condition: Int?) -> Color {
-        switch condition ?? 3 {
-        case 5: return .green
-        case 4: return .mint
-        case 3: return .orange
-        case 2: return .pink
-        default: return .red
-        }
-    }
-
 }
 
 private struct FitnessProgressRow: View {
@@ -234,5 +322,3 @@ private struct FitnessProgressRow: View {
         }
     }
 }
-
-

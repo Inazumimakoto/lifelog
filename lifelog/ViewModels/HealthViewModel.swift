@@ -17,6 +17,44 @@ final class HealthViewModel: ObservableObject {
     @Published private(set) var sleepQualityPoints: [SleepQualityPoint] = []
     @Published private(set) var sleepQualityScore: Int = 0
 
+    var wellnessPoints: [DailyWellnessPoint] {
+        let calendar = Calendar.current
+        let points = correlationPoints
+            .sorted(by: { $0.date < $1.date })
+            .map { point -> (Date, HealthCorrelationPoint) in
+                (calendar.startOfDay(for: point.date), point)
+            }
+        guard points.isEmpty == false else { return [] }
+        let maxSteps = Double(points.map { $0.1.steps }.max() ?? 0)
+        let maxSleep = points.map { $0.1.sleepHours }.max() ?? 0
+        let stepsDenominator = max(maxSteps, 1)
+        let sleepDenominator = max(maxSleep, 1)
+
+        return points.map { entry in
+            let date = entry.0
+            let point = entry.1
+            let stepsPercent = Double(point.steps) / stepsDenominator * 100
+            let sleepPercent = point.sleepHours / sleepDenominator * 100
+            var moodPercent: Double?
+            if let mood = point.mood {
+                moodPercent = Double(mood.rawValue - 1) / 4 * 100
+            }
+            var conditionPercent: Double?
+            if let condition = point.condition {
+                conditionPercent = Double(condition - 1) / 4 * 100
+            }
+            return DailyWellnessPoint(date: date,
+                                      steps: point.steps,
+                                      sleepHours: point.sleepHours,
+                                      mood: point.mood,
+                                      condition: point.condition,
+                                      stepsPercent: stepsPercent,
+                                      sleepPercent: sleepPercent,
+                                      moodPercent: moodPercent,
+                                      conditionPercent: conditionPercent)
+        }
+    }
+
     private let store: AppDataStore
     private var cancellables = Set<AnyCancellable>()
 
@@ -200,4 +238,17 @@ struct SleepQualityPoint: Identifiable {
     let id = UUID()
     let timestamp: Date
     let quality: Double
+}
+
+struct DailyWellnessPoint: Identifiable {
+    let id = UUID()
+    let date: Date
+    let steps: Int
+    let sleepHours: Double
+    let mood: MoodLevel?
+    let condition: Int?
+    let stepsPercent: Double
+    let sleepPercent: Double
+    let moodPercent: Double?
+    let conditionPercent: Double?
 }
