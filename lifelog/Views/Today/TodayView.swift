@@ -200,7 +200,7 @@ struct TodayView: View {
                         }
                     }
                 }
-                Text("予定を追加するとカレンダーとTodayで共有されます。")
+                Text("予定を追加するとカレンダーとホームで共有されます。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

@@ -18,7 +18,7 @@ struct ContentView: View {
                 TodayView(store: store)
             }
             .tabItem {
-                Label("今日", systemImage: "sun.max.fill")
+                Label("ホーム", systemImage: "sun.max.fill")
             }
             .tag(0)
 
