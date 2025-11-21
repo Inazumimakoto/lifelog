@@ -119,3 +119,94 @@ extension Collection where Element == HabitRecord {
         first { $0.habitID == habit.id && Calendar.current.isDate($0.date, inSameDayAs: date) }
     }
 }
+
+enum CategoryPalette {
+    struct CustomCategory: Codable, Hashable, Identifiable {
+        var name: String
+        var colorName: String
+
+        var id: String { name }
+    }
+
+    private static let storageKey = "CategoryPalette_Categories_V3"
+    private static let defaults = UserDefaults.standard
+
+    private static let defaultCategories: [String: String] = [
+        "仕事": "orange", "趣味": "green", "旅行": "blue"
+    ]
+
+    static let colorChoices: [String] = [
+        "#F97316", "#F43F5E", "#EC4899", "#8B5CF6",
+        "#3B82F6", "#0EA5E9", "#10B981", "#22C55E",
+        "#84CC16", "#EAB308", "#EF4444", "#94A3B8"
+    ]
+
+    static func initializeIfNeeded() {
+        var currentCategories = allCategoriesMapping()
+        var madeChanges = false
+        for (name, color) in defaultCategories {
+            if currentCategories[name] == nil {
+                currentCategories[name] = color
+                madeChanges = true
+            }
+        }
+        
+        if madeChanges {
+            persist(map: currentCategories)
+        }
+    }
+
+    static func color(for name: String) -> Color {
+        let key = normalized(name)
+        if let colorHex = allCategoriesMapping()[key],
+           let color = Color(hex: colorHex) {
+            return color
+        }
+        return .accentColor
+    }
+
+    static func allCategories() -> [CustomCategory] {
+        allCategoriesMapping()
+            .map { CustomCategory(name: $0.key, colorName: $0.value) }
+            .sorted(by: { $0.name < $1.name })
+    }
+
+    static func saveCategory(name: String, colorName: String) {
+        var map = allCategoriesMapping()
+        map[name] = colorName
+        persist(map: map)
+    }
+
+    static func deleteCategory(_ name: String) {
+        var map = allCategoriesMapping()
+        map.removeValue(forKey: name)
+        persist(map: map)
+    }
+
+    static func renameCategory(oldName: String, newName: String, colorName: String) {
+        var map = allCategoriesMapping()
+        if oldName != newName {
+            map.removeValue(forKey: oldName)
+        }
+        map[newName] = colorName
+        persist(map: map)
+    }
+
+    private static func allCategoriesMapping() -> [String: String] {
+        if let data = defaults.data(forKey: storageKey),
+           let decoded = try? JSONDecoder().decode([String: String].self, from: data) {
+            return decoded
+        }
+        return defaultCategories
+    }
+
+    private static func persist(map: [String: String]) {
+        if let data = try? JSONEncoder().encode(map) {
+            defaults.set(data, forKey: storageKey)
+        }
+    }
+
+    private static func normalized(_ name: String) -> String {
+        name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+}

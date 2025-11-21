@@ -359,16 +359,7 @@ struct TodayView: View {
     }
 
     private func color(for category: String) -> Color {
-        switch category.lowercased() {
-        case let name where name.contains("work"):
-            return .orange
-        case let name where name.contains("personal"):
-            return .blue
-        case let name where name.contains("wellness"):
-            return .green
-        default:
-            return .accentColor
-        }
+        CategoryPalette.color(for: category)
     }
 
     // タイムライン仕様: docs/requirements.md 4.1 + docs/ui-guidelines.md (Today)

@@ -11,6 +11,10 @@ import SwiftUI
 struct lifelogApp: App {
     @StateObject private var store = AppDataStore()
 
+    init() {
+        CategoryPalette.initializeIfNeeded()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

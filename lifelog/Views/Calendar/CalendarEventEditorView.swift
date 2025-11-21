@@ -9,6 +9,7 @@ import SwiftUI
 
 struct CalendarEventEditorView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var isShowingCategorySelection = false
 
     var onSave: (CalendarEvent) -> Void
 
@@ -35,7 +36,18 @@ struct CalendarEventEditorView: View {
         Form {
             Section("予定") {
                 TextField("タイトル", text: $title)
-                TextField("カテゴリ（例：仕事・家族）", text: $category)
+                Button(action: { isShowingCategorySelection = true }) {
+                    HStack {
+                        Text("カテゴリ")
+                        Spacer()
+                        Circle()
+                            .fill(CategoryPalette.color(for: category))
+                            .frame(width: 10, height: 10)
+                        Text(category)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundColor(.primary)
             }
             Section("時間") {
                 DatePicker("開始", selection: $startDate)
@@ -60,6 +72,8 @@ struct CalendarEventEditorView: View {
                 Button("キャンセル", role: .cancel) { dismiss() }
             }
         }
+        .sheet(isPresented: $isShowingCategorySelection) {
+            CategorySelectionView(selectedCategory: $category)
+        }
     }
 }
-
