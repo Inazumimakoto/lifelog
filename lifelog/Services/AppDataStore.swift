@@ -31,11 +31,6 @@ final class AppDataStore: ObservableObject {
         }
     }
     
-#if targetEnvironment(simulator)
-    func loadHealthData() async {
-        // シミュレーターでは HealthKit から取得できないのでサンプルデータのままにする
-    }
-#else
     func loadHealthData() async {
         let authorized = await HealthKitManager.shared.requestAuthorization()
         if authorized {
@@ -45,7 +40,6 @@ final class AppDataStore: ObservableObject {
             }
         }
     }
-#endif
 
     // MARK: - Calendar
 
@@ -232,30 +226,6 @@ final class AppDataStore: ObservableObject {
                           endDate: calendar.date(byAdding: .day, value: 1, to: now)?.addingTimeInterval(19_800) ?? now, calendarName: "Wellness")
         ]
 
-        healthSummaries = (0..<10).compactMap { offset -> HealthSummary? in
-            guard let date = calendar.date(byAdding: .day, value: -offset, to: todayStart),
-                  let previousDay = calendar.date(byAdding: .day, value: -1, to: date),
-                  let sleepStart = calendar.date(bySettingHour: 23,
-                                                 minute: Int.random(in: 0...45),
-                                                 second: 0,
-                                                 of: previousDay),
-                  let sleepEnd = calendar.date(bySettingHour: Int.random(in: 6...7),
-                                               minute: Int.random(in: 0...50),
-                                               second: 0,
-                                               of: date) else {
-                return nil
-            }
-            let sleepHours = sleepEnd.timeIntervalSince(sleepStart) / 3600
-            return HealthSummary(date: date,
-                                 steps: Int.random(in: 4_500...12_000),
-                                 sleepHours: sleepHours,
-                                 activeEnergy: Double.random(in: 250...620),
-                                 moveMinutes: Double.random(in: 35...90),
-                                 exerciseMinutes: Double.random(in: 20...50),
-                                 standHours: Double.random(in: 8...13),
-                                 sleepStart: sleepStart,
-                                 sleepEnd: sleepEnd,
-                                 sleepStages: SleepStage.demoSequence(referenceDate: date))
-        }
+
     }
 }

@@ -12,7 +12,6 @@ struct JournalView: View {
     private let store: AppDataStore
     @StateObject private var viewModel: JournalViewModel
     private let monthPagerHeight: CGFloat = 560
-    @State private var detailPanelHeight: CGFloat = 520
     private let monthPagerRadius = 6
     @State private var monthPagerAnchors: [Date] = []
     @State private var monthPagerSelection: Int = 0
@@ -37,9 +36,9 @@ struct JournalView: View {
     @State private var detailPagerAnchors: [Date] = []
     @State private var detailPagerSelection: Int = 0
     @State private var isSyncingDetailPager = false
-    @State private var detailHeights: [Int: CGFloat] = [:]
     @Namespace private var selectionNamespace
     @State private var scrollProxy: ScrollViewProxy?
+    @State private var showingDetailPanel = false
 
     init(store: AppDataStore) {
         self.store = store
@@ -74,6 +73,26 @@ struct JournalView: View {
                         handleEdit(for: item)
                     }
                 }
+            }
+            .sheet(isPresented: $showingDetailPanel) {
+                ScrollView {
+                    VStack(spacing: 16) {
+                        detailPager(includeAddButtons: true, minHeight: 640)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                    .padding(.bottom, 32)
+                    .safeAreaPadding(.top, 12)
+                    .safeAreaInset(edge: .bottom) {
+                        Color.clear.frame(height: 24)
+                    }
+                }
+                .onAppear {
+                    prepareDetailPagerIfNeeded()
+                    ensureDetailPagerIncludes(date: viewModel.selectedDate)
+                }
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
             }
         }
         .navigationTitle("カレンダー")
@@ -361,11 +380,8 @@ struct JournalView: View {
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    if viewModel.selectedDate.isSameDay(as: day.date) {
-                        scrollToDetailPanel()
-                    } else {
-                        viewModel.selectedDate = day.date
-                    }
+                    viewModel.selectedDate = day.date
+                    showingDetailPanel = true
                 }
             }
         }
@@ -374,9 +390,7 @@ struct JournalView: View {
 
     private var contentArea: some View {
         VStack(spacing: 12) {
-            if viewModel.displayMode == .month {
-                daySummary
-            } else {
+            if viewModel.displayMode == .week {
                 weekPager
                 weekDayDetail
             }
@@ -495,11 +509,8 @@ struct JournalView: View {
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    if viewModel.selectedDate.isSameDay(as: date) {
-                        scrollToDetailPanel()
-                    } else {
-                        viewModel.selectedDate = date
-                    }
+                    viewModel.selectedDate = date
+                    showingDetailPanel = true
                 }
             }
         }
@@ -630,8 +641,8 @@ struct JournalView: View {
         task.startDate ?? task.endDate
     }
 
-    private func detailPager(includeAddButtons: Bool) -> some View {
-        SectionCard(title: "選択中の日") {
+    private func detailPager(includeAddButtons: Bool, minHeight: CGFloat = 520) -> some View {
+        SectionCard(title: "") {
             TabView(selection: $detailPagerSelection) {
                 ForEach(Array(detailPagerAnchors.enumerated()), id: \.offset) { index, anchor in
                     let snapshot = calendarSnapshot(for: anchor)
@@ -647,25 +658,16 @@ struct JournalView: View {
                                         },
                                         onEditTask: { task in editingTask = task },
                                         onEditEvent: { event in editingEvent = event },
+                                        onDeleteEvent: { event in store.deleteCalendarEvent(event.id) },
                                         onToggleTask: { toggleTask($0) },
                                         onToggleHabit: { toggleHabit($0, on: snapshot.date) },
                                         onOpenDiary: { openDiaryEditor(for: $0) })
                     .tag(index)
-                    .background(
-                        GeometryReader { proxy in
-                            Color.clear.preference(key: DetailPagerHeightKey.self,
-                                                   value: [index: proxy.size.height])
-                        }
-                    )
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(maxWidth: .infinity)
-            .frame(height: detailPanelHeight)
-            .onPreferenceChange(DetailPagerHeightKey.self) { heights in
-                detailHeights.merge(heights, uniquingKeysWith: { _, new in new })
-                updateDetailHeightIfNeeded(detailHeights[detailPagerSelection])
-            }
+            .frame(minHeight: minHeight)
             .onChange(of: detailPagerSelection) { _, newSelection in
                 guard detailPagerAnchors.indices.contains(newSelection) else { return }
                 let date = detailPagerAnchors[newSelection]
@@ -673,7 +675,6 @@ struct JournalView: View {
                     isSyncingDetailPager = true
                     viewModel.selectedDate = date
                 }
-                updateDetailHeightIfNeeded(detailHeights[newSelection])
                 extendDetailPagerIfNeeded(at: newSelection)
             }
         }
@@ -747,23 +748,6 @@ struct JournalView: View {
             }
         } else {
             detailPagerSelection = index
-        }
-    }
-
-    private func scrollToDetailPanel() {
-        guard let proxy = scrollProxy else { return }
-        withAnimation(.linear(duration: 0.5)) {
-            proxy.scrollTo(ScrollTarget.detailPanel, anchor: .top)
-        }
-    }
-
-    private func updateDetailHeightIfNeeded(_ height: CGFloat?) {
-        guard let height else { return }
-        let target = max(360, height + 24)
-        if abs(detailPanelHeight - target) > 4 {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.85)) {
-                detailPanelHeight = target
-            }
         }
     }
 
@@ -1017,9 +1001,13 @@ private struct CalendarDetailPanel: View {
     var onAddEvent: () -> Void
     var onEditTask: (Task) -> Void
     var onEditEvent: (CalendarEvent) -> Void
+    var onDeleteEvent: (CalendarEvent) -> Void
     var onToggleTask: (Task) -> Void
     var onToggleHabit: (Habit) -> Void
     var onOpenDiary: (Date) -> Void
+
+    @State private var showingDeleteConfirmation = false
+    @State private var eventToDelete: CalendarEvent?
 
     private var hasDiaryEntry: Bool {
         if let entry = snapshot.diaryEntry {
@@ -1028,150 +1016,172 @@ private struct CalendarDetailPanel: View {
         return false
     }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            header
-            summaryRow
-            OverviewSection(icon: "calendar", title: "予定") {
-                if snapshot.events.isEmpty {
-                    placeholder("予定はありません")
-                } else {
-                    VStack(spacing: 12) {
-                        ForEach(snapshot.events) { event in
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack(alignment: .top, spacing: 12) {
-                                    Circle()
-                                        .fill(color(for: event.calendarName))
-                                        .frame(width: 10, height: 10)
-                                        .padding(.top, 6)
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        Text(event.title)
-                                            .font(.body.weight(.semibold))
-                                        Label("\(event.startDate.formattedTime()) - \(event.endDate.formattedTime())", systemImage: "clock")
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                        Text(event.calendarName)
-                                            .font(.caption2)
-                                            .foregroundStyle(color(for: event.calendarName))
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
-                                            .background(color(for: event.calendarName).opacity(0.15), in: Capsule())
+        var body: some View {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    header
+                    summaryRow
+                    OverviewSection(icon: "calendar", title: "予定") {
+                        if snapshot.events.isEmpty {
+                            placeholder("予定はありません")
+                        } else {
+                            VStack(spacing: 12) {
+                                ForEach(snapshot.events) { event in
+                                    VStack(alignment: .leading, spacing: 8) {
+                                        HStack(alignment: .top, spacing: 12) {
+                                            Circle()
+                                                .fill(color(for: event.calendarName))
+                                                .frame(width: 10, height: 10)
+                                                .padding(.top, 6)
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(event.title)
+                                                .font(.body.weight(.semibold))
+                                            Label("\(event.startDate.formattedTime()) - \(event.endDate.formattedTime())", systemImage: "clock")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                            Text(event.calendarName)
+                                                .font(.caption2)
+                                                .foregroundStyle(color(for: event.calendarName))
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(color(for: event.calendarName).opacity(0.15), in: Capsule())
+                                        }
+                                        Spacer()
+                                        Button(role: .destructive) {
+                                            eventToDelete = event
+                                            showingDeleteConfirmation = true
+                                        } label: {
+                                            Image(systemName: "trash")
+                                        }
+                                        .buttonStyle(.bordered)
+                                        .controlSize(.small)
                                     }
-                                }
-                                Button {
-                                    onEditEvent(event)
-                                } label: {
-                                    Label("予定を編集", systemImage: "square.and.pencil")
-                                        .font(.caption.weight(.semibold))
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                            }
-                            .padding()
-                            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
-                        }
-                    }
-                }
-            }
-            OverviewSection(icon: "checkmark.circle", title: "タスク") {
-                if snapshot.pendingTasks.isEmpty && snapshot.completedTasks.isEmpty {
-                    placeholder("登録されたタスクはありません")
-                } else {
-                    VStack(spacing: 16) {
-                        if snapshot.pendingTasks.isEmpty == false {
-                            taskGroup(title: "進行中", tasks: snapshot.pendingTasks)
-                        }
-                        if snapshot.completedTasks.isEmpty == false {
-                            taskGroup(title: "完了済み", tasks: snapshot.completedTasks)
-                        }
-                    }
-                }
-            }
-            OverviewSection(icon: "list.bullet", title: "習慣") {
-                if snapshot.habitStatuses.isEmpty {
-                    placeholder("この日の習慣はありません")
-                } else {
-                    VStack(spacing: 10) {
-                        ForEach(snapshot.habitStatuses) { status in
-                            Button {
-                                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                                    onToggleHabit(status.habit)
-                                }
-                            } label: {
-                                HStack {
-                                    Label(status.habit.title, systemImage: status.habit.iconName)
-                                        .foregroundStyle(Color(hex: status.habit.colorHex) ?? Color.accentColor)
-                                    Spacer()
-                                    Image(systemName: status.isCompleted ? "checkmark.circle.fill" : "circle")
-                                        .foregroundStyle(status.isCompleted ? Color.accentColor : Color.secondary)
-                                        .scaleEffect(status.isCompleted ? 1.05 : 0.95)
-                                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: status.isCompleted)
+                                    Button {
+                                        onEditEvent(event)
+                                    } label: {
+                                        Label("予定を編集", systemImage: "square.and.pencil")
+                                            .font(.caption.weight(.semibold))
+                                    }
+                                    .buttonStyle(.bordered)
+                                    .controlSize(.small)
                                 }
                                 .padding()
-                                .frame(maxWidth: .infinity)
-                                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+                                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
                             }
-                            .buttonStyle(.plain)
                         }
                     }
                 }
-            }
-            OverviewSection(icon: "heart.fill", title: "ヘルス") {
-                if let summary = snapshot.healthSummary {
-                    HStack(spacing: 12) {
-                        StatTile(title: "歩数", value: "\(summary.steps ?? 0)")
-                        StatTile(title: "睡眠", value: String(format: "%.1f h", summary.sleepHours ?? 0))
-                        StatTile(title: "エネルギー", value: String(format: "%.0f kcal", summary.activeEnergy ?? 0))
+                OverviewSection(icon: "checkmark.circle", title: "タスク") {
+                    if snapshot.pendingTasks.isEmpty && snapshot.completedTasks.isEmpty {
+                        placeholder("登録されたタスクはありません")
+                    } else {
+                        VStack(spacing: 16) {
+                            if snapshot.pendingTasks.isEmpty == false {
+                                taskGroup(title: "進行中", tasks: snapshot.pendingTasks)
+                            }
+                            if snapshot.completedTasks.isEmpty == false {
+                                taskGroup(title: "完了済み", tasks: snapshot.completedTasks)
+                            }
+                        }
                     }
-                } else {
-                    placeholder("ヘルスデータはありません")
                 }
-            }
-            OverviewSection(icon: "book.closed", title: "日記") {
-                VStack(alignment: .leading, spacing: 8) {
-                    if let entry = snapshot.diaryEntry, entry.text.isEmpty == false {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text(entry.text)
-                                .font(.body)
-                            if let condition = entry.conditionScore {
-                                Text("体調 \(conditionLabel(for: condition))")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
+                OverviewSection(icon: "list.bullet", title: "習慣") {
+                    if snapshot.habitStatuses.isEmpty {
+                        placeholder("この日の習慣はありません")
+                    } else {
+                        VStack(spacing: 10) {
+                            ForEach(snapshot.habitStatuses) { status in
+                                Button {
+                                    withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                                        onToggleHabit(status.habit)
+                                    }
+                                } label: {
+                                    HStack {
+                                        Label(status.habit.title, systemImage: status.habit.iconName)
+                                            .foregroundStyle(Color(hex: status.habit.colorHex) ?? Color.accentColor)
+                                        Spacer()
+                                        Image(systemName: status.isCompleted ? "checkmark.circle.fill" : "circle")
+                                            .foregroundStyle(status.isCompleted ? Color.accentColor : Color.secondary)
+                                            .scaleEffect(status.isCompleted ? 1.05 : 0.95)
+                                            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: status.isCompleted)
+                                    }
+                                    .padding()
+                                    .frame(maxWidth: .infinity)
+                                    .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+                                }
+                                .buttonStyle(.plain)
                             }
-                            if let location = entry.locationName {
-                                Label(location, systemImage: "mappin.and.ellipse")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
+                        }
+                    }
+                }
+                OverviewSection(icon: "heart.fill", title: "ヘルス") {
+                    if let summary = snapshot.healthSummary {
+                        HStack(spacing: 12) {
+                            StatTile(title: "歩数", value: "\(summary.steps ?? 0)")
+                            StatTile(title: "睡眠", value: String(format: "%.1f h", summary.sleepHours ?? 0))
+                            StatTile(title: "エネルギー", value: String(format: "%.0f kcal", summary.activeEnergy ?? 0))
                         }
                     } else {
-                        placeholder("まだ日記は追加されていません")
-                    }
-                    Button {
-                        onOpenDiary(snapshot.date)
-                    } label: {
-                        Label(hasDiaryEntry ? "日記を編集" : "日記を追加",
-                              systemImage: "square.and.pencil")
-                            .font(.caption.weight(.semibold))
-                    }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                }
-            }
-
-            if includeAddButtons {
-                Divider()
-                HStack {
-                    Button(action: onAddTask) {
-                        Label("タスク追加", systemImage: "checkmark.circle.badge.plus")
-                    }
-                    Spacer()
-                    Button(action: onAddEvent) {
-                        Label("予定追加", systemImage: "calendar.badge.plus")
+                        placeholder("ヘルスデータはありません")
                     }
                 }
-                .font(.caption.weight(.semibold))
+                OverviewSection(icon: "book.closed", title: "日記") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        if let entry = snapshot.diaryEntry, entry.text.isEmpty == false {
+                            VStack(alignment: .leading, spacing: 6) {
+                                Text(entry.text)
+                                    .font(.body)
+                                if let condition = entry.conditionScore {
+                                    Text("体調 \(conditionLabel(for: condition))")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                if let location = entry.locationName {
+                                    Label(location, systemImage: "mappin.and.ellipse")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        } else {
+                            placeholder("まだ日記は追加されていません")
+                        }
+                        Button {
+                            onOpenDiary(snapshot.date)
+                        } label: {
+                            Label(hasDiaryEntry ? "日記を編集" : "日記を追加",
+                                  systemImage: "square.and.pencil")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                }
+    
+                if includeAddButtons {
+                    Divider()
+                    HStack {
+                        Button(action: onAddTask) {
+                            Label("タスク追加", systemImage: "checkmark.circle.badge.plus")
+                        }
+                        Spacer()
+                        Button(action: onAddEvent) {
+                            Label("予定追加", systemImage: "calendar.badge.plus")
+                        }
+                    }
+                    .font(.caption.weight(.semibold))
+                }
             }
+        }
+        .confirmationDialog("この予定を削除しますか？", isPresented: $showingDeleteConfirmation, presenting: eventToDelete) { event in
+            Button("削除", role: .destructive) {
+                onDeleteEvent(event)
+                eventToDelete = nil
+            }
+            Button("キャンセル", role: .cancel) {
+                eventToDelete = nil
+            }
+        } message: { event in
+            Text("「\(event.title)」を削除してもよろしいですか？")
         }
     }
 

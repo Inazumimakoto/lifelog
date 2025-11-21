@@ -100,13 +100,12 @@ class HealthKitManager {
 
                 for sample in samples {
                     let stageType = self.sleepStageType(for: sample)
-                    let durationHours = sample.endDate.timeIntervalSince(sample.startDate) / 3600
                     let dayOfSleepEnd = calendar.startOfDay(for: sample.endDate)
 
                     if var existingData = sleepDataByDay[dayOfSleepEnd] {
                         existingData.start = min(existingData.start, sample.startDate)
                         existingData.end = max(existingData.end, sample.endDate)
-                        existingData.duration += durationHours
+                        existingData.duration = existingData.end.timeIntervalSince(existingData.start) / 3600
                         if let stageType {
                             existingData.stages.append(SleepStage(start: sample.startDate,
                                                                   end: sample.endDate,
@@ -124,7 +123,7 @@ class HealthKitManager {
                         }
                         sleepDataByDay[dayOfSleepEnd] = SleepAggregate(start: sample.startDate,
                                                                        end: sample.endDate,
-                                                                       duration: durationHours,
+                                                                       duration: sample.endDate.timeIntervalSince(sample.startDate) / 3600,
                                                                        stages: stages)
                     }
                 }
