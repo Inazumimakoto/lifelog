@@ -32,6 +32,7 @@ final class JournalViewModel: ObservableObject {
         }
 
         let id = UUID()
+        let sourceId: UUID?
         let title: String
         let start: Date
         let end: Date
@@ -149,31 +150,40 @@ final class JournalViewModel: ObservableObject {
 
     func timelineItems(for date: Date) -> [TimelineItem] {
         var items: [TimelineItem] = []
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: date)
+        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return [] }
 
-        // Add sleep item if it exists for this day
-        if let summary = store.healthSummaries.first(where: { Calendar.current.isDate($0.date, inSameDayAs: date) }),
-           let sleepStart = summary.sleepStart,
-           let sleepEnd = summary.sleepEnd {
-            items.append(TimelineItem(title: "睡眠",
-                                      start: sleepStart,
-                                      end: sleepEnd,
-                                      kind: .sleep,
-                                      detail: nil))
+        // Find all sleep sessions that overlap with the given date
+        for summary in store.healthSummaries {
+            guard let sleepStart = summary.sleepStart, let sleepEnd = summary.sleepEnd else { continue }
+            if sleepStart < dayEnd && sleepEnd > dayStart {
+                items.append(TimelineItem(sourceId: nil,
+                                          title: "睡眠",
+                                          start: sleepStart,
+                                          end: sleepEnd,
+                                          kind: .sleep,
+                                          detail: nil))
+            }
         }
 
-        let events = store.events(on: date)
-        items.append(contentsOf: events.map {
-            TimelineItem(title: $0.title,
-                         start: $0.startDate,
-                         end: $0.endDate,
-                         kind: .event,
-                         detail: $0.calendarName)
-        })
+        // Find all events that overlap with the given date
+        for event in store.calendarEvents {
+            if event.startDate < dayEnd && event.endDate > dayStart {
+                items.append(TimelineItem(sourceId: event.id,
+                                          title: event.title,
+                                          start: event.startDate,
+                                          end: event.endDate,
+                                          kind: .event,
+                                          detail: event.calendarName))
+            }
+        }
 
         for task in tasks(on: date) {
-            let anchor = Calendar.current.date(bySettingHour: 12, minute: 0, second: 0, of: date) ?? date
+            let anchor = calendar.date(bySettingHour: 12, minute: 0, second: 0, of: date) ?? date
             let start = anchor.addingTimeInterval(-1800)
-            items.append(TimelineItem(title: task.title,
+            items.append(TimelineItem(sourceId: task.id,
+                                      title: task.title,
                                       start: start,
                                       end: anchor,
                                       kind: .task,

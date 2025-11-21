@@ -17,7 +17,7 @@ struct JournalView: View {
     @State private var monthPagerAnchors: [Date] = []
     @State private var monthPagerSelection: Int = 0
     @State private var isSyncingMonthPager = false
-    private let weekPagerHeight: CGFloat = 460
+    private let weekPagerHeight: CGFloat = 780
     private let weekPagerRadius = 52
     @State private var weekPagerAnchors: [Date] = []
     @State private var weekPagerSelection: Int = 0
@@ -27,6 +27,7 @@ struct JournalView: View {
     @State private var showDiaryEditor = false
     @State private var editingEvent: CalendarEvent?
     @State private var editingTask: Task?
+    @State private var tappedTimelineItem: JournalViewModel.TimelineItem?
     @State private var showAddMenu = false
     @State private var pendingAddDate: Date?
     @State private var newItemDate: Date?
@@ -64,6 +65,16 @@ struct JournalView: View {
                 .padding()
             }
             .onAppear { scrollProxy = proxy }
+            .popover(item: $tappedTimelineItem) { item in
+                TimelineItemDetailView(item: item) {
+                    // Dismiss popover first
+                    tappedTimelineItem = nil
+                    // Then trigger the edit sheet after a short delay
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        handleEdit(for: item)
+                    }
+                }
+            }
         }
         .navigationTitle("カレンダー")
         .toolbar {
@@ -160,6 +171,22 @@ struct JournalView: View {
         .onChange(of: viewModel.monthAnchor) { _, newAnchor in
             guard viewModel.displayMode == .month else { return }
             ensureMonthPagerIncludes(date: newAnchor)
+        }
+    }
+
+    private func handleEdit(for item: JournalViewModel.TimelineItem) {
+        switch item.kind {
+        case .event:
+            guard let id = item.sourceId,
+                  let event = store.calendarEvents.first(where: { $0.id == id }) else { return }
+            editingEvent = event
+        case .task:
+             guard let id = item.sourceId,
+                   let task = store.tasks.first(where: { $0.id == id }) else { return }
+             editingTask = task
+        case .sleep:
+            // No edit action for sleep items
+            break
         }
     }
 
@@ -480,20 +507,26 @@ struct JournalView: View {
     }
 
     private func weekTimeline(for anchor: Date) -> some View {
-        let timelineHeight: CGFloat = 220
-        let headerHeight: CGFloat = 40
+        let timelineHeight: CGFloat = 520
         let dates = weekDates(for: anchor)
+
         return SectionCard(title: "週のタイムライン") {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(alignment: .top, spacing: 12) {
-                    TimelineAxisColumn(headerHeight: headerHeight,
-                                       timelineHeight: timelineHeight)
                     ForEach(dates, id: \.self) { date in
-                        TimelineColumnView(date: date,
-                                           items: viewModel.timelineItems(for: date),
-                                           isSelected: date.startOfDay == viewModel.selectedDate.startOfDay,
-                                           timelineHeight: timelineHeight)
-                        .frame(width: 96)
+                        TimelineColumnView(
+                            date: date,
+                            items: viewModel.timelineItems(for: date).filter { $0.kind != .task },
+                            isSelected: date.startOfDay == viewModel.selectedDate.startOfDay,
+                            timelineHeight: timelineHeight,
+                            onTapItem: { item in
+                                tappedTimelineItem = item
+                            },
+                            onLongPressItem: { item in
+                                handleEdit(for: item)
+                            }
+                        )
+                        .frame(width: 108)
                         .onTapGesture {
                             viewModel.selectedDate = date
                         }
@@ -502,7 +535,7 @@ struct JournalView: View {
                 .padding(.horizontal, 4)
                 .padding(.vertical, 4)
             }
-            .frame(height: timelineHeight + headerHeight + 8)
+            .frame(height: timelineHeight + 16)
         }
     }
 
@@ -929,6 +962,40 @@ struct JournalView: View {
     }
 }
 
+private struct TimelineItemDetailView: View {
+    let item: JournalViewModel.TimelineItem
+    var onEdit: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.title)
+                    .font(.title2.bold())
+                
+                Text("\(item.start.formatted(date: .omitted, time: .shortened)) - \(item.end.formatted(date: .omitted, time: .shortened))")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                
+                if let detail = item.detail, detail.isEmpty == false, detail != "__completed__" {
+                    Label(detail, systemImage: "tag")
+                        .font(.callout)
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+            
+            if item.kind != .sleep {
+                Button(action: onEdit) {
+                    Label("編集", systemImage: "pencil")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding()
+        .presentationDetents([.height(180)])
+    }
+}
+
 private struct CalendarDetailSnapshot {
     let date: Date
     let events: [CalendarEvent]
@@ -1229,49 +1296,13 @@ private struct DetailPagerHeightKey: PreferenceKey {
     }
 }
 
-private struct TimelineAxisColumn: View {
-    var headerHeight: CGFloat
-    var timelineHeight: CGFloat
-
-    var body: some View {
-        VStack(spacing: 6) {
-            Color.clear
-                .frame(height: headerHeight)
-            TimelineAxisView(height: timelineHeight)
-        }
-        .frame(width: 56)
-    }
-}
-
-private struct TimelineAxisView: View {
-    var height: CGFloat
-    private let startHour: Double = 6
-    private let endHour: Double = 24
-    private let step: Double = 3
-
-    var body: some View {
-        ZStack(alignment: .topLeading) {
-            ForEach(Array(stride(from: startHour, through: endHour, by: step)), id: \.self) { hour in
-                Text(String(format: "%02.0f:00", hour))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .offset(y: yOffset(for: hour))
-            }
-        }
-        .frame(width: 50, height: height)
-    }
-
-    private func yOffset(for hour: Double) -> CGFloat {
-        let ratio = CGFloat((hour - startHour) / (endHour - startHour))
-        return max(0, min(1, ratio)) * height - 6
-    }
-}
-
 private struct TimelineColumnView: View {
     var date: Date
     var items: [JournalViewModel.TimelineItem]
     var isSelected: Bool
     var timelineHeight: CGFloat
+    var onTapItem: (JournalViewModel.TimelineItem) -> Void
+    var onLongPressItem: (JournalViewModel.TimelineItem) -> Void
 
     private var dayLabel: String {
         date.jaWeekdayNarrowString
@@ -1290,23 +1321,60 @@ private struct TimelineColumnView: View {
                     .frame(height: timelineHeight)
                 ForEach(items) { item in
                     let (offset, blockHeight) = position(for: item, in: timelineHeight)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(item.title)
-                            .font(.caption2)
-                            .foregroundStyle(.white)
-                            .lineLimit(2)
-                        if let detail = item.detail, detail.isEmpty == false {
-                            Text(detail)
-                                .font(.caption2)
-                                .foregroundStyle(.white.opacity(0.85))
-                        }
+                    if blockHeight > 1 {
+                        let threshold: CGFloat = 36
+                        let alignment: Alignment = blockHeight < threshold ? .center : .top
+
+                        RoundedRectangle(cornerRadius: 6)
+                            .fill(item.kind == .sleep ? Color.purple : (item.kind == .event ? Color.blue : Color.green))
+                            .frame(height: blockHeight)
+                            .overlay(alignment: alignment) {
+                                HStack(alignment: .top) {
+                                    VStack(alignment: .leading) {
+                                        Text(item.title)
+                                            .font(.caption2)
+                                            .foregroundStyle(.white)
+                                            .lineLimit(1)
+                                        
+                                        if blockHeight >= threshold { // 長い予定の場合のみ詳細を表示
+                                            if let detail = item.detail, detail.isEmpty == false, detail != "__completed__" {
+                                                 Text(detail)
+                                                    .font(.system(size: 8))
+                                                    .foregroundStyle(.white.opacity(0.9))
+                                                    .lineLimit(1)
+                                            }
+                                        }
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    VStack(alignment: .trailing) {
+                                        if blockHeight < threshold {
+                                            // 短い予定: 開始時間のみ (右上)
+                                            Text(item.start.formatted(date: .omitted, time: .shortened))
+                                                .font(.system(size: 8))
+                                                .foregroundStyle(.white.opacity(0.85))
+                                        } else {
+                                            // 長い予定: 開始時刻 (右上) と 終了時刻 (右下)
+                                            Text(item.start.formatted(date: .omitted, time: .shortened))
+                                                .font(.system(size: 8))
+                                                .foregroundStyle(.white.opacity(0.85))
+                                            Text(item.end.formatted(date: .omitted, time: .shortened))
+                                                .font(.system(size: 8))
+                                                .foregroundStyle(.white.opacity(0.85))
+                                        }
+                                    }
+                                }
+                                .padding(EdgeInsets(top: 4, leading: 6, bottom: 4, trailing: 6))
+                            }
+                            .offset(y: offset)
+                            .onTapGesture {
+                                onTapItem(item)
+                            }
+                            .onLongPressGesture {
+                                onLongPressItem(item)
+                            }
                     }
-                    .padding(6)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(item.kind == .event ? Color.blue : Color.green)
-                    .clipShape(RoundedRectangle(cornerRadius: 6))
-                    .frame(height: blockHeight, alignment: .top)
-                    .offset(y: offset)
                 }
             }
         }
@@ -1314,23 +1382,27 @@ private struct TimelineColumnView: View {
     }
 
     private func position(for item: JournalViewModel.TimelineItem, in contentHeight: CGFloat) -> (CGFloat, CGFloat) {
-        let startHour = hourValue(for: item.start)
-        let endHour = hourValue(for: item.end)
-        var normalizedStart = max(startHour - 6, 0)
-        var normalizedEnd = max(endHour - 6, 0)
-        if normalizedEnd < normalizedStart {
-            normalizedEnd += 24
-        }
-        let totalHours: Double = 18
-        normalizedStart = min(normalizedStart, totalHours)
-        normalizedEnd = min(normalizedEnd, totalHours + 6)
-        let offset = CGFloat(normalizedStart / totalHours) * contentHeight
-        let height = CGFloat(max((normalizedEnd - normalizedStart) / totalHours, 0.05)) * contentHeight
-        return (offset, height)
-    }
+        let dayStart = Calendar.current.startOfDay(for: date)
+        guard let dayEnd = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) else { return (0, 0) }
 
-    private func hourValue(for date: Date) -> Double {
-        let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
-        return Double(comps.hour ?? 0) + Double(comps.minute ?? 0) / 60
+        let clampedStart = max(item.start, dayStart)
+        let clampedEnd = min(item.end, dayEnd)
+
+        if clampedStart >= clampedEnd {
+            return (0, 0)
+        }
+
+        let startOffsetSeconds = clampedStart.timeIntervalSince(dayStart)
+        let endOffsetSeconds = clampedEnd.timeIntervalSince(dayStart)
+        
+        let totalSecondsInDay = 24.0 * 3600.0
+
+        let offset = CGFloat(startOffsetSeconds / totalSecondsInDay) * contentHeight
+        let durationSeconds = endOffsetSeconds - startOffsetSeconds
+        let height = CGFloat(durationSeconds / totalSecondsInDay) * contentHeight
+        
+        guard height > 0 else { return (0, 0) }
+        
+        return (offset, height)
     }
 }

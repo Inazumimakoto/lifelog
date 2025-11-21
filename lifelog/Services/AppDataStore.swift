@@ -50,7 +50,13 @@ final class AppDataStore: ObservableObject {
     // MARK: - Calendar
 
     func events(on date: Date) -> [CalendarEvent] {
-        calendarEvents.filter { Calendar.current.isDate($0.startDate, inSameDayAs: date) }
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: date)
+        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return [] }
+        return calendarEvents
+            .filter { event in
+                event.startDate < dayEnd && event.endDate > dayStart
+            }
             .sorted(by: { $0.startDate < $1.startDate })
     }
 

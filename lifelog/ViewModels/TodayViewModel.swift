@@ -123,7 +123,8 @@ final class TodayViewModel: ObservableObject {
         var items: [JournalViewModel.TimelineItem] = []
 
         if let sleepStart = healthSummary?.sleepStart, let sleepEnd = healthSummary?.sleepEnd {
-            items.append(.init(title: "睡眠",
+            items.append(.init(sourceId: nil,
+                               title: "睡眠",
                                start: sleepStart,
                                end: sleepEnd,
                                kind: .sleep,
@@ -131,36 +132,28 @@ final class TodayViewModel: ObservableObject {
         }
 
         items.append(contentsOf: events.map {
-            JournalViewModel.TimelineItem(title: $0.title,
+            JournalViewModel.TimelineItem(sourceId: $0.id,
+                                          title: $0.title,
                                           start: $0.startDate,
                                           end: $0.endDate,
                                           kind: .event,
                                           detail: $0.calendarName)
         })
 
-        let completedTimeline = completedTasksToday.map { task -> JournalViewModel.TimelineItem in
-            JournalViewModel.TimelineItem(title: task.title,
-                                          start: task.startDate ?? date,
-                                          end: task.endDate ?? date,
-                                          kind: .task,
-                                          detail: "__completed__")
-        }
-        let pendingTimeline = tasksDueToday.map { task -> JournalViewModel.TimelineItem in
-            JournalViewModel.TimelineItem(title: task.title,
-                                          start: task.startDate ?? date,
-                                          end: task.endDate ?? date,
-                                          kind: .task,
-                                          detail: task.detail)
-        }
-        (pendingTimeline + completedTimeline).forEach { task in
+        let allTasks = completedTasksToday + tasksDueToday
+        let taskItems = allTasks.map { task -> JournalViewModel.TimelineItem in
             let anchorDate = timelineAnchor(for: task, defaultingTo: date)
             let start = anchorDate.addingTimeInterval(-900)
-            items.append(JournalViewModel.TimelineItem(title: task.title,
-                                                       start: start,
-                                                       end: anchorDate,
-                                                       kind: task.kind,
-                                                       detail: task.detail))
+            let detail = task.isCompleted ? "__completed__" : task.detail
+            return JournalViewModel.TimelineItem(sourceId: task.id,
+                                                 title: task.title,
+                                                 start: start,
+                                                 end: anchorDate,
+                                                 kind: .task,
+                                                 detail: detail)
         }
+        items.append(contentsOf: taskItems)
+        
         return items.sorted(by: { $0.start < $1.start })
     }
 
@@ -191,7 +184,7 @@ final class TodayViewModel: ObservableObject {
         task.startDate ?? task.endDate
     }
 
-    private func timelineAnchor(for task: JournalViewModel.TimelineItem, defaultingTo date: Date) -> Date {
-        task.start
+    private func timelineAnchor(for task: Task, defaultingTo date: Date) -> Date {
+        return task.startDate ?? task.endDate ?? date
     }
 }
