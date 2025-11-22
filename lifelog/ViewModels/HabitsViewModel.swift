@@ -9,6 +9,30 @@ import Foundation
 import Combine
 import SwiftUI
 
+struct HabitHeatCell: Identifiable, Hashable {
+    enum State: String, Hashable {
+        case inactive
+        case pending
+        case completed
+    }
+
+    let date: Date
+    let state: State
+
+    var id: Date { date }
+}
+
+struct HabitDaySummary: Identifiable, Hashable {
+    let date: Date
+    let scheduledHabits: [Habit]
+    let completedHabits: [Habit]
+
+    var scheduledCount: Int { scheduledHabits.count }
+    var completedCount: Int { completedHabits.count }
+
+    var id: Date { date }
+}
+
 @MainActor
 final class HabitsViewModel: ObservableObject {
 
@@ -31,6 +55,10 @@ final class HabitsViewModel: ObservableObject {
     @Published private(set) var habits: [Habit] = []
     @Published private(set) var weekDates: [Date] = []
     @Published private(set) var statuses: [HabitWeekStatus] = []
+    @Published private(set) var yearlySummaries: [Date: HabitDaySummary] = [:]
+    @Published private(set) var yearStartDate: Date = Calendar.current.startOfDay(for: Date())
+    @Published private(set) var yearWeekCount: Int = 53
+    @Published private(set) var miniHeatmaps: [UUID: [HabitHeatCell]] = [:]
     private var pendingAnimation: Animation?
 
     private let store: AppDataStore
@@ -69,6 +97,7 @@ final class HabitsViewModel: ObservableObject {
                 }
                 return HabitWeekStatus(habit: habit, dates: weekDates, records: recordsDictionary)
             }
+            self.rebuildHeatmaps()
         }
 
         if let animation = pendingAnimation {
@@ -131,5 +160,75 @@ final class HabitsViewModel: ObservableObject {
         }
 
         return streak
+    }
+
+    func miniHeatmap(for habit: Habit) -> [HabitHeatCell] {
+        miniHeatmaps[habit.id] ?? []
+    }
+
+    func summary(for date: Date) -> HabitDaySummary? {
+        let day = Calendar.current.startOfDay(for: date)
+        return yearlySummaries[day]
+    }
+
+    // MARK: - Heatmap Builders
+
+    private func rebuildHeatmaps() {
+        let recordsLookup = store.habitRecords.reduce(into: [UUID: [Date: HabitRecord]]()) { partialResult, record in
+            var habitMap = partialResult[record.habitID] ?? [:]
+            habitMap[record.date.startOfDay] = record
+            partialResult[record.habitID] = habitMap
+        }
+        computeYearlyHeatmap(with: recordsLookup)
+        computeMiniHeatmaps(with: recordsLookup)
+    }
+
+    private func computeYearlyHeatmap(with recordsLookup: [UUID: [Date: HabitRecord]]) {
+        let calendar = Calendar.current
+        let startOfCurrentWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date())) ?? calendar.startOfDay(for: Date())
+        let weeks = 53
+        guard let start = calendar.date(byAdding: .weekOfYear, value: -(weeks - 1), to: startOfCurrentWeek) else { return }
+
+        var map: [Date: HabitDaySummary] = [:]
+        for offset in 0..<(weeks * 7) {
+            guard let date = calendar.date(byAdding: .day, value: offset, to: start) else { continue }
+            let day = calendar.startOfDay(for: date)
+            let scheduled = habits.filter { $0.schedule.isActive(on: day) }
+            let completed = scheduled.filter { recordsLookup[$0.id]?[day]?.isCompleted == true }
+            map[day] = HabitDaySummary(date: day,
+                                       scheduledHabits: scheduled,
+                                       completedHabits: completed)
+        }
+
+        yearStartDate = start
+        yearWeekCount = weeks
+        yearlySummaries = map
+    }
+
+    private func computeMiniHeatmaps(with recordsLookup: [UUID: [Date: HabitRecord]]) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        guard let start = calendar.date(byAdding: .day, value: -55, to: today) else { return }
+
+        var map: [UUID: [HabitHeatCell]] = [:]
+
+        for habit in habits {
+            var cells: [HabitHeatCell] = []
+            for offset in 0..<56 {
+                guard let date = calendar.date(byAdding: .day, value: offset, to: start) else { continue }
+                let day = calendar.startOfDay(for: date)
+                let isActive = habit.schedule.isActive(on: day)
+                if isActive == false {
+                    cells.append(HabitHeatCell(date: day, state: .inactive))
+                    continue
+                }
+
+                let isDone = recordsLookup[habit.id]?[day]?.isCompleted == true
+                cells.append(HabitHeatCell(date: day, state: isDone ? .completed : .pending))
+            }
+            map[habit.id] = cells
+        }
+
+        miniHeatmaps = map
     }
 }
