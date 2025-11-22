@@ -31,6 +31,7 @@ final class TodayViewModel: ObservableObject {
     @Published private(set) var healthSummary: HealthSummary?
     @Published private(set) var diaryEntry: DiaryEntry?
     @Published private(set) var timelineItems: [JournalViewModel.TimelineItem] = []
+    @Published private(set) var memoPad: MemoPad = MemoPad()
 
     private let store: AppDataStore
     private var cancellables = Set<AnyCancellable>()
@@ -56,6 +57,7 @@ final class TodayViewModel: ObservableObject {
 
     private func refreshAll() {
         let updates = {
+            self.memoPad = self.store.memoPad
             self.events = self.store.events(on: self.date)
             let todaysTasks = self.store.tasks
                 .filter { self.isTask($0, scheduledOn: self.date) }

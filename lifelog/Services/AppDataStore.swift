@@ -21,10 +21,14 @@ final class AppDataStore: ObservableObject {
     @Published private(set) var anniversaries: [Anniversary] = []
     @Published private(set) var healthSummaries: [HealthSummary] = []
     @Published private(set) var calendarEvents: [CalendarEvent] = []
+    @Published private(set) var memoPad: MemoPad = MemoPad()
+
+    private static let memoPadDefaultsKey = "MemoPad_Storage_V1"
 
     // MARK: - Init
 
     init() {
+        memoPad = Self.loadMemoPad()
         seedSampleData()
         _Concurrency.Task {
             await loadHealthData()
@@ -142,6 +146,30 @@ final class AppDataStore: ObservableObject {
     func updateAnniversary(_ anniversary: Anniversary) {
         guard let index = anniversaries.firstIndex(where: { $0.id == anniversary.id }) else { return }
         anniversaries[index] = anniversary
+    }
+
+    // MARK: - Memo Pad
+
+    func updateMemoPad(text: String) {
+        guard text != memoPad.text else { return }
+        memoPad.text = text
+        memoPad.lastUpdatedAt = Date()
+        persistMemoPad()
+    }
+
+    private static func loadMemoPad() -> MemoPad {
+        let defaults = UserDefaults.standard
+        if let data = defaults.data(forKey: memoPadDefaultsKey),
+           let memo = try? JSONDecoder().decode(MemoPad.self, from: data) {
+            return memo
+        }
+        return MemoPad()
+    }
+
+    private func persistMemoPad() {
+        if let data = try? JSONEncoder().encode(memoPad) {
+            UserDefaults.standard.set(data, forKey: Self.memoPadDefaultsKey)
+        }
     }
 
     // MARK: - Sample Data

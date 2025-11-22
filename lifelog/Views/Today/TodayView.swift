@@ -14,12 +14,14 @@ struct TodayView: View {
     @State private var showTaskEditor = false
     @State private var showDiaryEditor = false
     @State private var showEventEditor = false
+    @State private var showMemoEditor = false
     @State private var editingEvent: CalendarEvent?
     @State private var editingTask: Task?
     @State private var eventToDelete: CalendarEvent?
     @State private var taskToDelete: Task?
     @State private var showEventDeleteConfirmation = false
     @State private var showTaskDeleteConfirmation = false
+    private let memoPlaceholder = "買い物リストや気づいたことを書いておけます"
     private let store: AppDataStore
 
     init(store: AppDataStore) {
@@ -34,6 +36,7 @@ struct TodayView: View {
                 eventsSection
 //                todayTimelineSection
                 tasksSection
+                memoSection
                 habitsSection
                 healthSection
                 diarySection
@@ -44,6 +47,11 @@ struct TodayView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    showMemoEditor = true
+                } label: {
+                    Image(systemName: "note.text")
+                }
                 Button {
                     showTaskManager = true
                 } label: {
@@ -59,6 +67,11 @@ struct TodayView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
+            }
+        }
+        .sheet(isPresented: $showMemoEditor) {
+            NavigationStack {
+                MemoEditorView(store: store)
             }
         }
         .sheet(isPresented: $showTaskManager) {
@@ -291,6 +304,46 @@ struct TodayView: View {
                     }
                 }
             }
+        }
+    }
+
+    private var memoSection: some View {
+        SectionCard {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("メモ")
+                        .font(.headline)
+                    Spacer()
+                    Button {
+                        showMemoEditor = true
+                    } label: {
+                        Image(systemName: "square.and.pencil")
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                let trimmed = viewModel.memoPad.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                if trimmed.isEmpty {
+                    Text(memoPlaceholder)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                } else {
+                    Text(trimmed)
+                        .lineLimit(4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+
+                if let lastUpdated = viewModel.memoPad.lastUpdatedAt {
+                    Text("最終更新: \(lastUpdated.memoPadDisplayString())")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            showMemoEditor = true
         }
     }
 

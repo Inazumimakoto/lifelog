@@ -71,6 +71,13 @@ extension DateFormatter {
         formatter.timeStyle = .short
         return formatter
     }()
+
+    static let memoPadDateTime: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = JapaneseLocaleProvider.locale
+        formatter.dateFormat = "M/d HH:mm"
+        return formatter
+    }()
 }
 
 extension Date {
@@ -111,6 +118,13 @@ extension Date {
 
     var jaWeekdayString: String {
         jaWeekdayNarrowString
+    }
+
+    func memoPadDisplayString(relativeTo reference: Date = Date()) -> String {
+        if Calendar.current.isDate(self, inSameDayAs: reference) {
+            return DateFormatter.japaneseTime.string(from: self)
+        }
+        return DateFormatter.memoPadDateTime.string(from: self)
     }
 }
 

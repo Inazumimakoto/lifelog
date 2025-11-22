@@ -154,6 +154,16 @@ enum Weekday: Int, CaseIterable, Identifiable, Codable {
 
 // MARK: - Core Models
 
+struct MemoPad: Codable, Hashable {
+    var text: String
+    var lastUpdatedAt: Date?
+
+    init(text: String = "", lastUpdatedAt: Date? = nil) {
+        self.text = text
+        self.lastUpdatedAt = lastUpdatedAt
+    }
+}
+
 struct Task: Identifiable, Codable, Hashable {
     let id: UUID
     var title: String
