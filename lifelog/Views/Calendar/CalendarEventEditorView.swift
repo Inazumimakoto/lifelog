@@ -27,7 +27,7 @@ struct CalendarEventEditorView: View {
         self.originalEvent = event
         let initialStart = event?.startDate ?? Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: defaultDate) ?? defaultDate
         _title = State(initialValue: event?.title ?? "")
-        _category = State(initialValue: event?.calendarName ?? "個人")
+        _category = State(initialValue: event?.calendarName ?? CategoryPalette.defaultCategoryName)
         _startDate = State(initialValue: initialStart)
         _endDate = State(initialValue: event?.endDate ?? initialStart.addingTimeInterval(3600))
     }

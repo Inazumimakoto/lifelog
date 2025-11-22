@@ -41,6 +41,7 @@ struct JournalView: View {
     @State private var scrollProxy: ScrollViewProxy?
     @State private var showingDetailPanel = false
     @State private var calendarSyncTrigger = 0
+    @State private var showCalendarSettings = false
 
     init(store: AppDataStore) {
         self.store = store
@@ -115,6 +116,9 @@ struct JournalView: View {
                         newItemDate = viewModel.selectedDate
                         showEventEditor = true
                     }
+                    Button("カレンダー設定") {
+                        showCalendarSettings = true
+                    }
                 } label: {
                     Image(systemName: "plus")
                 }
@@ -152,6 +156,11 @@ struct JournalView: View {
                                defaultDate: task.startDate ?? task.endDate ?? viewModel.selectedDate) { updated in
                     store.updateTask(updated)
                 }
+            }
+        }
+        .sheet(isPresented: $showCalendarSettings) {
+            NavigationStack {
+                CalendarCategorySettingsView(store: store)
             }
         }
         .confirmationDialog("この日に何を追加しますか？", isPresented: $showAddMenu, titleVisibility: .visible) {

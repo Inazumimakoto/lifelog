@@ -314,30 +314,34 @@ struct CalendarEvent: Identifiable, Hashable {
     var endDate: Date
     var calendarName: String
     var isAllDay: Bool
+    var sourceCalendarIdentifier: String?
 
     init(id: UUID = UUID(),
          title: String,
          startDate: Date,
          endDate: Date,
          calendarName: String,
-         isAllDay: Bool = false) {
+         isAllDay: Bool = false,
+         sourceCalendarIdentifier: String? = nil) {
         self.id = id
         self.title = title
         self.startDate = startDate
         self.endDate = endDate
         self.calendarName = calendarName
         self.isAllDay = isAllDay
+        self.sourceCalendarIdentifier = sourceCalendarIdentifier
     }
 }
 
 extension CalendarEvent {
-    init(event: EKEvent) {
+    init(event: EKEvent, categoryName: String) {
         self.init(id: UUID(),
                   title: event.title,
                   startDate: event.startDate,
                   endDate: event.endDate,
-                  calendarName: "",
-                  isAllDay: event.isAllDay)
+                  calendarName: categoryName,
+                  isAllDay: event.isAllDay,
+                  sourceCalendarIdentifier: event.calendar.calendarIdentifier)
     }
 }
 

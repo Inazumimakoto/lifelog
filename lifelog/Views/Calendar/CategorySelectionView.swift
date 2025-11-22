@@ -10,6 +10,7 @@ import SwiftUI
 struct CategorySelectionView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedCategory: String
+    var noneLabel: String?
     
     @State private var allCategories: [CategoryPalette.CustomCategory]
     @State private var newCategoryName: String = ""
@@ -19,8 +20,9 @@ struct CategorySelectionView: View {
     @State private var editingCategoryColor: String = CategoryPalette.colorChoices.first ?? "#F97316"
     @State private var isShowingAddCategory = false
 
-    init(selectedCategory: Binding<String>) {
+    init(selectedCategory: Binding<String>, noneLabel: String? = nil) {
         self._selectedCategory = selectedCategory
+        self.noneLabel = noneLabel
         self._allCategories = State(initialValue: CategoryPalette.allCategories())
     }
 
@@ -33,6 +35,24 @@ struct CategorySelectionView: View {
                     .padding(.horizontal)
                     .padding(.bottom, 4)
                 List {
+                    if let noneLabel {
+                        Button(action: {
+                            selectedCategory = ""
+                            dismiss()
+                        }) {
+                            HStack {
+                                Circle()
+                                    .stroke(Color.secondary, lineWidth: 1)
+                                    .frame(width: 20, height: 20)
+                                Text(noneLabel)
+                                Spacer()
+                                if selectedCategory.isEmpty {
+                                    Image(systemName: "checkmark")
+                                        .foregroundColor(.accentColor)
+                                }
+                            }
+                        }
+                    }
                     ForEach(allCategories, id: \.name) { category in
                         Button(action: {
                             selectedCategory = category.name

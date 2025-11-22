@@ -134,6 +134,24 @@ extension Collection where Element == HabitRecord {
     }
 }
 
+extension Color {
+    static func from(cgColor: CGColor?) -> Color? {
+        guard let cgColor else { return nil }
+        return Color(cgColor)
+    }
+}
+
+extension CGColor {
+    var hexString: String? {
+        guard let comps = converted(to: CGColorSpaceCreateDeviceRGB(), intent: .defaultIntent, options: nil)?.components,
+              comps.count >= 3 else { return nil }
+        let r = Int(round(comps[0] * 255))
+        let g = Int(round(comps[1] * 255))
+        let b = Int(round(comps[2] * 255))
+        return String(format: "#%02X%02X%02X", r, g, b)
+    }
+}
+
 enum CategoryPalette {
     struct CustomCategory: Codable, Hashable, Identifiable {
         var name: String
@@ -222,5 +240,9 @@ enum CategoryPalette {
 
     private static func normalized(_ name: String) -> String {
         name.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static var defaultCategoryName: String {
+        allCategories().first?.name ?? "仕事"
     }
 }

@@ -211,8 +211,9 @@ final class JournalViewModel: ObservableObject {
         }
 
         do {
+            calendarService.refreshCalendarLinks(store: store)
             let ekEvents = try await calendarService.fetchEventsForCurrentAndNextMonth()
-            let external = ekEvents.map { CalendarEvent(event: $0) }
+            let external = mapExternalEvents(from: ekEvents)
             store.updateExternalCalendarEvents(external)
             store.updateLastCalendarSync(date: Date())
             calendarAccessDenied = false
@@ -232,6 +233,21 @@ final class JournalViewModel: ObservableObject {
         let end = calendar.startOfDay(for: task.endDate ?? task.startDate ?? date)
         let target = calendar.startOfDay(for: date)
         return start...end ~= target
+    }
+
+    private func mapExternalEvents(from ekEvents: [EKEvent]) -> [CalendarEvent] {
+        let links = store.appState.calendarCategoryLinks
+        let linkMap = Dictionary(uniqueKeysWithValues: links.map { ($0.calendarIdentifier, $0) })
+        let defaultCategory = CategoryPalette.defaultCategoryName
+
+        return ekEvents.compactMap { event in
+            let identifier = event.calendar.calendarIdentifier
+            if let link = linkMap[identifier] {
+                guard let category = link.categoryId else { return nil }
+                return CalendarEvent(event: event, categoryName: category)
+            }
+            return CalendarEvent(event: event, categoryName: defaultCategory)
+        }
     }
 
     func calendarDays(for anchor: Date) -> [CalendarDay] {

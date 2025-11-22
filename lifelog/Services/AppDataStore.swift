@@ -89,6 +89,34 @@ final class AppDataStore: ObservableObject {
         persistAppState()
     }
 
+    func updateCalendarLinks(with calendars: [EKCalendar]) {
+        var links = appState.calendarCategoryLinks
+        let defaultCategory = CategoryPalette.defaultCategoryName
+        for calendar in calendars {
+            if let index = links.firstIndex(where: { $0.calendarIdentifier == calendar.calendarIdentifier }) {
+                links[index].calendarTitle = calendar.title
+                links[index].colorHex = calendar.cgColor.hexString
+            } else {
+                let shouldHide = calendar.title.contains("祝日")
+                let link = CalendarCategoryLink(calendarIdentifier: calendar.calendarIdentifier,
+                                                calendarTitle: calendar.title,
+                                                categoryId: shouldHide ? nil : defaultCategory,
+                                                colorHex: calendar.cgColor.hexString)
+                links.append(link)
+            }
+        }
+        appState.calendarCategoryLinks = links
+        persistAppState()
+    }
+
+    func updateCalendarLinkCategory(calendarIdentifier: String, categoryName: String?) {
+        guard let index = appState.calendarCategoryLinks.firstIndex(where: { $0.calendarIdentifier == calendarIdentifier }) else {
+            return
+        }
+        appState.calendarCategoryLinks[index].categoryId = categoryName
+        persistAppState()
+    }
+
     // MARK: - Task CRUD
 
     func addTask(_ task: Task) {

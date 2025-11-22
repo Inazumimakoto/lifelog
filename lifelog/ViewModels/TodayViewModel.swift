@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 import SwiftUI
+import EventKit
 
 @MainActor
 final class TodayViewModel: ObservableObject {
@@ -140,8 +141,9 @@ final class TodayViewModel: ObservableObject {
         }
 
         do {
+            calendarService.refreshCalendarLinks(store: store)
             let ekEvents = try await calendarService.fetchEventsForCurrentAndNextMonth()
-            let external = ekEvents.map { CalendarEvent(event: $0) }
+            let external = mapExternalEvents(from: ekEvents)
             await MainActor.run {
                 self.calendarAccessDenied = false
                 self.store.updateExternalCalendarEvents(external)
@@ -234,5 +236,20 @@ final class TodayViewModel: ObservableObject {
 
         return (internalEvents + externalEvents)
             .sorted(by: { $0.startDate < $1.startDate })
+    }
+
+    private func mapExternalEvents(from ekEvents: [EKEvent]) -> [CalendarEvent] {
+        let links = store.appState.calendarCategoryLinks
+        let linkMap = Dictionary(uniqueKeysWithValues: links.map { ($0.calendarIdentifier, $0) })
+        let defaultCategory = CategoryPalette.defaultCategoryName
+
+        return ekEvents.compactMap { event in
+            let identifier = event.calendar.calendarIdentifier
+            if let link = linkMap[identifier] {
+                guard let category = link.categoryId else { return nil }
+                return CalendarEvent(event: event, categoryName: category)
+            }
+            return CalendarEvent(event: event, categoryName: defaultCategory)
+        }
     }
 }

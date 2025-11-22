@@ -48,4 +48,9 @@ final class CalendarEventService {
         let events = eventStore.events(matching: predicate)
         return events
     }
+
+    func refreshCalendarLinks(store: AppDataStore) {
+        let calendars = eventStore.calendars(for: .event)
+        store.updateCalendarLinks(with: calendars)
+    }
 }
