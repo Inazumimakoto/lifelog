@@ -344,7 +344,9 @@ struct HabitYearHeatmapView: View {
             }
             .onAppear {
                 let today = calendar.startOfDay(for: Date())
-                proxy.scrollTo(today, anchor: .trailing)
+                DispatchQueue.main.async {
+                    proxy.scrollTo(today, anchor: .trailing)
+                }
             }
         }
     }
@@ -354,14 +356,15 @@ struct HabitYearHeatmapView: View {
         guard summary.scheduledCount > 0 else { return Color.gray.opacity(0.18) }
 
         let rate = Double(summary.completedCount) / Double(summary.scheduledCount)
-        switch rate {
-        case 0:
+        if rate == 0 {
             return Color.gray.opacity(0.28)
-        case 0..<0.26:
-            return Color(hex: "#bbf7d0") ?? Color.green.opacity(0.35)
-        case 0.26..<0.76:
+        } else if rate <= 0.25 {
+            return Color(hex: "#d1fae5") ?? Color.green.opacity(0.28)
+        } else if rate <= 0.5 {
+            return Color(hex: "#a7f3d0") ?? Color.green.opacity(0.45)
+        } else if rate <= 0.75 {
             return Color(hex: "#4ade80") ?? Color.green.opacity(0.65)
-        default:
+        } else {
             return Color(hex: "#16a34a") ?? Color.green
         }
     }

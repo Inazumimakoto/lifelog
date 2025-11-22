@@ -112,6 +112,7 @@ struct HabitDetailView: View {
         SectionCard(title: "最近の履歴") {
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(recentDates, id: \.self) { date in
+                    let isScheduled = currentHabit.schedule.isActive(on: date)
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(date, formatter: DateFormatter.japaneseYearMonthDay)
@@ -121,14 +122,23 @@ struct HabitDetailView: View {
                                 .foregroundStyle(.secondary)
                         }
                         Spacer()
-                        Button {
-                            toggle(date: date)
-                        } label: {
-                            Image(systemName: isCompleted(on: date) ? "checkmark.circle.fill" : "circle")
-                                .font(.title3)
-                                .foregroundStyle(isCompleted(on: date) ? accentColor : .secondary)
+                        if isScheduled {
+                            Button {
+                                toggle(date: date)
+                            } label: {
+                                Image(systemName: isCompleted(on: date) ? "checkmark.circle.fill" : "circle")
+                                    .font(.title3)
+                                    .foregroundStyle(isCompleted(on: date) ? accentColor : .secondary)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            Text("予定なし")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 6)
+                                .background(Color.gray.opacity(0.15), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                         }
-                        .buttonStyle(.plain)
                     }
                     .padding(.vertical, 4)
                     .id(date)
@@ -171,6 +181,7 @@ struct HabitDetailView: View {
     }
 
     private func toggle(date: Date) {
+        guard currentHabit.schedule.isActive(on: date) else { return }
         store.toggleHabit(currentHabit.id, on: date)
     }
 
