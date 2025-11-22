@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import EventKit
 
 // MARK: - Enumerations
 
@@ -312,17 +313,31 @@ struct CalendarEvent: Identifiable, Hashable {
     var startDate: Date
     var endDate: Date
     var calendarName: String
+    var isAllDay: Bool
 
     init(id: UUID = UUID(),
          title: String,
          startDate: Date,
          endDate: Date,
-         calendarName: String) {
+         calendarName: String,
+         isAllDay: Bool = false) {
         self.id = id
         self.title = title
         self.startDate = startDate
         self.endDate = endDate
         self.calendarName = calendarName
+        self.isAllDay = isAllDay
+    }
+}
+
+extension CalendarEvent {
+    init(event: EKEvent) {
+        self.init(id: UUID(),
+                  title: event.title,
+                  startDate: event.startDate,
+                  endDate: event.endDate,
+                  calendarName: "",
+                  isAllDay: event.isAllDay)
     }
 }
 

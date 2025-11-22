@@ -9,6 +9,7 @@ import SwiftUI
 
 struct JournalView: View {
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scenePhase) private var scenePhase
     private let store: AppDataStore
     @StateObject private var viewModel: JournalViewModel
     private let monthPagerHeight: CGFloat = 560
@@ -39,6 +40,7 @@ struct JournalView: View {
     @Namespace private var selectionNamespace
     @State private var scrollProxy: ScrollViewProxy?
     @State private var showingDetailPanel = false
+    @State private var calendarSyncTrigger = 0
 
     init(store: AppDataStore) {
         self.store = store
@@ -60,6 +62,12 @@ struct JournalView: View {
                     }
                     calendarSwitcher
                     contentArea
+                    if viewModel.calendarAccessDenied {
+                        Text("設定 > プライバシーとセキュリティ > カレンダーでlifelogへのアクセスを許可すると外部カレンダーの予定が表示されます。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
                 .padding()
             }
@@ -166,6 +174,15 @@ struct JournalView: View {
             prepareWeekPagerIfNeeded()
             prepareDetailPagerIfNeeded()
             viewModel.preloadMonths(around: viewModel.monthAnchor, radius: 1)
+            calendarSyncTrigger += 1
+        }
+        .task(id: calendarSyncTrigger) {
+            await viewModel.syncExternalCalendarsIfNeeded()
+        }
+        .onChange(of: scenePhase, initial: false) { oldPhase, newPhase in
+            if oldPhase != .active && newPhase == .active {
+                calendarSyncTrigger += 1
+            }
         }
         .onChange(of: viewModel.displayMode) { _, newMode in
             if newMode == .week {

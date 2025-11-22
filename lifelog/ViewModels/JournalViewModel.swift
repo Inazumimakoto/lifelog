@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import EventKit
 
 @MainActor
 final class JournalViewModel: ObservableObject {
@@ -52,13 +53,16 @@ final class JournalViewModel: ObservableObject {
     @Published private(set) var monthTitle: String = ""
     @Published var displayMode: DisplayMode = .month
     @Published private(set) var monthAnchor: Date
+    @Published private(set) var calendarAccessDenied: Bool = false
 
     private let store: AppDataStore
+    private let calendarService: CalendarEventService
     private var cancellables = Set<AnyCancellable>()
     private var monthCache: [Date: [CalendarDay]] = [:]
 
-    init(store: AppDataStore, anchorDate: Date = Date()) {
+    init(store: AppDataStore, anchorDate: Date = Date(), calendarService: CalendarEventService? = nil) {
         self.store = store
+        self.calendarService = calendarService ?? CalendarEventService()
         self.monthAnchor = anchorDate.startOfDay
         self.selectedDate = anchorDate.startOfDay
         bind()
@@ -68,8 +72,9 @@ final class JournalViewModel: ObservableObject {
     private func bind() {
         store.$tasks
             .combineLatest(store.$habitRecords, store.$diaryEntries, store.$calendarEvents)
+            .combineLatest(store.$externalCalendarEvents)
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] _, _, _, _ in
+            .sink { [weak self] _ in
                 self?.rebuild()
             }
             .store(in: &cancellables)
@@ -168,7 +173,7 @@ final class JournalViewModel: ObservableObject {
         }
 
         // Find all events that overlap with the given date
-        for event in store.calendarEvents {
+        for event in store.events(on: date) {
             if event.startDate < dayEnd && event.endDate > dayStart {
                 items.append(TimelineItem(sourceId: event.id,
                                           title: event.title,
@@ -190,6 +195,30 @@ final class JournalViewModel: ObservableObject {
                                       detail: task.detail))
         }
         return items.sorted(by: { $0.start < $1.start })
+    }
+
+    func syncExternalCalendarsIfNeeded() async {
+        let today = Calendar.current.startOfDay(for: Date())
+        if let last = store.lastCalendarSyncDate,
+           Calendar.current.isDate(last, inSameDayAs: today) {
+            return
+        }
+
+        let granted = await calendarService.requestAccessIfNeeded()
+        guard granted else {
+            calendarAccessDenied = true
+            return
+        }
+
+        do {
+            let ekEvents = try await calendarService.fetchEventsForCurrentAndNextMonth()
+            let external = ekEvents.map { CalendarEvent(event: $0) }
+            store.updateExternalCalendarEvents(external)
+            store.updateLastCalendarSync(date: Date())
+            calendarAccessDenied = false
+        } catch {
+            // Ignore errors
+        }
     }
 
     var weekDates: [Date] {

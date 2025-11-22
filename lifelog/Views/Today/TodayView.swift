@@ -10,6 +10,7 @@ import PhotosUI
 
 struct TodayView: View {
     @StateObject private var viewModel: TodayViewModel
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showTaskManager = false
     @State private var showTaskEditor = false
     @State private var showDiaryEditor = false
@@ -23,6 +24,8 @@ struct TodayView: View {
     @State private var showTaskDeleteConfirmation = false
     private let memoPlaceholder = "買い物リストや気づいたことを書いておけます"
     private let store: AppDataStore
+    @State private var didAppear = false
+    @State private var calendarSyncTrigger = 0
 
     init(store: AppDataStore) {
         self.store = store
@@ -42,6 +45,14 @@ struct TodayView: View {
                 diarySection
             }
             .padding()
+        }
+        .task(id: calendarSyncTrigger) {
+            await syncCalendarsIfNeeded()
+        }
+        .onChange(of: scenePhase, initial: false) { oldPhase, newPhase in
+            if oldPhase != .active && newPhase == .active {
+                calendarSyncTrigger += 1
+            }
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
@@ -145,6 +156,15 @@ struct TodayView: View {
         }
     }
 
+    private func syncCalendarsIfNeeded() async {
+        guard didAppear == false else {
+            await viewModel.syncExternalCalendarsIfNeeded()
+            return
+        }
+        didAppear = true
+        await viewModel.syncExternalCalendarsIfNeeded()
+    }
+
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .lastTextBaseline) {
@@ -177,23 +197,25 @@ struct TodayView: View {
                                     .fill(color(for: event.calendarName))
                                     .frame(width: 10, height: 10)
                                     .padding(.top, 6)
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(event.title)
-                                        .font(.body.weight(.semibold))
-                                    Label("\(event.startDate.formattedTime()) - \(event.endDate.formattedTime())", systemImage: "clock")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                    Text(event.calendarName)
-                                        .font(.caption2)
-                                        .foregroundStyle(color(for: event.calendarName))
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(color(for: event.calendarName).opacity(0.15), in: Capsule())
-                                }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(event.title)
+                                .font(.body.weight(.semibold))
+                            Label("\(event.startDate.formattedTime()) - \(event.endDate.formattedTime())", systemImage: "clock")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            if event.calendarName.isEmpty == false {
+                                Text(event.calendarName)
+                                    .font(.caption2)
+                                    .foregroundStyle(color(for: event.calendarName))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(color(for: event.calendarName).opacity(0.15), in: Capsule())
                             }
-                            HStack(spacing: 12) {
-                                Button {
-                                    editingEvent = event
+                        }
+                    }
+                    HStack(spacing: 12) {
+                        Button {
+                            editingEvent = event
                                 } label: {
                                     Label("編集", systemImage: "square.and.pencil")
                                 }
@@ -216,6 +238,11 @@ struct TodayView: View {
                 Text("予定を追加するとカレンダーとホームで共有されます。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if viewModel.calendarAccessDenied {
+                    Text("設定 > プライバシーとセキュリティ > カレンダーでlifelogへのアクセスを許可すると、外部カレンダーの予定が表示されます。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }

@@ -32,14 +32,17 @@ final class TodayViewModel: ObservableObject {
     @Published private(set) var diaryEntry: DiaryEntry?
     @Published private(set) var timelineItems: [JournalViewModel.TimelineItem] = []
     @Published private(set) var memoPad: MemoPad = MemoPad()
+    @Published private(set) var calendarAccessDenied: Bool = false
 
     private let store: AppDataStore
+    private let calendarService: CalendarEventService
     private var cancellables = Set<AnyCancellable>()
     private var pendingAnimation: Animation?
 
-    init(store: AppDataStore, date: Date = Date()) {
+    init(store: AppDataStore, date: Date = Date(), calendarService: CalendarEventService? = nil) {
         self.store = store
         self.date = date
+        self.calendarService = calendarService ?? CalendarEventService()
         bind()
         refreshAll()
     }
@@ -58,7 +61,7 @@ final class TodayViewModel: ObservableObject {
     private func refreshAll() {
         let updates = {
             self.memoPad = self.store.memoPad
-            self.events = self.store.events(on: self.date)
+            self.events = self.mergedEvents(on: self.date)
             let todaysTasks = self.store.tasks
                 .filter { self.isTask($0, scheduledOn: self.date) }
                 .sorted(by: self.sortTasks)
@@ -119,6 +122,35 @@ final class TodayViewModel: ObservableObject {
 
     func deleteEvent(_ event: CalendarEvent) {
         store.deleteCalendarEvent(event.id)
+    }
+
+    func syncExternalCalendarsIfNeeded() async {
+        let today = Calendar.current.startOfDay(for: Date())
+        if let last = store.lastCalendarSyncDate,
+           Calendar.current.isDate(last, inSameDayAs: today) {
+            return
+        }
+
+        let granted = await calendarService.requestAccessIfNeeded()
+        guard granted else {
+            await MainActor.run {
+                self.calendarAccessDenied = true
+            }
+            return
+        }
+
+        do {
+            let ekEvents = try await calendarService.fetchEventsForCurrentAndNextMonth()
+            let external = ekEvents.map { CalendarEvent(event: $0) }
+            await MainActor.run {
+                self.calendarAccessDenied = false
+                self.store.updateExternalCalendarEvents(external)
+                self.store.updateLastCalendarSync(date: Date())
+                self.refreshAll()
+            }
+        } catch {
+            // Ignore errors for now; keep existing events
+        }
     }
 
     private func buildTimelineItems() -> [JournalViewModel.TimelineItem] {
@@ -188,5 +220,19 @@ final class TodayViewModel: ObservableObject {
 
     private func timelineAnchor(for task: Task, defaultingTo date: Date) -> Date {
         return task.startDate ?? task.endDate ?? date
+    }
+
+    private func mergedEvents(on date: Date) -> [CalendarEvent] {
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: date)
+        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return [] }
+
+        let internalEvents = store.calendarEvents
+            .filter { $0.startDate < dayEnd && $0.endDate > dayStart }
+        let externalEvents = store.externalCalendarEvents
+            .filter { $0.startDate < dayEnd && $0.endDate > dayStart }
+
+        return (internalEvents + externalEvents)
+            .sorted(by: { $0.startDate < $1.startDate })
     }
 }

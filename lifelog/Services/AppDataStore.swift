@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 import HealthKit
+import EventKit
 
 @MainActor
 final class AppDataStore: ObservableObject {
@@ -22,13 +23,17 @@ final class AppDataStore: ObservableObject {
     @Published private(set) var healthSummaries: [HealthSummary] = []
     @Published private(set) var calendarEvents: [CalendarEvent] = []
     @Published private(set) var memoPad: MemoPad = MemoPad()
+    @Published private(set) var externalCalendarEvents: [CalendarEvent] = []
+    @Published private(set) var appState: AppState = AppState()
 
     private static let memoPadDefaultsKey = "MemoPad_Storage_V1"
+    private static let appStateDefaultsKey = "AppState_Storage_V1"
 
     // MARK: - Init
 
     init() {
         memoPad = Self.loadMemoPad()
+        appState = Self.loadAppState()
         seedSampleData()
         _Concurrency.Task {
             await loadHealthData()
@@ -51,7 +56,7 @@ final class AppDataStore: ObservableObject {
         let calendar = Calendar.current
         let dayStart = calendar.startOfDay(for: date)
         guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return [] }
-        return calendarEvents
+        return (calendarEvents + externalCalendarEvents)
             .filter { event in
                 event.startDate < dayEnd && event.endDate > dayStart
             }
@@ -69,6 +74,19 @@ final class AppDataStore: ObservableObject {
 
     func deleteCalendarEvent(_ eventID: UUID) {
         calendarEvents.removeAll { $0.id == eventID }
+    }
+
+    func updateExternalCalendarEvents(_ events: [CalendarEvent]) {
+        externalCalendarEvents = events
+    }
+
+    var lastCalendarSyncDate: Date? {
+        appState.lastCalendarSyncDate
+    }
+
+    func updateLastCalendarSync(date: Date) {
+        appState.lastCalendarSyncDate = date
+        persistAppState()
     }
 
     // MARK: - Task CRUD
@@ -169,6 +187,23 @@ final class AppDataStore: ObservableObject {
     private func persistMemoPad() {
         if let data = try? JSONEncoder().encode(memoPad) {
             UserDefaults.standard.set(data, forKey: Self.memoPadDefaultsKey)
+        }
+    }
+
+    // MARK: - App State
+
+    private static func loadAppState() -> AppState {
+        let defaults = UserDefaults.standard
+        if let data = defaults.data(forKey: appStateDefaultsKey),
+           let state = try? JSONDecoder().decode(AppState.self, from: data) {
+            return state
+        }
+        return AppState()
+    }
+
+    private func persistAppState() {
+        if let data = try? JSONEncoder().encode(appState) {
+            UserDefaults.standard.set(data, forKey: Self.appStateDefaultsKey)
         }
     }
 

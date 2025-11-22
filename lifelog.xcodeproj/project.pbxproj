@@ -260,6 +260,7 @@
 				DEVELOPMENT_TEAM = V7XG8HDQL4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "外部カレンダーの予定を読み取ってTodayで表示するために使用します。";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "We need to read your health data to display it in the app.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "We do not write any health data.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
@@ -295,6 +296,7 @@
 				DEVELOPMENT_TEAM = V7XG8HDQL4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSCalendarsUsageDescription = "外部カレンダーの予定を読み取ってTodayで表示するために使用します。";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "We need to read your health data to display it in the app.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "We do not write any health data.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
