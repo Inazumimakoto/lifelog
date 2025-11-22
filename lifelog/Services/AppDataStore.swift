@@ -174,6 +174,17 @@ final class AppDataStore: ObservableObject {
         }
     }
 
+    func setHabitCompletion(_ habitID: UUID, on date: Date, completed: Bool) {
+        if let index = habitRecords.firstIndex(where: {
+            $0.habitID == habitID && Calendar.current.isDate($0.date, inSameDayAs: date)
+        }) {
+            habitRecords[index].isCompleted = completed
+        } else if completed {
+            let record = HabitRecord(habitID: habitID, date: date, isCompleted: true)
+            habitRecords.append(record)
+        }
+    }
+
     func addHabit(_ habit: Habit) {
         habits.append(habit)
     }

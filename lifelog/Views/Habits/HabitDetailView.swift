@@ -204,11 +204,13 @@ struct HabitDetailView: View {
             let day = calendar.startOfDay(for: date)
             let isActive = currentHabit.schedule.isActive(on: day)
             if isActive == false {
-                cells.append(HabitHeatCell(date: day, state: .inactive))
+                cells.append(HabitHeatCell(date: day, state: .inactive, isToday: calendar.isDate(day, inSameDayAs: today)))
                 continue
             }
             let done = isCompleted(on: day)
-            cells.append(HabitHeatCell(date: day, state: done ? .completed : .pending))
+            cells.append(HabitHeatCell(date: day,
+                                       state: done ? .completed : .pending,
+                                       isToday: calendar.isDate(day, inSameDayAs: today)))
         }
         return cells
     }
@@ -278,6 +280,11 @@ private struct HabitDetailHeatmapView: View {
                         RoundedRectangle(cornerRadius: 3)
                             .fill(color(for: cell.state))
                             .frame(width: 14, height: 16)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 3)
+                                    .stroke(cell.isToday ? Color.white.opacity(0.9) : .clear, lineWidth: 1.4)
+                            )
+                            .scaleEffect(cell.isToday ? 1.1 : 1.0)
                             .id(cell.id)
                             .onTapGesture {
                                 onSelect(cell.date)

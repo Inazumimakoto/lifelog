@@ -18,6 +18,7 @@ struct HabitHeatCell: Identifiable, Hashable {
 
     let date: Date
     let state: State
+    let isToday: Bool
 
     var id: Date { date }
 }
@@ -59,6 +60,8 @@ final class HabitsViewModel: ObservableObject {
     @Published private(set) var yearStartDate: Date = Calendar.current.startOfDay(for: Date())
     @Published private(set) var yearWeekCount: Int = 53
     @Published private(set) var miniHeatmaps: [UUID: [HabitHeatCell]] = [:]
+    @Published private(set) var yearlyAverageRate: Double = 0
+    @Published private(set) var monthlyAverageRate: Double = 0
     private var pendingAnimation: Animation?
 
     private let store: AppDataStore
@@ -113,6 +116,11 @@ final class HabitsViewModel: ObservableObject {
     func toggle(habit: Habit, on date: Date) {
         pendingAnimation = .spring(response: 0.35, dampingFraction: 0.8)
         store.toggleHabit(habit.id, on: date)
+    }
+
+    func setHabit(_ habit: Habit, on date: Date, completed: Bool) {
+        guard habit.schedule.isActive(on: date) else { return }
+        store.setHabitCompletion(habit.id, on: date, completed: completed)
     }
 
     func addHabit(_ habit: Habit) {
@@ -181,6 +189,7 @@ final class HabitsViewModel: ObservableObject {
         }
         computeYearlyHeatmap(with: recordsLookup)
         computeMiniHeatmaps(with: recordsLookup)
+        computeAverageRates()
     }
 
     private func computeYearlyHeatmap(with recordsLookup: [UUID: [Date: HabitRecord]]) {
@@ -219,16 +228,38 @@ final class HabitsViewModel: ObservableObject {
                 let day = calendar.startOfDay(for: date)
                 let isActive = habit.schedule.isActive(on: day)
                 if isActive == false {
-                    cells.append(HabitHeatCell(date: day, state: .inactive))
+                    cells.append(HabitHeatCell(date: day, state: .inactive, isToday: calendar.isDate(day, inSameDayAs: today)))
                     continue
                 }
 
                 let isDone = recordsLookup[habit.id]?[day]?.isCompleted == true
-                cells.append(HabitHeatCell(date: day, state: isDone ? .completed : .pending))
+                cells.append(HabitHeatCell(date: day,
+                                           state: isDone ? .completed : .pending,
+                                           isToday: calendar.isDate(day, inSameDayAs: today)))
             }
             map[habit.id] = cells
         }
 
         miniHeatmaps = map
+    }
+
+    private func computeAverageRates() {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let startOfYear = calendar.date(from: calendar.dateComponents([.year], from: today)) ?? today
+        let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: today)) ?? today
+
+        let summaries = yearlySummaries.values
+        func averageRate(from collection: [HabitDaySummary]) -> Double {
+            let eligible = collection.filter { $0.scheduledCount > 0 }
+            guard eligible.isEmpty == false else { return 0 }
+            let total = eligible.reduce(0.0) { partial, summary in
+                partial + Double(summary.completedCount) / Double(summary.scheduledCount)
+            }
+            return total / Double(eligible.count)
+        }
+
+        yearlyAverageRate = averageRate(from: summaries.filter { $0.date >= startOfYear })
+        monthlyAverageRate = averageRate(from: summaries.filter { $0.date >= startOfMonth })
     }
 }
