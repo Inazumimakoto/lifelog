@@ -34,7 +34,9 @@ final class AppDataStore: ObservableObject {
     init() {
         memoPad = Self.loadMemoPad()
         appState = Self.loadAppState()
-        seedSampleData()
+        #if DEBUG
+        seedSampleDataIfNeeded()
+        #endif
         _Concurrency.Task {
             await loadHealthData()
         }
@@ -246,9 +248,11 @@ final class AppDataStore: ObservableObject {
         }
     }
 
-    // MARK: - Sample Data
+    // MARK: - Sample Data (DEBUG only)
 
-    private func seedSampleData() {
+    #if DEBUG
+    private func seedSampleDataIfNeeded() {
+        guard tasks.isEmpty && diaryEntries.isEmpty && habits.isEmpty && anniversaries.isEmpty && calendarEvents.isEmpty else { return }
         let now = Date()
         let calendar = Calendar.current
         let todayStart = calendar.startOfDay(for: now)
@@ -330,4 +334,5 @@ final class AppDataStore: ObservableObject {
 
 
     }
+    #endif
 }
