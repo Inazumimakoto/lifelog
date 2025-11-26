@@ -198,8 +198,10 @@ final class JournalViewModel: ObservableObject {
     }
 
     func syncExternalCalendarsIfNeeded() async {
+        let needsFirstLoadThisRun = calendarService.hasLoadedExternalEventsThisRun == false || store.externalCalendarEvents.isEmpty
         let today = Calendar.current.startOfDay(for: Date())
-        if let last = store.lastCalendarSyncDate,
+        if needsFirstLoadThisRun == false,
+           let last = store.lastCalendarSyncDate,
            Calendar.current.isDate(last, inSameDayAs: today) {
             return
         }
@@ -216,6 +218,7 @@ final class JournalViewModel: ObservableObject {
             let external = mapExternalEvents(from: ekEvents)
             store.updateExternalCalendarEvents(external)
             store.updateLastCalendarSync(date: Date())
+            calendarService.markExternalEventsLoaded()
             calendarAccessDenied = false
         } catch {
             // Ignore errors

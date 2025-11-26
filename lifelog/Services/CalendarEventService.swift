@@ -11,6 +11,7 @@ import EventKit
 @MainActor
 final class CalendarEventService {
     private let eventStore = EKEventStore()
+    private(set) var hasLoadedExternalEventsThisRun = false
 
     func requestAccessIfNeeded() async -> Bool {
         let status = EKEventStore.authorizationStatus(for: .event)
@@ -52,5 +53,9 @@ final class CalendarEventService {
     func refreshCalendarLinks(store: AppDataStore) {
         let calendars = eventStore.calendars(for: .event)
         store.updateCalendarLinks(with: calendars)
+    }
+
+    func markExternalEventsLoaded() {
+        hasLoadedExternalEventsThisRun = true
     }
 }

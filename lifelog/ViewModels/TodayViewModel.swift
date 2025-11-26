@@ -126,8 +126,10 @@ final class TodayViewModel: ObservableObject {
     }
 
     func syncExternalCalendarsIfNeeded() async {
+        let needsFirstLoadThisRun = calendarService.hasLoadedExternalEventsThisRun == false || store.externalCalendarEvents.isEmpty
         let today = Calendar.current.startOfDay(for: Date())
-        if let last = store.lastCalendarSyncDate,
+        if needsFirstLoadThisRun == false,
+           let last = store.lastCalendarSyncDate,
            Calendar.current.isDate(last, inSameDayAs: today) {
             return
         }
@@ -148,6 +150,7 @@ final class TodayViewModel: ObservableObject {
                 self.calendarAccessDenied = false
                 self.store.updateExternalCalendarEvents(external)
                 self.store.updateLastCalendarSync(date: Date())
+                self.calendarService.markExternalEventsLoaded()
                 self.refreshAll()
             }
         } catch {
