@@ -28,6 +28,8 @@ struct JournalView: View {
     @State private var editingEvent: CalendarEvent?
     @State private var editingTask: Task?
     @State private var tappedTimelineItem: JournalViewModel.TimelineItem?
+    @State private var timelineEventToDelete: CalendarEvent?
+    @State private var showTimelineDeleteConfirmation = false
     @State private var showAddMenu = false
     @State private var pendingAddDate: Date?
     @State private var newItemDate: Date?
@@ -74,14 +76,29 @@ struct JournalView: View {
             }
             .onAppear { scrollProxy = proxy }
             .popover(item: $tappedTimelineItem) { item in
-                TimelineItemDetailView(item: item) {
-                    // Dismiss popover first
-                    tappedTimelineItem = nil
-                    // Then trigger the edit sheet after a short delay
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        handleEdit(for: item)
+                let deleteAction: (() -> Void)? = {
+                    guard item.kind == .event,
+                          let id = item.sourceId,
+                          let event = store.calendarEvents.first(where: { $0.id == id }) else { return nil }
+                    return {
+                        tappedTimelineItem = nil
+                        timelineEventToDelete = event
+                        showTimelineDeleteConfirmation = true
                     }
-                }
+                }()
+
+                TimelineItemDetailView(
+                    item: item,
+                    onEdit: {
+                        // Dismiss popover first
+                        tappedTimelineItem = nil
+                        // Then trigger the edit sheet after a short delay
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                            handleEdit(for: item)
+                        }
+                    },
+                    onDelete: deleteAction
+                )
             }
             .sheet(isPresented: $showingDetailPanel) {
                 ScrollView {
@@ -108,19 +125,23 @@ struct JournalView: View {
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Menu {
-                    Button("タスクを追加") {
-                        newItemDate = viewModel.selectedDate
-                        showTaskEditor = true
-                    }
                     Button("予定を追加") {
                         newItemDate = viewModel.selectedDate
                         showEventEditor = true
                     }
+                    Button("タスクを追加") {
+                        newItemDate = viewModel.selectedDate
+                        showTaskEditor = true
+                    }
+                } label: {
+                    Image(systemName: "plus")
+                }
+                Menu {
                     Button("カレンダー設定") {
                         showCalendarSettings = true
                     }
                 } label: {
-                    Image(systemName: "plus")
+                    Image(systemName: "ellipsis.circle")
                 }
             }
         }
@@ -162,6 +183,17 @@ struct JournalView: View {
             NavigationStack {
                 CalendarCategorySettingsView(store: store)
             }
+        }
+        .confirmationDialog("予定を削除", isPresented: $showTimelineDeleteConfirmation, presenting: timelineEventToDelete) { event in
+            Button("削除", role: .destructive) {
+                store.deleteCalendarEvent(event.id)
+                timelineEventToDelete = nil
+            }
+            Button("キャンセル", role: .cancel) {
+                timelineEventToDelete = nil
+            }
+        } message: { event in
+            Text("\"\(event.title)\" を削除しますか？")
         }
         .confirmationDialog("この日に何を追加しますか？", isPresented: $showAddMenu, titleVisibility: .visible) {
             Button("タスクを追加") {
@@ -675,12 +707,30 @@ struct JournalView: View {
                     CalendarDetailPanel(snapshot: snapshot,
                                         includeAddButtons: includeAddButtons,
                                         onAddTask: {
-                                            newItemDate = snapshot.date
-                                            showTaskEditor = true
+                                            if includeAddButtons {
+                                                showingDetailPanel = false
+                                                let targetDate = snapshot.date
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                                    newItemDate = targetDate
+                                                    showTaskEditor = true
+                                                }
+                                            } else {
+                                                newItemDate = snapshot.date
+                                                showTaskEditor = true
+                                            }
                                         },
                                         onAddEvent: {
-                                            newItemDate = snapshot.date
-                                            showEventEditor = true
+                                            if includeAddButtons {
+                                                showingDetailPanel = false
+                                                let targetDate = snapshot.date
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                                    newItemDate = targetDate
+                                                    showEventEditor = true
+                                                }
+                                            } else {
+                                                newItemDate = snapshot.date
+                                                showEventEditor = true
+                                            }
                                         },
                                         onEditTask: { task in editingTask = task },
                                         onEditEvent: { event in editingEvent = event },
@@ -975,6 +1025,11 @@ struct JournalView: View {
 private struct TimelineItemDetailView: View {
     let item: JournalViewModel.TimelineItem
     var onEdit: () -> Void
+    var onDelete: (() -> Void)? = nil
+
+    private var canDeleteEvent: Bool {
+        item.kind == .event && onDelete != nil
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -994,15 +1049,27 @@ private struct TimelineItemDetailView: View {
             }
             
             if item.kind != .sleep {
-                Button(action: onEdit) {
-                    Label("編集", systemImage: "pencil")
-                        .frame(maxWidth: .infinity)
+                VStack(spacing: 8) {
+                    Button(action: onEdit) {
+                        Label("編集", systemImage: "pencil")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+
+                    if canDeleteEvent {
+                        Button(role: .destructive) {
+                            onDelete?()
+                        } label: {
+                            Label("削除", systemImage: "trash")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
+                    }
                 }
-                .buttonStyle(.borderedProminent)
             }
         }
         .padding()
-        .presentationDetents([.height(180)])
+        .presentationDetents([.height(canDeleteEvent ? 210 : 180)])
     }
 }
 
@@ -1042,23 +1109,26 @@ private struct CalendarDetailPanel: View {
         return false
     }
 
-        var body: some View {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    header
-                    summaryRow
-                    OverviewSection(icon: "calendar", title: "予定") {
-                        if snapshot.events.isEmpty {
-                            placeholder("予定はありません")
-                        } else {
-                            VStack(spacing: 12) {
-                                ForEach(snapshot.events) { event in
-                                    VStack(alignment: .leading, spacing: 8) {
-                                        HStack(alignment: .top, spacing: 12) {
-                                            Circle()
-                                                .fill(color(for: event.calendarName))
-                                                .frame(width: 10, height: 10)
-                                                .padding(.top, 6)
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                header
+                summaryRow
+                OverviewSection(icon: "calendar",
+                                title: "予定",
+                                actionTitle: includeAddButtons ? "予定を追加" : nil,
+                                action: includeAddButtons ? onAddEvent : nil) {
+                    if snapshot.events.isEmpty {
+                        placeholder("予定はありません")
+                    } else {
+                        VStack(spacing: 12) {
+                            ForEach(snapshot.events) { event in
+                                VStack(alignment: .leading, spacing: 8) {
+                                    HStack(alignment: .top, spacing: 12) {
+                                        Circle()
+                                            .fill(color(for: event.calendarName))
+                                            .frame(width: 10, height: 10)
+                                            .padding(.top, 6)
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(event.title)
                                                 .font(.body.weight(.semibold))
@@ -1097,7 +1167,10 @@ private struct CalendarDetailPanel: View {
                         }
                     }
                 }
-                OverviewSection(icon: "checkmark.circle", title: "タスク") {
+                OverviewSection(icon: "checkmark.circle",
+                                title: "タスク",
+                                actionTitle: includeAddButtons ? "タスクを追加" : nil,
+                                action: includeAddButtons ? onAddTask : nil) {
                     if snapshot.pendingTasks.isEmpty && snapshot.completedTasks.isEmpty {
                         placeholder("登録されたタスクはありません")
                     } else {
@@ -1181,20 +1254,6 @@ private struct CalendarDetailPanel: View {
                         .buttonStyle(.bordered)
                         .controlSize(.small)
                     }
-                }
-    
-                if includeAddButtons {
-                    Divider()
-                    HStack {
-                        Button(action: onAddTask) {
-                            Label("タスク追加", systemImage: "checkmark.circle.badge.plus")
-                        }
-                        Spacer()
-                        Button(action: onAddEvent) {
-                            Label("予定追加", systemImage: "calendar.badge.plus")
-                        }
-                    }
-                    .font(.caption.weight(.semibold))
                 }
             }
         }
@@ -1304,13 +1363,22 @@ private struct SummaryChip: View {
 private struct OverviewSection<Content: View>: View {
     var icon: String
     var title: String
+    var actionTitle: String? = nil
+    var action: (() -> Void)? = nil
     @ViewBuilder var content: () -> Content
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label(title, systemImage: icon)
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.secondary)
+            HStack {
+                Label(title, systemImage: icon)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                if let actionTitle, let action {
+                    Button(actionTitle, action: action)
+                        .font(.subheadline.weight(.semibold))
+                }
+            }
             content()
         }
     }

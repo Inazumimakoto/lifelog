@@ -19,7 +19,7 @@ struct MemoEditorView: View {
 
     private var memoBinding: Binding<String> {
         Binding(
-            get: { viewModel.memoPad.text },
+            get: { viewModel.memoText },
             set: { viewModel.update(text: $0) }
         )
     }
@@ -28,13 +28,14 @@ struct MemoEditorView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 ZStack(alignment: .topLeading) {
-                    if viewModel.memoPad.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    if viewModel.memoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Text(placeholder)
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 20)
                             .padding(.vertical, 20) // slight offset to match TextEditor caret baseline
                     }
                     TextEditor(text: memoBinding)
+                        .keyboardType(.default)
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                         .padding(.horizontal, 14)
                         .padding(.vertical, 12)
@@ -43,7 +44,7 @@ struct MemoEditorView: View {
                 .frame(height: 600)
                 .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
-                if let lastUpdated = viewModel.memoPad.lastUpdatedAt {
+                if let lastUpdated = viewModel.lastUpdatedAt {
                     Text("最終更新: \(lastUpdated.memoPadDisplayString())")
                         .font(.caption)
                         .foregroundStyle(.secondary)
