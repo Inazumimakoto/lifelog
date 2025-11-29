@@ -86,7 +86,7 @@ class HealthKitManager {
     
     private func fetchSleepData(from startDate: Date, to endDate: Date) async -> [Date: SleepAggregate] {
         let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!
-        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictStartDate)
+        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictEndDate)
         
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(sampleType: sleepType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, error in
@@ -99,37 +99,48 @@ class HealthKitManager {
                 let calendar = Calendar.current
 
                 for sample in samples {
+                    guard self.isAsleepSample(sample) else { continue }
                     let stageType = self.sleepStageType(for: sample)
-                    let dayOfSleepEnd = calendar.startOfDay(for: sample.endDate)
+                    var segmentStart = sample.startDate
+                    let sampleEnd = sample.endDate
 
-                    if var existingData = sleepDataByDay[dayOfSleepEnd] {
-                        existingData.start = min(existingData.start, sample.startDate)
-                        existingData.end = max(existingData.end, sample.endDate)
-                        existingData.duration = existingData.end.timeIntervalSince(existingData.start) / 3600
+                    while segmentStart < sampleEnd {
+                        let dayStart = calendar.startOfDay(for: segmentStart)
+                        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { break }
+                        let clippedStart = max(segmentStart, dayStart)
+                        let clippedEnd = min(sampleEnd, dayEnd)
+                        let hours = clippedEnd.timeIntervalSince(clippedStart) / 3600
+
+                        var aggregate = sleepDataByDay[dayStart] ?? SleepAggregate(start: clippedStart,
+                                                                                   end: clippedEnd,
+                                                                                   duration: 0,
+                                                                                   stages: [])
+                        aggregate.start = min(aggregate.start, clippedStart)
+                        aggregate.end = max(aggregate.end, clippedEnd)
+                        aggregate.duration += hours
                         if let stageType {
-                            existingData.stages.append(SleepStage(start: sample.startDate,
-                                                                  end: sample.endDate,
-                                                                  stage: stageType))
+                            aggregate.stages.append(SleepStage(start: clippedStart,
+                                                               end: clippedEnd,
+                                                               stage: stageType))
                         }
-                        sleepDataByDay[dayOfSleepEnd] = existingData
-                    } else {
-                        var stages: [SleepStage] = []
-                        if let stageType {
-                            stages = [
-                                SleepStage(start: sample.startDate,
-                                           end: sample.endDate,
-                                           stage: stageType)
-                            ]
-                        }
-                        sleepDataByDay[dayOfSleepEnd] = SleepAggregate(start: sample.startDate,
-                                                                       end: sample.endDate,
-                                                                       duration: sample.endDate.timeIntervalSince(sample.startDate) / 3600,
-                                                                       stages: stages)
+                        sleepDataByDay[dayStart] = aggregate
+
+                        segmentStart = clippedEnd
                     }
                 }
                 continuation.resume(returning: sleepDataByDay)
             }
             healthStore.execute(query)
+        }
+    }
+
+    private func isAsleepSample(_ sample: HKCategorySample) -> Bool {
+        guard let value = SleepStageValue(rawValue: sample.value) else { return false }
+        switch value {
+        case .asleep, .asleepUnspecified, .core, .deep, .rem:
+            return true
+        case .awake, .inBed:
+            return false
         }
     }
 

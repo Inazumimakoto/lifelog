@@ -26,14 +26,31 @@ final class AppDataStore: ObservableObject {
     @Published private(set) var externalCalendarEvents: [CalendarEvent] = []
     @Published private(set) var appState: AppState = AppState()
 
+    private static let tasksDefaultsKey = "Tasks_Storage_V1"
+    private static let diaryDefaultsKey = "DiaryEntries_Storage_V1"
+    private static let habitsDefaultsKey = "Habits_Storage_V1"
+    private static let habitRecordsDefaultsKey = "HabitRecords_Storage_V1"
+    private static let anniversariesDefaultsKey = "Anniversaries_Storage_V1"
+    private static let calendarEventsDefaultsKey = "CalendarEvents_Storage_V1"
     private static let memoPadDefaultsKey = "MemoPad_Storage_V1"
     private static let appStateDefaultsKey = "AppState_Storage_V1"
 
     // MARK: - Init
 
     init() {
+        tasks = Self.loadValue(forKey: Self.tasksDefaultsKey, defaultValue: [])
+        let loadedDiaries: [DiaryEntry] = Self.loadValue(forKey: Self.diaryDefaultsKey, defaultValue: [])
+        let needsDiaryNormalization = loadedDiaries.contains { $0.mood == nil || $0.conditionScore == nil }
+        diaryEntries = Self.normalizeDiaryEntries(loadedDiaries)
+        habits = Self.loadValue(forKey: Self.habitsDefaultsKey, defaultValue: [])
+        habitRecords = Self.loadValue(forKey: Self.habitRecordsDefaultsKey, defaultValue: [])
+        anniversaries = Self.loadValue(forKey: Self.anniversariesDefaultsKey, defaultValue: [])
+        calendarEvents = Self.loadValue(forKey: Self.calendarEventsDefaultsKey, defaultValue: [])
         memoPad = Self.loadMemoPad()
         appState = Self.loadAppState()
+        if needsDiaryNormalization {
+            persistDiaryEntries()
+        }
         #if DEBUG
         seedSampleDataIfNeeded()
         #endif
@@ -67,15 +84,18 @@ final class AppDataStore: ObservableObject {
 
     func addCalendarEvent(_ event: CalendarEvent) {
         calendarEvents.append(event)
+        persistCalendarEvents()
     }
 
     func updateCalendarEvent(_ event: CalendarEvent) {
         guard let index = calendarEvents.firstIndex(where: { $0.id == event.id }) else { return }
         calendarEvents[index] = event
+        persistCalendarEvents()
     }
 
     func deleteCalendarEvent(_ eventID: UUID) {
         calendarEvents.removeAll { $0.id == eventID }
+        persistCalendarEvents()
     }
 
     func updateExternalCalendarEvents(_ events: [CalendarEvent]) {
@@ -123,26 +143,31 @@ final class AppDataStore: ObservableObject {
 
     func addTask(_ task: Task) {
         tasks.append(task)
+        persistTasks()
     }
 
     func updateTask(_ task: Task) {
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         tasks[index] = task
+        persistTasks()
     }
 
     func deleteTasks(at offsets: IndexSet) {
         for index in offsets.sorted(by: >) where tasks.indices.contains(index) {
             tasks.remove(at: index)
         }
+        persistTasks()
     }
 
     func deleteTasks(withIDs ids: [UUID]) {
         tasks.removeAll { ids.contains($0.id) }
+        persistTasks()
     }
 
     func toggleTaskCompletion(_ taskID: UUID) {
         guard let index = tasks.firstIndex(where: { $0.id == taskID }) else { return }
         tasks[index].isCompleted.toggle()
+        persistTasks()
     }
 
     // MARK: - Diary CRUD
@@ -152,11 +177,15 @@ final class AppDataStore: ObservableObject {
     }
 
     func upsert(entry: DiaryEntry) {
-        if let index = diaryEntries.firstIndex(where: { $0.id == entry.id }) {
-            diaryEntries[index] = entry
+        var normalized = entry
+        normalized.mood = normalized.mood ?? .neutral
+        normalized.conditionScore = normalized.conditionScore ?? 3
+        if let index = diaryEntries.firstIndex(where: { $0.id == normalized.id }) {
+            diaryEntries[index] = normalized
         } else {
-            diaryEntries.append(entry)
+            diaryEntries.append(normalized)
         }
+        persistDiaryEntries()
     }
 
     // MARK: - Habits
@@ -174,6 +203,7 @@ final class AppDataStore: ObservableObject {
             let record = HabitRecord(habitID: habitID, date: date, isCompleted: true)
             habitRecords.append(record)
         }
+        persistHabitRecords()
     }
 
     func setHabitCompletion(_ habitID: UUID, on date: Date, completed: Bool) {
@@ -185,26 +215,31 @@ final class AppDataStore: ObservableObject {
             let record = HabitRecord(habitID: habitID, date: date, isCompleted: true)
             habitRecords.append(record)
         }
+        persistHabitRecords()
     }
 
     func addHabit(_ habit: Habit) {
         habits.append(habit)
+        persistHabits()
     }
 
     func updateHabit(_ habit: Habit) {
         guard let index = habits.firstIndex(where: { $0.id == habit.id }) else { return }
         habits[index] = habit
+        persistHabits()
     }
 
     // MARK: - Anniversaries
 
     func addAnniversary(_ anniversary: Anniversary) {
         anniversaries.append(anniversary)
+        persistAnniversaries()
     }
 
     func updateAnniversary(_ anniversary: Anniversary) {
         guard let index = anniversaries.firstIndex(where: { $0.id == anniversary.id }) else { return }
         anniversaries[index] = anniversary
+        persistAnniversaries()
     }
 
     // MARK: - Memo Pad
@@ -246,6 +281,56 @@ final class AppDataStore: ObservableObject {
         if let data = try? JSONEncoder().encode(appState) {
             UserDefaults.standard.set(data, forKey: Self.appStateDefaultsKey)
         }
+    }
+
+    // MARK: - Persistence Helpers
+
+    private static func loadValue<T: Decodable>(forKey key: String, defaultValue: T) -> T {
+        let defaults = UserDefaults.standard
+        if let data = defaults.data(forKey: key),
+           let decoded = try? JSONDecoder().decode(T.self, from: data) {
+            return decoded
+        }
+        return defaultValue
+    }
+
+    private static func normalizeDiaryEntries(_ entries: [DiaryEntry]) -> [DiaryEntry] {
+        entries.map { entry in
+            var normalized = entry
+            normalized.mood = normalized.mood ?? .neutral
+            normalized.conditionScore = normalized.conditionScore ?? 3
+            return normalized
+        }
+    }
+
+    private func persist<T: Encodable>(_ value: T, forKey key: String) {
+        if let data = try? JSONEncoder().encode(value) {
+            UserDefaults.standard.set(data, forKey: key)
+        }
+    }
+
+    private func persistTasks() {
+        persist(tasks, forKey: Self.tasksDefaultsKey)
+    }
+
+    private func persistDiaryEntries() {
+        persist(diaryEntries, forKey: Self.diaryDefaultsKey)
+    }
+
+    private func persistHabits() {
+        persist(habits, forKey: Self.habitsDefaultsKey)
+    }
+
+    private func persistHabitRecords() {
+        persist(habitRecords, forKey: Self.habitRecordsDefaultsKey)
+    }
+
+    private func persistAnniversaries() {
+        persist(anniversaries, forKey: Self.anniversariesDefaultsKey)
+    }
+
+    private func persistCalendarEvents() {
+        persist(calendarEvents, forKey: Self.calendarEventsDefaultsKey)
     }
 
     // MARK: - Sample Data (DEBUG only)
@@ -331,8 +416,12 @@ final class AppDataStore: ObservableObject {
             CalendarEvent(title: "Yoga class", startDate: calendar.date(byAdding: .day, value: 1, to: now)?.addingTimeInterval(18_000) ?? now,
                           endDate: calendar.date(byAdding: .day, value: 1, to: now)?.addingTimeInterval(19_800) ?? now, calendarName: "Wellness")
         ]
-
-
+        persistTasks()
+        persistDiaryEntries()
+        persistHabits()
+        persistHabitRecords()
+        persistAnniversaries()
+        persistCalendarEvents()
     }
     #endif
 }

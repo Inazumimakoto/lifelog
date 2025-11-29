@@ -239,11 +239,10 @@ struct JournalView: View {
             } else if viewModel.displayMode == .month, isSyncingMonthPager == false {
                 ensureMonthPagerIncludes(date: newDate)
             }
-            if isSyncingDetailPager == false {
-                ensureDetailPagerIncludes(date: newDate)
-            } else {
+            if isSyncingDetailPager {
                 isSyncingDetailPager = false
             }
+            ensureDetailPagerIncludes(date: newDate)
         }
         .onChange(of: viewModel.monthAnchor) { _, newAnchor in
             guard viewModel.displayMode == .month else { return }
@@ -439,6 +438,7 @@ struct JournalView: View {
                 .contentShape(Rectangle())
                 .onTapGesture {
                     viewModel.selectedDate = day.date
+                    ensureDetailPagerIncludes(date: day.date)
                     showingDetailPanel = true
                 }
             }
@@ -568,6 +568,7 @@ struct JournalView: View {
                 .contentShape(Rectangle())
                 .onTapGesture {
                     viewModel.selectedDate = date
+                    ensureDetailPagerIncludes(date: date)
                     showingDetailPanel = true
                 }
             }
@@ -619,8 +620,18 @@ struct JournalView: View {
     }
 
     private func openDiaryEditor(for date: Date) {
-        diaryEditorDate = date
-        showDiaryEditor = true
+        let targetDate = date.startOfDay
+        viewModel.selectedDate = targetDate
+        if showingDetailPanel {
+            showingDetailPanel = false
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                diaryEditorDate = targetDate
+                showDiaryEditor = true
+            }
+        } else {
+            diaryEditorDate = targetDate
+            showDiaryEditor = true
+        }
     }
 
     private func handleQuickAction(on date: Date) {

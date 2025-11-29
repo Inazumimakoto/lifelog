@@ -31,17 +31,17 @@ struct MemoEditorView: View {
                     if viewModel.memoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                         Text(placeholder)
                             .foregroundStyle(.secondary)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 20) // slight offset to match TextEditor caret baseline
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
                     }
                     TextEditor(text: memoBinding)
                         .keyboardType(.default)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        .padding(.horizontal, 14)
+                        .frame(minHeight: 340, alignment: .topLeading)
+                        .padding(.horizontal, 12)
                         .padding(.vertical, 12)
                         .scrollContentBackground(.hidden)
                 }
-                .frame(height: 600)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                 if let lastUpdated = viewModel.lastUpdatedAt {
@@ -54,6 +54,7 @@ struct MemoEditorView: View {
             .padding()
         }
         .navigationTitle("メモ")
+        .scrollDismissesKeyboard(.interactively)
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("完了") {

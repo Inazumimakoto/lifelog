@@ -205,8 +205,8 @@ struct DiaryEntry: Identifiable, Codable, Hashable {
     init(id: UUID = UUID(),
          date: Date,
          text: String,
-         mood: MoodLevel? = nil,
-         conditionScore: Int? = nil,
+         mood: MoodLevel? = .neutral,
+         conditionScore: Int? = 3,
          locationName: String? = nil,
          latitude: Double? = nil,
          longitude: Double? = nil,
@@ -307,7 +307,7 @@ struct HealthSummary: Identifiable, Hashable {
     var sleepStages: [SleepStage] = []
 }
 
-struct CalendarEvent: Identifiable, Hashable {
+struct CalendarEvent: Identifiable, Hashable, Codable {
     let id: UUID
     var title: String
     var startDate: Date

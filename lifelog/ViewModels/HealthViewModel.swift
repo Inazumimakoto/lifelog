@@ -84,11 +84,13 @@ final class HealthViewModel: ObservableObject {
             guard let steps = summary.steps,
                   let sleep = summary.sleepHours else { return nil }
             let diary = store.diaryEntries.first { Calendar.current.isDate($0.date, inSameDayAs: summary.date) }
+            let mood = diary.flatMap { $0.mood ?? .neutral }
+            let condition = diary.map { $0.conditionScore ?? 3 }
             return HealthCorrelationPoint(date: summary.date,
                                           steps: steps,
                                           sleepHours: sleep,
-                                          mood: diary?.mood,
-                                          condition: diary?.conditionScore)
+                                          mood: mood,
+                                          condition: condition)
         }
         sleepSegments = summaries.compactMap { summary in
             guard let start = summary.sleepStart,

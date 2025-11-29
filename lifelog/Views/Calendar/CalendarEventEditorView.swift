@@ -51,7 +51,15 @@ struct CalendarEventEditorView: View {
             }
             Section("時間") {
                 DatePicker("開始", selection: $startDate)
-                DatePicker("終了", selection: $endDate)
+                    .onChange(of: startDate) { _, newValue in
+                        if endDate < newValue {
+                            endDate = newValue
+                        }
+                    }
+                DatePicker("終了", selection: $endDate, in: startDate...)
+                    .onChange(of: endDate) { _, newValue in
+                        endDate = max(newValue, startDate)
+                    }
             }
         }
         .navigationTitle(originalEvent == nil ? "予定を追加" : "予定を編集")

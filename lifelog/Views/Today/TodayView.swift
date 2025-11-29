@@ -69,18 +69,18 @@ struct TodayView: View {
                     Image(systemName: "checklist")
                 }
                 Menu {
-                    Button("タスクを追加") {
-                        showTaskEditor = true
-                    }
                     Button("予定を追加") {
                         showEventEditor = true
+                    }
+                    Button("タスクを追加") {
+                        showTaskEditor = true
                     }
                 } label: {
                     Image(systemName: "plus")
                 }
             }
         }
-        .sheet(isPresented: $showMemoEditor) {
+        .fullScreenCover(isPresented: $showMemoEditor) {
             NavigationStack {
                 MemoEditorView(store: store)
             }

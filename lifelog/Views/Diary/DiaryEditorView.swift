@@ -82,10 +82,13 @@ struct DiaryEditorView: View {
                 if viewModel.entry.text.isEmpty {
                     Text("ここに文章を入力")
                         .foregroundStyle(.secondary)
-                        .padding(.top, 8)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 8)
                 }
                 TextEditor(text: textBinding)
-                    .frame(minHeight: 200)
+                    .font(.body)
+                    .frame(minHeight: 220, alignment: .topLeading)
+                    .scrollContentBackground(.hidden)
             }
             Text("感じたことを自由に書き留めましょう。")
                 .font(.caption)

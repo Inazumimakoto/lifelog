@@ -18,7 +18,16 @@ final class DiaryViewModel: ObservableObject {
 
     init(store: AppDataStore, date: Date) {
         self.store = store
-        self.entry = store.entry(for: date) ?? DiaryEntry(date: date, text: "")
+        let existingEntry = store.entry(for: date)
+        var normalized = existingEntry ?? DiaryEntry(date: date, text: "")
+        let needsDefaultPersist = (existingEntry != nil && (existingEntry?.mood == nil || existingEntry?.conditionScore == nil))
+        normalized.mood = normalized.mood ?? .neutral
+        normalized.conditionScore = normalized.conditionScore ?? 3
+        self.entry = normalized
+
+        if needsDefaultPersist {
+            store.upsert(entry: normalized)
+        }
     }
 
     func update(text: String) {
@@ -61,6 +70,8 @@ final class DiaryViewModel: ObservableObject {
     }
 
     private func persist() {
+        entry.mood = entry.mood ?? .neutral
+        entry.conditionScore = entry.conditionScore ?? 3
         store.upsert(entry: entry)
     }
 }

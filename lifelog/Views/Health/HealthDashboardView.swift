@@ -77,7 +77,7 @@ struct HealthDashboardView: View {
                     .foregroundStyle(.secondary)
             } else {
                 wellnessTrendChart(points: points)
-                Text("棒 = 歩数、線 = 睡眠時間、顔文字 = 気分/体調（1-5段階）。")
+                Text("棒＝歩数、線＝睡眠時間、🟡＝気分、🔵＝体調")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
