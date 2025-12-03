@@ -15,6 +15,8 @@ struct HabitsCountdownView: View {
     @State private var showAnniversaryEditor = false
     @State private var editingHabit: Habit?
     @State private var editingAnniversary: Anniversary?
+    @State private var habitToDelete: Habit?
+    @State private var anniversaryToDelete: Anniversary?
     @State private var displayMode: DisplayMode = .habits
     @State private var selectedHabitForDetail: Habit?
     @State private var selectedSummaryDate: Date?
@@ -88,6 +90,28 @@ struct HabitsCountdownView: View {
                     HabitDetailView(store: store, habit: habit)
                 }
             }
+        }
+        .confirmationDialog("習慣を削除", isPresented: Binding(get: { habitToDelete != nil },
+                                                           set: { if $0 == false { habitToDelete = nil } }),
+                            presenting: habitToDelete) { habit in
+            Button("削除", role: .destructive) {
+                habitsViewModel.deleteHabit(habit)
+                habitToDelete = nil
+            }
+            Button("キャンセル", role: .cancel) { habitToDelete = nil }
+        } message: { habit in
+            Text("\"\(habit.title)\" を削除しますか？")
+        }
+        .confirmationDialog("記念日を削除", isPresented: Binding(get: { anniversaryToDelete != nil },
+                                                           set: { if $0 == false { anniversaryToDelete = nil } }),
+                            presenting: anniversaryToDelete) { anniversary in
+            Button("削除", role: .destructive) {
+                anniversaryViewModel.delete(anniversary)
+                anniversaryToDelete = nil
+            }
+            Button("キャンセル", role: .cancel) { anniversaryToDelete = nil }
+        } message: { anniversary in
+            Text("\"\(anniversary.title)\" を削除しますか？")
         }
     }
 
@@ -203,6 +227,11 @@ struct HabitsCountdownView: View {
                                 selectedHabitForDetail = status.habit
                             }
                         }
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button("削除", role: .destructive) {
+                                habitToDelete = status.habit
+                            }
+                        }
                         if index < habitsViewModel.statuses.count - 1 {
                             Divider()
                         }
@@ -238,6 +267,11 @@ struct HabitsCountdownView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button("削除", role: .destructive) {
+                            anniversaryToDelete = row.anniversary
+                        }
+                    }
                     if index < anniversaryViewModel.rows.count - 1 {
                         Divider()
                     }
@@ -286,29 +320,36 @@ struct MiniHabitHeatmapView: View {
     let accentColor: Color
 
     var body: some View {
+        let weeks = chunkedWeeks()
+
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 4) {
-                    ForEach(cells) { cell in
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(color(for: cell.state))
-                            .frame(width: 8, height: 10)
-                            .overlay(
+                HStack(alignment: .top, spacing: 4) {
+                    ForEach(Array(weeks.enumerated()), id: \.offset) { index, week in
+                        VStack(spacing: 4) {
+                            ForEach(week) { cell in
                                 RoundedRectangle(cornerRadius: 2)
-                                    .stroke(cell.isToday ? Color.white.opacity(0.9) : .clear, lineWidth: 1)
-                            )
-                            .scaleEffect(cell.isToday ? 1.1 : 1.0)
-                            .id(cell.id)
+                                    .fill(color(for: cell.state))
+                                    .frame(width: 10, height: 10)
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 2)
+                                            .stroke(cell.isToday ? Color.white.opacity(0.95) : .clear, lineWidth: 1)
+                                    )
+                                    .scaleEffect(cell.isToday ? 1.05 : 1.0)
+                            }
+                        }
+                        .id(index)
                     }
                 }
+                .padding(.vertical, 2)
             }
             .onAppear {
-                if let last = cells.last {
-                    proxy.scrollTo(last.id, anchor: .trailing)
+                if let last = weeks.indices.last {
+                    proxy.scrollTo(last, anchor: .trailing)
                 }
             }
         }
-        .frame(height: 14)
+        .frame(height: 82)
     }
 
     private func color(for state: HabitHeatCell.State) -> Color {
@@ -320,6 +361,22 @@ struct MiniHabitHeatmapView: View {
         case .completed:
             return accentColor
         }
+    }
+
+    private func chunkedWeeks() -> [[HabitHeatCell]] {
+        guard cells.isEmpty == false else { return [] }
+        let sorted = cells.sorted { $0.date < $1.date }
+        var weeks: [[HabitHeatCell]] = []
+        var index = 0
+        while index < sorted.count {
+            let end = min(index + 7, sorted.count)
+            let slice = Array(sorted[index..<end])
+            if slice.count == 7 {
+                weeks.append(slice)
+            }
+            index += 7
+        }
+        return weeks
     }
 }
 

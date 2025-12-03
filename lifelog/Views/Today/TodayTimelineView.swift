@@ -118,38 +118,62 @@ struct TodayTimelineView: View {
     }
 
     private func timelineColumn(height: CGFloat) -> some View {
-        ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 16)
-                .fill(LinearGradient(colors: [Color(.systemBackground), Color(.systemGray6)], startPoint: .top, endPoint: .bottom))
-                .frame(height: height)
-            TodayAxisView(height: height, startHour: dynamicStartHour, endHour: dynamicEndHour)
-            TimelineGrid(height: height, startHour: dynamicStartHour, endHour: dynamicEndHour)
-                .clipShape(RoundedRectangle(cornerRadius: 16))
-            ForEach(items) { item in // Changed $0 to item
-                let (offset, blockHeight) = position(for: item, contentHeight: height)
-                if blockHeight > 0 {
-                    let detailText = item.detail == "__completed__" ? nil : item.detail
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(item.title) // Changed $0.title to item.title
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .lineLimit(2)
-                        if let detail = detailText, detail.isEmpty == false {
-                            Text(detail)
+        let allDayItems = items.filter { $0.isAllDay }
+        let timedItems = items.filter { $0.isAllDay == false }
+
+        return VStack(alignment: .leading, spacing: 8) {
+            if allDayItems.isEmpty == false {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(allDayItems) { item in
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(color(for: item))
+                                .frame(width: 6, height: 6)
+                            Text(item.title)
                                 .font(.caption2)
-                                .foregroundStyle(.white.opacity(0.9))
+                                .lineLimit(1)
                         }
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 8)
+                        .background(color(for: item).opacity(0.16), in: RoundedRectangle(cornerRadius: 8))
                     }
-                    .padding(8)
-                    .frame(maxWidth: 240, alignment: .leading)
-                    .background(item.kind == .sleep ? Color.purple.gradient : (item.kind == .event ? Color.accentColor.gradient : Color.green.gradient))
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .frame(height: blockHeight, alignment: .topLeading)
-                    .offset(x: 48, y: offset)
+                }
+                .padding(.horizontal, 4)
+            }
+
+            ZStack(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 16)
+                    .fill(LinearGradient(colors: [Color(.systemBackground), Color(.systemGray6)], startPoint: .top, endPoint: .bottom))
+                    .frame(height: height)
+                TodayAxisView(height: height, startHour: dynamicStartHour, endHour: dynamicEndHour)
+                TimelineGrid(height: height, startHour: dynamicStartHour, endHour: dynamicEndHour)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                ForEach(timedItems) { item in
+                    let (offset, blockHeight) = position(for: item, contentHeight: height)
+                    if blockHeight > 0 {
+                        let detailText = item.detail == "__completed__" ? nil : item.detail
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(item.title)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white)
+                                .lineLimit(2)
+                            if let detail = detailText, detail.isEmpty == false {
+                                Text(detail)
+                                    .font(.caption2)
+                                    .foregroundStyle(.white.opacity(0.9))
+                            }
+                        }
+                        .padding(8)
+                        .frame(maxWidth: 240, alignment: .leading)
+                        .background(color(for: item).gradient)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                        .frame(height: blockHeight, alignment: .topLeading)
+                        .offset(x: 48, y: offset)
+                    }
                 }
             }
+            .frame(width: 220, height: height)
         }
-        .frame(width: 220, height: height)
     }
 
     private func intervalText(start: Date, end: Date) -> String {
@@ -172,6 +196,9 @@ struct TodayTimelineView: View {
     }
 
     private func position(for item: JournalViewModel.TimelineItem, contentHeight: CGFloat) -> (CGFloat, CGFloat) {
+        if item.isAllDay {
+            return (0, 0)
+        }
         let start = hourValue(item.start)
         let end = hourValue(item.end)
 
@@ -191,6 +218,17 @@ struct TodayTimelineView: View {
         let height = CGFloat((normalizedEnd - normalizedStart) / totalHours) * contentHeight
         
         return (offset, height)
+    }
+
+    private func color(for item: JournalViewModel.TimelineItem) -> Color {
+        switch item.kind {
+        case .event:
+            return CategoryPalette.color(for: item.detail ?? "")
+        case .task:
+            return .green
+        case .sleep:
+            return .purple
+        }
     }
 }
 

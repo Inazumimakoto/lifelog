@@ -19,17 +19,25 @@ struct CalendarEventEditorView: View {
     @State private var category: String
     @State private var startDate: Date
     @State private var endDate: Date
+    @State private var isAllDay: Bool
 
     init(defaultDate: Date = Date(),
          event: CalendarEvent? = nil,
          onSave: @escaping (CalendarEvent) -> Void) {
         self.onSave = onSave
         self.originalEvent = event
-        let initialStart = event?.startDate ?? Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: defaultDate) ?? defaultDate
+        let calendar = Calendar.current
+        let initialStart = event?.startDate ?? calendar.date(bySettingHour: 9, minute: 0, second: 0, of: defaultDate) ?? defaultDate
+        let initialEnd = event?.endDate ?? initialStart.addingTimeInterval(3600)
+        let allDayEndForState: Date = {
+            guard let event, event.isAllDay else { return initialEnd }
+            return calendar.date(byAdding: .day, value: -1, to: event.endDate) ?? event.endDate
+        }()
         _title = State(initialValue: event?.title ?? "")
         _category = State(initialValue: event?.calendarName ?? CategoryPalette.defaultCategoryName)
-        _startDate = State(initialValue: initialStart)
-        _endDate = State(initialValue: event?.endDate ?? initialStart.addingTimeInterval(3600))
+        _startDate = State(initialValue: event?.isAllDay == true ? calendar.startOfDay(for: initialStart) : initialStart)
+        _endDate = State(initialValue: event?.isAllDay == true ? calendar.startOfDay(for: allDayEndForState) : initialEnd)
+        _isAllDay = State(initialValue: event?.isAllDay ?? false)
     }
 
     var body: some View {
@@ -50,15 +58,22 @@ struct CalendarEventEditorView: View {
                 .foregroundColor(.primary)
             }
             Section("時間") {
-                DatePicker("開始", selection: $startDate)
+                Toggle("終日", isOn: $isAllDay)
+                DatePicker("開始", selection: $startDate, displayedComponents: isAllDay ? [.date] : [.date, .hourAndMinute])
                     .onChange(of: startDate) { _, newValue in
                         if endDate < newValue {
                             endDate = newValue
                         }
+                        if isAllDay {
+                            startDate = Calendar.current.startOfDay(for: newValue)
+                        }
                     }
-                DatePicker("終了", selection: $endDate, in: startDate...)
+                DatePicker("終了", selection: $endDate, in: startDate..., displayedComponents: isAllDay ? [.date] : [.date, .hourAndMinute])
                     .onChange(of: endDate) { _, newValue in
                         endDate = max(newValue, startDate)
+                        if isAllDay {
+                            endDate = Calendar.current.startOfDay(for: endDate)
+                        }
                     }
             }
         }
@@ -66,11 +81,22 @@ struct CalendarEventEditorView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("保存") {
+                    let calendar = Calendar.current
+                    let normalizedStart = isAllDay ? calendar.startOfDay(for: startDate) : startDate
+                    let normalizedEnd: Date = {
+                        if isAllDay {
+                            let endDay = calendar.startOfDay(for: endDate)
+                            return calendar.date(byAdding: .day, value: 1, to: max(endDay, normalizedStart)) ?? normalizedStart.addingTimeInterval(86_400)
+                        } else {
+                            return max(endDate, normalizedStart.addingTimeInterval(900))
+                        }
+                    }()
                     let event = CalendarEvent(id: originalEvent?.id ?? UUID(),
                                               title: title.isEmpty ? "予定" : title,
-                                              startDate: startDate,
-                                              endDate: max(endDate, startDate.addingTimeInterval(900)),
-                                              calendarName: category)
+                                              startDate: normalizedStart,
+                                              endDate: normalizedEnd,
+                                              calendarName: category,
+                                              isAllDay: isAllDay)
                     onSave(event)
                     dismiss()
                 }
@@ -78,6 +104,13 @@ struct CalendarEventEditorView: View {
             }
             ToolbarItem(placement: .cancellationAction) {
                 Button("キャンセル", role: .cancel) { dismiss() }
+            }
+        }
+        .onChange(of: isAllDay) { _, newValue in
+            if newValue {
+                let calendar = Calendar.current
+                startDate = calendar.startOfDay(for: startDate)
+                endDate = calendar.startOfDay(for: max(endDate, startDate))
             }
         }
         .sheet(isPresented: $isShowingCategorySelection) {

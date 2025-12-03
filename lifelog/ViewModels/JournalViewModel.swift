@@ -17,6 +17,7 @@ final class JournalViewModel: ObservableObject {
         let date: Date
         let isWithinDisplayedMonth: Bool
         let tasks: [Task]
+        let events: [CalendarEvent]
         let habits: [HabitRecord]
         let diary: DiaryEntry?
 
@@ -39,6 +40,7 @@ final class JournalViewModel: ObservableObject {
         let end: Date
         let kind: ItemKind
         let detail: String?
+        let isAllDay: Bool
     }
 
     enum DisplayMode: String, CaseIterable, Identifiable {
@@ -168,7 +170,8 @@ final class JournalViewModel: ObservableObject {
                                           start: sleepStart,
                                           end: sleepEnd,
                                           kind: .sleep,
-                                          detail: nil))
+                                          detail: nil,
+                                          isAllDay: false))
             }
         }
 
@@ -180,7 +183,8 @@ final class JournalViewModel: ObservableObject {
                                           start: event.startDate,
                                           end: event.endDate,
                                           kind: .event,
-                                          detail: event.calendarName))
+                                          detail: event.calendarName,
+                                          isAllDay: event.isAllDay))
             }
         }
 
@@ -192,7 +196,8 @@ final class JournalViewModel: ObservableObject {
                                       start: start,
                                       end: anchor,
                                       kind: .task,
-                                      detail: task.detail))
+                                      detail: task.detail,
+                                      isAllDay: false))
         }
         return items.sorted(by: { $0.start < $1.start })
     }
@@ -274,12 +279,14 @@ final class JournalViewModel: ObservableObject {
         for offset in -leadingDays..<totalDays {
             guard let date = calendar.date(byAdding: .day, value: offset, to: firstDay) else { continue }
             let isWithinMonth = calendar.isDate(date, equalTo: anchor, toGranularity: .month)
+            let events = store.events(on: date)
             let tasks = store.tasks.filter { isTask($0, on: date, calendar: calendar) }
             let records = store.habitRecords.filter { $0.date.startOfDay == date.startOfDay }
             let diary = store.diaryEntries.first { $0.date.startOfDay == date.startOfDay }
             tempDays.append(.init(date: date,
                                   isWithinDisplayedMonth: isWithinMonth,
                                   tasks: tasks,
+                                  events: events,
                                   habits: records,
                                   diary: diary))
         }
@@ -288,12 +295,14 @@ final class JournalViewModel: ObservableObject {
         if trailingDays > 0 {
             for offset in totalDays..<(totalDays + trailingDays) {
                 guard let date = calendar.date(byAdding: .day, value: offset, to: firstDay) else { continue }
+                let events = store.events(on: date)
                 let tasks = store.tasks.filter { isTask($0, on: date, calendar: calendar) }
                 let records = store.habitRecords.filter { $0.date.startOfDay == date.startOfDay }
                 let diary = store.diaryEntries.first { $0.date.startOfDay == date.startOfDay }
                 tempDays.append(.init(date: date,
                                       isWithinDisplayedMonth: false,
                                       tasks: tasks,
+                                      events: events,
                                       habits: records,
                                       diary: diary))
             }

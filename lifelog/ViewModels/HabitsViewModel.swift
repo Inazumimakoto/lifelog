@@ -131,6 +131,10 @@ final class HabitsViewModel: ObservableObject {
         store.updateHabit(habit)
     }
 
+    func deleteHabit(_ habit: Habit) {
+        store.deleteHabit(habit.id)
+    }
+
     func monthlyCompletionCount(for habit: Habit, in month: Date = Date()) -> Int {
         let calendar = Calendar.current
         return store.habitRecords.filter {
@@ -217,17 +221,21 @@ final class HabitsViewModel: ObservableObject {
     private func computeMiniHeatmaps(with recordsLookup: [UUID: [Date: HabitRecord]]) {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
-        guard let start = calendar.date(byAdding: .day, value: -55, to: today) else { return }
+        let weeksToShow = 10
+        let startOfCurrentWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: today)) ?? today
+        guard let start = calendar.date(byAdding: .weekOfYear, value: -(weeksToShow - 1), to: startOfCurrentWeek) else { return }
+        let totalDays = weeksToShow * 7
 
         var map: [UUID: [HabitHeatCell]] = [:]
 
         for habit in habits {
             var cells: [HabitHeatCell] = []
-            for offset in 0..<56 {
+            for offset in 0..<totalDays {
                 guard let date = calendar.date(byAdding: .day, value: offset, to: start) else { continue }
                 let day = calendar.startOfDay(for: date)
+                let isFuture = day > today
                 let isActive = habit.schedule.isActive(on: day)
-                if isActive == false {
+                if isActive == false || isFuture {
                     cells.append(HabitHeatCell(date: day, state: .inactive, isToday: calendar.isDate(day, inSameDayAs: today)))
                     continue
                 }

@@ -167,7 +167,8 @@ final class TodayViewModel: ObservableObject {
                                start: sleepStart,
                                end: sleepEnd,
                                kind: .sleep,
-                               detail: nil))
+                               detail: nil,
+                               isAllDay: false))
         }
 
         items.append(contentsOf: events.map {
@@ -176,7 +177,8 @@ final class TodayViewModel: ObservableObject {
                                           start: $0.startDate,
                                           end: $0.endDate,
                                           kind: .event,
-                                          detail: $0.calendarName)
+                                          detail: $0.calendarName,
+                                          isAllDay: $0.isAllDay)
         })
 
         let allTasks = completedTasksToday + tasksDueToday
@@ -189,7 +191,8 @@ final class TodayViewModel: ObservableObject {
                                                  start: start,
                                                  end: anchorDate,
                                                  kind: .task,
-                                                 detail: detail)
+                                                 detail: detail,
+                                                 isAllDay: false)
         }
         items.append(contentsOf: taskItems)
         

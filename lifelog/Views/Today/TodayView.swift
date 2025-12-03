@@ -200,7 +200,7 @@ struct TodayView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(event.title)
                                 .font(.body.weight(.semibold))
-                            Label("\(event.startDate.formattedTime()) - \(event.endDate.formattedTime())", systemImage: "clock")
+                            Label(eventTimeLabel(event), systemImage: "clock")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             if event.calendarName.isEmpty == false {
@@ -436,6 +436,13 @@ struct TodayView: View {
                 .buttonStyle(.borderedProminent)
             }
         }
+    }
+
+    private func eventTimeLabel(_ event: CalendarEvent) -> String {
+        if event.isAllDay {
+            return "終日"
+        }
+        return "\(event.startDate.formattedTime()) - \(event.endDate.formattedTime())"
     }
 
     private func color(for category: String) -> Color {

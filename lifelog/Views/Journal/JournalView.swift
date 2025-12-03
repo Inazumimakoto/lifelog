@@ -7,12 +7,24 @@
 
 import SwiftUI
 
+private struct DayPreviewItem: Identifiable {
+    enum Kind {
+        case event
+        case task
+    }
+
+    let id: String
+    let title: String
+    let color: Color
+    let timeText: String?
+    let kind: Kind
+}
+
 struct JournalView: View {
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
     private let store: AppDataStore
     @StateObject private var viewModel: JournalViewModel
-    private let monthPagerHeight: CGFloat = 560
+    private let monthPagerHeight: CGFloat = 760
     private let monthPagerRadius = 6
     @State private var monthPagerAnchors: [Date] = []
     @State private var monthPagerSelection: Int = 0
@@ -42,6 +54,7 @@ struct JournalView: View {
     @Namespace private var selectionNamespace
     @State private var scrollProxy: ScrollViewProxy?
     @State private var showingDetailPanel = false
+    @State private var pendingDiaryDate: Date?
     @State private var calendarSyncTrigger = 0
     @State private var showCalendarSettings = false
 
@@ -248,6 +261,13 @@ struct JournalView: View {
             guard viewModel.displayMode == .month else { return }
             ensureMonthPagerIncludes(date: newAnchor)
         }
+        .onChange(of: showingDetailPanel) { _, isPresented in
+            if isPresented == false, let pending = pendingDiaryDate {
+                diaryEditorDate = pending
+                pendingDiaryDate = nil
+                showDiaryEditor = true
+            }
+        }
     }
 
     private func handleEdit(for item: JournalViewModel.TimelineItem) {
@@ -401,23 +421,39 @@ struct JournalView: View {
     }
 
     private func monthCalendar(for anchor: Date) -> some View {
-        let columns = Array(repeating: GridItem(.flexible()), count: 7)
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
         let days = viewModel.calendarDays(for: anchor)
-        return LazyVGrid(columns: columns, spacing: 6) {
+        let itemLimit = 4
+        return LazyVGrid(columns: columns, spacing: 8) {
             ForEach(days) { day in
-                VStack(spacing: 4) {
+                let previews = dayPreviewItems(for: day.date)
+                let overflow = max(0, previews.count - itemLimit)
+                VStack(alignment: .leading, spacing: 8) {
                     Text("\(Calendar.current.component(.day, from: day.date))")
-                        .font(.body)
+                        .font(.headline)
                         .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
-                    indicatorRow(events: eventCount(on: day.date),
-                                 tasks: taskCount(on: day.date))
-                    wellnessRow(for: day.date)
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(previews.prefix(itemLimit)) { item in
+                            Text(previewLabel(for: item))
+                                .font(.caption2.weight(.semibold))
+                                .lineLimit(1)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(item.color.opacity(0.18), in: RoundedRectangle(cornerRadius: 8))
+                        }
+                        if overflow > 0 {
+                            Text("+\(overflow) 件")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer(minLength: 0)
                 }
-                .frame(maxWidth: .infinity)
-                .frame(minWidth: 36, idealWidth: 38)
-                .frame(minHeight: 70)
-                .padding(.vertical, 2)
-                .padding(.horizontal, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minHeight: 118)
+                .padding(.vertical, 6)
+                .padding(.horizontal, 6)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(day.isToday ? Color.accentColor.opacity(0.12) : Color.clear)
@@ -534,20 +570,36 @@ struct JournalView: View {
 
     private func weekCalendar(for anchor: Date) -> some View {
         let dates = weekDates(for: anchor)
-        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 6) {
+        let itemLimit = 3
+        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 8) {
             ForEach(dates, id: \.self) { date in
-                VStack(spacing: 4) {
+                let previews = dayPreviewItems(for: date)
+                let overflow = max(0, previews.count - itemLimit)
+                VStack(alignment: .leading, spacing: 8) {
                     Text("\(Calendar.current.component(.day, from: date))")
-                        .font(.body)
-                    indicatorRow(events: eventCount(on: date),
-                                 tasks: taskCount(on: date))
-                    wellnessRow(for: date)
+                        .font(.headline)
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(previews.prefix(itemLimit)) { item in
+                            Text(previewLabel(for: item))
+                                .font(.caption2.weight(.semibold))
+                                .lineLimit(1)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(item.color.opacity(0.18), in: RoundedRectangle(cornerRadius: 8))
+                        }
+                        if overflow > 0 {
+                            Text("+\(overflow) 件")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Spacer(minLength: 0)
                 }
-                .frame(maxWidth: .infinity)
-                .frame(minWidth: 36, idealWidth: 38)
-                .frame(minHeight: 70)
-                .padding(.vertical, 2)
-                .padding(.horizontal, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minHeight: 110)
+                .padding(.vertical, 6)
+                .padding(.horizontal, 6)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(date.isSameDay(as: Date()) ? Color.accentColor.opacity(0.12) : Color.clear)
@@ -605,7 +657,7 @@ struct JournalView: View {
                 .padding(.horizontal, 4)
                 .padding(.vertical, 4)
             }
-            .frame(height: timelineHeight + 16)
+            .frame(height: timelineHeight + 96)
         }
     }
 
@@ -623,12 +675,10 @@ struct JournalView: View {
         let targetDate = date.startOfDay
         viewModel.selectedDate = targetDate
         if showingDetailPanel {
+            pendingDiaryDate = targetDate
             showingDetailPanel = false
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                diaryEditorDate = targetDate
-                showDiaryEditor = true
-            }
         } else {
+            pendingDiaryDate = nil
             diaryEditorDate = targetDate
             showDiaryEditor = true
         }
@@ -638,30 +688,6 @@ struct JournalView: View {
         viewModel.selectedDate = date
         pendingAddDate = date
         showAddMenu = true
-    }
-
-    @ViewBuilder
-    private func wellnessRow(for date: Date) -> some View {
-        let sleep = sleepHours(on: date)
-        let steps = stepsCount(on: date)
-        let diary = hasDiaryEntry(on: date)
-
-        if sleep == nil && steps == nil && diary == false {
-            Color.clear.frame(height: 16)
-        } else {
-            HStack(spacing: 2) {
-                if let hours = sleep {
-                    wellnessEmoji("🛌", isActive: hours >= 8)
-                }
-                if let step = steps {
-                    wellnessEmoji("👣", isActive: step >= 10_000)
-                }
-                if diary {
-                    wellnessEmoji("📔", isActive: true)
-                }
-            }
-            .frame(height: 16, alignment: .center)
-        }
     }
 
     private func weekDates(for anchor: Date) -> [Date] {
@@ -945,55 +971,61 @@ struct JournalView: View {
         }
     }
 
-    @ViewBuilder
-    private func indicatorRow(events: Int, tasks: Int) -> some View {
-        if events == 0 && tasks == 0 {
-            Color.clear.frame(height: 12)
-        } else {
-            HStack(spacing: 4) {
-                if events > 0 {
-                    dotIndicator(color: .accentColor, count: events)
-                }
-                if tasks > 0 {
-                    dotIndicator(color: .yellow, count: tasks)
-                }
+    private func dayPreviewItems(for date: Date) -> [DayPreviewItem] {
+        let calendar = Calendar.current
+        let events = store.events(on: date).sorted { lhs, rhs in
+            if lhs.isAllDay != rhs.isAllDay {
+                return lhs.isAllDay && rhs.isAllDay == false
             }
-            .frame(height: 12, alignment: .center)
+            return lhs.startDate < rhs.startDate
         }
+        let tasks = viewModel.tasks(on: date).sorted(by: calendarTaskSort)
+
+        let eventItems: [DayPreviewItem] = events.map {
+            DayPreviewItem(id: $0.id.uuidString,
+                           title: $0.title,
+                           color: CategoryPalette.color(for: $0.calendarName),
+                           timeText: previewTimeLabel(for: $0),
+                           kind: .event)
+        }
+        let taskItems: [DayPreviewItem] = tasks.map {
+            DayPreviewItem(id: $0.id.uuidString,
+                           title: $0.title,
+                           color: $0.priority.color,
+                           timeText: taskTimeLabel(for: $0, on: date),
+                           kind: .task)
+        }
+        return eventItems + taskItems
     }
 
-    private func dotIndicator(color: Color, count: Int) -> some View {
-        ZStack(alignment: .topTrailing) {
-            Circle()
-                .fill(color.opacity(0.85))
-                .frame(width: 8, height: 8)
-            if count > 1 {
-                Text(count > 9 ? "9+" : "\(count)")
-                    .font(.system(size: 8, weight: .bold))
-                    .foregroundStyle(.secondary)
-                    .offset(x: 6, y: -5)
-            }
+    private func previewLabel(for item: DayPreviewItem) -> String {
+        if let time = item.timeText {
+            return "\(time) \(item.title)"
         }
-        .frame(width: 14, height: 14)
+        return item.title
     }
 
-    private func wellnessEmoji(_ symbol: String, isActive: Bool) -> some View {
-        let isDarkMode = colorScheme == .dark
-        // docs/ui-guidelines.md §カレンダー: calendar emojis should stay legible, even in dark mode.
-        return Text(symbol)
-            .font(.system(size: 8))
-            .frame(width: 10, height: 10)
-            .padding(1)
-            .background(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(isDarkMode ? Color.white.opacity(0.18) : Color.black.opacity(0.04))
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .stroke(isDarkMode ? Color.white.opacity(0.3) : Color.black.opacity(0.08), lineWidth: 0.5)
-            )
-            .shadow(color: .black.opacity(isDarkMode ? 0.25 : 0.08), radius: isDarkMode ? 1.5 : 0.8, x: 0, y: 0.5)
-            .opacity(isActive ? 1 : 0.35)
+    private func previewTimeLabel(for event: CalendarEvent) -> String? {
+        if event.isAllDay {
+            let calendar = Calendar.current
+            let endDay = calendar.date(byAdding: .second, value: -1, to: event.endDate) ?? event.endDate
+            if calendar.isDate(event.startDate, inSameDayAs: endDay) {
+                return "終日"
+            }
+            return "終日 \(event.startDate.jaMonthDayString) - \(endDay.jaMonthDayString)"
+        }
+        return event.startDate.formatted(date: .omitted, time: .shortened)
+    }
+
+    private func taskTimeLabel(for task: Task, on date: Date) -> String? {
+        let calendar = Calendar.current
+        if let start = task.startDate, calendar.isDate(start, inSameDayAs: date) {
+            return start.formatted(date: .omitted, time: .shortened)
+        }
+        if let end = task.endDate, calendar.isDate(end, inSameDayAs: date) {
+            return end.formatted(date: .omitted, time: .shortened)
+        }
+        return nil
     }
 
     private func hasDiaryEntry(on date: Date) -> Bool {
@@ -1001,30 +1033,6 @@ struct JournalView: View {
             return entry.text.isEmpty == false || entry.photoPaths.isEmpty == false || entry.mood != nil || entry.conditionScore != nil
         }
         return false
-    }
-
-    private func sleepHours(on date: Date) -> Double? {
-        guard let summary = store.healthSummaries.first(where: { Calendar.current.isDate($0.date, inSameDayAs: date) }),
-              let hours = summary.sleepHours, hours > 0 else {
-            return nil
-        }
-        return hours
-    }
-
-    private func stepsCount(on date: Date) -> Int? {
-        guard let summary = store.healthSummaries.first(where: { Calendar.current.isDate($0.date, inSameDayAs: date) }),
-              let steps = summary.steps, steps > 0 else {
-            return nil
-        }
-        return steps
-    }
-
-    private func eventCount(on date: Date) -> Int {
-        store.events(on: date).count
-    }
-
-    private func taskCount(on date: Date) -> Int {
-        viewModel.tasks(on: date).count
     }
 
     private func setWeekPagerSelection(_ index: Int) {
@@ -1041,6 +1049,13 @@ private struct TimelineItemDetailView: View {
     private var canDeleteEvent: Bool {
         item.kind == .event && onDelete != nil
     }
+    
+    private var timeLabel: String {
+        if item.isAllDay {
+            return "終日"
+        }
+        return "\(item.start.formatted(date: .omitted, time: .shortened)) - \(item.end.formatted(date: .omitted, time: .shortened))"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -1048,7 +1063,7 @@ private struct TimelineItemDetailView: View {
                 Text(item.title)
                     .font(.title2.bold())
                 
-                Text("\(item.start.formatted(date: .omitted, time: .shortened)) - \(item.end.formatted(date: .omitted, time: .shortened))")
+                Text(timeLabel)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 
@@ -1143,7 +1158,7 @@ private struct CalendarDetailPanel: View {
                                         VStack(alignment: .leading, spacing: 4) {
                                             Text(event.title)
                                                 .font(.body.weight(.semibold))
-                                            Label("\(event.startDate.formattedTime()) - \(event.endDate.formattedTime())", systemImage: "clock")
+                                            Label(eventTimeLabel(for: event), systemImage: "clock")
                                                 .font(.caption)
                                                 .foregroundStyle(.secondary)
                                             Text(event.calendarName)
@@ -1333,6 +1348,18 @@ private struct CalendarDetailPanel: View {
         CategoryPalette.color(for: category)
     }
 
+    private func eventTimeLabel(for event: CalendarEvent) -> String {
+        if event.isAllDay {
+            let calendar = Calendar.current
+            let endDay = calendar.date(byAdding: .second, value: -1, to: event.endDate) ?? event.endDate
+            if calendar.isDate(event.startDate, inSameDayAs: endDay) {
+                return "終日"
+            }
+            return "終日 \(event.startDate.jaMonthDayString) - \(endDay.jaMonthDayString)"
+        }
+        return "\(event.startDate.formattedTime()) - \(event.endDate.formattedTime())"
+    }
+
     private func conditionLabel(for score: Int) -> String {
         let emoji: String
         switch score {
@@ -1415,24 +1442,49 @@ private struct TimelineColumnView: View {
     }
 
     var body: some View {
+        let allDayItems = items.filter { $0.isAllDay }
+        let timedItems = items.filter { $0.isAllDay == false }
+
         VStack(spacing: 8) {
             Text(date.jaMonthDayString)
                 .font(.caption.bold())
             Text(dayLabel)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+            if allDayItems.isEmpty == false {
+                VStack(alignment: .leading, spacing: 6) {
+                    ForEach(allDayItems) { item in
+                        HStack(spacing: 6) {
+                            Circle()
+                                .fill(color(for: item))
+                                .frame(width: 6, height: 6)
+                            Text(item.title)
+                                .font(.caption2)
+                                .lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 8)
+                        .background(color(for: item).opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
+                        .onTapGesture { onTapItem(item) }
+                        .onLongPressGesture { onLongPressItem(item) }
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.bottom, 2)
+            }
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(isSelected ? Color.accentColor.opacity(0.18) : Color.gray.opacity(0.08))
                     .frame(height: timelineHeight)
-                ForEach(items) { item in
+                ForEach(timedItems) { item in
                     let (offset, blockHeight) = position(for: item, in: timelineHeight)
                     if blockHeight > 1 {
                         let threshold: CGFloat = 36
                         let alignment: Alignment = blockHeight < threshold ? .center : .top
 
                         RoundedRectangle(cornerRadius: 6)
-                            .fill(item.kind == .sleep ? Color.purple : (item.kind == .event ? Color.blue : Color.green))
+                            .fill(color(for: item))
                             .frame(height: blockHeight)
                             .overlay(alignment: alignment) {
                                 HStack(alignment: .top) {
@@ -1488,6 +1540,9 @@ private struct TimelineColumnView: View {
     }
 
     private func position(for item: JournalViewModel.TimelineItem, in contentHeight: CGFloat) -> (CGFloat, CGFloat) {
+        if item.isAllDay {
+            return (0, 0)
+        }
         let dayStart = Calendar.current.startOfDay(for: date)
         guard let dayEnd = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) else { return (0, 0) }
 
@@ -1510,5 +1565,16 @@ private struct TimelineColumnView: View {
         guard height > 0 else { return (0, 0) }
         
         return (offset, height)
+    }
+
+    private func color(for item: JournalViewModel.TimelineItem) -> Color {
+        switch item.kind {
+        case .event:
+            return CategoryPalette.color(for: item.detail ?? "")
+        case .task:
+            return .green
+        case .sleep:
+            return .purple
+        }
     }
 }

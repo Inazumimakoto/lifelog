@@ -229,6 +229,13 @@ final class AppDataStore: ObservableObject {
         persistHabits()
     }
 
+    func deleteHabit(_ habitID: UUID) {
+        habits.removeAll { $0.id == habitID }
+        habitRecords.removeAll { $0.habitID == habitID }
+        persistHabits()
+        persistHabitRecords()
+    }
+
     // MARK: - Anniversaries
 
     func addAnniversary(_ anniversary: Anniversary) {
@@ -239,6 +246,11 @@ final class AppDataStore: ObservableObject {
     func updateAnniversary(_ anniversary: Anniversary) {
         guard let index = anniversaries.firstIndex(where: { $0.id == anniversary.id }) else { return }
         anniversaries[index] = anniversary
+        persistAnniversaries()
+    }
+
+    func deleteAnniversary(_ anniversaryID: UUID) {
+        anniversaries.removeAll { $0.id == anniversaryID }
         persistAnniversaries()
     }
 
@@ -413,6 +425,10 @@ final class AppDataStore: ObservableObject {
                           endDate: calendar.date(bySettingHour: 10, minute: 0, second: 0, of: now) ?? now, calendarName: "Work"),
             CalendarEvent(title: "Lunch with Sara", startDate: calendar.date(bySettingHour: 12, minute: 30, second: 0, of: now) ?? now,
                           endDate: calendar.date(bySettingHour: 13, minute: 30, second: 0, of: now) ?? now, calendarName: "Personal"),
+            CalendarEvent(title: "Offsite", startDate: todayStart,
+                          endDate: calendar.date(byAdding: .day, value: 1, to: todayStart) ?? todayStart.addingTimeInterval(86_400),
+                          calendarName: "Work",
+                          isAllDay: true),
             CalendarEvent(title: "Yoga class", startDate: calendar.date(byAdding: .day, value: 1, to: now)?.addingTimeInterval(18_000) ?? now,
                           endDate: calendar.date(byAdding: .day, value: 1, to: now)?.addingTimeInterval(19_800) ?? now, calendarName: "Wellness")
         ]

@@ -67,4 +67,8 @@ final class AnniversaryViewModel: ObservableObject {
     func update(_ anniversary: Anniversary) {
         store.updateAnniversary(anniversary)
     }
+
+    func delete(_ anniversary: Anniversary) {
+        store.deleteAnniversary(anniversary.id)
+    }
 }
