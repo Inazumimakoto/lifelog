@@ -24,7 +24,7 @@ struct JournalView: View {
     @Environment(\.scenePhase) private var scenePhase
     private let store: AppDataStore
     @StateObject private var viewModel: JournalViewModel
-    private let monthPagerHeight: CGFloat = 760
+    private let monthPagerHeight: CGFloat = 700
     private let monthPagerRadius = 6
     @State private var monthPagerAnchors: [Date] = []
     @State private var monthPagerSelection: Int = 0
@@ -355,6 +355,7 @@ struct JournalView: View {
             }
         }
         .pickerStyle(.segmented)
+        
     }
 
     private var headerTitle: String {
@@ -421,24 +422,24 @@ struct JournalView: View {
     }
 
     private func monthCalendar(for anchor: Date) -> some View {
-        let columns = Array(repeating: GridItem(.flexible(), spacing: 6), count: 7)
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
         let days = viewModel.calendarDays(for: anchor)
-        let itemLimit = 4
-        return LazyVGrid(columns: columns, spacing: 8) {
+        let itemLimit = 3
+        return LazyVGrid(columns: columns, spacing: 6) {
             ForEach(days) { day in
                 let previews = dayPreviewItems(for: day.date)
-                let overflow = max(0, previews.count - itemLimit)
+                let (visible, overflow) = previewDisplay(previews, limit: itemLimit)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("\(Calendar.current.component(.day, from: day.date))")
                         .font(.headline)
                         .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(previews.prefix(itemLimit)) { item in
+                    VStack(alignment: .leading, spacing: 3) {
+                        ForEach(visible) { item in
                             Text(previewLabel(for: item))
                                 .font(.caption2.weight(.semibold))
                                 .lineLimit(1)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 5)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 4)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(item.color.opacity(0.18), in: RoundedRectangle(cornerRadius: 8))
                         }
@@ -451,9 +452,9 @@ struct JournalView: View {
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(minHeight: 118)
-                .padding(.vertical, 6)
-                .padding(.horizontal, 6)
+                .frame(minHeight: 96)
+                .padding(.vertical, 4)
+                .padding(.horizontal, 4)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(day.isToday ? Color.accentColor.opacity(0.12) : Color.clear)
@@ -501,7 +502,7 @@ struct JournalView: View {
             ForEach(Array(weekPagerAnchors.enumerated()), id: \.offset) { index, anchor in
                 VStack(spacing: 12) {
                     weekCalendar(for: anchor)
-                        .padding(.top, 4)
+                        .padding(.top, 44)
                     weekTimeline(for: anchor)
                 }
                 .padding(.bottom, 8)
@@ -571,20 +572,21 @@ struct JournalView: View {
     private func weekCalendar(for anchor: Date) -> some View {
         let dates = weekDates(for: anchor)
         let itemLimit = 3
-        return LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 6), count: 7), spacing: 8) {
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
+        return LazyVGrid(columns: columns, spacing: 6) {
             ForEach(dates, id: \.self) { date in
                 let previews = dayPreviewItems(for: date)
-                let overflow = max(0, previews.count - itemLimit)
+                let (visible, overflow) = previewDisplay(previews, limit: itemLimit)
                 VStack(alignment: .leading, spacing: 8) {
                     Text("\(Calendar.current.component(.day, from: date))")
                         .font(.headline)
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(previews.prefix(itemLimit)) { item in
+                    VStack(alignment: .leading, spacing: 3) {
+                        ForEach(visible) { item in
                             Text(previewLabel(for: item))
                                 .font(.caption2.weight(.semibold))
                                 .lineLimit(1)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 5)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 4)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(item.color.opacity(0.18), in: RoundedRectangle(cornerRadius: 8))
                         }
@@ -597,9 +599,9 @@ struct JournalView: View {
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(minHeight: 110)
-                .padding(.vertical, 6)
-                .padding(.horizontal, 6)
+                .frame(minHeight: 96)
+                .padding(.vertical, 4)
+                .padding(.horizontal, 4)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(date.isSameDay(as: Date()) ? Color.accentColor.opacity(0.12) : Color.clear)
@@ -998,35 +1000,21 @@ struct JournalView: View {
         return eventItems + taskItems
     }
 
+    private func previewDisplay(_ items: [DayPreviewItem], limit: Int) -> ([DayPreviewItem], Int) {
+        guard items.count > limit else { return (items, 0) }
+        let visibleCount = max(1, limit - 1)
+        let visible = Array(items.prefix(visibleCount))
+        let overflow = items.count - visibleCount
+        return (visible, overflow)
+    }
+
     private func previewLabel(for item: DayPreviewItem) -> String {
-        if let time = item.timeText {
-            return "\(time) \(item.title)"
-        }
-        return item.title
+        item.title
     }
 
-    private func previewTimeLabel(for event: CalendarEvent) -> String? {
-        if event.isAllDay {
-            let calendar = Calendar.current
-            let endDay = calendar.date(byAdding: .second, value: -1, to: event.endDate) ?? event.endDate
-            if calendar.isDate(event.startDate, inSameDayAs: endDay) {
-                return "終日"
-            }
-            return "終日 \(event.startDate.jaMonthDayString) - \(endDay.jaMonthDayString)"
-        }
-        return event.startDate.formatted(date: .omitted, time: .shortened)
-    }
+    private func previewTimeLabel(for event: CalendarEvent) -> String? { nil }
 
-    private func taskTimeLabel(for task: Task, on date: Date) -> String? {
-        let calendar = Calendar.current
-        if let start = task.startDate, calendar.isDate(start, inSameDayAs: date) {
-            return start.formatted(date: .omitted, time: .shortened)
-        }
-        if let end = task.endDate, calendar.isDate(end, inSameDayAs: date) {
-            return end.formatted(date: .omitted, time: .shortened)
-        }
-        return nil
-    }
+    private func taskTimeLabel(for task: Task, on date: Date) -> String? { nil }
 
     private func hasDiaryEntry(on date: Date) -> Bool {
         if let entry = store.entry(for: date) {
@@ -1442,42 +1430,17 @@ private struct TimelineColumnView: View {
     }
 
     var body: some View {
-        let allDayItems = items.filter { $0.isAllDay }
-        let timedItems = items.filter { $0.isAllDay == false }
-
         VStack(spacing: 8) {
             Text(date.jaMonthDayString)
                 .font(.caption.bold())
             Text(dayLabel)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
-            if allDayItems.isEmpty == false {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(allDayItems) { item in
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(color(for: item))
-                                .frame(width: 6, height: 6)
-                            Text(item.title)
-                                .font(.caption2)
-                                .lineLimit(1)
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.vertical, 6)
-                        .padding(.horizontal, 8)
-                        .background(color(for: item).opacity(0.15), in: RoundedRectangle(cornerRadius: 8))
-                        .onTapGesture { onTapItem(item) }
-                        .onLongPressGesture { onLongPressItem(item) }
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.bottom, 2)
-            }
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(isSelected ? Color.accentColor.opacity(0.18) : Color.gray.opacity(0.08))
                     .frame(height: timelineHeight)
-                ForEach(timedItems) { item in
+                ForEach(items) { item in
                     let (offset, blockHeight) = position(for: item, in: timelineHeight)
                     if blockHeight > 1 {
                         let threshold: CGFloat = 36
@@ -1507,13 +1470,15 @@ private struct TimelineColumnView: View {
                                     Spacer()
                                     
                                     VStack(alignment: .trailing) {
-                                        if blockHeight < threshold {
-                                            // 短い予定: 開始時間のみ (右上)
+                                        if item.isAllDay {
+                                            Text("終日")
+                                                .font(.system(size: 8, weight: .semibold))
+                                                .foregroundStyle(.white.opacity(0.9))
+                                        } else if blockHeight < threshold {
                                             Text(item.start.formatted(date: .omitted, time: .shortened))
                                                 .font(.system(size: 8))
                                                 .foregroundStyle(.white.opacity(0.85))
                                         } else {
-                                            // 長い予定: 開始時刻 (右上) と 終了時刻 (右下)
                                             Text(item.start.formatted(date: .omitted, time: .shortened))
                                                 .font(.system(size: 8))
                                                 .foregroundStyle(.white.opacity(0.85))
@@ -1540,14 +1505,23 @@ private struct TimelineColumnView: View {
     }
 
     private func position(for item: JournalViewModel.TimelineItem, in contentHeight: CGFloat) -> (CGFloat, CGFloat) {
-        if item.isAllDay {
-            return (0, 0)
-        }
-        let dayStart = Calendar.current.startOfDay(for: date)
-        guard let dayEnd = Calendar.current.date(byAdding: .day, value: 1, to: dayStart) else { return (0, 0) }
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: date)
+        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return (0, 0) }
 
-        let clampedStart = max(item.start, dayStart)
-        let clampedEnd = min(item.end, dayEnd)
+        let effectiveStart: Date
+        let effectiveEnd: Date
+
+        if item.isAllDay {
+            effectiveStart = dayStart
+            effectiveEnd = calendar.date(byAdding: .minute, value: 90, to: dayStart) ?? dayStart
+        } else {
+            effectiveStart = item.start
+            effectiveEnd = item.end
+        }
+
+        let clampedStart = max(effectiveStart, dayStart)
+        let clampedEnd = min(effectiveEnd, dayEnd)
 
         if clampedStart >= clampedEnd {
             return (0, 0)

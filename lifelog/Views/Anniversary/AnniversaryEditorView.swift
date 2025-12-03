@@ -10,16 +10,21 @@ import SwiftUI
 struct AnniversaryEditorView: View {
     @Environment(\.dismiss) private var dismiss
     var onSave: (Anniversary) -> Void
+    var onDelete: (() -> Void)?
     private var editingAnniversary: Anniversary?
 
     @State private var title: String
     @State private var date: Date
     @State private var type: AnniversaryType
     @State private var repeatsYearly: Bool
+    @State private var showDeleteConfirmation = false
 
-    init(anniversary: Anniversary? = nil, onSave: @escaping (Anniversary) -> Void) {
+    init(anniversary: Anniversary? = nil,
+         onSave: @escaping (Anniversary) -> Void,
+         onDelete: (() -> Void)? = nil) {
         self.editingAnniversary = anniversary
         self.onSave = onSave
+        self.onDelete = onDelete
         _title = State(initialValue: anniversary?.title ?? "")
         _date = State(initialValue: anniversary?.targetDate ?? Date())
         _type = State(initialValue: anniversary?.type ?? .countdown)
@@ -58,6 +63,26 @@ struct AnniversaryEditorView: View {
             ToolbarItem(placement: .cancellationAction) {
                 Button("キャンセル", role: .cancel) { dismiss() }
             }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if editingAnniversary != nil && onDelete != nil {
+                Button(role: .destructive) {
+                    showDeleteConfirmation = true
+                } label: {
+                    Text("記念日を削除")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+                .padding()
+            }
+        }
+        .confirmationDialog("この記念日を削除しますか？", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
+            Button("削除", role: .destructive) {
+                onDelete?()
+                dismiss()
+            }
+            Button("キャンセル", role: .cancel) { }
         }
     }
 }

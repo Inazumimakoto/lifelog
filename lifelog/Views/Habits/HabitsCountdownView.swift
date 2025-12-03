@@ -15,8 +15,6 @@ struct HabitsCountdownView: View {
     @State private var showAnniversaryEditor = false
     @State private var editingHabit: Habit?
     @State private var editingAnniversary: Anniversary?
-    @State private var habitToDelete: Habit?
-    @State private var anniversaryToDelete: Anniversary?
     @State private var displayMode: DisplayMode = .habits
     @State private var selectedHabitForDetail: Habit?
     @State private var selectedSummaryDate: Date?
@@ -57,16 +55,16 @@ struct HabitsCountdownView: View {
         }
         .sheet(item: $editingHabit) { habit in
             NavigationStack {
-                HabitEditorView(habit: habit) { updated in
-                    habitsViewModel.updateHabit(updated)
-                }
+                HabitEditorView(habit: habit,
+                                onSave: { updated in habitsViewModel.updateHabit(updated) },
+                                onDelete: { habitsViewModel.deleteHabit(habit) })
             }
         }
         .sheet(item: $editingAnniversary) { anniversary in
             NavigationStack {
-                AnniversaryEditorView(anniversary: anniversary) { updated in
-                    anniversaryViewModel.update(updated)
-                }
+                AnniversaryEditorView(anniversary: anniversary,
+                                      onSave: { updated in anniversaryViewModel.update(updated) },
+                                      onDelete: { anniversaryViewModel.delete(anniversary) })
             }
         }
         .sheet(isPresented: Binding(get: { selectedSummaryDate != nil },
@@ -90,28 +88,6 @@ struct HabitsCountdownView: View {
                     HabitDetailView(store: store, habit: habit)
                 }
             }
-        }
-        .confirmationDialog("習慣を削除", isPresented: Binding(get: { habitToDelete != nil },
-                                                           set: { if $0 == false { habitToDelete = nil } }),
-                            presenting: habitToDelete) { habit in
-            Button("削除", role: .destructive) {
-                habitsViewModel.deleteHabit(habit)
-                habitToDelete = nil
-            }
-            Button("キャンセル", role: .cancel) { habitToDelete = nil }
-        } message: { habit in
-            Text("\"\(habit.title)\" を削除しますか？")
-        }
-        .confirmationDialog("記念日を削除", isPresented: Binding(get: { anniversaryToDelete != nil },
-                                                           set: { if $0 == false { anniversaryToDelete = nil } }),
-                            presenting: anniversaryToDelete) { anniversary in
-            Button("削除", role: .destructive) {
-                anniversaryViewModel.delete(anniversary)
-                anniversaryToDelete = nil
-            }
-            Button("キャンセル", role: .cancel) { anniversaryToDelete = nil }
-        } message: { anniversary in
-            Text("\"\(anniversary.title)\" を削除しますか？")
         }
     }
 
@@ -156,26 +132,14 @@ struct HabitsCountdownView: View {
                 Text("行をタップすると詳細。色や曜日は編集からいつでも変更できます。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                HStack {
-                    Text("習慣")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .frame(width: 120, alignment: .leading)
-                    ForEach(habitsViewModel.weekDates, id: \.self) { date in
-                        Text(date, format: .dateTime.weekday(.short))
-                            .font(.caption2)
-                            .frame(maxWidth: .infinity)
-                            .foregroundStyle(.secondary)
-                    }
-                }
                 if habitsViewModel.statuses.isEmpty {
                     Text("まだ習慣がありません。追加して継続状況を可視化しましょう。")
                         .foregroundStyle(.secondary)
                         .padding(.vertical, 24)
                 } else {
                     ForEach(Array(habitsViewModel.statuses.enumerated()), id: \.element.id) { index, status in
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack(alignment: .top) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack(alignment: .top, spacing: 12) {
                                 Button {
                                     selectedHabitForDetail = status.habit
                                 } label: {
@@ -196,6 +160,12 @@ struct HabitsCountdownView: View {
                                 }
                                 .buttonStyle(.plain)
                                 Spacer()
+                                MiniHabitHeatmapView(cells: habitsViewModel.miniHeatmap(for: status.habit),
+                                                     accentColor: Color(hex: status.habit.colorHex) ?? .accentColor)
+                                .frame(width: 110, height: 82)
+                                .onTapGesture {
+                                    selectedHabitForDetail = status.habit
+                                }
                                 Button {
                                     editingHabit = status.habit
                                 } label: {
@@ -203,34 +173,7 @@ struct HabitsCountdownView: View {
                                         .foregroundStyle(.secondary)
                                 }
                             }
-                            HStack {
-                                ForEach(habitsViewModel.weekDates, id: \.self) { date in
-                                    Button {
-                                        habitsViewModel.toggle(habit: status.habit, on: date)
-                                    } label: {
-                                        let isActive = status.isActive(on: date)
-                                        Image(systemName: symbolName(for: status, on: date, isActive: isActive))
-                                            .foregroundStyle(
-                                                isActive
-                                                ? (status.isCompleted(on: date) ? Color(hex: status.habit.colorHex) ?? .accentColor : .secondary)
-                                                : Color.black
-                                            )
-                                            .frame(maxWidth: .infinity)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .disabled(status.isActive(on: date) == false)
-                                }
-                            }
-                            MiniHabitHeatmapView(cells: habitsViewModel.miniHeatmap(for: status.habit),
-                                                 accentColor: Color(hex: status.habit.colorHex) ?? .accentColor)
-                            .onTapGesture {
-                                selectedHabitForDetail = status.habit
-                            }
-                        }
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button("削除", role: .destructive) {
-                                habitToDelete = status.habit
-                            }
+                            weekRow(for: status)
                         }
                         if index < habitsViewModel.statuses.count - 1 {
                             Divider()
@@ -267,11 +210,6 @@ struct HabitsCountdownView: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button("削除", role: .destructive) {
-                            anniversaryToDelete = row.anniversary
-                        }
-                    }
                     if index < anniversaryViewModel.rows.count - 1 {
                         Divider()
                     }
@@ -312,6 +250,33 @@ extension HabitsCountdownView {
         let monthCount = habitsViewModel.monthlyCompletionCount(for: habit)
         let streak = habitsViewModel.currentStreak(for: habit)
         return "今月 \(monthCount) 回 / 連続 \(streak) 日"
+    }
+
+    private func weekRow(for status: HabitsViewModel.HabitWeekStatus) -> some View {
+        HStack(spacing: 6) {
+            ForEach(habitsViewModel.weekDates, id: \.self) { date in
+                VStack(spacing: 4) {
+                    Text(date, format: .dateTime.weekday(.narrow))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                    Button {
+                        habitsViewModel.toggle(habit: status.habit, on: date)
+                    } label: {
+                        let isActive = status.isActive(on: date)
+                        Image(systemName: symbolName(for: status, on: date, isActive: isActive))
+                            .foregroundStyle(
+                                isActive
+                                ? (status.isCompleted(on: date) ? Color(hex: status.habit.colorHex) ?? .accentColor : .secondary)
+                                : Color.black
+                            )
+                            .font(.title3)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(status.isActive(on: date) == false)
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
     }
 }
 

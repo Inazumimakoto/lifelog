@@ -11,9 +11,11 @@ struct TodayTimelineView: View {
     var items: [JournalViewModel.TimelineItem]
     var anchorDate: Date
     
-    // Dynamic startHour and endHour
     private var dynamicStartHour: Double {
-        let allHours = items.flatMap { [hourValue($0.start), hourValue($0.end)] }
+        let allHours = items.flatMap {
+            let range = effectiveRange(for: $0)
+            return [hourValue(range.start), hourValue(range.end)]
+        }
         let minDataHour = allHours.min() ?? 0
         let maxDataHour = allHours.max() ?? 24
 
@@ -30,18 +32,25 @@ struct TodayTimelineView: View {
         }
         
         // Ensure the range is always at least 24 hours if it contains overnight sleep
-        let hasOvernightSleep = items.contains(where: { $0.kind == .sleep && hourValue($0.end) < hourValue($0.start) })
+        let hasOvernightSleep = items.contains {
+            guard $0.kind == .sleep else { return false }
+            let range = effectiveRange(for: $0)
+            return hourValue(range.end) < hourValue(range.start)
+        }
         if hasOvernightSleep && effectiveEndHour - effectiveStartHour < 24 {
             let midPoint = (effectiveStartHour + effectiveEndHour) / 2
             effectiveStartHour = midPoint - 12
             effectiveEndHour = midPoint + 12
         }
 
-        return effectiveStartHour
+        return max(0, effectiveStartHour)
     }
 
     private var dynamicEndHour: Double {
-        let allHours = items.flatMap { [hourValue($0.start), hourValue($0.end)] }
+        let allHours = items.flatMap {
+            let range = effectiveRange(for: $0)
+            return [hourValue(range.start), hourValue(range.end)]
+        }
         let minDataHour = allHours.min() ?? 0
         let maxDataHour = allHours.max() ?? 24
 
@@ -57,18 +66,18 @@ struct TodayTimelineView: View {
             effectiveEndHour = midPoint + minSpan / 2
         }
 
-        let hasOvernightSleep = items.contains(where: { $0.kind == .sleep && hourValue($0.end) < hourValue($0.start) })
+        let hasOvernightSleep = items.contains {
+            guard $0.kind == .sleep else { return false }
+            let range = effectiveRange(for: $0)
+            return hourValue(range.end) < hourValue(range.start)
+        }
         if hasOvernightSleep && effectiveEndHour - effectiveStartHour < 24 {
             let midPoint = (effectiveStartHour + effectiveEndHour) / 2
             effectiveStartHour = midPoint - 12
             effectiveEndHour = midPoint + 12
         }
         
-        return effectiveEndHour
-    }
-
-    private var tasks: [JournalViewModel.TimelineItem] {
-        items.filter { $0.kind == .task && $0.title.isEmpty == false }
+        return max(effectiveEndHour, maxDataHour)
     }
 
     var body: some View {
@@ -118,62 +127,38 @@ struct TodayTimelineView: View {
     }
 
     private func timelineColumn(height: CGFloat) -> some View {
-        let allDayItems = items.filter { $0.isAllDay }
-        let timedItems = items.filter { $0.isAllDay == false }
-
-        return VStack(alignment: .leading, spacing: 8) {
-            if allDayItems.isEmpty == false {
-                VStack(alignment: .leading, spacing: 6) {
-                    ForEach(allDayItems) { item in
-                        HStack(spacing: 6) {
-                            Circle()
-                                .fill(color(for: item))
-                                .frame(width: 6, height: 6)
-                            Text(item.title)
+        ZStack(alignment: .topLeading) {
+            RoundedRectangle(cornerRadius: 16)
+                .fill(LinearGradient(colors: [Color(.systemBackground), Color(.systemGray6)], startPoint: .top, endPoint: .bottom))
+                .frame(height: height)
+            TodayAxisView(height: height, startHour: dynamicStartHour, endHour: dynamicEndHour)
+            TimelineGrid(height: height, startHour: dynamicStartHour, endHour: dynamicEndHour)
+                .clipShape(RoundedRectangle(cornerRadius: 16))
+            ForEach(items) { item in
+                let (offset, blockHeight) = position(for: item, contentHeight: height)
+                if blockHeight > 0 {
+                    let detailText = item.detail == "__completed__" ? nil : item.detail
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(item.title)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(2)
+                        if let detail = detailText, detail.isEmpty == false {
+                            Text(detail)
                                 .font(.caption2)
-                                .lineLimit(1)
+                                .foregroundStyle(.white.opacity(0.9))
                         }
-                        .padding(.vertical, 6)
-                        .padding(.horizontal, 8)
-                        .background(color(for: item).opacity(0.16), in: RoundedRectangle(cornerRadius: 8))
                     }
-                }
-                .padding(.horizontal, 4)
-            }
-
-            ZStack(alignment: .topLeading) {
-                RoundedRectangle(cornerRadius: 16)
-                    .fill(LinearGradient(colors: [Color(.systemBackground), Color(.systemGray6)], startPoint: .top, endPoint: .bottom))
-                    .frame(height: height)
-                TodayAxisView(height: height, startHour: dynamicStartHour, endHour: dynamicEndHour)
-                TimelineGrid(height: height, startHour: dynamicStartHour, endHour: dynamicEndHour)
-                    .clipShape(RoundedRectangle(cornerRadius: 16))
-                ForEach(timedItems) { item in
-                    let (offset, blockHeight) = position(for: item, contentHeight: height)
-                    if blockHeight > 0 {
-                        let detailText = item.detail == "__completed__" ? nil : item.detail
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(item.title)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.white)
-                                .lineLimit(2)
-                            if let detail = detailText, detail.isEmpty == false {
-                                Text(detail)
-                                    .font(.caption2)
-                                    .foregroundStyle(.white.opacity(0.9))
-                            }
-                        }
-                        .padding(8)
-                        .frame(maxWidth: 240, alignment: .leading)
-                        .background(color(for: item).gradient)
-                        .clipShape(RoundedRectangle(cornerRadius: 8))
-                        .frame(height: blockHeight, alignment: .topLeading)
-                        .offset(x: 48, y: offset)
-                    }
+                    .padding(8)
+                    .frame(maxWidth: 240, alignment: .leading)
+                    .background(color(for: item))
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .frame(height: blockHeight, alignment: .topLeading)
+                    .offset(x: 48, y: offset)
                 }
             }
-            .frame(width: 220, height: height)
         }
+        .frame(width: 220, height: height)
     }
 
     private func intervalText(start: Date, end: Date) -> String {
@@ -196,11 +181,9 @@ struct TodayTimelineView: View {
     }
 
     private func position(for item: JournalViewModel.TimelineItem, contentHeight: CGFloat) -> (CGFloat, CGFloat) {
-        if item.isAllDay {
-            return (0, 0)
-        }
-        let start = hourValue(item.start)
-        let end = hourValue(item.end)
+        let range = effectiveRange(for: item)
+        let start = hourValue(range.start)
+        let end = hourValue(range.end)
 
         let totalHours = dynamicEndHour - dynamicStartHour
         
@@ -218,6 +201,16 @@ struct TodayTimelineView: View {
         let height = CGFloat((normalizedEnd - normalizedStart) / totalHours) * contentHeight
         
         return (offset, height)
+    }
+
+    private func effectiveRange(for item: JournalViewModel.TimelineItem) -> (start: Date, end: Date) {
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: anchorDate)
+        if item.isAllDay {
+            let end = calendar.date(byAdding: .minute, value: 90, to: dayStart) ?? dayStart
+            return (start: dayStart, end: end)
+        }
+        return (start: item.start, end: item.end)
     }
 
     private func color(for item: JournalViewModel.TimelineItem) -> Color {

@@ -11,12 +11,14 @@ struct HabitEditorView: View {
     @Environment(\.dismiss) private var dismiss
     var habit: Habit?
     var onSave: (Habit) -> Void
+    var onDelete: (() -> Void)?
 
     @State private var title = ""
     @State private var iconName = "sun.max.fill"
     @State private var colorHex = "#F97316"
     @State private var scheduleOption: HabitScheduleOption = .daily
     @State private var customDays: Set<Weekday> = []
+    @State private var showDeleteConfirmation = false
 
     private let palette: [String] = [
         "#F97316", "#F43F5E", "#EC4899", "#8B5CF6",
@@ -31,9 +33,12 @@ struct HabitEditorView: View {
         IconCategory(title: "感情・自己管理", symbols: ["face.smiling", "star.fill", "bolt.fill", "timer", "camera.fill"])
     ]
 
-    init(habit: Habit? = nil, onSave: @escaping (Habit) -> Void) {
+    init(habit: Habit? = nil,
+         onSave: @escaping (Habit) -> Void,
+         onDelete: (() -> Void)? = nil) {
         self.habit = habit
         self.onSave = onSave
+        self.onDelete = onDelete
         _title = State(initialValue: habit?.title ?? "")
         _iconName = State(initialValue: habit?.iconName ?? "sun.max.fill")
         _colorHex = State(initialValue: habit?.colorHex ?? "#F97316")
@@ -158,6 +163,26 @@ struct HabitEditorView: View {
             ToolbarItem(placement: .cancellationAction) {
                 Button("キャンセル", role: .cancel) { dismiss() }
             }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if habit != nil && onDelete != nil {
+                Button(role: .destructive) {
+                    showDeleteConfirmation = true
+                } label: {
+                    Text("習慣を削除")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.red)
+                .padding()
+            }
+        }
+        .confirmationDialog("この習慣を削除しますか？", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
+            Button("削除", role: .destructive) {
+                onDelete?()
+                dismiss()
+            }
+            Button("キャンセル", role: .cancel) { }
         }
     }
 }
