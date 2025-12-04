@@ -821,9 +821,14 @@ struct JournalView: View {
                                     .resizable()
                                     .scaledToFill()
                                     .onTapGesture {
-                                        reviewPhotoViewerPaths = photoPaths
-                                        reviewPhotoViewerIndex = index
-                                        isShowingReviewPhotoViewer = true
+                                        showingDetailPanel = false
+                                        let paths = photoPaths
+                                        let startIndex = index
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                                            reviewPhotoViewerPaths = paths
+                                            reviewPhotoViewerIndex = startIndex
+                                            isShowingReviewPhotoViewer = true
+                                        }
                                     }
                                     .frame(height: 220)
                                     .frame(maxWidth: .infinity)
