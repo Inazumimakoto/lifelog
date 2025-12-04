@@ -1452,35 +1452,32 @@ private struct CalendarDetailPanel: View {
                     } else {
                         VStack(spacing: 12) {
                             ForEach(snapshot.events) { event in
-                                VStack(alignment: .leading, spacing: 8) {
-                                    HStack(alignment: .top, spacing: 12) {
-                                        Circle()
-                                            .fill(color(for: event.calendarName))
-                                            .frame(width: 10, height: 10)
-                                            .padding(.top, 6)
-                                        VStack(alignment: .leading, spacing: 4) {
-                                            Text(event.title)
-                                                .font(.body.weight(.semibold))
-                                            Label(eventTimeLabel(for: event), systemImage: "clock")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                            Text(event.calendarName)
-                                                .font(.caption2)
-                                                .foregroundStyle(color(for: event.calendarName))
-                                                .padding(.horizontal, 6)
-                                                .padding(.vertical, 2)
-                                                .background(color(for: event.calendarName).opacity(0.15), in: Capsule())
-                                        }
-                                        Spacer()
+                                HStack(alignment: .top, spacing: 12) {
+                                    Circle()
+                                        .fill(color(for: event.calendarName))
+                                        .frame(width: 10, height: 10)
+                                        .padding(.top, 6)
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(event.title)
+                                            .font(.body.weight(.semibold))
+                                        Label(eventTimeLabel(for: event), systemImage: "clock")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Text(event.calendarName)
+                                            .font(.caption2)
+                                            .foregroundStyle(color(for: event.calendarName))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(color(for: event.calendarName).opacity(0.15), in: Capsule())
                                     }
+                                    Spacer()
                                     Button {
                                         onEditEvent(event)
                                     } label: {
-                                        Label("編集", systemImage: "square.and.pencil")
-                                            .font(.caption.weight(.semibold))
+                                        Image(systemName: "square.and.pencil")
+                                            .foregroundStyle(.secondary)
                                     }
-                                    .buttonStyle(.bordered)
-                                    .controlSize(.small)
+                                    .buttonStyle(.plain)
                                 }
                                 .padding()
                                 .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
@@ -1604,16 +1601,16 @@ private struct CalendarDetailPanel: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
             ForEach(tasks) { task in
-                VStack(alignment: .leading, spacing: 8) {
+                HStack {
                     TaskRowView(task: task, onToggle: { onToggleTask(task) })
+                    Spacer()
                     Button {
                         onEditTask(task)
                     } label: {
-                        Label("編集", systemImage: "square.and.pencil")
-                            .font(.caption.weight(.semibold))
+                        Image(systemName: "square.and.pencil")
+                            .foregroundStyle(.secondary)
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+                    .buttonStyle(.plain)
                 }
                 .padding()
                 .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))

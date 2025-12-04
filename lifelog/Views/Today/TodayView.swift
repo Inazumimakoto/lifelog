@@ -167,31 +167,31 @@ struct TodayView: View {
                                     .fill(color(for: event.calendarName))
                                     .frame(width: 10, height: 10)
                                     .padding(.top, 6)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(event.title)
-                                .font(.body.weight(.semibold))
-                            Label(eventTimeLabel(event), systemImage: "clock")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            if event.calendarName.isEmpty == false {
-                                Text(event.calendarName)
-                                    .font(.caption2)
-                                    .foregroundStyle(color(for: event.calendarName))
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 2)
-                                    .background(color(for: event.calendarName).opacity(0.15), in: Capsule())
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(event.title)
+                                        .font(.body.weight(.semibold))
+                                    Label(eventTimeLabel(event), systemImage: "clock")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    if event.calendarName.isEmpty == false {
+                                        Text(event.calendarName)
+                                            .font(.caption2)
+                                            .foregroundStyle(color(for: event.calendarName))
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(color(for: event.calendarName).opacity(0.15), in: Capsule())
+                                    }
+                                }
+                                Spacer()
+                                Button {
+                                    editingEvent = event
+                                } label: {
+                                    Image(systemName: "square.and.pencil")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
-                    }
-                    Button {
-                        editingEvent = event
-                    } label: {
-                        Label("編集", systemImage: "square.and.pencil")
-                    }
-                    .font(.caption.weight(.semibold))
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
-                }
                         if event.id != viewModel.events.last?.id {
                             Divider()
                         }
@@ -220,18 +220,18 @@ struct TodayView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(viewModel.tasksDueToday) { task in
-                        VStack(alignment: .leading, spacing: 8) {
+                        HStack {
                             TaskRowView(task: task, onToggle: {
                                 viewModel.toggleTask(task)
                             })
+                            Spacer()
                             Button {
                                 editingTask = task
                             } label: {
-                                Label("編集", systemImage: "square.and.pencil")
+                                Image(systemName: "square.and.pencil")
+                                    .foregroundStyle(.secondary)
                             }
-                            .font(.caption.weight(.semibold))
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
+                            .buttonStyle(.plain)
                         }
                         if task.id != viewModel.tasksDueToday.last?.id {
                             Divider()
@@ -245,18 +245,18 @@ struct TodayView: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
                         ForEach(viewModel.completedTasksToday) { task in
-                            VStack(alignment: .leading, spacing: 8) {
+                            HStack {
                                 TaskRowView(task: task, onToggle: {
                                     viewModel.toggleTask(task)
                                 })
+                                Spacer()
                                 Button {
                                     editingTask = task
                                 } label: {
-                                    Label("編集", systemImage: "square.and.pencil")
+                                    Image(systemName: "square.and.pencil")
+                                        .foregroundStyle(.secondary)
                                 }
-                                .font(.caption.weight(.semibold))
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
+                                .buttonStyle(.plain)
                             }
                             if task.id != viewModel.completedTasksToday.last?.id {
                                 Divider()
