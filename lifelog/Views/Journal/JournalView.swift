@@ -69,9 +69,12 @@ struct JournalView: View {
     @State private var reviewPhotoViewerDate: Date?
     @State private var reviewPhotoViewerIndex: Int = 0
     @State private var pendingPhotoViewerDate: Date?
+    
+    private let resetTrigger: Int
 
-    init(store: AppDataStore) {
+    init(store: AppDataStore, resetTrigger: Int = 0) {
         self.store = store
+        self.resetTrigger = resetTrigger
         _viewModel = StateObject(wrappedValue: JournalViewModel(store: store))
     }
 
@@ -215,6 +218,10 @@ struct JournalView: View {
                 selectedReviewDate = viewModel.selectedDate
                 reviewPhotoIndex = preferredPhotoIndex(for: store.entry(for: selectedReviewDate ?? viewModel.selectedDate))
             }
+        }
+        .onChange(of: resetTrigger) { _, _ in
+            // 他のタブから戻った時に「予定カレンダー」にリセット
+            calendarMode = .schedule
         }
         .onChange(of: viewModel.monthAnchor) { _, newAnchor in
             guard calendarMode == .review else { return }

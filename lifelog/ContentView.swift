@@ -11,6 +11,7 @@ struct ContentView: View {
     @EnvironmentObject private var store: AppDataStore
     @State private var selection: Int = 0
     @State private var lastSelection: Int = 0
+    @State private var calendarResetTrigger: Int = 0
 
     var body: some View {
         TabView(selection: $selection) {
@@ -23,7 +24,7 @@ struct ContentView: View {
             .tag(0)
 
             navigationStack(for: 1) {
-                JournalView(store: store)
+                JournalView(store: store, resetTrigger: calendarResetTrigger)
             }
             .tabItem {
                 Label("カレンダー", systemImage: "calendar")
@@ -46,7 +47,11 @@ struct ContentView: View {
             }
             .tag(3)
         }
-        .onChange(of: selection) { _, newSelection in
+        .onChange(of: selection) { oldSelection, newSelection in
+            // 他のタブからカレンダータブに戻った時にリセット
+            if newSelection == 1 && oldSelection != 1 {
+                calendarResetTrigger += 1
+            }
             if newSelection == lastSelection {
                 // Scroll to top
             }
