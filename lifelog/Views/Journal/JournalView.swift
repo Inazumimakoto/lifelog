@@ -572,7 +572,7 @@ struct JournalView: View {
             ForEach(Array(weekPagerAnchors.enumerated()), id: \.offset) { index, anchor in
                 VStack(spacing: 12) {
                     weekCalendar(for: anchor)
-                        .padding(.top, 44)
+                        .padding(.top, 35)
                     weekTimeline(for: anchor)
                 }
                 .padding(.bottom, 8)
@@ -721,8 +721,7 @@ struct JournalView: View {
                                 .font(.headline)
                                 .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
                                 .lineLimit(1)
-                                .minimumScaleFactor(0.7)
-                                .allowsTightening(true)
+                                .layoutPriority(1)
                             Spacer()
                             if let moodEmoji {
                                 Text(moodEmoji)
