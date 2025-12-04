@@ -286,11 +286,14 @@ struct TodayView: View {
                     }
                 }
                 Divider()
-                Button {
-                    showTaskManager = true
-                } label: {
-                    Label("タスクリストを開く", systemImage: "list.bullet")
-                        .font(.caption.weight(.semibold))
+                HStack {
+                    Button {
+                        showTaskManager = true
+                    } label: {
+                        Label("タスクリストを開く", systemImage: "list.bullet")
+                            .font(.caption.weight(.semibold))
+                    }
+                    Spacer()
                 }
             }
         }
