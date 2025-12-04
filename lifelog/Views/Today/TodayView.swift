@@ -12,6 +12,7 @@ struct TodayView: View {
     @StateObject private var viewModel: TodayViewModel
     @Environment(\.scenePhase) private var scenePhase
     @State private var showTaskManager = false
+    @State private var showEventManager = false
     @State private var showTaskEditor = false
     @State private var showDiaryEditor = false
     @State private var showEventEditor = false
@@ -85,6 +86,11 @@ struct TodayView: View {
         .sheet(isPresented: $showTaskManager) {
             NavigationStack {
                 TasksView(store: store)
+            }
+        }
+        .sheet(isPresented: $showEventManager) {
+            NavigationStack {
+                EventsView(store: store)
             }
         }
         .sheet(isPresented: $showTaskEditor) {
@@ -197,13 +203,24 @@ struct TodayView: View {
                         }
                     }
                 }
-                Text("予定を追加するとカレンダーとホームで共有されます。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if viewModel.calendarAccessDenied {
-                    Text("設定 > プライバシーとセキュリティ > カレンダーでlifelogへのアクセスを許可すると、外部カレンダーの予定が表示されます。")
+                Divider()
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("予定を追加するとカレンダーとホームで共有されます。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    if viewModel.calendarAccessDenied {
+                        Text("設定 > プライバシーとセキュリティ > カレンダーでlifelogへのアクセスを許可すると、外部カレンダーの予定が表示されます。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Button {
+                        showEventManager = true
+                    } label: {
+                        Label("予定リストを開く", systemImage: "calendar.badge.plus")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
                 }
             }
         }
