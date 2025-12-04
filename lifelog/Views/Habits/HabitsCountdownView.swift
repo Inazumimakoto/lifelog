@@ -191,23 +191,25 @@ struct HabitsCountdownView: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(Array(anniversaryViewModel.rows.enumerated()), id: \.element.id) { index, row in
-                    Button {
-                        editingAnniversary = row.anniversary
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading) {
-                                Text(row.anniversary.title)
-                                    .font(.headline)
-                                Text(row.anniversary.targetDate.jaYearMonthDayString)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Text(row.relativeText)
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(row.anniversary.title)
                                 .font(.headline)
+                            Text(row.anniversary.targetDate.jaYearMonthDayString)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
+                        Spacer()
+                        Text(row.relativeText)
+                            .font(.headline)
+                        Button {
+                            editingAnniversary = row.anniversary
+                        } label: {
+                            Image(systemName: "square.and.pencil")
+                                .foregroundStyle(.secondary)
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                     if index < anniversaryViewModel.rows.count - 1 {
                         Divider()
                     }
