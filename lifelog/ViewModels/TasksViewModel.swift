@@ -101,6 +101,10 @@ final class TasksViewModel: ObservableObject {
         store.deleteTasks(withIDs: idsToDelete)
     }
 
+    func delete(task: Task) {
+        store.deleteTasks(withIDs: [task.id])
+    }
+
     func toggle(task: Task) {
         pendingAnimation = .spring(response: 0.35, dampingFraction: 0.8)
         store.toggleTaskCompletion(task.id)

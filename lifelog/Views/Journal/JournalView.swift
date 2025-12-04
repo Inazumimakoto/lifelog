@@ -130,17 +130,17 @@ struct JournalView: View {
         }
         .sheet(item: $editingEvent) { event in
             NavigationStack {
-                CalendarEventEditorView(event: event) { updated in
-                    store.updateCalendarEvent(updated)
-                }
+                CalendarEventEditorView(event: event,
+                                        onSave: { updated in store.updateCalendarEvent(updated) },
+                                        onDelete: { store.deleteCalendarEvent(event.id) })
             }
         }
         .sheet(item: $editingTask) { task in
             NavigationStack {
                 TaskEditorView(task: task,
-                               defaultDate: task.startDate ?? task.endDate ?? viewModel.selectedDate) { updated in
-                    store.updateTask(updated)
-                }
+                               defaultDate: task.startDate ?? task.endDate ?? viewModel.selectedDate,
+                               onSave: { updated in store.updateTask(updated) },
+                               onDelete: { store.deleteTasks(withIDs: [task.id]) })
             }
         }
         .sheet(isPresented: $showCalendarSettings) {
@@ -1099,7 +1099,6 @@ struct JournalView: View {
                                                 editingEvent = event
                                             }
                                         },
-                                        onDeleteEvent: { event in store.deleteCalendarEvent(event.id) },
                                         onToggleTask: { toggleTask($0) },
                                         onToggleHabit: { toggleHabit($0, on: snapshot.date) },
                                         onOpenDiary: { openDiaryEditor(for: $0) })
@@ -1395,27 +1394,15 @@ private struct TimelineItemDetailView: View {
             }
             
             if item.kind != .sleep {
-                VStack(spacing: 8) {
-                    Button(action: onEdit) {
-                        Label("編集", systemImage: "pencil")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-
-                    if canDeleteEvent {
-                        Button(role: .destructive) {
-                            onDelete?()
-                        } label: {
-                            Label("削除", systemImage: "trash")
-                                .frame(maxWidth: .infinity)
-                        }
-                        .buttonStyle(.bordered)
-                    }
+                Button(action: onEdit) {
+                    Label("編集", systemImage: "pencil")
+                        .frame(maxWidth: .infinity)
                 }
+                .buttonStyle(.borderedProminent)
             }
         }
         .padding()
-        .presentationDetents([.height(canDeleteEvent ? 210 : 180)])
+        .presentationDetents([.height(180)])
     }
 }
 
@@ -1440,13 +1427,9 @@ private struct CalendarDetailPanel: View {
     var onAddEvent: () -> Void
     var onEditTask: (Task) -> Void
     var onEditEvent: (CalendarEvent) -> Void
-    var onDeleteEvent: (CalendarEvent) -> Void
     var onToggleTask: (Task) -> Void
     var onToggleHabit: (Habit) -> Void
     var onOpenDiary: (Date) -> Void
-
-    @State private var showingDeleteConfirmation = false
-    @State private var eventToDelete: CalendarEvent?
 
     private var hasDiaryEntry: Bool {
         if let entry = snapshot.diaryEntry {
@@ -1489,19 +1472,11 @@ private struct CalendarDetailPanel: View {
                                                 .background(color(for: event.calendarName).opacity(0.15), in: Capsule())
                                         }
                                         Spacer()
-                                        Button(role: .destructive) {
-                                            eventToDelete = event
-                                            showingDeleteConfirmation = true
-                                        } label: {
-                                            Image(systemName: "trash")
-                                        }
-                                        .buttonStyle(.bordered)
-                                        .controlSize(.small)
                                     }
                                     Button {
                                         onEditEvent(event)
                                     } label: {
-                                        Label("予定を編集", systemImage: "square.and.pencil")
+                                        Label("編集", systemImage: "square.and.pencil")
                                             .font(.caption.weight(.semibold))
                                     }
                                     .buttonStyle(.bordered)
@@ -1603,17 +1578,6 @@ private struct CalendarDetailPanel: View {
                 }
             }
         }
-        .confirmationDialog("この予定を削除しますか？", isPresented: $showingDeleteConfirmation, presenting: eventToDelete) { event in
-            Button("削除", role: .destructive) {
-                onDeleteEvent(event)
-                eventToDelete = nil
-            }
-            Button("キャンセル", role: .cancel) {
-                eventToDelete = nil
-            }
-        } message: { event in
-            Text("「\(event.title)」を削除してもよろしいですか？")
-        }
     }
 
     private var header: some View {
@@ -1645,7 +1609,7 @@ private struct CalendarDetailPanel: View {
                     Button {
                         onEditTask(task)
                     } label: {
-                        Label("タスクを編集", systemImage: "square.and.pencil")
+                        Label("編集", systemImage: "square.and.pencil")
                             .font(.caption.weight(.semibold))
                     }
                     .buttonStyle(.bordered)

@@ -9,8 +9,10 @@ import SwiftUI
 
 struct TaskEditorView: View {
     @Environment(\.dismiss) private var dismiss
+    @State private var showDeleteConfirmation = false
 
     var onSave: (Task) -> Void
+    var onDelete: (() -> Void)?
 
     private let originalTask: Task?
     private let defaultDate: Date?
@@ -24,8 +26,10 @@ struct TaskEditorView: View {
 
     init(task: Task? = nil,
          defaultDate: Date? = nil,
-         onSave: @escaping (Task) -> Void) {
+         onSave: @escaping (Task) -> Void,
+         onDelete: (() -> Void)? = nil) {
         self.onSave = onSave
+        self.onDelete = onDelete
         self.originalTask = task
         self.defaultDate = defaultDate
         let base = calendar.startOfDay(for: task?.startDate ?? defaultDate ?? Date())
@@ -62,6 +66,20 @@ struct TaskEditorView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
+            
+            if originalTask != nil && onDelete != nil {
+                Section {
+                    Button(role: .destructive) {
+                        showDeleteConfirmation = true
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Text("タスクを削除")
+                            Spacer()
+                        }
+                    }
+                }
+            }
         }
         .navigationTitle("タスク")
         .toolbar {
@@ -84,6 +102,13 @@ struct TaskEditorView: View {
                     dismiss()
                 }
             }
+        }
+        .confirmationDialog("このタスクを削除しますか？", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
+            Button("削除", role: .destructive) {
+                onDelete?()
+                dismiss()
+            }
+            Button("キャンセル", role: .cancel) { }
         }
     }
 }

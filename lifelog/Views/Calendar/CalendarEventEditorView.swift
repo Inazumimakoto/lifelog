@@ -10,8 +10,10 @@ import SwiftUI
 struct CalendarEventEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var isShowingCategorySelection = false
+    @State private var showDeleteConfirmation = false
 
     var onSave: (CalendarEvent) -> Void
+    var onDelete: (() -> Void)?
 
     private let originalEvent: CalendarEvent?
 
@@ -23,8 +25,10 @@ struct CalendarEventEditorView: View {
 
     init(defaultDate: Date = Date(),
          event: CalendarEvent? = nil,
-         onSave: @escaping (CalendarEvent) -> Void) {
+         onSave: @escaping (CalendarEvent) -> Void,
+         onDelete: (() -> Void)? = nil) {
         self.onSave = onSave
+        self.onDelete = onDelete
         self.originalEvent = event
         let calendar = Calendar.current
         let initialStart = event?.startDate ?? calendar.date(bySettingHour: 9, minute: 0, second: 0, of: defaultDate) ?? defaultDate
@@ -76,6 +80,20 @@ struct CalendarEventEditorView: View {
                         }
                     }
             }
+            
+            if originalEvent != nil && onDelete != nil {
+                Section {
+                    Button(role: .destructive) {
+                        showDeleteConfirmation = true
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Text("予定を削除")
+                            Spacer()
+                        }
+                    }
+                }
+            }
         }
         .navigationTitle(originalEvent == nil ? "予定を追加" : "予定を編集")
         .toolbar {
@@ -115,6 +133,13 @@ struct CalendarEventEditorView: View {
         }
         .sheet(isPresented: $isShowingCategorySelection) {
             CategorySelectionView(selectedCategory: $category)
+        }
+        .confirmationDialog("この予定を削除しますか？", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
+            Button("削除", role: .destructive) {
+                onDelete?()
+                dismiss()
+            }
+            Button("キャンセル", role: .cancel) { }
         }
     }
 }

@@ -19,10 +19,6 @@ struct TodayView: View {
     @State private var showAnalysisExport = false
     @State private var editingEvent: CalendarEvent?
     @State private var editingTask: Task?
-    @State private var eventToDelete: CalendarEvent?
-    @State private var taskToDelete: Task?
-    @State private var showEventDeleteConfirmation = false
-    @State private var showTaskDeleteConfirmation = false
     private let memoPlaceholder = "買い物リストや気づいたことを書いておけます"
     private let store: AppDataStore
     @State private var didAppear = false
@@ -115,47 +111,17 @@ struct TodayView: View {
         }
         .sheet(item: $editingEvent) { event in
             NavigationStack {
-                CalendarEventEditorView(event: event) { updated in
-                    store.updateCalendarEvent(updated)
-                }
+                CalendarEventEditorView(event: event,
+                                        onSave: { updated in store.updateCalendarEvent(updated) },
+                                        onDelete: { store.deleteCalendarEvent(event.id) })
             }
         }
         .sheet(item: $editingTask) { task in
             NavigationStack {
                 TaskEditorView(task: task,
-                               defaultDate: task.startDate ?? task.endDate ?? viewModel.date) { updated in
-                    store.updateTask(updated)
-                }
-            }
-        }
-        .confirmationDialog("予定を削除", isPresented: $showEventDeleteConfirmation) {
-            Button("削除", role: .destructive) {
-                if let event = eventToDelete {
-                    viewModel.deleteEvent(event)
-                }
-                eventToDelete = nil
-            }
-            Button("キャンセル", role: .cancel) {
-                eventToDelete = nil
-            }
-        } message: {
-            if let event = eventToDelete {
-                Text("\"\(event.title)\" を削除しますか？")
-            }
-        }
-        .confirmationDialog("タスクを削除", isPresented: $showTaskDeleteConfirmation) {
-            Button("削除", role: .destructive) {
-                if let task = taskToDelete {
-                    viewModel.deleteTask(task)
-                }
-                taskToDelete = nil
-            }
-            Button("キャンセル", role: .cancel) {
-                taskToDelete = nil
-            }
-        } message: {
-            if let task = taskToDelete {
-                Text("\"\(task.title)\" を削除しますか？")
+                               defaultDate: task.startDate ?? task.endDate ?? viewModel.date,
+                               onSave: { updated in store.updateTask(updated) },
+                               onDelete: { store.deleteTasks(withIDs: [task.id]) })
             }
         }
     }
@@ -217,23 +183,15 @@ struct TodayView: View {
                             }
                         }
                     }
-                    HStack(spacing: 12) {
-                        Button {
-                            editingEvent = event
-                                } label: {
-                                    Label("編集", systemImage: "square.and.pencil")
-                                }
-                                Button(role: .destructive) {
-                                    eventToDelete = event
-                                    showEventDeleteConfirmation = true
-                                } label: {
-                                    Label("削除", systemImage: "trash")
-                                }
-                            }
-                            .font(.caption.weight(.semibold))
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
-                        }
+                    Button {
+                        editingEvent = event
+                    } label: {
+                        Label("編集", systemImage: "square.and.pencil")
+                    }
+                    .font(.caption.weight(.semibold))
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                }
                         if event.id != viewModel.events.last?.id {
                             Divider()
                         }
@@ -266,18 +224,10 @@ struct TodayView: View {
                             TaskRowView(task: task, onToggle: {
                                 viewModel.toggleTask(task)
                             })
-                            HStack(spacing: 12) {
-                                Button {
-                                    editingTask = task
-                                } label: {
-                                    Label("編集", systemImage: "square.and.pencil")
-                                }
-                                Button(role: .destructive) {
-                                    taskToDelete = task
-                                    showTaskDeleteConfirmation = true
-                                } label: {
-                                    Label("削除", systemImage: "trash")
-                                }
+                            Button {
+                                editingTask = task
+                            } label: {
+                                Label("編集", systemImage: "square.and.pencil")
                             }
                             .font(.caption.weight(.semibold))
                             .buttonStyle(.bordered)
@@ -299,18 +249,10 @@ struct TodayView: View {
                                 TaskRowView(task: task, onToggle: {
                                     viewModel.toggleTask(task)
                                 })
-                                HStack(spacing: 12) {
-                                    Button {
-                                        editingTask = task
-                                    } label: {
-                                        Label("編集", systemImage: "square.and.pencil")
-                                    }
-                                    Button(role: .destructive) {
-                                        taskToDelete = task
-                                        showTaskDeleteConfirmation = true
-                                    } label: {
-                                        Label("削除", systemImage: "trash")
-                                    }
+                                Button {
+                                    editingTask = task
+                                } label: {
+                                    Label("編集", systemImage: "square.and.pencil")
                                 }
                                 .font(.caption.weight(.semibold))
                                 .buttonStyle(.bordered)

@@ -10,7 +10,7 @@ import SwiftUI
 struct TasksView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: TasksViewModel
-    @State private var showEditor = false
+    @State private var showAddEditor = false
     @State private var editingTask: Task?
 
     init(store: AppDataStore) {
@@ -20,7 +20,7 @@ struct TasksView: View {
     var body: some View {
         List {
             Section {
-                Text("開始・終了日時を設定するとTodayやカレンダーのタイムラインに反映されます。終わったタスクはスワイプで削除できます。")
+                Text("開始・終了日時を設定するとTodayやカレンダーのタイムラインに反映されます。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -29,17 +29,20 @@ struct TasksView: View {
                 if tasks.isEmpty == false {
                     Section(section.rawValue) {
                         ForEach(tasks) { task in
-                            TaskRowView(task: task, onToggle: {
-                                viewModel.toggle(task: task)
-                            })
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                editingTask = task
-                                showEditor = true
+                            HStack {
+                                TaskRowView(task: task, onToggle: {
+                                    viewModel.toggle(task: task)
+                                })
+                                Spacer()
+                                Button {
+                                    editingTask = task
+                                } label: {
+                                    Image(systemName: "square.and.pencil")
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
                             }
-                        }
-                        .onDelete { offsets in
-                            viewModel.delete(at: offsets, in: section)
+                            .contentShape(Rectangle())
                         }
                     }
                 }
@@ -67,22 +70,28 @@ struct TasksView: View {
             }
             ToolbarItem(placement: .primaryAction) {
                 Button {
-                    editingTask = nil
-                    showEditor = true
+                    showAddEditor = true
                 } label: {
                     Image(systemName: "plus")
                 }
             }
         }
-        .sheet(isPresented: $showEditor) {
+        .sheet(isPresented: $showAddEditor) {
             NavigationStack {
-                TaskEditorView(task: editingTask) { task in
-                    if editingTask == nil {
-                        viewModel.add(task)
-                    } else {
-                        viewModel.update(task)
-                    }
-                }
+                TaskEditorView(onSave: { task in
+                    viewModel.add(task)
+                })
+            }
+        }
+        .sheet(item: $editingTask) { task in
+            NavigationStack {
+                TaskEditorView(task: task,
+                               onSave: { updated in
+                    viewModel.update(updated)
+                },
+                               onDelete: {
+                    viewModel.delete(task: task)
+                })
             }
         }
     }
