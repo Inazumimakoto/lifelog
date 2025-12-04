@@ -504,8 +504,12 @@ struct JournalView: View {
         }
     }
 
+    private var monthGridColumns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
+    }
+
     private func monthCalendar(for anchor: Date) -> some View {
-        let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
+        let columns = monthGridColumns
         let days = viewModel.calendarDays(for: anchor)
         let itemLimit = 3
         return LazyVGrid(columns: columns, spacing: 6) {
@@ -521,6 +525,9 @@ struct JournalView: View {
                             Text(previewLabel(for: item))
                                 .font(.caption2.weight(.semibold))
                                 .lineLimit(1)
+                                .truncationMode(.tail)
+                                .minimumScaleFactor(0.8)
+                                .allowsTightening(true)
                                 .padding(.horizontal, 6)
                                 .padding(.vertical, 4)
                                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -714,8 +721,9 @@ struct JournalView: View {
     }
 
     private func reviewMonthCalendar(for anchor: Date) -> some View {
-        let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
+        let columns = monthGridColumns
         let days = viewModel.calendarDays(for: anchor)
+        let photoHeight: CGFloat = 55
         return LazyVGrid(columns: columns, spacing: 6) {
             ForEach(days) { day in
                 let isSelected = selectedReviewDate?.isSameDay(as: day.date) ?? false
@@ -723,38 +731,51 @@ struct JournalView: View {
                 let moodEmoji = day.diary?.mood?.emoji
                 let dateForSelection = day.date
                 ZStack(alignment: .topLeading) {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(Color(.secondarySystemBackground))
-                    VStack(spacing: 4) {
-                        HStack(spacing: 2) {
+                    VStack(spacing: 2) {
+                        // 1. 日付と顔文字（サイズUP & 上詰め）
+                        HStack(alignment: .firstTextBaseline, spacing: 2) {
                             Text("\(Calendar.current.component(.day, from: day.date))")
-                                .font(.headline)
+                                .font(.callout.weight(.bold)) // 👈 caption -> callout にサイズアップ
                                 .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
                                 .lineLimit(1)
                                 .layoutPriority(1)
-                            Spacer(minLength: 2)
+                            
+                            Spacer(minLength: 0)
+                            
                             if let moodEmoji {
                                 Text(moodEmoji)
-                                    .font(.caption)
+                                    .font(.footnote) // 👈 caption2 -> footnote にサイズアップ
                                     .lineLimit(1)
+                                    .fixedSize(horizontal: true, vertical: true) // 見切れ防止
                             }
                         }
-                        if let image = favoriteImage {
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .frame(width: 42, height: 55)
-                                .clipped()
-                                .cornerRadius(6)
-                                .frame(maxWidth: .infinity, alignment: .center)
+                        
+                        // 2. 写真（高さは photoHeight のまま、はみ出し防止のみ適用）
+                        Group {
+                            if let image = favoriteImage {
+                                image
+                                    .resizable()
+                                    .scaledToFill() // アスペクト比を維持して埋める
+                                    .scaleEffect(1.2, anchor: .center) // 1.2倍ズーム
+                                    .frame(minWidth: 0, maxWidth: .infinity) // 👈 重要: 幅がセルに合わせて縮むようにする
+                                    .frame(height: photoHeight)
+                                    .clipped() // 👈 重要: 枠からはみ出した部分を切り落とす
+                                    .cornerRadius(6)
+                            } else {
+                                Color.clear
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: photoHeight)
+                            }
                         }
                     }
-                    .padding(6)
+                    .padding(.top, 4) // 👈 セル上部との余白（少し上げるならここを小さく、見やすさ優先なら4くらい）
+                    .padding(.horizontal, 4)
                 }
-                .frame(minHeight: 92)
-                .overlay(
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(minHeight: 96)
+                .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .stroke(day.isToday ? Color.accentColor.opacity(0.6) : .clear, lineWidth: 2)
+                        .fill(day.isToday ? Color.accentColor.opacity(0.12) : Color.clear)
                 )
                 .overlay(alignment: .center) {
                     if isSelected {
@@ -1040,25 +1061,35 @@ struct JournalView: View {
                                                     showTaskEditor = true
                                                 }
                                             },
-                                            onAddEvent: {
-                                                if includeAddButtons {
-                                                    showingDetailPanel = false
-                                                    let targetDate = snapshot.date
-                                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                                        newItemDate = targetDate
-                                                        showEventEditor = true
-                                                    }
-                                                } else {
-                                                    newItemDate = snapshot.date
+                                        onAddEvent: {
+                                            if includeAddButtons {
+                                                showingDetailPanel = false
+                                                let targetDate = snapshot.date
+                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                                    newItemDate = targetDate
                                                     showEventEditor = true
                                                 }
-                                            },
-                                            onEditTask: { task in editingTask = task },
-                                            onEditEvent: { event in editingEvent = event },
-                                            onDeleteEvent: { event in store.deleteCalendarEvent(event.id) },
-                                            onToggleTask: { toggleTask($0) },
-                                            onToggleHabit: { toggleHabit($0, on: snapshot.date) },
-                                            onOpenDiary: { openDiaryEditor(for: $0) })
+                                            } else {
+                                                newItemDate = snapshot.date
+                                                showEventEditor = true
+                                            }
+                                        },
+                                        onEditTask: { task in
+                                            showingDetailPanel = false
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                                                editingTask = task
+                                            }
+                                        },
+                                        onEditEvent: { event in
+                                            showingDetailPanel = false
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                                                editingEvent = event
+                                            }
+                                        },
+                                        onDeleteEvent: { event in store.deleteCalendarEvent(event.id) },
+                                        onToggleTask: { toggleTask($0) },
+                                        onToggleHabit: { toggleHabit($0, on: snapshot.date) },
+                                        onOpenDiary: { openDiaryEditor(for: $0) })
                     )
                     : AnyView(reviewDetailCard(for: anchor))
                     content.tag(index)

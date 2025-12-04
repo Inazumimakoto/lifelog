@@ -12,6 +12,7 @@ struct DiaryPhotoViewerView: View {
     @ObservedObject var viewModel: DiaryViewModel
     @State private var currentIndex: Int
     @State private var showDeleteAlert = false
+    @State private var chromeVisible = true
 
     init(viewModel: DiaryViewModel, initialIndex: Int) {
         self._viewModel = ObservedObject(wrappedValue: viewModel)
@@ -34,6 +35,12 @@ struct DiaryPhotoViewerView: View {
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 .background(Color.black)
                                 .tag(index)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    withAnimation(.easeInOut(duration: 0.2)) {
+                                        chromeVisible.toggle()
+                                    }
+                                }
                         } else {
                             Color.black.tag(index)
                         }
@@ -66,6 +73,8 @@ struct DiaryPhotoViewerView: View {
                     }
                 }
                 .padding([.top, .horizontal], 16)
+                .opacity(chromeVisible ? 1 : 0)
+                .allowsHitTesting(chromeVisible)
                 Spacer()
             }
         }
