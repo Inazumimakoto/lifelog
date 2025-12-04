@@ -9,6 +9,19 @@ import Foundation
 import SwiftUI
 import UIKit
 
+final class PhotoThumbnailCache {
+    static let shared = PhotoThumbnailCache()
+    private let cache = NSCache<NSString, UIImage>()
+
+    func image(for path: String) -> UIImage? {
+        cache.object(forKey: path as NSString)
+    }
+
+    func set(_ image: UIImage, for path: String) {
+        cache.setObject(image, forKey: path as NSString)
+    }
+}
+
 struct PhotoStorage {
     private static let directoryName = "DiaryPhotos"
 
@@ -31,8 +44,12 @@ struct PhotoStorage {
     }
 
     static func loadImage(at path: String) -> Image? {
+        if let cached = PhotoThumbnailCache.shared.image(for: path) {
+            return Image(uiImage: cached)
+        }
         let url = photosDirectory.appendingPathComponent(path)
         guard let uiImage = UIImage(contentsOfFile: url.path) else { return nil }
+        PhotoThumbnailCache.shared.set(uiImage, for: path)
         return Image(uiImage: uiImage)
     }
 

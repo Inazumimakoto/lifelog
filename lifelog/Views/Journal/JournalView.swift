@@ -441,9 +441,7 @@ struct JournalView: View {
 
     private var calendarSwitcher: some View {
         Group {
-            if calendarMode == .review {
-                reviewMonthCalendar(for: viewModel.monthAnchor)
-            } else if activeDisplayMode == .month {
+            if activeDisplayMode == .month {
                 monthPager
             } else if activeDisplayMode == .week {
                 EmptyView()
@@ -455,10 +453,17 @@ struct JournalView: View {
         TabView(selection: $monthPagerSelection) {
             ForEach(Array(monthPagerAnchors.enumerated()), id: \.offset) { index, anchor in
                 VStack(spacing: 0) {
-                    monthCalendar(for: anchor)
-                        .padding(.top, 4)
-                        .padding(.bottom, 8)
-                        .padding(.horizontal, 4)
+                    if calendarMode == .review {
+                        reviewMonthCalendar(for: anchor)
+                            .padding(.top, 4)
+                            .padding(.bottom, 8)
+                            .padding(.horizontal, 4)
+                    } else {
+                        monthCalendar(for: anchor)
+                            .padding(.top, 4)
+                            .padding(.bottom, 8)
+                            .padding(.horizontal, 4)
+                    }
                     Spacer(minLength: 0)
                 }
                 .frame(maxHeight: .infinity, alignment: .top)
@@ -709,10 +714,14 @@ struct JournalView: View {
                             Text("\(Calendar.current.component(.day, from: day.date))")
                                 .font(.headline)
                                 .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
+                                .allowsTightening(true)
                             Spacer()
                             if let moodEmoji {
                                 Text(moodEmoji)
                                     .font(.footnote)
+                                    .lineLimit(1)
                             }
                         }
                         if let image = favoriteImage {
