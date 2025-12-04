@@ -64,6 +64,7 @@ struct JournalView: View {
     @State private var showCalendarSettings = false
     @State private var calendarMode: CalendarMode = .schedule
     @State private var selectedReviewDate: Date? = Date().startOfDay
+    @State private var reviewPhotoIndex: Int = 0
 
     init(store: AppDataStore) {
         self.store = store
@@ -285,6 +286,7 @@ struct JournalView: View {
             if newMode == .review {
                 viewModel.displayMode = .month
                 selectedReviewDate = viewModel.selectedDate
+                reviewPhotoIndex = preferredPhotoIndex(for: store.entry(for: selectedReviewDate ?? viewModel.selectedDate))
             }
         }
         .onChange(of: viewModel.monthAnchor) { _, newAnchor in
@@ -292,9 +294,14 @@ struct JournalView: View {
             if let selected = selectedReviewDate,
                Calendar.current.isDate(selected, equalTo: newAnchor, toGranularity: .month) == false {
                 selectedReviewDate = newAnchor
+                reviewPhotoIndex = preferredPhotoIndex(for: store.entry(for: newAnchor))
             } else if selectedReviewDate == nil {
                 selectedReviewDate = newAnchor
+                reviewPhotoIndex = preferredPhotoIndex(for: store.entry(for: newAnchor))
             }
+        }
+        .onChange(of: selectedReviewDate) { _, newDate in
+            reviewPhotoIndex = preferredPhotoIndex(for: store.entry(for: newDate ?? viewModel.monthAnchor))
         }
     }
 
@@ -691,31 +698,33 @@ struct JournalView: View {
         return LazyVGrid(columns: columns, spacing: 6) {
             ForEach(days) { day in
                 let isSelected = selectedReviewDate?.isSameDay(as: day.date) ?? false
-                let favoriteImage: Image? = {
-                    guard let path = day.diary?.favoritePhotoPath else { return nil }
-                    return PhotoStorage.loadImage(at: path)
-                }()
-                let dayNumberColor: Color = favoriteImage == nil ? .primary : .white
+                let favoriteImage: Image? = day.diary?.favoritePhotoPath.flatMap { PhotoStorage.loadImage(at: $0) }
+                let moodEmoji = day.diary?.mood?.emoji
                 ZStack(alignment: .topLeading) {
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(favoriteImage == nil ? Color(.secondarySystemBackground) : Color.clear)
-                    if let image = favoriteImage {
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(maxWidth: .infinity)
-                            .clipped()
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 10)
-                                    .fill(Color.black.opacity(0.1))
-                            )
+                        .fill(Color(.secondarySystemBackground))
+                    VStack(spacing: 4) {
+                        HStack {
+                            Text("\(Calendar.current.component(.day, from: day.date))")
+                                .font(.headline)
+                                .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
+                            Spacer()
+                            if let moodEmoji {
+                                Text(moodEmoji)
+                                    .font(.footnote)
+                            }
+                        }
+                        if let image = favoriteImage {
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 38, height: 32)
+                                .clipped()
+                                .cornerRadius(6)
+                                .frame(maxWidth: .infinity, alignment: .center)
+                        }
                     }
-                    Text("\(Calendar.current.component(.day, from: day.date))")
-                        .font(.headline)
-                        .foregroundStyle(dayNumberColor)
-                        .padding(6)
-                        .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 6))
-                        .padding(6)
+                    .padding(6)
                 }
                 .frame(minHeight: 92)
                 .overlay(
@@ -746,8 +755,43 @@ struct JournalView: View {
         }
     }
 
+    private func preferredPhotoIndex(for diary: DiaryEntry?) -> Int {
+        guard let diary else { return 0 }
+        if let favorite = diary.favoritePhotoPath,
+           let index = diary.photoPaths.firstIndex(of: favorite) {
+            return index
+        }
+        return 0
+    }
+
+    private func conditionEmoji(for score: Int) -> String {
+        switch score {
+        case 1: return "😫"
+        case 2: return "😟"
+        case 3: return "😐"
+        case 4: return "🙂"
+        case 5: return "😄"
+        default: return "❓"
+        }
+    }
+
     private func reviewDetailCard(for date: Date) -> some View {
         let diary = store.entry(for: date)
+        let photoPaths = diary?.photoPaths ?? []
+        let preferredIndex = preferredPhotoIndex(for: diary)
+        let clampedIndex = min(reviewPhotoIndex, max(photoPaths.count - 1, 0))
+        if clampedIndex != reviewPhotoIndex {
+            reviewPhotoIndex = clampedIndex
+        }
+        if reviewPhotoIndex == 0, preferredIndex < photoPaths.count {
+            reviewPhotoIndex = preferredIndex
+        }
+        let photoSelection = Binding(
+            get: { min(reviewPhotoIndex, max(photoPaths.count - 1, 0)) },
+            set: { newValue in
+                reviewPhotoIndex = newValue
+            }
+        )
         return SectionCard(title: "") {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
@@ -755,23 +799,38 @@ struct JournalView: View {
                         .font(.headline)
                     Spacer()
                 }
-                if let diary, let favoritePath = diary.favoritePhotoPath, let image = PhotoStorage.loadImage(at: favoritePath) {
-                    image
-                        .resizable()
-                        .scaledToFill()
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 220)
-                        .clipped()
-                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                if let diary, photoPaths.isEmpty == false {
+                    TabView(selection: photoSelection) {
+                        ForEach(Array(photoPaths.enumerated()), id: \.offset) { index, path in
+                            if let image = PhotoStorage.loadImage(at: path) {
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(height: 220)
+                                    .frame(maxWidth: .infinity)
+                                    .clipped()
+                                    .cornerRadius(12)
+                                    .tag(index)
+                            }
+                        }
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .automatic))
+                    .frame(height: 240)
                 }
                 if let diary {
                     if let mood = diary.mood {
-                        Label("\(mood.emoji) 気分 \(mood.rawValue)", systemImage: "face.smiling")
-                            .foregroundStyle(.primary)
+                        HStack(spacing: 8) {
+                            Text(mood.emoji)
+                            Text("気分 \(mood.rawValue)")
+                        }
+                        .foregroundStyle(.primary)
                     }
                     if let condition = diary.conditionScore {
-                        Label("体調 \(condition)", systemImage: "heart.text.square")
-                            .foregroundStyle(.primary)
+                        HStack(spacing: 8) {
+                            Text(conditionEmoji(for: condition))
+                            Text("体調 \(condition)")
+                        }
+                        .foregroundStyle(.primary)
                     }
                     if let place = diary.locationName, place.isEmpty == false {
                         Label(place, systemImage: "mappin.and.ellipse")
