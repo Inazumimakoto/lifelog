@@ -7,6 +7,11 @@
 
 import SwiftUI
 
+enum CalendarMode: Equatable {
+    case schedule
+    case review
+}
+
 private struct DayPreviewItem: Identifiable {
     enum Kind {
         case event
@@ -57,6 +62,8 @@ struct JournalView: View {
     @State private var pendingDiaryDate: Date?
     @State private var calendarSyncTrigger = 0
     @State private var showCalendarSettings = false
+    @State private var calendarMode: CalendarMode = .schedule
+    @State private var selectedReviewDate: Date? = Date().startOfDay
 
     init(store: AppDataStore) {
         self.store = store
@@ -67,17 +74,24 @@ struct JournalView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 VStack(spacing: 16) {
+                    titleRow
                     monthHeader
-                    modePicker
-                    if viewModel.displayMode == .month {
+                    if calendarMode == .schedule {
+                        modePicker
+                    }
+                    if activeDisplayMode == .month {
                         weekdayHeader
                             .padding(.horizontal, 4)
-                    } else if viewModel.displayMode == .week {
+                    } else if activeDisplayMode == .week {
                         weekdayHeader
                             .padding(.horizontal, 4)
                     }
                     calendarSwitcher
-                    contentArea
+                    if calendarMode == .schedule {
+                        contentArea
+                    } else {
+                        reviewDetail
+                    }
                     if viewModel.calendarAccessDenied {
                         Text("設定 > プライバシーとセキュリティ > カレンダーでlifelogへのアクセスを許可すると外部カレンダーの予定が表示されます。")
                             .font(.caption)
@@ -134,7 +148,6 @@ struct JournalView: View {
                 .presentationDragIndicator(.visible)
             }
         }
-        .navigationTitle("カレンダー")
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Menu {
@@ -268,6 +281,21 @@ struct JournalView: View {
                 showDiaryEditor = true
             }
         }
+        .onChange(of: calendarMode) { _, newMode in
+            if newMode == .review {
+                viewModel.displayMode = .month
+                selectedReviewDate = viewModel.selectedDate
+            }
+        }
+        .onChange(of: viewModel.monthAnchor) { _, newAnchor in
+            guard calendarMode == .review else { return }
+            if let selected = selectedReviewDate,
+               Calendar.current.isDate(selected, equalTo: newAnchor, toGranularity: .month) == false {
+                selectedReviewDate = newAnchor
+            } else if selectedReviewDate == nil {
+                selectedReviewDate = newAnchor
+            }
+        }
     }
 
     private func handleEdit(for item: JournalViewModel.TimelineItem) {
@@ -289,10 +317,13 @@ struct JournalView: View {
     private var shouldShowTodayButton: Bool {
         let today = Date().startOfDay
         let calendar = Calendar.current
+        if calendarMode == .review {
+            return !calendar.isDate(viewModel.monthAnchor, equalTo: today, toGranularity: .month)
+        }
         if calendar.isDate(viewModel.selectedDate, inSameDayAs: today) == false {
             return true
         }
-        switch viewModel.displayMode {
+        switch activeDisplayMode {
         case .month:
             return !calendar.isDate(viewModel.monthAnchor, equalTo: today, toGranularity: .month)
         case .week:
@@ -302,11 +333,25 @@ struct JournalView: View {
         }
     }
 
+    private var titleRow: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Text("カレンダー")
+                .font(.largeTitle.bold())
+            Spacer()
+            Picker("", selection: $calendarMode) {
+                Text("予定").tag(CalendarMode.schedule)
+                Text("振り返り").tag(CalendarMode.review)
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 180)
+        }
+    }
+
     private var monthHeader: some View {
         HStack {
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.4)) {
-                    viewModel.stepBackward(displayMode: viewModel.displayMode)
+                    viewModel.stepBackward(displayMode: activeDisplayMode)
                 }
             }) {
                 Image(systemName: "chevron.left")
@@ -322,7 +367,7 @@ struct JournalView: View {
                     let longDuration = 0.55
                     let shortDuration = 0.25
                     let needsLongAnimation: Bool
-                    switch viewModel.displayMode {
+                    switch activeDisplayMode {
                     case .month:
                         needsLongAnimation = calendar.isDate(viewModel.monthAnchor, equalTo: today, toGranularity: .month) == false
                     case .week:
@@ -334,13 +379,16 @@ struct JournalView: View {
                         ensureMonthPagerIncludes(date: today)
                         ensureWeekPagerIncludes(date: today)
                         ensureDetailPagerIncludes(date: today)
+                        if calendarMode == .review {
+                            selectedReviewDate = today
+                        }
                     }
                 }
                 .font(.caption)
             }
             Button(action: {
                 withAnimation(.easeInOut(duration: 0.4)) {
-                    viewModel.stepForward(displayMode: viewModel.displayMode)
+                    viewModel.stepForward(displayMode: activeDisplayMode)
                 }
             }) {
                 Image(systemName: "chevron.right")
@@ -355,11 +403,10 @@ struct JournalView: View {
             }
         }
         .pickerStyle(.segmented)
-        
     }
 
     private var headerTitle: String {
-        if viewModel.displayMode == .month {
+        if activeDisplayMode == .month {
             return viewModel.monthTitle
         } else {
             guard let first = viewModel.weekDates.first,
@@ -386,8 +433,12 @@ struct JournalView: View {
 
     private var calendarSwitcher: some View {
         Group {
-            if viewModel.displayMode == .month {
+            if calendarMode == .review {
+                reviewMonthCalendar(for: viewModel.monthAnchor)
+            } else if activeDisplayMode == .month {
                 monthPager
+            } else if activeDisplayMode == .week {
+                EmptyView()
             }
         }
     }
@@ -485,7 +536,7 @@ struct JournalView: View {
 
     private var contentArea: some View {
         VStack(spacing: 12) {
-            if viewModel.displayMode == .week {
+            if activeDisplayMode == .week {
                 weekPager
                 weekDayDetail
             }
@@ -628,6 +679,130 @@ struct JournalView: View {
             }
         }
         .animation(.easeInOut, value: viewModel.selectedDate)
+    }
+
+    private var activeDisplayMode: JournalViewModel.DisplayMode {
+        calendarMode == .review ? .month : viewModel.displayMode
+    }
+
+    private func reviewMonthCalendar(for anchor: Date) -> some View {
+        let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
+        let days = viewModel.calendarDays(for: anchor)
+        return LazyVGrid(columns: columns, spacing: 6) {
+            ForEach(days) { day in
+                let isSelected = selectedReviewDate?.isSameDay(as: day.date) ?? false
+                let favoriteImage: Image? = {
+                    guard let path = day.diary?.favoritePhotoPath else { return nil }
+                    return PhotoStorage.loadImage(at: path)
+                }()
+                let dayNumberColor: Color = favoriteImage == nil ? .primary : .white
+                ZStack(alignment: .topLeading) {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(favoriteImage == nil ? Color(.secondarySystemBackground) : Color.clear)
+                    if let image = favoriteImage {
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(maxWidth: .infinity)
+                            .clipped()
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 10)
+                                    .fill(Color.black.opacity(0.1))
+                            )
+                    }
+                    Text("\(Calendar.current.component(.day, from: day.date))")
+                        .font(.headline)
+                        .foregroundStyle(dayNumberColor)
+                        .padding(6)
+                        .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 6))
+                        .padding(6)
+                }
+                .frame(minHeight: 92)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(day.isToday ? Color.accentColor.opacity(0.6) : .clear, lineWidth: 2)
+                )
+                .overlay(alignment: .center) {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.accentColor, lineWidth: 2)
+                    }
+                }
+                .opacity(day.isWithinDisplayedMonth ? 1.0 : 0.35)
+                .clipShape(RoundedRectangle(cornerRadius: 10))
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    selectedReviewDate = day.date
+                }
+            }
+        }
+        .animation(.easeInOut, value: selectedReviewDate)
+    }
+
+    private var reviewDetail: some View {
+        VStack(spacing: 12) {
+            let targetDate = selectedReviewDate ?? viewModel.monthAnchor
+            reviewDetailCard(for: targetDate)
+        }
+    }
+
+    private func reviewDetailCard(for date: Date) -> some View {
+        let diary = store.entry(for: date)
+        return SectionCard(title: "") {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("\(DateFormatter.japaneseYearMonthDay.string(from: date)) (\(date.jaWeekdayWideString))")
+                        .font(.headline)
+                    Spacer()
+                }
+                if let diary, let favoritePath = diary.favoritePhotoPath, let image = PhotoStorage.loadImage(at: favoritePath) {
+                    image
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 220)
+                        .clipped()
+                        .clipShape(RoundedRectangle(cornerRadius: 16))
+                }
+                if let diary {
+                    if let mood = diary.mood {
+                        Label("\(mood.emoji) 気分 \(mood.rawValue)", systemImage: "face.smiling")
+                            .foregroundStyle(.primary)
+                    }
+                    if let condition = diary.conditionScore {
+                        Label("体調 \(condition)", systemImage: "heart.text.square")
+                            .foregroundStyle(.primary)
+                    }
+                    if let place = diary.locationName, place.isEmpty == false {
+                        Label(place, systemImage: "mappin.and.ellipse")
+                            .foregroundStyle(.primary)
+                    }
+                    if diary.text.isEmpty == false {
+                        Text(diary.text)
+                            .font(.body)
+                            .lineLimit(4)
+                    }
+                    Button {
+                        openDiaryEditor(for: date)
+                    } label: {
+                        Text("この日の日記を開く")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                } else {
+                    Text("この日の日記はまだありません。")
+                        .foregroundStyle(.secondary)
+                    Button {
+                        openDiaryEditor(for: date)
+                    } label: {
+                        Text("日記を書く")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
     }
 
     private func weekTimeline(for anchor: Date) -> some View {
