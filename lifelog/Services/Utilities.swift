@@ -128,6 +128,10 @@ extension Date {
     }
 }
 
+extension Date: Identifiable {
+    public var id: TimeInterval { timeIntervalSince1970 }
+}
+
 extension Collection where Element == HabitRecord {
     func record(for habit: Habit, on date: Date) -> HabitRecord? {
         first { $0.habitID == habit.id && Calendar.current.isDate($0.date, inSameDayAs: date) }

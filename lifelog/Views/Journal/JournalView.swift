@@ -49,7 +49,7 @@ struct JournalView: View {
     @State private var showAddMenu = false
     @State private var pendingAddDate: Date?
     @State private var newItemDate: Date?
-    @State private var diaryEditorDate: Date = Date()
+    @State private var diaryEditorDate: Date?
     @State private var isProgrammaticWeekPagerChange = false
     private let detailPagerRadius = 14
     @State private var detailPagerAnchors: [Date] = []
@@ -68,6 +68,7 @@ struct JournalView: View {
     @State private var isShowingReviewPhotoViewer = false
     @State private var reviewPhotoViewerDate: Date?
     @State private var reviewPhotoViewerIndex: Int = 0
+    @State private var pendingPhotoViewer = false
 
     init(store: AppDataStore) {
         self.store = store
@@ -82,8 +83,6 @@ struct JournalView: View {
             if let date = reviewPhotoViewerDate {
                 DiaryPhotoViewerView(viewModel: makeDiaryViewModel(for: date),
                                      initialIndex: reviewPhotoViewerIndex)
-            } else {
-                Color.clear.onAppear { isShowingReviewPhotoViewer = false }
             }
         }
         .toolbar {
@@ -123,9 +122,9 @@ struct JournalView: View {
                 }
             }
         }
-        .sheet(isPresented: $showDiaryEditor) {
+        .sheet(item: $diaryEditorDate) { date in
             NavigationStack {
-                DiaryEditorView(store: store, date: diaryEditorDate)
+                DiaryEditorView(store: store, date: date)
             }
         }
         .sheet(item: $editingEvent) { event in
@@ -211,13 +210,6 @@ struct JournalView: View {
         .onChange(of: viewModel.monthAnchor) { _, newAnchor in
             guard viewModel.displayMode == .month else { return }
             ensureMonthPagerIncludes(date: newAnchor)
-        }
-        .onChange(of: showingDetailPanel) { _, isPresented in
-            if isPresented == false, let pending = pendingDiaryDate {
-                diaryEditorDate = pending
-                pendingDiaryDate = nil
-                showDiaryEditor = true
-            }
         }
         .onChange(of: calendarMode) { _, newMode in
             if newMode == .review {
@@ -309,6 +301,20 @@ struct JournalView: View {
             .onAppear {
                 prepareDetailPagerIfNeeded()
                 ensureDetailPagerIncludes(date: viewModel.selectedDate)
+            }
+            .onDisappear {
+                // シートが完全に閉じた後に次の画面を表示
+                if pendingPhotoViewer {
+                    pendingPhotoViewer = false
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        isShowingReviewPhotoViewer = true
+                    }
+                } else if let pending = pendingDiaryDate {
+                    pendingDiaryDate = nil
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        diaryEditorDate = pending
+                    }
+                }
             }
             .presentationDetents(
                 calendarMode == .schedule
@@ -846,13 +852,11 @@ struct JournalView: View {
                                     .resizable()
                                     .scaledToFill()
                                     .onTapGesture {
-                                        showingDetailPanel = false
                                         let startIndex = index
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                                            reviewPhotoViewerDate = date
-                                            reviewPhotoViewerIndex = startIndex
-                                            isShowingReviewPhotoViewer = true
-                                        }
+                                        reviewPhotoViewerIndex = startIndex
+                                        reviewPhotoViewerDate = date
+                                        pendingPhotoViewer = true
+                                        showingDetailPanel = false
                                     }
                                     .frame(height: 220)
                                     .frame(maxWidth: .infinity)
@@ -975,7 +979,6 @@ struct JournalView: View {
         } else {
             pendingDiaryDate = nil
             diaryEditorDate = targetDate
-            showDiaryEditor = true
         }
     }
 
