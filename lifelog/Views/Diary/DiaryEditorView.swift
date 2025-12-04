@@ -173,19 +173,17 @@ struct DiaryEditorView: View {
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
                                 .overlay(alignment: .topLeading) {
                                     Button {
-                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                                            viewModel.setFavoritePhoto(at: index)
-                                        }
+                                        viewModel.setFavoritePhoto(at: index)
                                     } label: {
                                         Image(systemName: isFavorite ? "star.fill" : "star")
                                             .font(.caption)
                                             .foregroundStyle(isFavorite ? Color.yellow : Color.white)
                                             .padding(6)
                                             .background(.black.opacity(0.5), in: Circle())
-                                            .scaleEffect(isFavorite ? 1.15 : 1.0)
+                                            .symbolEffect(.bounce, value: isFavorite)
                                     }
                                     .offset(x: -8, y: -8)
-                                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isFavorite)
+                                    .buttonStyle(.plain)
                                 }
                                 .onTapGesture {
                                     selectedPhotoIndex = index

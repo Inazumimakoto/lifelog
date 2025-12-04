@@ -92,19 +92,17 @@ struct DiaryPhotoViewerView: View {
 
         return Button {
             guard viewModel.entry.photoPaths.indices.contains(currentIndex) else { return }
-            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                viewModel.setFavoritePhoto(at: currentIndex)
-            }
+            viewModel.setFavoritePhoto(at: currentIndex)
         } label: {
             Image(systemName: isFavorite ? "star.fill" : "star")
                 .font(.title2)
                 .foregroundStyle(isFavorite ? Color.yellow : Color.white)
                 .padding(12)
                 .background(.black.opacity(0.5), in: Circle())
-                .scaleEffect(isFavorite ? 1.15 : 1.0)
+                .symbolEffect(.bounce, value: isFavorite)
         }
+        .buttonStyle(.plain)
         .disabled(currentPath == nil)
-        .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isFavorite)
     }
 
     private func deleteCurrentPhoto() {
