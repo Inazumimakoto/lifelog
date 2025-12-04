@@ -61,10 +61,19 @@ struct TodayView: View {
                 } label: {
                     Image(systemName: "note.text")
                 }
-                Button {
-                    showTaskManager = true
+                Menu {
+                    Button {
+                        showEventManager = true
+                    } label: {
+                        Label("予定リスト", systemImage: "calendar")
+                    }
+                    Button {
+                        showTaskManager = true
+                    } label: {
+                        Label("タスクリスト", systemImage: "checklist")
+                    }
                 } label: {
-                    Image(systemName: "checklist")
+                    Image(systemName: "list.bullet")
                 }
                 Menu {
                     Button("予定を追加") {
@@ -205,9 +214,6 @@ struct TodayView: View {
                 }
                 Divider()
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("予定を追加するとカレンダーとホームで共有されます。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                     if viewModel.calendarAccessDenied {
                         Text("設定 > プライバシーとセキュリティ > カレンダーでlifelogへのアクセスを許可すると、外部カレンダーの予定が表示されます。")
                             .font(.caption)
@@ -216,11 +222,9 @@ struct TodayView: View {
                     Button {
                         showEventManager = true
                     } label: {
-                        Label("予定リストを開く", systemImage: "calendar.badge.plus")
+                        Label("予定リストを開く", systemImage: "list.bullet")
                             .font(.caption.weight(.semibold))
                     }
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
                 }
             }
         }
@@ -282,16 +286,11 @@ struct TodayView: View {
                     }
                 }
                 Divider()
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("別日のタスクや詳細な整理はタスクリストで管理してください。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Button {
-                        showTaskManager = true
-                    } label: {
-                        Label("タスクリストを開く", systemImage: "calendar.badge.plus")
-                            .font(.caption.weight(.semibold))
-                    }
+                Button {
+                    showTaskManager = true
+                } label: {
+                    Label("タスクリストを開く", systemImage: "list.bullet")
+                        .font(.caption.weight(.semibold))
                 }
             }
         }
