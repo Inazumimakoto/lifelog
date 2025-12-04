@@ -291,6 +291,7 @@ struct TodayView: View {
                         showMemoEditor = true
                     } label: {
                         Image(systemName: "square.and.pencil")
+                            .foregroundStyle(.secondary)
                     }
                     .buttonStyle(.plain)
                 }
