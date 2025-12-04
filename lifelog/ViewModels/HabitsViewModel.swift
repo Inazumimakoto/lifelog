@@ -92,7 +92,8 @@ final class HabitsViewModel: ObservableObject {
 
     private func refresh() {
         let updates = { [self] in
-            self.habits = self.store.habits
+            // Filter out archived habits - only show active ones
+            self.habits = self.store.habits.filter { !$0.isArchived }
             self.statuses = self.habits.map { habit in
                 let recordsDictionary = store.habitRecords.reduce(into: [Date: HabitRecord]()) { partialResult, record in
                     guard record.habitID == habit.id else { return }

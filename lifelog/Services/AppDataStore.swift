@@ -230,10 +230,11 @@ final class AppDataStore: ObservableObject {
     }
 
     func deleteHabit(_ habitID: UUID) {
-        habits.removeAll { $0.id == habitID }
-        habitRecords.removeAll { $0.habitID == habitID }
+        // Soft delete: archive the habit instead of removing it
+        // This preserves historical completion data
+        guard let index = habits.firstIndex(where: { $0.id == habitID }) else { return }
+        habits[index].isArchived = true
         persistHabits()
-        persistHabitRecords()
     }
 
     // MARK: - Anniversaries
