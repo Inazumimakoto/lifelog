@@ -12,6 +12,8 @@ import Combine
 @MainActor
 final class DiaryViewModel: ObservableObject {
 
+    static let maxPhotos: Int = 10
+
     @Published private(set) var entry: DiaryEntry
 
     private let store: AppDataStore
@@ -53,7 +55,7 @@ final class DiaryViewModel: ObservableObject {
     }
 
     func addPhoto(data: Data) {
-        guard entry.photoPaths.count < 50 else { return }
+        guard entry.photoPaths.count < Self.maxPhotos else { return }
         guard let path = try? PhotoStorage.save(data: data) else { return }
         entry.photoPaths.append(path)
         persist()
@@ -63,8 +65,23 @@ final class DiaryViewModel: ObservableObject {
         let sortedOffsets = offsets.sorted(by: >)
         for index in sortedOffsets {
             guard entry.photoPaths.indices.contains(index) else { continue }
-            PhotoStorage.delete(at: entry.photoPaths[index])
+            let path = entry.photoPaths[index]
+            PhotoStorage.delete(at: path)
+            if entry.favoritePhotoPath == path {
+                entry.favoritePhotoPath = nil
+            }
             entry.photoPaths.remove(at: index)
+        }
+        persist()
+    }
+
+    func setFavoritePhoto(at index: Int) {
+        guard entry.photoPaths.indices.contains(index) else { return }
+        let path = entry.photoPaths[index]
+        if entry.favoritePhotoPath == path {
+            entry.favoritePhotoPath = nil
+        } else {
+            entry.favoritePhotoPath = path
         }
         persist()
     }

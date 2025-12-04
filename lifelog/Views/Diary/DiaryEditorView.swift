@@ -17,6 +17,8 @@ struct DiaryEditorView: View {
     @State private var selectedCoordinate: CLLocationCoordinate2D?
     @State private var selectedPlaceName: String = ""
     @State private var showMapPicker = false
+    @State private var selectedPhotoIndex: Int = 0
+    @State private var isShowingPhotoViewer = false
 
     init(store: AppDataStore, date: Date) {
         _viewModel = StateObject(wrappedValue: DiaryViewModel(store: store, date: date))
@@ -52,6 +54,9 @@ struct DiaryEditorView: View {
                 }
                 selection = []
             }
+        }
+        .fullScreenCover(isPresented: $isShowingPhotoViewer) {
+            DiaryPhotoViewerView(viewModel: viewModel, initialIndex: selectedPhotoIndex)
         }
     }
 
@@ -160,20 +165,31 @@ struct DiaryEditorView: View {
                 HStack {
                     ForEach(Array(viewModel.entry.photoPaths.enumerated()), id: \.offset) { index, path in
                         if let image = PhotoStorage.loadImage(at: path) {
+                            let isFavorite = viewModel.entry.favoritePhotoPath == path
                             image
                                 .resizable()
                                 .aspectRatio(contentMode: .fill)
                                 .frame(width: 80, height: 80)
                                 .clipShape(RoundedRectangle(cornerRadius: 12))
-                                .overlay(alignment: .topTrailing) {
+                                .overlay(alignment: .topLeading) {
                                     Button {
-                                        viewModel.deletePhoto(at: IndexSet(integer: index))
+                                        withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
+                                            viewModel.setFavoritePhoto(at: index)
+                                        }
                                     } label: {
-                                        Image(systemName: "xmark.circle.fill")
-                                            .foregroundStyle(.white)
-                                            .background(Circle().fill(Color.black.opacity(0.6)))
+                                        Image(systemName: isFavorite ? "star.fill" : "star")
+                                            .font(.caption)
+                                            .foregroundStyle(isFavorite ? Color.yellow : Color.white)
+                                            .padding(6)
+                                            .background(.black.opacity(0.5), in: Circle())
+                                            .scaleEffect(isFavorite ? 1.15 : 1.0)
                                     }
-                                    .offset(x: 8, y: -8)
+                                    .offset(x: -8, y: -8)
+                                    .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isFavorite)
+                                }
+                                .onTapGesture {
+                                    selectedPhotoIndex = index
+                                    isShowingPhotoViewer = true
                                 }
                         }
                     }
@@ -188,7 +204,7 @@ struct DiaryEditorView: View {
                     }
                 }
             }
-            Text("写真は最大50枚まで追加できます（現在 \(viewModel.entry.photoPaths.count)/50 枚）。")
+            Text("写真は最大\(DiaryViewModel.maxPhotos)枚まで追加できます。⭐️で「今日の一枚」をえらびましょう。現在 \(viewModel.entry.photoPaths.count)/\(DiaryViewModel.maxPhotos) 枚。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
