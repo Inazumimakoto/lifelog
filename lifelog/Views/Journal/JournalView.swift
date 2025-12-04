@@ -325,19 +325,20 @@ struct JournalView: View {
     private var shouldShowTodayButton: Bool {
         let today = Date().startOfDay
         let calendar = Calendar.current
-        if calendarMode == .review {
-            return !calendar.isDate(viewModel.monthAnchor, equalTo: today, toGranularity: .month)
-        }
-        if calendar.isDate(viewModel.selectedDate, inSameDayAs: today) == false {
-            return true
-        }
-        switch activeDisplayMode {
-        case .month:
-            return !calendar.isDate(viewModel.monthAnchor, equalTo: today, toGranularity: .month)
-        case .week:
-            guard weekPagerAnchors.indices.contains(weekPagerSelection) else { return false }
-            let currentWeekAnchor = weekPagerAnchors[weekPagerSelection]
-            return !calendar.isDate(currentWeekAnchor, equalTo: today, toGranularity: .weekOfYear)
+        let isShowingTodayMonth = calendar.isDate(viewModel.monthAnchor, equalTo: today, toGranularity: .month)
+        if calendarMode == .schedule {
+            let isOnToday = calendar.isDate(viewModel.selectedDate, inSameDayAs: today)
+            if activeDisplayMode == .week {
+                guard weekPagerAnchors.indices.contains(weekPagerSelection) else { return true }
+                let currentWeekAnchor = weekPagerAnchors[weekPagerSelection]
+                let isOnTodayWeek = calendar.isDate(currentWeekAnchor, equalTo: today, toGranularity: .weekOfYear)
+                return !(isShowingTodayMonth && isOnToday && isOnTodayWeek)
+            }
+            return !(isShowingTodayMonth && isOnToday)
+        } else {
+            let selected = selectedReviewDate ?? viewModel.monthAnchor
+            let isOnToday = calendar.isDate(selected, inSameDayAs: today)
+            return !(isShowingTodayMonth && isOnToday)
         }
     }
 
@@ -372,22 +373,27 @@ struct JournalView: View {
                 Button("今日へ") {
                     let today = Date().startOfDay
                     let calendar = Calendar.current
-                    let longDuration = 0.55
-                    let shortDuration = 0.25
-                    let needsLongAnimation: Bool
-                    switch activeDisplayMode {
-                    case .month:
-                        needsLongAnimation = calendar.isDate(viewModel.monthAnchor, equalTo: today, toGranularity: .month) == false
-                    case .week:
-                        needsLongAnimation = calendar.isDate(viewModel.selectedDate, equalTo: today, toGranularity: .weekOfYear) == false
-                    }
-                    let duration = needsLongAnimation ? longDuration : shortDuration
-                    withAnimation(.easeInOut(duration: duration)) {
-                        viewModel.jumpToToday()
-                        ensureMonthPagerIncludes(date: today)
-                        ensureWeekPagerIncludes(date: today)
-                        ensureDetailPagerIncludes(date: today)
-                        if calendarMode == .review {
+                    if calendarMode == .schedule {
+                        let longDuration = 0.55
+                        let shortDuration = 0.25
+                        let needsLongAnimation: Bool
+                        switch activeDisplayMode {
+                        case .month:
+                            needsLongAnimation = calendar.isDate(viewModel.monthAnchor, equalTo: today, toGranularity: .month) == false
+                        case .week:
+                            needsLongAnimation = calendar.isDate(viewModel.selectedDate, equalTo: today, toGranularity: .weekOfYear) == false
+                        }
+                        let duration = needsLongAnimation ? longDuration : shortDuration
+                        withAnimation(.easeInOut(duration: duration)) {
+                            viewModel.jumpToToday()
+                            ensureMonthPagerIncludes(date: today)
+                            ensureWeekPagerIncludes(date: today)
+                            ensureDetailPagerIncludes(date: today)
+                        }
+                    } else {
+                        withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
+                            viewModel.setMonthAnchor(today)
+                            ensureMonthPagerIncludes(date: today)
                             selectedReviewDate = today
                         }
                     }
