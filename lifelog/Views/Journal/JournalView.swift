@@ -66,7 +66,7 @@ struct JournalView: View {
     @State private var reviewPhotoIndex: Int = 0
     @State private var didInitReviewPhotoIndex: Bool = false
     @State private var isShowingReviewPhotoViewer = false
-    @State private var reviewPhotoViewerPaths: [String] = []
+    @State private var reviewPhotoViewerDate: Date?
     @State private var reviewPhotoViewerIndex: Int = 0
 
     init(store: AppDataStore) {
@@ -79,8 +79,12 @@ struct JournalView: View {
             mainScrollContent(proxy: proxy)
         }
         .fullScreenCover(isPresented: $isShowingReviewPhotoViewer) {
-            ReviewPhotoViewerView(photoPaths: reviewPhotoViewerPaths,
-                                  initialIndex: reviewPhotoViewerIndex)
+            if let date = reviewPhotoViewerDate {
+                DiaryPhotoViewerView(viewModel: makeDiaryViewModel(for: date),
+                                     initialIndex: reviewPhotoViewerIndex)
+            } else {
+                Color.clear.onAppear { isShowingReviewPhotoViewer = false }
+            }
         }
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -822,10 +826,9 @@ struct JournalView: View {
                                     .scaledToFill()
                                     .onTapGesture {
                                         showingDetailPanel = false
-                                        let paths = photoPaths
                                         let startIndex = index
                                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                                            reviewPhotoViewerPaths = paths
+                                            reviewPhotoViewerDate = date
                                             reviewPhotoViewerIndex = startIndex
                                             isShowingReviewPhotoViewer = true
                                         }
@@ -1223,6 +1226,10 @@ struct JournalView: View {
     private func monthStart(for date: Date) -> Date {
         let calendar = Calendar.current
         return calendar.date(from: calendar.dateComponents([.year, .month], from: date)) ?? date
+    }
+
+    private func makeDiaryViewModel(for date: Date) -> DiaryViewModel {
+        DiaryViewModel(store: store, date: date)
     }
 
     private func prepareWeekPagerIfNeeded() {
@@ -1830,61 +1837,6 @@ private struct TimelineColumnView: View {
             return .green
         case .sleep:
             return .purple
-        }
-    }
-}
-
-struct ReviewPhotoViewerView: View {
-    @Environment(\.dismiss) private var dismiss
-
-    let photoPaths: [String]
-    @State private var currentIndex: Int
-
-    init(photoPaths: [String], initialIndex: Int) {
-        self.photoPaths = photoPaths
-        let clamped = max(0, min(initialIndex, max(0, photoPaths.count - 1)))
-        _currentIndex = State(initialValue: clamped)
-    }
-
-    var body: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
-            if photoPaths.isEmpty == false {
-                TabView(selection: $currentIndex) {
-                    ForEach(Array(photoPaths.enumerated()), id: \.offset) { index, path in
-                        if let image = PhotoStorage.loadImage(at: path) {
-                            image
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .background(Color.black)
-                                .tag(index)
-                        } else {
-                            Color.black.tag(index)
-                        }
-                    }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .automatic))
-            }
-
-            VStack {
-                HStack {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.white)
-                            .padding(12)
-                            .background(.black.opacity(0.5), in: Circle())
-                    }
-                    Spacer()
-                }
-                .padding([.top, .horizontal], 16)
-
-                Spacer()
-            }
         }
     }
 }
