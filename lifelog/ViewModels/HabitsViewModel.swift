@@ -234,11 +234,14 @@ final class HabitsViewModel: ObservableObject {
         let weeks = 53
         guard let start = calendar.date(byAdding: .weekOfYear, value: -(weeks - 1), to: startOfCurrentWeek) else { return }
 
+        // Use ALL habits (including archived) for historical data display
+        let allHabits = store.habits
+        
         var map: [Date: HabitDaySummary] = [:]
         for offset in 0..<(weeks * 7) {
             guard let date = calendar.date(byAdding: .day, value: offset, to: start) else { continue }
             let day = calendar.startOfDay(for: date)
-            let scheduled = habits.filter { $0.schedule.isActive(on: day) }
+            let scheduled = allHabits.filter { $0.schedule.isActive(on: day) }
             let completed = scheduled.filter { recordsLookup[$0.id]?[day]?.isCompleted == true }
             map[day] = HabitDaySummary(date: day,
                                        scheduledHabits: scheduled,
