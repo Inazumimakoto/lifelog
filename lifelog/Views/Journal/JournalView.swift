@@ -65,6 +65,7 @@ struct JournalView: View {
     @State private var calendarMode: CalendarMode = .schedule
     @State private var selectedReviewDate: Date? = Date().startOfDay
     @State private var reviewPhotoIndex: Int = 0
+    @State private var didInitReviewPhotoIndex: Bool = false
 
     init(store: AppDataStore) {
         self.store = store
@@ -718,7 +719,7 @@ struct JournalView: View {
                             image
                                 .resizable()
                                 .scaledToFill()
-                                .frame(width: 38, height: 32)
+                                .frame(width: 42, height: 55)
                                 .clipped()
                                 .cornerRadius(6)
                                 .frame(maxWidth: .infinity, alignment: .center)
@@ -779,15 +780,8 @@ struct JournalView: View {
         let diary = store.entry(for: date)
         let photoPaths = diary?.photoPaths ?? []
         let preferredIndex = preferredPhotoIndex(for: diary)
-        let clampedIndex = min(reviewPhotoIndex, max(photoPaths.count - 1, 0))
-        if clampedIndex != reviewPhotoIndex {
-            reviewPhotoIndex = clampedIndex
-        }
-        if reviewPhotoIndex == 0, preferredIndex < photoPaths.count {
-            reviewPhotoIndex = preferredIndex
-        }
         let photoSelection = Binding(
-            get: { min(reviewPhotoIndex, max(photoPaths.count - 1, 0)) },
+            get: { reviewPhotoIndex },
             set: { newValue in
                 reviewPhotoIndex = newValue
             }
@@ -861,6 +855,17 @@ struct JournalView: View {
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .onAppear {
+                guard didInitReviewPhotoIndex == false else { return }
+                didInitReviewPhotoIndex = true
+                let maxIndex = max(photoPaths.count - 1, 0)
+                let initial = min(preferredIndex, maxIndex)
+                reviewPhotoIndex = max(0, initial)
+            }
+            .onChange(of: photoPaths) { paths in
+                let maxIndex = max(paths.count - 1, 0)
+                reviewPhotoIndex = min(reviewPhotoIndex, maxIndex)
+            }
         }
     }
 

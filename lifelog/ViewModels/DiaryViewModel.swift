@@ -30,6 +30,8 @@ final class DiaryViewModel: ObservableObject {
         if needsDefaultPersist {
             store.upsert(entry: normalized)
         }
+
+        cleanupMissingPhotos()
     }
 
     func update(text: String) {
@@ -83,6 +85,14 @@ final class DiaryViewModel: ObservableObject {
         } else {
             entry.favoritePhotoPath = path
         }
+        persist()
+    }
+
+    func cleanupMissingPhotos() {
+        let original = entry.photoPaths
+        let kept = original.filter { PhotoStorage.fileExists(for: $0) }
+        guard kept.count != original.count else { return }
+        entry.photoPaths = kept
         persist()
     }
 

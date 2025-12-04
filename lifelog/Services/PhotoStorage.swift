@@ -9,33 +9,40 @@ import Foundation
 import SwiftUI
 import UIKit
 
-enum PhotoStorage {
-    static func save(data: Data, fileName: String = UUID().uuidString) throws -> String {
-        let url = try directoryURL().appendingPathComponent("\(fileName).jpg")
+struct PhotoStorage {
+    private static let directoryName = "DiaryPhotos"
+
+    private static var photosDirectory: URL = {
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let dir = documents.appendingPathComponent(directoryName, isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        } catch {
+            print("Failed to create photos directory:", error)
+        }
+        return dir
+    }()
+
+    static func save(data: Data) throws -> String {
+        let filename = UUID().uuidString + ".jpg"
+        let url = photosDirectory.appendingPathComponent(filename)
         try data.write(to: url, options: .atomic)
-        return url.path
+        return filename
     }
 
     static func loadImage(at path: String) -> Image? {
-        guard let data = FileManager.default.contents(atPath: path),
-              let uiImage = UIImage(data: data) else {
-            return nil
-        }
+        let url = photosDirectory.appendingPathComponent(path)
+        guard let uiImage = UIImage(contentsOfFile: url.path) else { return nil }
         return Image(uiImage: uiImage)
     }
 
     static func delete(at path: String) {
-        try? FileManager.default.removeItem(atPath: path)
+        let url = photosDirectory.appendingPathComponent(path)
+        try? FileManager.default.removeItem(at: url)
     }
 
-    private static func directoryURL() throws -> URL {
-        guard let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            throw NSError(domain: "PhotoStorage", code: 0, userInfo: [NSLocalizedDescriptionKey: "Unable to locate documents directory"])
-        }
-        let folder = url.appendingPathComponent("DiaryPhotos", isDirectory: true)
-        if FileManager.default.fileExists(atPath: folder.path) == false {
-            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        }
-        return folder
+    static func fileExists(for path: String) -> Bool {
+        let url = photosDirectory.appendingPathComponent(path)
+        return FileManager.default.fileExists(atPath: url.path)
     }
 }
