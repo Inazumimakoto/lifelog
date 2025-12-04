@@ -408,7 +408,12 @@ struct JournalView: View {
                             ensureDetailPagerIncludes(date: today)
                         }
                     } else {
-                        withAnimation(.spring(response: 0.5, dampingFraction: 0.85)) {
+                        // 振り返りカレンダーでも距離に応じたアニメーション
+                        let longDuration = 0.55
+                        let shortDuration = 0.25
+                        let needsLongAnimation = calendar.isDate(viewModel.monthAnchor, equalTo: today, toGranularity: .month) == false
+                        let duration = needsLongAnimation ? longDuration : shortDuration
+                        withAnimation(.easeInOut(duration: duration)) {
                             viewModel.setMonthAnchor(today)
                             ensureMonthPagerIncludes(date: today)
                             selectedReviewDate = today
@@ -909,7 +914,8 @@ struct JournalView: View {
                     .buttonStyle(.borderedProminent)
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             .onAppear {
                 guard didInitReviewPhotoIndex == false else { return }
                 didInitReviewPhotoIndex = true
