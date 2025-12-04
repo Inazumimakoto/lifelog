@@ -17,7 +17,6 @@ private struct DayPreviewItem: Identifiable {
         case event
         case task
     }
-
     let id: String
     let title: String
     let color: Color
@@ -66,6 +65,9 @@ struct JournalView: View {
     @State private var selectedReviewDate: Date? = Date().startOfDay
     @State private var reviewPhotoIndex: Int = 0
     @State private var didInitReviewPhotoIndex: Bool = false
+    @State private var isShowingReviewPhotoViewer = false
+    @State private var reviewPhotoViewerPaths: [String] = []
+    @State private var reviewPhotoViewerIndex: Int = 0
 
     init(store: AppDataStore) {
         self.store = store
@@ -74,81 +76,11 @@ struct JournalView: View {
 
     var body: some View {
         ScrollViewReader { proxy in
-            ScrollView {
-                VStack(spacing: 16) {
-                    titleRow
-                    monthHeader
-                    if calendarMode == .schedule {
-                        modePicker
-                    }
-                    if activeDisplayMode == .month {
-                        weekdayHeader
-                            .padding(.horizontal, 4)
-                    } else if activeDisplayMode == .week {
-                        weekdayHeader
-                            .padding(.horizontal, 4)
-                    }
-                    calendarSwitcher
-                    if calendarMode == .schedule {
-                        contentArea
-                    } else {
-                        reviewDetail
-                    }
-                    if viewModel.calendarAccessDenied {
-                        Text("設定 > プライバシーとセキュリティ > カレンダーでlifelogへのアクセスを許可すると外部カレンダーの予定が表示されます。")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                }
-                .padding()
-            }
-            .onAppear { scrollProxy = proxy }
-            .popover(item: $tappedTimelineItem) { item in
-                let deleteAction: (() -> Void)? = {
-                    guard item.kind == .event,
-                          let id = item.sourceId,
-                          let event = store.calendarEvents.first(where: { $0.id == id }) else { return nil }
-                    return {
-                        tappedTimelineItem = nil
-                        timelineEventToDelete = event
-                        showTimelineDeleteConfirmation = true
-                    }
-                }()
-
-                TimelineItemDetailView(
-                    item: item,
-                    onEdit: {
-                        // Dismiss popover first
-                        tappedTimelineItem = nil
-                        // Then trigger the edit sheet after a short delay
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                            handleEdit(for: item)
-                        }
-                    },
-                    onDelete: deleteAction
-                )
-            }
-            .sheet(isPresented: $showingDetailPanel) {
-                ScrollView {
-                    VStack(spacing: 16) {
-                        detailPager(includeAddButtons: true, minHeight: 640)
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-                    .padding(.bottom, 32)
-                    .safeAreaPadding(.top, 12)
-                    .safeAreaInset(edge: .bottom) {
-                        Color.clear.frame(height: 24)
-                    }
-                }
-                .onAppear {
-                    prepareDetailPagerIfNeeded()
-                    ensureDetailPagerIncludes(date: viewModel.selectedDate)
-                }
-                .presentationDetents([.large])
-                .presentationDragIndicator(.visible)
-            }
+            mainScrollContent(proxy: proxy)
+        }
+        .fullScreenCover(isPresented: $isShowingReviewPhotoViewer) {
+            ReviewPhotoViewerView(photoPaths: reviewPhotoViewerPaths,
+                                  initialIndex: reviewPhotoViewerIndex)
         }
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -303,6 +235,83 @@ struct JournalView: View {
         }
         .onChange(of: selectedReviewDate) { _, newDate in
             reviewPhotoIndex = preferredPhotoIndex(for: store.entry(for: newDate ?? viewModel.monthAnchor))
+        }
+    }
+
+    @ViewBuilder
+    private func mainScrollContent(proxy: ScrollViewProxy) -> some View {
+        ScrollView {
+            VStack(spacing: 16) {
+                titleRow
+                monthHeader
+                if calendarMode == .schedule {
+                    modePicker
+                }
+                if activeDisplayMode == .month {
+                    weekdayHeader
+                        .padding(.horizontal, 4)
+                } else if activeDisplayMode == .week {
+                    weekdayHeader
+                        .padding(.horizontal, 4)
+                }
+                calendarSwitcher
+                if calendarMode == .schedule {
+                    contentArea
+                } else {
+                    reviewDetail
+                }
+                if viewModel.calendarAccessDenied {
+                    Text("設定 > プライバシーとセキュリティ > カレンダーでlifelogへのアクセスを許可すると外部カレンダーの予定が表示されます。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding()
+        }
+        .onAppear { scrollProxy = proxy }
+        .popover(item: $tappedTimelineItem) { item in
+            let deleteAction: (() -> Void)? = {
+                guard item.kind == .event,
+                      let id = item.sourceId,
+                      let event = store.calendarEvents.first(where: { $0.id == id }) else { return nil }
+                return {
+                    tappedTimelineItem = nil
+                    timelineEventToDelete = event
+                    showTimelineDeleteConfirmation = true
+                }
+            }()
+
+            TimelineItemDetailView(
+                item: item,
+                onEdit: {
+                    tappedTimelineItem = nil
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        handleEdit(for: item)
+                    }
+                },
+                onDelete: deleteAction
+            )
+        }
+        .sheet(isPresented: $showingDetailPanel) {
+            let pager = detailPager(includeAddButtons: true, minHeight: 640)
+            VStack(spacing: 0) {
+                pager
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .onAppear {
+                prepareDetailPagerIfNeeded()
+                ensureDetailPagerIncludes(date: viewModel.selectedDate)
+            }
+            .presentationDetents(
+                calendarMode == .schedule
+                ? [.large]
+                : [.fraction(0.66)]
+            )
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -469,8 +478,8 @@ struct JournalView: View {
                             .padding(.top, 4)
                             .padding(.bottom, 8)
                             .padding(.horizontal, 4)
+                        Spacer(minLength: 0)
                     }
-                    Spacer(minLength: 0)
                 }
                 .frame(maxHeight: .infinity, alignment: .top)
                 .tag(index)
@@ -544,9 +553,7 @@ struct JournalView: View {
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    viewModel.selectedDate = day.date
-                    ensureDetailPagerIncludes(date: day.date)
-                    showingDetailPanel = true
+                    openDayDetail(for: day.date)
                 }
             }
         }
@@ -691,9 +698,7 @@ struct JournalView: View {
                 }
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    viewModel.selectedDate = date
-                    ensureDetailPagerIncludes(date: date)
-                    showingDetailPanel = true
+                    openDayDetail(for: date)
                 }
             }
         }
@@ -712,20 +717,21 @@ struct JournalView: View {
                 let isSelected = selectedReviewDate?.isSameDay(as: day.date) ?? false
                 let favoriteImage: Image? = day.diary?.favoritePhotoPath.flatMap { PhotoStorage.loadImage(at: $0) }
                 let moodEmoji = day.diary?.mood?.emoji
+                let dateForSelection = day.date
                 ZStack(alignment: .topLeading) {
                     RoundedRectangle(cornerRadius: 10)
                         .fill(Color(.secondarySystemBackground))
                     VStack(spacing: 4) {
-                        HStack {
+                        HStack(spacing: 2) {
                             Text("\(Calendar.current.component(.day, from: day.date))")
                                 .font(.headline)
                                 .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
                                 .lineLimit(1)
                                 .layoutPriority(1)
-                            Spacer()
+                            Spacer(minLength: 2)
                             if let moodEmoji {
                                 Text(moodEmoji)
-                                    .font(.footnote)
+                                    .font(.caption)
                                     .lineLimit(1)
                             }
                         }
@@ -756,7 +762,7 @@ struct JournalView: View {
                 .clipShape(RoundedRectangle(cornerRadius: 10))
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    selectedReviewDate = day.date
+                    openDayDetail(for: dateForSelection)
                 }
             }
         }
@@ -814,6 +820,11 @@ struct JournalView: View {
                                 image
                                     .resizable()
                                     .scaledToFill()
+                                    .onTapGesture {
+                                        reviewPhotoViewerPaths = photoPaths
+                                        reviewPhotoViewerIndex = index
+                                        isShowingReviewPhotoViewer = true
+                                    }
                                     .frame(height: 220)
                                     .frame(maxWidth: .infinity)
                                     .clipped()
@@ -945,6 +956,14 @@ struct JournalView: View {
         showAddMenu = true
     }
 
+    private func openDayDetail(for date: Date) {
+        let target = date.startOfDay
+        viewModel.selectedDate = target
+        selectedReviewDate = target
+        ensureDetailPagerIncludes(date: target)
+        showingDetailPanel = true
+    }
+
     private func weekDates(for anchor: Date) -> [Date] {
         let calendar = Calendar.current
         let start = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: anchor)) ?? anchor
@@ -996,41 +1015,45 @@ struct JournalView: View {
             TabView(selection: $detailPagerSelection) {
                 ForEach(Array(detailPagerAnchors.enumerated()), id: \.offset) { index, anchor in
                     let snapshot = calendarSnapshot(for: anchor)
-                    CalendarDetailPanel(snapshot: snapshot,
-                                        includeAddButtons: includeAddButtons,
-                                        onAddTask: {
-                                            if includeAddButtons {
-                                                showingDetailPanel = false
-                                                let targetDate = snapshot.date
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                                    newItemDate = targetDate
+                    let content: AnyView = calendarMode == .schedule
+                    ? AnyView(
+                        CalendarDetailPanel(snapshot: snapshot,
+                                            includeAddButtons: includeAddButtons,
+                                            onAddTask: {
+                                                if includeAddButtons {
+                                                    showingDetailPanel = false
+                                                    let targetDate = snapshot.date
+                                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                                        newItemDate = targetDate
+                                                        showTaskEditor = true
+                                                    }
+                                                } else {
+                                                    newItemDate = snapshot.date
                                                     showTaskEditor = true
                                                 }
-                                            } else {
-                                                newItemDate = snapshot.date
-                                                showTaskEditor = true
-                                            }
-                                        },
-                                        onAddEvent: {
-                                            if includeAddButtons {
-                                                showingDetailPanel = false
-                                                let targetDate = snapshot.date
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                                    newItemDate = targetDate
+                                            },
+                                            onAddEvent: {
+                                                if includeAddButtons {
+                                                    showingDetailPanel = false
+                                                    let targetDate = snapshot.date
+                                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                                                        newItemDate = targetDate
+                                                        showEventEditor = true
+                                                    }
+                                                } else {
+                                                    newItemDate = snapshot.date
                                                     showEventEditor = true
                                                 }
-                                            } else {
-                                                newItemDate = snapshot.date
-                                                showEventEditor = true
-                                            }
-                                        },
-                                        onEditTask: { task in editingTask = task },
-                                        onEditEvent: { event in editingEvent = event },
-                                        onDeleteEvent: { event in store.deleteCalendarEvent(event.id) },
-                                        onToggleTask: { toggleTask($0) },
-                                        onToggleHabit: { toggleHabit($0, on: snapshot.date) },
-                                        onOpenDiary: { openDiaryEditor(for: $0) })
-                    .tag(index)
+                                            },
+                                            onEditTask: { task in editingTask = task },
+                                            onEditEvent: { event in editingEvent = event },
+                                            onDeleteEvent: { event in store.deleteCalendarEvent(event.id) },
+                                            onToggleTask: { toggleTask($0) },
+                                            onToggleHabit: { toggleHabit($0, on: snapshot.date) },
+                                            onOpenDiary: { openDiaryEditor(for: $0) })
+                    )
+                    : AnyView(reviewDetailCard(for: anchor))
+                    content.tag(index)
                 }
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
@@ -1802,6 +1825,61 @@ private struct TimelineColumnView: View {
             return .green
         case .sleep:
             return .purple
+        }
+    }
+}
+
+struct ReviewPhotoViewerView: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let photoPaths: [String]
+    @State private var currentIndex: Int
+
+    init(photoPaths: [String], initialIndex: Int) {
+        self.photoPaths = photoPaths
+        let clamped = max(0, min(initialIndex, max(0, photoPaths.count - 1)))
+        _currentIndex = State(initialValue: clamped)
+    }
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            if photoPaths.isEmpty == false {
+                TabView(selection: $currentIndex) {
+                    ForEach(Array(photoPaths.enumerated()), id: \.offset) { index, path in
+                        if let image = PhotoStorage.loadImage(at: path) {
+                            image
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(Color.black)
+                                .tag(index)
+                        } else {
+                            Color.black.tag(index)
+                        }
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .automatic))
+            }
+
+            VStack {
+                HStack {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white)
+                            .padding(12)
+                            .background(.black.opacity(0.5), in: Circle())
+                    }
+                    Spacer()
+                }
+                .padding([.top, .horizontal], 16)
+
+                Spacer()
+            }
         }
     }
 }
