@@ -373,7 +373,6 @@ struct HabitYearHeatmapView: View {
                                             .stroke(isToday ? Color.white.opacity(0.9) : Color.black.opacity(0.08), lineWidth: isToday ? 1.6 : 1)
                                     )
                                     .scaleEffect(isToday ? 1.15 : 1.0)
-                                    .id(day)
                                     .onTapGesture {
                                         if let summary {
                                             onSelect(summary)
@@ -381,15 +380,16 @@ struct HabitYearHeatmapView: View {
                                     }
                             }
                         }
+                        .id(week)
                     }
                 }
                 .padding(.vertical, 4)
                 .padding(.horizontal, 2)
             }
             .onAppear {
-                let today = calendar.startOfDay(for: Date())
-                DispatchQueue.main.async {
-                    proxy.scrollTo(today, anchor: .trailing)
+                // 最新週（右端）にスクロール
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                    proxy.scrollTo(weekCount - 1, anchor: .trailing)
                 }
             }
         }

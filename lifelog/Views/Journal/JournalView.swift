@@ -68,7 +68,7 @@ struct JournalView: View {
     @State private var isShowingReviewPhotoViewer = false
     @State private var reviewPhotoViewerDate: Date?
     @State private var reviewPhotoViewerIndex: Int = 0
-    @State private var pendingPhotoViewer = false
+    @State private var pendingPhotoViewerDate: Date?
 
     init(store: AppDataStore) {
         self.store = store
@@ -79,11 +79,9 @@ struct JournalView: View {
         ScrollViewReader { proxy in
             mainScrollContent(proxy: proxy)
         }
-        .fullScreenCover(isPresented: $isShowingReviewPhotoViewer) {
-            if let date = reviewPhotoViewerDate {
-                DiaryPhotoViewerView(viewModel: makeDiaryViewModel(for: date),
-                                     initialIndex: reviewPhotoViewerIndex)
-            }
+        .fullScreenCover(item: $reviewPhotoViewerDate) { date in
+            DiaryPhotoViewerView(viewModel: makeDiaryViewModel(for: date),
+                                 initialIndex: reviewPhotoViewerIndex)
         }
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -304,10 +302,10 @@ struct JournalView: View {
             }
             .onDisappear {
                 // シートが完全に閉じた後に次の画面を表示
-                if pendingPhotoViewer {
-                    pendingPhotoViewer = false
+                if let pending = pendingPhotoViewerDate {
+                    pendingPhotoViewerDate = nil
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        isShowingReviewPhotoViewer = true
+                        reviewPhotoViewerDate = pending
                     }
                 } else if let pending = pendingDiaryDate {
                     pendingDiaryDate = nil
@@ -854,8 +852,7 @@ struct JournalView: View {
                                     .onTapGesture {
                                         let startIndex = index
                                         reviewPhotoViewerIndex = startIndex
-                                        reviewPhotoViewerDate = date
-                                        pendingPhotoViewer = true
+                                        pendingPhotoViewerDate = date
                                         showingDetailPanel = false
                                     }
                                     .frame(height: 220)
