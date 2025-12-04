@@ -11,8 +11,6 @@ struct MemoEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: MemoPadViewModel
 
-    private let placeholder = "なんでもメモするスペースです"
-
     init(store: AppDataStore) {
         _viewModel = StateObject(wrappedValue: MemoPadViewModel(store: store))
     }
@@ -28,12 +26,6 @@ struct MemoEditorView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 ZStack(alignment: .topLeading) {
-                    if viewModel.memoText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        Text(placeholder)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 14)
-                    }
                     TextEditor(text: memoBinding)
                         .keyboardType(.default)
                         .frame(minHeight: 340, alignment: .topLeading)
