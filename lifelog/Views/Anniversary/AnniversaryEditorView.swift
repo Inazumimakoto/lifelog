@@ -43,6 +43,20 @@ struct AnniversaryEditorView: View {
                 }
                 Toggle("毎年繰り返す", isOn: $repeatsYearly)
             }
+            
+            if editingAnniversary != nil && onDelete != nil {
+                Section {
+                    Button(role: .destructive) {
+                        showDeleteConfirmation = true
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Text("記念日を削除")
+                            Spacer()
+                        }
+                    }
+                }
+            }
         }
         .navigationTitle(editingAnniversary == nil ? "記念日を追加" : "記念日を編集")
         .toolbar {
@@ -62,19 +76,6 @@ struct AnniversaryEditorView: View {
             }
             ToolbarItem(placement: .cancellationAction) {
                 Button("キャンセル", role: .cancel) { dismiss() }
-            }
-        }
-        .safeAreaInset(edge: .bottom) {
-            if editingAnniversary != nil && onDelete != nil {
-                Button(role: .destructive) {
-                    showDeleteConfirmation = true
-                } label: {
-                    Text("記念日を削除")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.red)
-                .padding()
             }
         }
         .confirmationDialog("この記念日を削除しますか？", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {

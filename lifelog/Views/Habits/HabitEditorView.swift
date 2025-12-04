@@ -142,6 +142,20 @@ struct HabitEditorView: View {
                             }
                         }
                     }
+                    }
+            }
+            
+            if habit != nil && onDelete != nil {
+                Section {
+                    Button(role: .destructive) {
+                        showDeleteConfirmation = true
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Text("習慣を削除")
+                            Spacer()
+                        }
+                    }
                 }
             }
         }
@@ -162,19 +176,6 @@ struct HabitEditorView: View {
             }
             ToolbarItem(placement: .cancellationAction) {
                 Button("キャンセル", role: .cancel) { dismiss() }
-            }
-        }
-        .safeAreaInset(edge: .bottom) {
-            if habit != nil && onDelete != nil {
-                Button(role: .destructive) {
-                    showDeleteConfirmation = true
-                } label: {
-                    Text("習慣を削除")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.red)
-                .padding()
             }
         }
         .confirmationDialog("この習慣を削除しますか？", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {

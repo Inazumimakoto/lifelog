@@ -152,9 +152,7 @@ struct HabitsCountdownView: View {
                                             Text(scheduleDescription(for: status.habit.schedule))
                                                 .font(.caption2)
                                                 .foregroundStyle(.secondary)
-                                            Text(statsDescription(for: status.habit))
-                                                .font(.caption2)
-                                                .foregroundStyle(.secondary)
+                                            streakDisplay(for: status.habit)
                                         }
                                     }
                                 }
@@ -246,10 +244,59 @@ extension HabitsCountdownView {
         return status.isCompleted(on: date) ? "checkmark.circle.fill" : "circle"
     }
 
-    private func statsDescription(for habit: Habit) -> String {
-        let monthCount = habitsViewModel.monthlyCompletionCount(for: habit)
-        let streak = habitsViewModel.currentStreak(for: habit)
-        return "今月 \(monthCount) 回 / 連続 \(streak) 日"
+    private func streakDisplay(for habit: Habit) -> some View {
+        let current = habitsViewModel.currentStreak(for: habit)
+        let best = habitsViewModel.maxStreak(for: habit)
+        
+        // ストリークに応じた絵文字とメッセージ
+        let (emoji, message): (String, String?) = {
+            if current >= 30 {
+                return ("🔥", "すごい！")
+            } else if current >= 14 {
+                return ("🔥", nil)
+            } else if current >= 7 {
+                return ("✨", nil)
+            } else if current >= 3 {
+                return ("💪", nil)
+            } else if current == 0 && best > 0 {
+                return ("📈", "最高\(best)日")
+            } else {
+                return ("", nil)
+            }
+        }()
+        
+        return HStack(spacing: 4) {
+            if current > 0 {
+                HStack(spacing: 2) {
+                    Text(emoji)
+                    Text("\(current)日連続")
+                        .fontWeight(.medium)
+                    if let message = message {
+                        Text(message)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .font(.caption2)
+                .foregroundStyle(current >= 7 ? Color.orange : .primary)
+                
+                if best > current {
+                    Text("/ 最高\(best)日")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                HStack(spacing: 2) {
+                    Text(emoji)
+                    if best > 0 {
+                        Text("最高\(best)日達成済み")
+                    } else {
+                        Text("今日から始めよう")
+                    }
+                }
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            }
+        }
     }
 
     private func weekRow(for status: HabitsViewModel.HabitWeekStatus) -> some View {

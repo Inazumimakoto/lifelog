@@ -174,6 +174,37 @@ final class HabitsViewModel: ObservableObject {
         return streak
     }
 
+    func maxStreak(for habit: Habit, asOf date: Date = Date()) -> Int {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: date)
+        guard let start = calendar.date(byAdding: .day, value: -365, to: today) else { return 0 }
+        
+        let records = store.habitRecords
+            .filter { $0.habitID == habit.id }
+            .reduce(into: [Date: HabitRecord]()) { result, record in
+                result[record.date.startOfDay] = record
+            }
+        
+        var cursor = start
+        var longest = 0
+        var running = 0
+        
+        while cursor <= today {
+            if habit.schedule.isActive(on: cursor) {
+                if records[cursor]?.isCompleted == true {
+                    running += 1
+                    longest = max(longest, running)
+                } else {
+                    running = 0
+                }
+            }
+            guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
+            cursor = next
+        }
+        
+        return max(longest, currentStreak(for: habit, asOf: date))
+    }
+
     func miniHeatmap(for habit: Habit) -> [HabitHeatCell] {
         miniHeatmaps[habit.id] ?? []
     }
