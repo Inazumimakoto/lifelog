@@ -528,7 +528,7 @@ struct JournalView: View {
     private func monthCalendar(for anchor: Date) -> some View {
         let columns = monthGridColumns
         let days = viewModel.calendarDays(for: anchor)
-        let itemLimit = 3
+        let itemLimit = 4
         return LazyVGrid(columns: columns, spacing: 4) {
             ForEach(days) { day in
                 let previews = dayPreviewItems(for: day.date)
@@ -561,7 +561,7 @@ struct JournalView: View {
                 .padding(.top, 4)
                 .padding(.horizontal, 4)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
-                .frame(height: 72)
+                .frame(height: 88)
                 .clipped()
                 .background(
                     RoundedRectangle(cornerRadius: 10)
@@ -706,7 +706,7 @@ struct JournalView: View {
 
     private func weekCalendar(for anchor: Date) -> some View {
         let dates = weekDates(for: anchor)
-        let itemLimit = 3
+        let itemLimit = 4
         let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
         return LazyVGrid(columns: columns, spacing: 4) {
             ForEach(dates, id: \.self) { date in
@@ -739,7 +739,7 @@ struct JournalView: View {
                 .padding(.top, 4)
                 .padding(.horizontal, 4)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
-                .frame(height: 72)
+                .frame(height: 88)
                 .clipped()
                 .background(
                     RoundedRectangle(cornerRadius: 10)
@@ -819,7 +819,7 @@ struct JournalView: View {
                     }
                     .padding(4)
                 }
-                .frame(height: 72)
+                .frame(height: 88)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(day.isToday ? Color.accentColor.opacity(0.12) : Color(.systemGray6))
