@@ -559,8 +559,8 @@ struct JournalView: View {
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(minHeight: 96)
-                .padding(.vertical, 4)
+                .frame(minHeight: 76)
+                .padding(.vertical, 2)
                 .padding(.horizontal, 4)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
