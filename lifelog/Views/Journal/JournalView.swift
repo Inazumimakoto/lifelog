@@ -533,37 +533,35 @@ struct JournalView: View {
             ForEach(days) { day in
                 let previews = dayPreviewItems(for: day.date)
                 let (visible, overflow) = previewDisplay(previews, limit: itemLimit)
-                ZStack(alignment: .topLeading) {
+                VStack(alignment: .leading, spacing: 2) {
                     // Date fixed in top-left
                     Text("\(Calendar.current.component(.day, from: day.date))")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
-                        .padding(.leading, 2)
-                        .padding(.top, 2)
                     
                     // Items below the date
-                    VStack(alignment: .leading, spacing: 2) {
-                        ForEach(visible) { item in
-                            Text(previewLabel(for: item))
-                                .font(.system(size: 9, weight: .medium))
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 2)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(item.color.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
-                        }
-                        if overflow > 0 {
-                            Text("+\(overflow)")
-                                .font(.system(size: 9))
-                                .foregroundStyle(.secondary)
-                        }
+                    ForEach(visible) { item in
+                        Text(previewLabel(for: item))
+                            .font(.system(size: 9, weight: .medium))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(item.color.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
                     }
-                    .padding(.top, 20)
+                    if overflow > 0 {
+                        Text("+\(overflow)")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Spacer(minLength: 0)
                 }
+                .padding(.top, 4)
+                .padding(.horizontal, 4)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
                 .frame(height: 72)
-                .padding(.vertical, 2)
                 .clipped()
                 .padding(.horizontal, 4)
                 .background(
