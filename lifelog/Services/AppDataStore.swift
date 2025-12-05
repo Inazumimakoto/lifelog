@@ -146,16 +146,54 @@ final class AppDataStore: ObservableObject {
                 links[index].calendarTitle = calendar.title
                 links[index].colorHex = calendar.cgColor.hexString
             } else {
-                let shouldHide = calendar.title.contains("祝日")
+                // Auto-map category based on calendar name
+                let autoCategory = autoMapCategory(for: calendar.title)
                 let link = CalendarCategoryLink(calendarIdentifier: calendar.calendarIdentifier,
                                                 calendarTitle: calendar.title,
-                                                categoryId: shouldHide ? nil : defaultCategory,
+                                                categoryId: autoCategory,
                                                 colorHex: calendar.cgColor.hexString)
                 links.append(link)
             }
         }
         appState.calendarCategoryLinks = links
         persistAppState()
+    }
+    
+    /// Auto-map calendar name to category based on keywords
+    private func autoMapCategory(for calendarName: String) -> String? {
+        let name = calendarName.lowercased()
+        
+        // Hide holidays
+        if name.contains("祝日") || name.contains("holiday") {
+            return nil
+        }
+        
+        // Work-related keywords
+        let workKeywords = ["仕事", "work", "業務", "会社", "office", "ビジネス", "business", "ミーティング", "meeting"]
+        for keyword in workKeywords {
+            if name.contains(keyword) {
+                return "仕事"
+            }
+        }
+        
+        // Travel-related keywords
+        let travelKeywords = ["旅行", "travel", "trip", "vacation", "休暇"]
+        for keyword in travelKeywords {
+            if name.contains(keyword) {
+                return "旅行"
+            }
+        }
+        
+        // Hobby-related keywords  
+        let hobbyKeywords = ["趣味", "hobby", "プライベート", "private", "個人", "personal"]
+        for keyword in hobbyKeywords {
+            if name.contains(keyword) {
+                return "趣味"
+            }
+        }
+        
+        // Default: use the default category
+        return CategoryPalette.defaultCategoryName
     }
 
     func updateCalendarLinkCategory(calendarIdentifier: String, categoryName: String?) {

@@ -257,6 +257,7 @@ struct JournalView: View {
                 }
                 calendarSwitcher
                 if calendarMode == .schedule {
+                    calendarLegend
                     contentArea
                 } else {
                     reviewDetail
@@ -585,6 +586,36 @@ struct JournalView: View {
             }
         }
         .animation(.easeInOut, value: viewModel.selectedDate)
+    }
+
+    /// 凡例：各カテゴリの色を表示。タップでカレンダー設定を開く
+    private var calendarLegend: some View {
+        let links = store.appState.calendarCategoryLinks
+            .filter { $0.categoryId != nil }
+        let uniqueCategories = Set(links.compactMap { $0.categoryId })
+        
+        return Button {
+            showCalendarSettings = true
+        } label: {
+            HStack(spacing: 12) {
+                ForEach(Array(uniqueCategories).sorted(), id: \.self) { category in
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(CategoryPalette.color(for: category))
+                            .frame(width: 8, height: 8)
+                        Text(category)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                Image(systemName: "pencil")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.horizontal, 4)
+        }
+        .buttonStyle(.plain)
     }
 
     private var contentArea: some View {
