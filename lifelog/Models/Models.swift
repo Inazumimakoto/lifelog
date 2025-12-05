@@ -323,8 +323,8 @@ struct Anniversary: Identifiable, Codable, Hashable {
     }
 }
 
-struct HealthSummary: Identifiable, Hashable {
-    let id = UUID()
+struct HealthSummary: Identifiable, Hashable, Codable {
+    var id: UUID = UUID()
     var date: Date
     var steps: Int?
     var sleepHours: Double?
@@ -335,6 +335,10 @@ struct HealthSummary: Identifiable, Hashable {
     var sleepStart: Date?
     var sleepEnd: Date?
     var sleepStages: [SleepStage] = []
+    
+    init(date: Date) {
+        self.date = date
+    }
 }
 
 struct CalendarEvent: Identifiable, Hashable, Codable {

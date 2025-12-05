@@ -34,6 +34,7 @@ final class AppDataStore: ObservableObject {
     private static let calendarEventsDefaultsKey = "CalendarEvents_Storage_V1"
     private static let memoPadDefaultsKey = "MemoPad_Storage_V1"
     private static let appStateDefaultsKey = "AppState_Storage_V1"
+    private static let healthSummariesDefaultsKey = "HealthSummaries_Storage_V1"
 
     // MARK: - Init
 
@@ -60,13 +61,39 @@ final class AppDataStore: ObservableObject {
     }
     
     func loadHealthData() async {
+        // Load cached data first
+        let cached: [HealthSummary] = Self.loadValue(forKey: Self.healthSummariesDefaultsKey, defaultValue: [])
+        if !cached.isEmpty {
+            self.healthSummaries = cached
+        }
+        
         let authorized = await HealthKitManager.shared.requestAuthorization()
         if authorized {
-            let fetched = await HealthKitManager.shared.fetchHealthData(for: 30)
-            if fetched.isEmpty == false {
-                self.healthSummaries = fetched
+            // Fetch recent 7 days for quick update, then full year in background
+            let recentFetched = await HealthKitManager.shared.fetchHealthData(for: 7)
+            if !recentFetched.isEmpty {
+                mergeHealthSummaries(recentFetched)
+            }
+            
+            // Fetch full year (365 days) - this runs after recent data is shown
+            let fullFetched = await HealthKitManager.shared.fetchHealthData(for: 365)
+            if !fullFetched.isEmpty {
+                mergeHealthSummaries(fullFetched)
+                persistHealthSummaries()
             }
         }
+    }
+    
+    private func mergeHealthSummaries(_ newData: [HealthSummary]) {
+        var summaryDict = Dictionary(uniqueKeysWithValues: healthSummaries.map { ($0.date, $0) })
+        for summary in newData {
+            summaryDict[summary.date] = summary
+        }
+        healthSummaries = Array(summaryDict.values).sorted { $0.date > $1.date }
+    }
+    
+    private func persistHealthSummaries() {
+        persist(healthSummaries, forKey: Self.healthSummariesDefaultsKey)
     }
 
     // MARK: - Calendar
