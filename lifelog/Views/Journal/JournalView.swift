@@ -1799,7 +1799,7 @@ private struct TimelineColumnView: View {
                                     .foregroundStyle(.primary)
                                     .lineLimit(blockHeight < threshold ? 1 : 2)
                                 
-                                // 時間
+                                // 開始時間
                                 if item.isAllDay {
                                     Text("終日")
                                         .font(.system(size: 9))
@@ -1811,6 +1811,14 @@ private struct TimelineColumnView: View {
                                 }
                                 
                                 Spacer(minLength: 0)
+                                
+                                // 終了時間（2時間以上の予定のみ、終日以外）
+                                let duration = item.end.timeIntervalSince(item.start)
+                                if !item.isAllDay && duration >= 7200 { // 7200秒 = 2時間
+                                    Text(item.end.formatted(date: .omitted, time: .shortened))
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(.secondary)
+                                }
                             }
                             .padding(.horizontal, 6)
                             .padding(.vertical, 4)
