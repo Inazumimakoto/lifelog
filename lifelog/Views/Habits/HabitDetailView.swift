@@ -126,9 +126,11 @@ struct HabitDetailView: View {
                             Button {
                                 toggle(date: date)
                             } label: {
-                                Image(systemName: isCompleted(on: date) ? "checkmark.circle.fill" : "circle")
-                                    .font(.title3)
-                                    .foregroundStyle(isCompleted(on: date) ? accentColor : .secondary)
+                                AnimatedCheckmark(
+                                    isCompleted: isCompleted(on: date),
+                                    color: accentColor,
+                                    size: 24
+                                )
                             }
                             .buttonStyle(.plain)
                         } else {

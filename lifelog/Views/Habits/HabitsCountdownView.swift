@@ -312,13 +312,17 @@ extension HabitsCountdownView {
                         habitsViewModel.toggle(habit: status.habit, on: date)
                     } label: {
                         let isActive = status.isActive(on: date)
-                        Image(systemName: symbolName(for: status, on: date, isActive: isActive))
-                            .foregroundStyle(
-                                isActive
-                                ? (status.isCompleted(on: date) ? Color(hex: status.habit.colorHex) ?? .accentColor : .secondary)
-                                : Color.black
+                        if isActive {
+                            AnimatedCheckmark(
+                                isCompleted: status.isCompleted(on: date),
+                                color: Color(hex: status.habit.colorHex) ?? .accentColor,
+                                size: 24
                             )
-                            .font(.title3)
+                        } else {
+                            Image(systemName: "circle.fill")
+                                .foregroundStyle(Color.black)
+                                .font(.title3)
+                        }
                     }
                     .buttonStyle(.plain)
                     .disabled(status.isActive(on: date) == false)
@@ -496,9 +500,11 @@ struct HabitDaySummarySheet: View {
                             Button {
                                 viewModel.setHabit(habit, on: currentSummary.date, completed: !isDone)
                             } label: {
-                                Image(systemName: isDone ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(isDone ? (Color(hex: habit.colorHex) ?? .accentColor) : .secondary)
-                                    .font(.title3)
+                                AnimatedCheckmark(
+                                    isCompleted: isDone,
+                                    color: Color(hex: habit.colorHex) ?? .accentColor,
+                                    size: 24
+                                )
                             }
                             .buttonStyle(.plain)
                         }

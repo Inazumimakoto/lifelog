@@ -358,10 +358,11 @@ struct TodayView: View {
                                 Label(status.habit.title, systemImage: status.habit.iconName)
                                     .foregroundStyle(Color(hex: status.habit.colorHex) ?? .accentColor)
                                 Spacer()
-                                Image(systemName: status.isCompleted ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(status.isCompleted ? (Color(hex: status.habit.colorHex) ?? .accentColor) : .secondary)
-                                    .scaleEffect(status.isCompleted ? 1.05 : 0.95)
-                                    .animation(.spring(response: 0.35, dampingFraction: 0.8), value: status.isCompleted)
+                                AnimatedCheckmark(
+                                    isCompleted: status.isCompleted,
+                                    color: Color(hex: status.habit.colorHex) ?? .accentColor,
+                                    size: 26
+                                )
                             }
                         }
                         .buttonStyle(.plain)
