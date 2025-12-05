@@ -480,7 +480,7 @@ struct JournalView: View {
             if activeDisplayMode == .month {
                 monthPager
             } else if activeDisplayMode == .week {
-                EmptyView()
+                weekPager
             }
         }
     }
@@ -622,7 +622,6 @@ struct JournalView: View {
     private var contentArea: some View {
         VStack(spacing: 12) {
             if activeDisplayMode == .week {
-                weekPager
                 weekDayDetail
             }
         }
@@ -638,6 +637,7 @@ struct JournalView: View {
             ForEach(Array(weekPagerAnchors.enumerated()), id: \.offset) { index, anchor in
                 VStack(spacing: 12) {
                     weekCalendar(for: anchor)
+                        .padding(.top, 4)
                     weekTimeline(for: anchor)
                 }
                 .padding(.bottom, 8)
