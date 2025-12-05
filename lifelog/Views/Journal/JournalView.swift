@@ -637,7 +637,7 @@ struct JournalView: View {
             ForEach(Array(weekPagerAnchors.enumerated()), id: \.offset) { index, anchor in
                 VStack(spacing: 12) {
                     weekCalendar(for: anchor)
-                        .padding(.top, 4)
+                        .padding(.top, 12)
                     weekTimeline(for: anchor)
                 }
                 .padding(.bottom, 8)
