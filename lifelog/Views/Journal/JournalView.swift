@@ -563,7 +563,6 @@ struct JournalView: View {
                 .frame(maxWidth: .infinity, alignment: .topLeading)
                 .frame(height: 72)
                 .clipped()
-                .padding(.horizontal, 4)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(day.isToday ? Color.accentColor.opacity(0.12) : Color.clear)
