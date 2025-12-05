@@ -257,8 +257,8 @@ struct JournalView: View {
                 }
                 calendarSwitcher
                 if calendarMode == .schedule {
-                    calendarLegend
                     contentArea
+                    calendarLegend
                 } else {
                     reviewDetail
                 }
@@ -639,7 +639,6 @@ struct JournalView: View {
             ForEach(Array(weekPagerAnchors.enumerated()), id: \.offset) { index, anchor in
                 VStack(spacing: 12) {
                     weekCalendar(for: anchor)
-                        .padding(.top, 35)
                     weekTimeline(for: anchor)
                 }
                 .padding(.bottom, 8)
