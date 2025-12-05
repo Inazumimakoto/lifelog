@@ -164,21 +164,25 @@ final class HabitsViewModel: ObservableObject {
     
     /// ストリークマイルストーン達成時にトーストを表示
     private func checkStreakMilestone(_ streak: Int) {
-        let milestones: [(days: Int, emoji: String, message: String)] = [
-            (365, "🌟", "1年達成！おめでとう！"),
-            (200, "🎖️", "200日連続！レジェンド！"),
-            (100, "👑", "100日突破！"),
-            (50, "🏆", "50日連続達成！"),
-            (30, "🔥", "1ヶ月連続達成！"),
-            (21, "🔥", "3週間連続達成！"),
-            (14, "🔥", "2週間連続達成！"),
-            (7, "✨", "1週間連続達成！"),
-            (3, "💪", "3日連続達成！")
+        let milestones: [(days: Int, emoji: String, message: String, nextLabel: String?)] = [
+            (365, "🌟", "1年達成！おめでとう！", nil),
+            (200, "🎖️", "200日連続！レジェンド！", "次は365日！"),
+            (100, "👑", "100日突破！", "次は200日！"),
+            (50, "🏆", "50日連続達成！", "次は100日！"),
+            (30, "🔥", "1ヶ月連続達成！", "次は50日！"),
+            (21, "🔥", "3週間連続達成！", "次は30日！"),
+            (14, "🔥", "2週間連続達成！", "次は21日！"),
+            (7, "✨", "1週間連続達成！", "次は14日！"),
+            (3, "💪", "3日連続達成！", "次は7日！")
         ]
         
         for milestone in milestones {
             if streak == milestone.days {
-                ToastManager.shared.show(emoji: milestone.emoji, message: milestone.message)
+                var fullMessage = milestone.message
+                if let next = milestone.nextLabel {
+                    fullMessage += "\n\(next)"
+                }
+                ToastManager.shared.show(emoji: milestone.emoji, message: fullMessage)
                 break
             }
         }

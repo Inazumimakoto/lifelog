@@ -14,15 +14,19 @@ struct ToastView: View {
     let emoji: String
     
     var body: some View {
-        HStack(spacing: 8) {
+        HStack(alignment: .top, spacing: 10) {
             Text(emoji)
                 .font(.title2)
-            Text(message)
-                .font(.subheadline.weight(.medium))
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(message.components(separatedBy: "\n"), id: \.self) { line in
+                    Text(line)
+                        .font(.subheadline.weight(.medium))
+                }
+            }
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .background(.ultraThinMaterial, in: Capsule())
+        .padding(.vertical, 14)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
         .shadow(color: .black.opacity(0.15), radius: 10, y: 5)
     }
 }
