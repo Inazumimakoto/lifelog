@@ -794,7 +794,7 @@ struct JournalView: View {
                     }
                     
                     // Overlay: Date and mood
-                    HStack(alignment: .top, spacing: 2) {
+                    ZStack(alignment: .top) {
                         Text("\(Calendar.current.component(.day, from: day.date))")
                             .font(.caption.weight(.bold))
                             .foregroundStyle(hasPhoto ? .white : (day.isWithinDisplayedMonth ? .primary : .secondary))
@@ -804,8 +804,7 @@ struct JournalView: View {
                                 hasPhoto ? Color.black.opacity(0.4) : Color.clear,
                                 in: RoundedRectangle(cornerRadius: 4)
                             )
-                        
-                        Spacer(minLength: 0)
+                            .frame(maxWidth: .infinity, alignment: .topLeading)
                         
                         if let moodEmoji {
                             Text(moodEmoji)
@@ -815,6 +814,7 @@ struct JournalView: View {
                                     hasPhoto ? Color.black.opacity(0.4) : Color.clear,
                                     in: Circle()
                                 )
+                                .frame(maxWidth: .infinity, alignment: .topTrailing)
                         }
                     }
                     .padding(4)
