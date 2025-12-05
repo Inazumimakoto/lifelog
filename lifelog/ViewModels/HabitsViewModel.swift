@@ -116,7 +116,72 @@ final class HabitsViewModel: ObservableObject {
 
     func toggle(habit: Habit, on date: Date) {
         pendingAnimation = .spring(response: 0.35, dampingFraction: 0.8)
+        
+        // 現在の完了状態を確認
+        let wasCompleted = store.habitRecords.first {
+            $0.habitID == habit.id && Calendar.current.isDate($0.date, inSameDayAs: date)
+        }?.isCompleted ?? false
+        
         store.toggleHabit(habit.id, on: date)
+        
+        // 未完了→完了に変わった場合、新しいストリークを計算してマイルストーンチェック
+        if !wasCompleted {
+            // トグル後のレコードで新しいストリークを計算
+            let newStreak = calculateStreakAfterCompletion(for: habit, on: date)
+            checkStreakMilestone(newStreak)
+        }
+    }
+    
+    /// トグル後のストリークを計算（今日を完了済みとして計算）
+    private func calculateStreakAfterCompletion(for habit: Habit, on date: Date) -> Int {
+        let calendar = Calendar.current
+        let records = store.habitRecords
+            .filter { $0.habitID == habit.id }
+            .reduce(into: [Date: HabitRecord]()) { result, record in
+                result[record.date.startOfDay] = record
+            }
+        
+        var streak = 1 // 今日を完了済みとしてカウント
+        var cursor = calendar.startOfDay(for: date)
+        
+        // 今日より前の日をチェック
+        while let previous = calendar.date(byAdding: .day, value: -1, to: cursor) {
+            cursor = previous
+            
+            if habit.schedule.isActive(on: cursor) == false {
+                continue
+            }
+            
+            guard let record = records[cursor], record.isCompleted else {
+                break
+            }
+            
+            streak += 1
+        }
+        
+        return streak
+    }
+    
+    /// ストリークマイルストーン達成時にトーストを表示
+    private func checkStreakMilestone(_ streak: Int) {
+        let milestones: [(days: Int, emoji: String, message: String)] = [
+            (365, "🌟", "1年達成！おめでとう！"),
+            (200, "🎖️", "200日連続！レジェンド！"),
+            (100, "👑", "100日突破！"),
+            (50, "🏆", "50日連続達成！"),
+            (30, "🔥", "1ヶ月連続達成！"),
+            (21, "🔥", "3週間連続達成！"),
+            (14, "🔥", "2週間連続達成！"),
+            (7, "✨", "1週間連続達成！"),
+            (3, "💪", "3日連続達成！")
+        ]
+        
+        for milestone in milestones {
+            if streak == milestone.days {
+                ToastManager.shared.show(emoji: milestone.emoji, message: milestone.message)
+                break
+            }
+        }
     }
 
     func setHabit(_ habit: Habit, on date: Date, completed: Bool) {

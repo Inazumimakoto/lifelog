@@ -252,8 +252,20 @@ extension HabitsCountdownView {
         
         // ストリークに応じた絵文字とメッセージ
         let (emoji, message): (String, String?) = {
-            if current >= 30 {
-                return ("🔥", "すごい！")
+            if current > 365 {
+                return ("🌟", "限界突破中！")
+            } else if current == 365 {
+                return ("🌟", "1年達成！")
+            } else if current >= 200 {
+                return ("🎖️", "レジェンド！")
+            } else if current >= 100 {
+                return ("👑", "100日突破！")
+            } else if current >= 50 {
+                return ("🏆", "すごい！")
+            } else if current >= 30 {
+                return ("🔥", "1ヶ月！")
+            } else if current >= 21 {
+                return ("🔥", "3週間！")
             } else if current >= 14 {
                 return ("🔥", nil)
             } else if current >= 7 {

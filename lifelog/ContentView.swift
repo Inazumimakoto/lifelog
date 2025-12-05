@@ -57,6 +57,7 @@ struct ContentView: View {
             }
             lastSelection = newSelection
         }
+        .toast()
     }
 
     @ViewBuilder
