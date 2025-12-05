@@ -195,13 +195,32 @@ final class AppDataStore: ObservableObject {
     }
 
     func toggleHabit(_ habitID: UUID, on date: Date) {
+        let calendar = Calendar.current
+        let dateDay = calendar.startOfDay(for: date)
+        
         if let index = habitRecords.firstIndex(where: {
             $0.habitID == habitID && Calendar.current.isDate($0.date, inSameDayAs: date)
         }) {
             habitRecords[index].isCompleted.toggle()
+            // If toggling to completed and date is before createdAt, update createdAt
+            if habitRecords[index].isCompleted, let habitIndex = habits.firstIndex(where: { $0.id == habitID }) {
+                let createdDay = calendar.startOfDay(for: habits[habitIndex].createdAt)
+                if dateDay < createdDay {
+                    habits[habitIndex].createdAt = dateDay
+                    persistHabits()
+                }
+            }
         } else {
             let record = HabitRecord(habitID: habitID, date: date, isCompleted: true)
             habitRecords.append(record)
+            // New record is completed, check if we need to update createdAt
+            if let habitIndex = habits.firstIndex(where: { $0.id == habitID }) {
+                let createdDay = calendar.startOfDay(for: habits[habitIndex].createdAt)
+                if dateDay < createdDay {
+                    habits[habitIndex].createdAt = dateDay
+                    persistHabits()
+                }
+            }
         }
         persistHabitRecords()
     }
