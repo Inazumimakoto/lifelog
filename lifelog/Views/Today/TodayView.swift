@@ -10,6 +10,7 @@ import PhotosUI
 
 struct TodayView: View {
     @StateObject private var viewModel: TodayViewModel
+    @StateObject private var weatherService = WeatherService()
     @Environment(\.scenePhase) private var scenePhase
     @State private var showTaskManager = false
     @State private var showEventManager = false
@@ -34,6 +35,7 @@ struct TodayView: View {
         ScrollView {
             VStack(spacing: 16) {
                 header
+                WeatherCardView(weatherService: weatherService)
                 eventsSection
 //                todayTimelineSection
                 tasksSection
@@ -43,6 +45,9 @@ struct TodayView: View {
                 diarySection
             }
             .padding()
+        }
+        .task {
+            await weatherService.fetchWeather()
         }
         .task(id: calendarSyncTrigger) {
             await syncCalendarsIfNeeded()
