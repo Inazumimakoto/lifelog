@@ -1099,48 +1099,10 @@ struct JournalView: View {
                     let content: AnyView = calendarMode == .schedule
                     ? AnyView(
                         CalendarDetailPanel(snapshot: snapshot,
+                                            store: store,
                                             includeAddButtons: includeAddButtons,
-                                            onAddTask: {
-                                                if includeAddButtons {
-                                                    showingDetailPanel = false
-                                                    let targetDate = snapshot.date
-                                                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                                        newItemDate = targetDate
-                                                        showTaskEditor = true
-                                                    }
-                                                } else {
-                                                    newItemDate = snapshot.date
-                                                    showTaskEditor = true
-                                                }
-                                            },
-                                        onAddEvent: {
-                                            if includeAddButtons {
-                                                showingDetailPanel = false
-                                                let targetDate = snapshot.date
-                                                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
-                                                    newItemDate = targetDate
-                                                    showEventEditor = true
-                                                }
-                                            } else {
-                                                newItemDate = snapshot.date
-                                                showEventEditor = true
-                                            }
-                                        },
-                                        onEditTask: { task in
-                                            showingDetailPanel = false
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                                                editingTask = task
-                                            }
-                                        },
-                                        onEditEvent: { event in
-                                            showingDetailPanel = false
-                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                                                editingEvent = event
-                                            }
-                                        },
-                                        onToggleTask: { toggleTask($0) },
-                                        onToggleHabit: { toggleHabit($0, on: snapshot.date) },
-                                        onOpenDiary: { openDiaryEditor(for: $0) })
+                                            onToggleTask: { toggleTask($0) },
+                                            onToggleHabit: { toggleHabit($0, on: snapshot.date) })
                     )
                     : AnyView(reviewDetailCard(for: anchor))
                     content.tag(index)
@@ -1461,14 +1423,17 @@ private enum ScrollTarget: String {
 
 private struct CalendarDetailPanel: View {
     let snapshot: CalendarDetailSnapshot
+    let store: AppDataStore
     var includeAddButtons: Bool
-    var onAddTask: () -> Void
-    var onAddEvent: () -> Void
-    var onEditTask: (Task) -> Void
-    var onEditEvent: (CalendarEvent) -> Void
     var onToggleTask: (Task) -> Void
     var onToggleHabit: (Habit) -> Void
-    var onOpenDiary: (Date) -> Void
+    
+    // シート管理用State
+    @State private var editingTask: Task?
+    @State private var editingEvent: CalendarEvent?
+    @State private var showAddTask = false
+    @State private var showAddEvent = false
+    @State private var showDiaryEditor = false
 
     private var hasDiaryEntry: Bool {
         if let entry = snapshot.diaryEntry {
@@ -1485,7 +1450,7 @@ private struct CalendarDetailPanel: View {
                 OverviewSection(icon: "calendar",
                                 title: "予定",
                                 actionTitle: includeAddButtons ? "予定を追加" : nil,
-                                action: includeAddButtons ? onAddEvent : nil) {
+                                action: includeAddButtons ? { showAddEvent = true } : nil) {
                     if snapshot.events.isEmpty {
                         placeholder("予定はありません")
                     } else {
@@ -1521,7 +1486,7 @@ private struct CalendarDetailPanel: View {
                                     // 外部カレンダーでない場合のみ編集ボタン表示
                                     if event.sourceCalendarIdentifier == nil {
                                         Button {
-                                            onEditEvent(event)
+                                            editingEvent = event
                                         } label: {
                                             Image(systemName: "square.and.pencil")
                                                 .foregroundStyle(.secondary)
@@ -1538,7 +1503,7 @@ private struct CalendarDetailPanel: View {
                 OverviewSection(icon: "checkmark.circle",
                                 title: "タスク",
                                 actionTitle: includeAddButtons ? "タスクを追加" : nil,
-                                action: includeAddButtons ? onAddTask : nil) {
+                                action: includeAddButtons ? { showAddTask = true } : nil) {
                     if snapshot.pendingTasks.isEmpty && snapshot.completedTasks.isEmpty {
                         placeholder("登録されたタスクはありません")
                     } else {
@@ -1619,7 +1584,7 @@ private struct CalendarDetailPanel: View {
                             placeholder("まだ日記は追加されていません")
                         }
                         Button {
-                            onOpenDiary(snapshot.date)
+                            showDiaryEditor = true
                         } label: {
                             Label(hasDiaryEntry ? "日記を編集" : "日記を追加",
                                   systemImage: "square.and.pencil")
@@ -1629,6 +1594,40 @@ private struct CalendarDetailPanel: View {
                         .controlSize(.small)
                     }
                 }
+            }
+        }
+        .sheet(item: $editingTask) { task in
+            NavigationStack {
+                TaskEditorView(task: task,
+                               defaultDate: task.startDate ?? task.endDate ?? snapshot.date,
+                               onSave: { updated in store.updateTask(updated) },
+                               onDelete: { store.deleteTasks(withIDs: [task.id]) })
+            }
+        }
+        .sheet(item: $editingEvent) { event in
+            NavigationStack {
+                CalendarEventEditorView(event: event,
+                                        onSave: { updated in store.updateCalendarEvent(updated) },
+                                        onDelete: { store.deleteCalendarEvent(event.id) })
+            }
+        }
+        .sheet(isPresented: $showAddTask) {
+            NavigationStack {
+                TaskEditorView(defaultDate: snapshot.date) { task in
+                    store.addTask(task)
+                }
+            }
+        }
+        .sheet(isPresented: $showAddEvent) {
+            NavigationStack {
+                CalendarEventEditorView(defaultDate: snapshot.date) { event in
+                    store.addCalendarEvent(event)
+                }
+            }
+        }
+        .sheet(isPresented: $showDiaryEditor) {
+            NavigationStack {
+                DiaryEditorView(store: store, date: snapshot.date)
             }
         }
     }
@@ -1661,7 +1660,7 @@ private struct CalendarDetailPanel: View {
                     TaskRowView(task: task, onToggle: { onToggleTask(task) })
                     Spacer()
                     Button {
-                        onEditTask(task)
+                        editingTask = task
                     } label: {
                         Image(systemName: "square.and.pencil")
                             .foregroundStyle(.secondary)
