@@ -710,35 +710,39 @@ struct JournalView: View {
         let dates = weekDates(for: anchor)
         let itemLimit = 3
         let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
-        return LazyVGrid(columns: columns, spacing: 6) {
+        return LazyVGrid(columns: columns, spacing: 4) {
             ForEach(dates, id: \.self) { date in
                 let previews = dayPreviewItems(for: date)
                 let (visible, overflow) = previewDisplay(previews, limit: itemLimit)
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 2) {
+                    // Date fixed in top-left
                     Text("\(Calendar.current.component(.day, from: date))")
-                        .font(.headline)
-                    VStack(alignment: .leading, spacing: 3) {
-                        ForEach(visible) { item in
-                            Text(previewLabel(for: item))
-                                .font(.caption2.weight(.semibold))
-                                .lineLimit(1)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 4)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(item.color.opacity(0.18), in: RoundedRectangle(cornerRadius: 8))
-                        }
-                        if overflow > 0 {
-                            Text("+\(overflow) 件")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                        }
+                        .font(.subheadline.weight(.semibold))
+                    
+                    // Items below the date
+                    ForEach(visible) { item in
+                        Text(previewLabel(for: item))
+                            .font(.system(size: 9, weight: .medium))
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(item.color.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
                     }
+                    if overflow > 0 {
+                        Text("+\(overflow)")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.secondary)
+                    }
+                    
                     Spacer(minLength: 0)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(minHeight: 96)
-                .padding(.vertical, 4)
+                .padding(.top, 4)
                 .padding(.horizontal, 4)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .frame(height: 72)
+                .clipped()
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(date.isSameDay(as: Date()) ? Color.accentColor.opacity(0.12) : Color.clear)
