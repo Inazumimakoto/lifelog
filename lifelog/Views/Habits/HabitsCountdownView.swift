@@ -11,6 +11,7 @@ struct HabitsCountdownView: View {
     @StateObject private var habitsViewModel: HabitsViewModel
     @StateObject private var anniversaryViewModel: AnniversaryViewModel
     private let store: AppDataStore
+    var resetTrigger: Int = 0
     @State private var showHabitEditor = false
     @State private var showAnniversaryEditor = false
     @State private var editingHabit: Habit?
@@ -19,8 +20,9 @@ struct HabitsCountdownView: View {
     @State private var selectedHabitForDetail: Habit?
     @State private var selectedSummaryDate: Date?
 
-    init(store: AppDataStore) {
+    init(store: AppDataStore, resetTrigger: Int = 0) {
         self.store = store
+        self.resetTrigger = resetTrigger
         _habitsViewModel = StateObject(wrappedValue: HabitsViewModel(store: store))
         _anniversaryViewModel = StateObject(wrappedValue: AnniversaryViewModel(store: store))
     }
@@ -88,6 +90,9 @@ struct HabitsCountdownView: View {
                     HabitDetailView(store: store, habit: habit)
                 }
             }
+        }
+        .onChange(of: resetTrigger) {
+            displayMode = .habits
         }
     }
 

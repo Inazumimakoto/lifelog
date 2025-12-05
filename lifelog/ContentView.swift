@@ -12,6 +12,7 @@ struct ContentView: View {
     @State private var selection: Int = 0
     @State private var lastSelection: Int = 0
     @State private var calendarResetTrigger: Int = 0
+    @State private var habitsResetTrigger: Int = 0
 
     var body: some View {
         TabView(selection: $selection) {
@@ -32,7 +33,7 @@ struct ContentView: View {
             .tag(1)
 
             navigationStack(for: 2) {
-                HabitsCountdownView(store: store)
+                HabitsCountdownView(store: store, resetTrigger: habitsResetTrigger)
             }
             .tabItem {
                 Label("習慣", systemImage: "checkmark.circle")
@@ -51,6 +52,10 @@ struct ContentView: View {
             // 他のタブからカレンダータブに戻った時にリセット
             if newSelection == 1 && oldSelection != 1 {
                 calendarResetTrigger += 1
+            }
+            // 習慣タブに戻った時に習慣表示にリセット
+            if newSelection == 2 && oldSelection != 2 {
+                habitsResetTrigger += 1
             }
             if newSelection == lastSelection {
                 // Scroll to top

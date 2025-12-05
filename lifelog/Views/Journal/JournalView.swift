@@ -220,8 +220,9 @@ struct JournalView: View {
             }
         }
         .onChange(of: resetTrigger) { _, _ in
-            // 他のタブから戻った時に「予定カレンダー」にリセット
+            // 他のタブから戻った時に「予定カレンダー」「月表示」にリセット
             calendarMode = .schedule
+            viewModel.displayMode = .month
         }
         .onChange(of: viewModel.monthAnchor) { _, newAnchor in
             guard calendarMode == .review else { return }
