@@ -781,49 +781,49 @@ struct JournalView: View {
                 let favoriteImage: Image? = day.diary?.favoritePhotoPath.flatMap { PhotoStorage.loadImage(at: $0) }
                 let moodEmoji = day.diary?.mood?.emoji
                 let dateForSelection = day.date
-                ZStack(alignment: .topLeading) {
-                    VStack(spacing: 2) {
-                        // 1. 日付と顔文字（サイズUP & 上詰め）
-                        HStack(alignment: .firstTextBaseline, spacing: 2) {
-                            Text("\(Calendar.current.component(.day, from: day.date))")
-                                .font(.callout.weight(.bold)) // 👈 caption -> callout にサイズアップ
-                                .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
-                                .lineLimit(1)
-                                .layoutPriority(1)
-                            
-                            Spacer(minLength: 0)
-                            
-                            if let moodEmoji {
-                                Text(moodEmoji)
-                                    .font(.footnote) // 👈 caption2 -> footnote にサイズアップ
-                                    .lineLimit(1)
-                                    .fixedSize(horizontal: true, vertical: true) // 見切れ防止
-                            }
-                        }
+                VStack(alignment: .leading, spacing: 2) {
+                    // 1. 日付と顔文字（左上固定）
+                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                        Text("\(Calendar.current.component(.day, from: day.date))")
+                            .font(.callout.weight(.bold))
+                            .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
+                            .lineLimit(1)
+                            .layoutPriority(1)
                         
-                        // 2. 写真（高さは photoHeight のまま、はみ出し防止のみ適用）
-                        Group {
-                            if let image = favoriteImage {
-                                image
-                                    .resizable()
-                                    .scaledToFill() // アスペクト比を維持して埋める
-                                    .scaleEffect(1.2, anchor: .center) // 1.2倍ズーム
-                                    .frame(minWidth: 0, maxWidth: .infinity) // 👈 重要: 幅がセルに合わせて縮むようにする
-                                    .frame(height: photoHeight)
-                                    .clipped() // 👈 重要: 枠からはみ出した部分を切り落とす
-                                    .cornerRadius(6)
-                            } else {
-                                Color.clear
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: photoHeight)
-                            }
+                        Spacer(minLength: 0)
+                        
+                        if let moodEmoji {
+                            Text(moodEmoji)
+                                .font(.footnote)
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: true)
                         }
                     }
-                    .padding(.top, 4) // 👈 セル上部との余白（少し上げるならここを小さく、見やすさ優先なら4くらい）
-                    .padding(.horizontal, 4)
+                    
+                    // 2. 写真
+                    Group {
+                        if let image = favoriteImage {
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .scaleEffect(1.2, anchor: .center)
+                                .frame(minWidth: 0, maxWidth: .infinity)
+                                .frame(height: photoHeight)
+                                .clipped()
+                                .cornerRadius(6)
+                        } else {
+                            Color.clear
+                                .frame(maxWidth: .infinity)
+                                .frame(height: photoHeight)
+                        }
+                    }
+                    
+                    Spacer(minLength: 0)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(minHeight: 96)
+                .padding(.top, 4)
+                .padding(.horizontal, 4)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+                .frame(height: 96)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(day.isToday ? Color.accentColor.opacity(0.12) : Color.clear)
