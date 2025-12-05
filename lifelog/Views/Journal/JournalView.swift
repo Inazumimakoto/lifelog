@@ -529,38 +529,36 @@ struct JournalView: View {
         let columns = monthGridColumns
         let days = viewModel.calendarDays(for: anchor)
         let itemLimit = 3
-        return LazyVGrid(columns: columns, spacing: 6) {
+        return LazyVGrid(columns: columns, spacing: 4) {
             ForEach(days) { day in
                 let previews = dayPreviewItems(for: day.date)
                 let (visible, overflow) = previewDisplay(previews, limit: itemLimit)
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("\(Calendar.current.component(.day, from: day.date))")
-                        .font(.headline)
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: 2) {
                         ForEach(visible) { item in
                             Text(previewLabel(for: item))
-                                .font(.caption2.weight(.semibold))
+                                .font(.system(size: 9, weight: .medium))
                                 .lineLimit(1)
                                 .truncationMode(.tail)
-                                .minimumScaleFactor(0.8)
-                                .allowsTightening(true)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 4)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(item.color.opacity(0.18), in: RoundedRectangle(cornerRadius: 8))
+                                .background(item.color.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
                         }
                         if overflow > 0 {
-                            Text("+\(overflow) 件")
-                                .font(.caption2)
+                            Text("+\(overflow)")
+                                .font(.system(size: 9))
                                 .foregroundStyle(.secondary)
                         }
                     }
-                    Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(minHeight: 76)
+                .frame(height: 72)
                 .padding(.vertical, 2)
+                .clipped()
                 .padding(.horizontal, 4)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
