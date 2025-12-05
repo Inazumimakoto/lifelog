@@ -234,19 +234,25 @@ struct Habit: Identifiable, Codable, Hashable {
     var colorHex: String
     var schedule: HabitSchedule
     var isArchived: Bool
+    var createdAt: Date
+    var archivedAt: Date?
 
     init(id: UUID = UUID(),
          title: String,
          iconName: String,
          colorHex: String,
          schedule: HabitSchedule,
-         isArchived: Bool = false) {
+         isArchived: Bool = false,
+         createdAt: Date = Date(),
+         archivedAt: Date? = nil) {
         self.id = id
         self.title = title
         self.iconName = iconName
         self.colorHex = colorHex
         self.schedule = schedule
         self.isArchived = isArchived
+        self.createdAt = createdAt
+        self.archivedAt = archivedAt
     }
 }
 

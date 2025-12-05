@@ -241,7 +241,20 @@ final class HabitsViewModel: ObservableObject {
         for offset in 0..<(weeks * 7) {
             guard let date = calendar.date(byAdding: .day, value: offset, to: start) else { continue }
             let day = calendar.startOfDay(for: date)
-            let scheduled = allHabits.filter { $0.schedule.isActive(on: day) }
+            
+            // Filter habits that were active on this specific day
+            // A habit is active if: createdAt <= day AND (archivedAt is nil OR archivedAt > day)
+            let activeHabitsOnDay = allHabits.filter { habit in
+                let createdDay = calendar.startOfDay(for: habit.createdAt)
+                guard createdDay <= day else { return false }
+                if let archivedAt = habit.archivedAt {
+                    let archivedDay = calendar.startOfDay(for: archivedAt)
+                    return day < archivedDay
+                }
+                return true
+            }
+            
+            let scheduled = activeHabitsOnDay.filter { $0.schedule.isActive(on: day) }
             let completed = scheduled.filter { recordsLookup[$0.id]?[day]?.isCompleted == true }
             map[day] = HabitDaySummary(date: day,
                                        scheduledHabits: scheduled,

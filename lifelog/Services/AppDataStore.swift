@@ -207,6 +207,18 @@ final class AppDataStore: ObservableObject {
     }
 
     func setHabitCompletion(_ habitID: UUID, on date: Date, completed: Bool) {
+        let calendar = Calendar.current
+        let dateDay = calendar.startOfDay(for: date)
+        
+        // If completing a habit on a date, potentially update the habit's createdAt
+        if completed, let habitIndex = habits.firstIndex(where: { $0.id == habitID }) {
+            let createdDay = calendar.startOfDay(for: habits[habitIndex].createdAt)
+            if dateDay < createdDay {
+                habits[habitIndex].createdAt = dateDay
+                persistHabits()
+            }
+        }
+        
         if let index = habitRecords.firstIndex(where: {
             $0.habitID == habitID && Calendar.current.isDate($0.date, inSameDayAs: date)
         }) {
@@ -234,6 +246,7 @@ final class AppDataStore: ObservableObject {
         // This preserves historical completion data
         guard let index = habits.firstIndex(where: { $0.id == habitID }) else { return }
         habits[index].isArchived = true
+        habits[index].archivedAt = Date()
         persistHabits()
     }
 
