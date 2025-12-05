@@ -774,60 +774,57 @@ struct JournalView: View {
     private func reviewMonthCalendar(for anchor: Date) -> some View {
         let columns = monthGridColumns
         let days = viewModel.calendarDays(for: anchor)
-        let photoHeight: CGFloat = 55
         return LazyVGrid(columns: columns, spacing: 6) {
             ForEach(days) { day in
                 let isSelected = selectedReviewDate?.isSameDay(as: day.date) ?? false
                 let favoriteImage: Image? = day.diary?.favoritePhotoPath.flatMap { PhotoStorage.loadImage(at: $0) }
                 let moodEmoji = day.diary?.mood?.emoji
                 let dateForSelection = day.date
-                VStack(alignment: .leading, spacing: 2) {
-                    // 1. 日付と顔文字（左上固定）
-                    HStack(alignment: .firstTextBaseline, spacing: 2) {
+                let hasPhoto = favoriteImage != nil
+                
+                ZStack(alignment: .topLeading) {
+                    // Background: Photo or empty
+                    if let image = favoriteImage {
+                        image
+                            .resizable()
+                            .scaledToFill()
+                            .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+                    } else {
+                        Color.clear
+                    }
+                    
+                    // Overlay: Date and mood
+                    HStack(alignment: .top, spacing: 2) {
                         Text("\(Calendar.current.component(.day, from: day.date))")
-                            .font(.callout.weight(.bold))
-                            .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
-                            .lineLimit(1)
-                            .layoutPriority(1)
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(hasPhoto ? .white : (day.isWithinDisplayedMonth ? .primary : .secondary))
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 2)
+                            .background(
+                                hasPhoto ? Color.black.opacity(0.4) : Color.clear,
+                                in: RoundedRectangle(cornerRadius: 4)
+                            )
                         
                         Spacer(minLength: 0)
                         
                         if let moodEmoji {
                             Text(moodEmoji)
-                                .font(.footnote)
-                                .lineLimit(1)
-                                .fixedSize(horizontal: true, vertical: true)
+                                .font(.caption2)
+                                .padding(2)
+                                .background(
+                                    hasPhoto ? Color.black.opacity(0.4) : Color.clear,
+                                    in: Circle()
+                                )
                         }
                     }
-                    
-                    // 2. 写真
-                    Group {
-                        if let image = favoriteImage {
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .scaleEffect(1.2, anchor: .center)
-                                .frame(minWidth: 0, maxWidth: .infinity)
-                                .frame(height: photoHeight)
-                                .clipped()
-                                .cornerRadius(6)
-                        } else {
-                            Color.clear
-                                .frame(maxWidth: .infinity)
-                                .frame(height: photoHeight)
-                        }
-                    }
-                    
-                    Spacer(minLength: 0)
+                    .padding(4)
                 }
-                .padding(.top, 4)
-                .padding(.horizontal, 4)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-                .frame(height: 96)
+                .frame(height: 72)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(day.isToday ? Color.accentColor.opacity(0.12) : Color.clear)
+                        .fill(day.isToday ? Color.accentColor.opacity(0.12) : Color(.systemGray6))
                 )
+                .clipShape(RoundedRectangle(cornerRadius: 10))
                 .overlay(alignment: .center) {
                     if isSelected {
                         RoundedRectangle(cornerRadius: 10)
@@ -835,7 +832,6 @@ struct JournalView: View {
                     }
                 }
                 .opacity(day.isWithinDisplayedMonth ? 1.0 : 0.35)
-                .clipShape(RoundedRectangle(cornerRadius: 10))
                 .contentShape(Rectangle())
                 .onTapGesture {
                     openDayDetail(for: dateForSelection)
