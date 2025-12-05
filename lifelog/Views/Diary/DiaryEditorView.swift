@@ -13,12 +13,15 @@ import _Concurrency
 struct DiaryEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: DiaryViewModel
+    @ObservedObject private var tagManager = EmotionTagManager.shared
     @State private var selection: [PhotosPickerItem] = []
     @State private var selectedCoordinate: CLLocationCoordinate2D?
     @State private var selectedPlaceName: String = ""
     @State private var showMapPicker = false
     @State private var selectedPhotoIndex: Int = 0
     @State private var isShowingPhotoViewer = false
+    @State private var showTagManager = false
+    @State private var isTagSectionExpanded = false
 
     init(store: AppDataStore, date: Date) {
         _viewModel = StateObject(wrappedValue: DiaryViewModel(store: store, date: date))
@@ -28,6 +31,7 @@ struct DiaryEditorView: View {
         Form {
             entrySection
             moodSection
+            emotionTagsSection
             conditionSection
             locationSection
             photosSection
@@ -57,6 +61,9 @@ struct DiaryEditorView: View {
         }
         .fullScreenCover(isPresented: $isShowingPhotoViewer) {
             DiaryPhotoViewerView(viewModel: viewModel, initialIndex: selectedPhotoIndex)
+        }
+        .sheet(isPresented: $showTagManager) {
+            EmotionTagManagerView()
         }
     }
 
@@ -111,6 +118,66 @@ struct DiaryEditorView: View {
             }
             .pickerStyle(.segmented)
         }
+    }
+    
+    private var emotionTagsSection: some View {
+        let moodValue = (viewModel.entry.mood ?? .neutral).rawValue
+        let availableTags = tagManager.tags(for: moodValue)
+        
+        return Section {
+            DisclosureGroup(isExpanded: $isTagSectionExpanded) {
+                // タグボタン一覧
+                FlowLayout(spacing: 8) {
+                    ForEach(availableTags) { tag in
+                        let isSelected = viewModel.entry.text.contains(tag.hashTag)
+                        Button {
+                            toggleTag(tag)
+                        } label: {
+                            Text(tag.displayText)
+                                .font(.caption)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(isSelected ? Color.accentColor : Color(.secondarySystemBackground),
+                                           in: Capsule())
+                                .foregroundStyle(isSelected ? .white : .primary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            } label: {
+                HStack {
+                    Text("感情タグ")
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Button {
+                        showTagManager = true
+                    } label: {
+                        Image(systemName: "tag")
+                            .font(.caption)
+                    }
+                }
+            }
+        } footer: {
+            if isTagSectionExpanded {
+                Text("タップでタグを本文の末尾に追加/削除します")
+            }
+        }
+    }
+    
+    private func toggleTag(_ tag: EmotionTag) {
+        var text = viewModel.entry.text
+        if text.contains(tag.hashTag) {
+            // タグを削除
+            text = text.replacingOccurrences(of: " \(tag.hashTag)", with: "")
+            text = text.replacingOccurrences(of: tag.hashTag, with: "")
+        } else {
+            // タグを追加
+            if !text.isEmpty && !text.hasSuffix(" ") && !text.hasSuffix("\n") {
+                text += " "
+            }
+            text += tag.hashTag
+        }
+        viewModel.update(text: text.trimmingCharacters(in: .whitespaces))
     }
 
     private var conditionSection: some View {
