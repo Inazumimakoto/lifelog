@@ -304,10 +304,18 @@ extension HabitsCountdownView {
     private func weekRow(for status: HabitsViewModel.HabitWeekStatus) -> some View {
         HStack(spacing: 6) {
             ForEach(habitsViewModel.weekDates, id: \.self) { date in
+                let isToday = Calendar.current.isDateInToday(date)
                 VStack(spacing: 4) {
                     Text(date, format: .dateTime.weekday(.narrow))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .font(.caption2.weight(isToday ? .semibold : .regular))
+                        .foregroundStyle(isToday ? .primary : .secondary)
+                        .frame(width: 22, height: 22)
+                        .background {
+                            if isToday {
+                                Circle()
+                                    .fill(Color.secondary.opacity(0.2))
+                            }
+                        }
                     Button {
                         habitsViewModel.toggle(habit: status.habit, on: date)
                     } label: {
