@@ -1549,7 +1549,7 @@ private struct CalendarDetailPanel: View {
                                             .foregroundStyle(Color(hex: status.habit.colorHex) ?? Color.accentColor)
                                         Spacer()
                                         Image(systemName: status.isCompleted ? "checkmark.circle.fill" : "circle")
-                                            .foregroundStyle(status.isCompleted ? Color.accentColor : Color.secondary)
+                                            .foregroundStyle(status.isCompleted ? (Color(hex: status.habit.colorHex) ?? Color.accentColor) : Color.secondary)
                                             .scaleEffect(status.isCompleted ? 1.05 : 0.95)
                                             .animation(.spring(response: 0.35, dampingFraction: 0.8), value: status.isCompleted)
                                     }
