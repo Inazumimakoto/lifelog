@@ -364,6 +364,7 @@ struct TodayView: View {
                                     size: 26
                                 )
                             }
+                            .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
                     }

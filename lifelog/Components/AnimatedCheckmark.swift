@@ -15,9 +15,16 @@ struct AnimatedCheckmark: View {
     let color: Color
     var size: CGFloat = 24
     
+    @Environment(\.colorScheme) private var colorScheme
     @State private var circleScale: CGFloat = 0
     @State private var checkmarkProgress: CGFloat = 0
     @State private var bounceScale: CGFloat = 1.0
+    
+    /// デバイスのカラースキームに応じてチェックマークの色を決定
+    private var checkmarkColor: Color {
+        // ダークモードなら黒、ライトモードなら白
+        colorScheme == .dark ? .black : .white
+    }
     
     var body: some View {
         ZStack {
@@ -38,7 +45,7 @@ struct AnimatedCheckmark: View {
             CheckmarkShape()
                 .trim(from: 0, to: checkmarkProgress)
                 .stroke(style: StrokeStyle(lineWidth: size * 0.12, lineCap: .round, lineJoin: .round))
-                .foregroundStyle(.white)
+                .foregroundStyle(checkmarkColor)
                 .frame(width: size * 0.5, height: size * 0.5)
                 .opacity(isCompleted ? 1 : 0)
         }
