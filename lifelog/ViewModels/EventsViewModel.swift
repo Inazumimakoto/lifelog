@@ -97,11 +97,12 @@ final class EventsViewModel: ObservableObject {
     }
 
     private func sortEvents(_ lhs: CalendarEvent, _ rhs: CalendarEvent) -> Bool {
-        if lhs.isAllDay != rhs.isAllDay {
-            return lhs.isAllDay // All-day events first
-        }
         if lhs.startDate != rhs.startDate {
             return lhs.startDate < rhs.startDate
+        }
+        // 同じ開始時間なら終日予定を先に
+        if lhs.isAllDay != rhs.isAllDay {
+            return lhs.isAllDay
         }
         return lhs.title < rhs.title
     }

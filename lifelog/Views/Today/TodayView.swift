@@ -193,23 +193,34 @@ struct TodayView: View {
                                     Label(eventTimeLabel(event), systemImage: "clock")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
-                                    if event.calendarName.isEmpty == false {
-                                        Text(event.calendarName)
-                                            .font(.caption2)
-                                            .foregroundStyle(color(for: event.calendarName))
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
-                                            .background(color(for: event.calendarName).opacity(0.15), in: Capsule())
+                                    HStack(spacing: 6) {
+                                        if event.calendarName.isEmpty == false {
+                                            Text(event.calendarName)
+                                                .font(.caption2)
+                                                .foregroundStyle(color(for: event.calendarName))
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(color(for: event.calendarName).opacity(0.15), in: Capsule())
+                                        }
+                                        // 外部カレンダーの場合はインジケーター表示
+                                        if event.sourceCalendarIdentifier != nil {
+                                            Label("外部", systemImage: "arrow.down.circle")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        }
                                     }
                                 }
                                 Spacer()
-                                Button {
-                                    editingEvent = event
-                                } label: {
-                                    Image(systemName: "square.and.pencil")
-                                        .foregroundStyle(.secondary)
+                                // 外部カレンダーでない場合のみ編集ボタン表示
+                                if event.sourceCalendarIdentifier == nil {
+                                    Button {
+                                        editingEvent = event
+                                    } label: {
+                                        Image(systemName: "square.and.pencil")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .buttonStyle(.plain)
                                 }
-                                .buttonStyle(.plain)
                             }
                         }
                         if event.id != viewModel.events.last?.id {

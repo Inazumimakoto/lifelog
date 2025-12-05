@@ -1502,21 +1502,32 @@ private struct CalendarDetailPanel: View {
                                         Label(eventTimeLabel(for: event), systemImage: "clock")
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
-                                        Text(event.calendarName)
-                                            .font(.caption2)
-                                            .foregroundStyle(color(for: event.calendarName))
-                                            .padding(.horizontal, 6)
-                                            .padding(.vertical, 2)
-                                            .background(color(for: event.calendarName).opacity(0.15), in: Capsule())
+                                        HStack(spacing: 6) {
+                                            Text(event.calendarName)
+                                                .font(.caption2)
+                                                .foregroundStyle(color(for: event.calendarName))
+                                                .padding(.horizontal, 6)
+                                                .padding(.vertical, 2)
+                                                .background(color(for: event.calendarName).opacity(0.15), in: Capsule())
+                                            // 外部カレンダーの場合はインジケーター表示
+                                            if event.sourceCalendarIdentifier != nil {
+                                                Label("外部", systemImage: "arrow.down.circle")
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.secondary)
+                                            }
+                                        }
                                     }
                                     Spacer()
-                                    Button {
-                                        onEditEvent(event)
-                                    } label: {
-                                        Image(systemName: "square.and.pencil")
-                                            .foregroundStyle(.secondary)
+                                    // 外部カレンダーでない場合のみ編集ボタン表示
+                                    if event.sourceCalendarIdentifier == nil {
+                                        Button {
+                                            onEditEvent(event)
+                                        } label: {
+                                            Image(systemName: "square.and.pencil")
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        .buttonStyle(.plain)
                                     }
-                                    .buttonStyle(.plain)
                                 }
                                 .padding()
                                 .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
