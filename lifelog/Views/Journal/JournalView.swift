@@ -878,94 +878,19 @@ struct JournalView: View {
                 reviewPhotoIndex = newValue
             }
         )
-        return SectionCard(title: "") {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("\(DateFormatter.japaneseYearMonthDay.string(from: date)) (\(date.jaWeekdayWideString))")
-                        .font(.headline)
-                    Spacer()
-                }
-                if let diary, photoPaths.isEmpty == false {
-                    TabView(selection: photoSelection) {
-                        ForEach(Array(photoPaths.enumerated()), id: \.offset) { index, path in
-                            if let image = PhotoStorage.loadImage(at: path) {
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                                    .onTapGesture {
-                                        let startIndex = index
-                                        reviewPhotoViewerIndex = startIndex
-                                        pendingPhotoViewerDate = date
-                                        showingDetailPanel = false
-                                    }
-                                    .frame(height: 220)
-                                    .frame(maxWidth: .infinity)
-                                    .clipped()
-                                    .cornerRadius(12)
-                                    .tag(index)
-                            }
-                        }
-                    }
-                    .tabViewStyle(.page(indexDisplayMode: .automatic))
-                    .frame(height: 240)
-                }
-                if let diary {
-                    if let mood = diary.mood {
-                        HStack(spacing: 8) {
-                            Text(mood.emoji)
-                            Text("気分 \(mood.rawValue)")
-                        }
-                        .foregroundStyle(.primary)
-                    }
-                    if let condition = diary.conditionScore {
-                        HStack(spacing: 8) {
-                            Text(conditionEmoji(for: condition))
-                            Text("体調 \(condition)")
-                        }
-                        .foregroundStyle(.primary)
-                    }
-                    if let place = diary.locationName, place.isEmpty == false {
-                        Label(place, systemImage: "mappin.and.ellipse")
-                            .foregroundStyle(.primary)
-                    }
-                    if diary.text.isEmpty == false {
-                        Text(diary.text)
-                            .font(.body)
-                            .lineLimit(4)
-                    }
-                    Button {
-                        openDiaryEditor(for: date)
-                    } label: {
-                        Text("この日の日記を開く")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                } else {
-                    Text("この日の日記はまだありません。")
-                        .foregroundStyle(.secondary)
-                    Button {
-                        openDiaryEditor(for: date)
-                    } label: {
-                        Text("日記を書く")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                }
-            }
-            Spacer(minLength: 0)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .onAppear {
-                guard didInitReviewPhotoIndex == false else { return }
-                didInitReviewPhotoIndex = true
-                let maxIndex = max(photoPaths.count - 1, 0)
-                let initial = min(preferredIndex, maxIndex)
-                reviewPhotoIndex = max(0, initial)
-            }
-            .onChange(of: photoPaths) { paths in
-                let maxIndex = max(paths.count - 1, 0)
-                reviewPhotoIndex = min(reviewPhotoIndex, maxIndex)
-            }
-        }
+        return ReviewDetailPanel(
+            date: date,
+            store: store,
+            diary: diary,
+            photoPaths: photoPaths,
+            preferredIndex: preferredIndex,
+            photoSelection: photoSelection,
+            reviewPhotoViewerIndex: $reviewPhotoViewerIndex,
+            pendingPhotoViewerDate: $pendingPhotoViewerDate,
+            showingDetailPanel: $showingDetailPanel,
+            didInitReviewPhotoIndex: $didInitReviewPhotoIndex,
+            reviewPhotoIndex: $reviewPhotoIndex
+        )
     }
 
     private func weekTimeline(for anchor: Date) -> some View {
@@ -1110,7 +1035,7 @@ struct JournalView: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(maxWidth: .infinity)
-            .frame(minHeight: minHeight)
+            .frame(minHeight: calendarMode == .schedule ? minHeight : nil)
             .onChange(of: detailPagerSelection) { _, newSelection in
                 guard detailPagerAnchors.indices.contains(newSelection) else { return }
                 let date = detailPagerAnchors[newSelection]
@@ -1895,6 +1820,157 @@ private struct TimelineColumnView: View {
             return .green
         case .sleep:
             return .purple
+        }
+    }
+}
+
+// MARK: - ReviewDetailPanel
+private struct ReviewDetailPanel: View {
+    let date: Date
+    let store: AppDataStore
+    let diary: DiaryEntry?
+    let photoPaths: [String]
+    let preferredIndex: Int
+    @Binding var photoSelection: Int
+    @Binding var reviewPhotoViewerIndex: Int
+    @Binding var pendingPhotoViewerDate: Date?
+    @Binding var showingDetailPanel: Bool
+    @Binding var didInitReviewPhotoIndex: Bool
+    @Binding var reviewPhotoIndex: Int
+    
+    @State private var showDiaryEditor = false
+    @State private var showPhotoViewer = false
+    @State private var selectedPhotoIndex = 0
+    
+    init(date: Date,
+         store: AppDataStore,
+         diary: DiaryEntry?,
+         photoPaths: [String],
+         preferredIndex: Int,
+         photoSelection: Binding<Int>,
+         reviewPhotoViewerIndex: Binding<Int>,
+         pendingPhotoViewerDate: Binding<Date?>,
+         showingDetailPanel: Binding<Bool>,
+         didInitReviewPhotoIndex: Binding<Bool>,
+         reviewPhotoIndex: Binding<Int>) {
+        self.date = date
+        self.store = store
+        self.diary = diary
+        self.photoPaths = photoPaths
+        self.preferredIndex = preferredIndex
+        self._photoSelection = photoSelection
+        self._reviewPhotoViewerIndex = reviewPhotoViewerIndex
+        self._pendingPhotoViewerDate = pendingPhotoViewerDate
+        self._showingDetailPanel = showingDetailPanel
+        self._didInitReviewPhotoIndex = didInitReviewPhotoIndex
+        self._reviewPhotoIndex = reviewPhotoIndex
+    }
+    
+    var body: some View {
+        SectionCard(title: "") {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("\(DateFormatter.japaneseYearMonthDay.string(from: date)) (\(date.jaWeekdayWideString))")
+                        .font(.headline)
+                    Spacer()
+                }
+                if let diary, photoPaths.isEmpty == false {
+                    TabView(selection: $photoSelection) {
+                        ForEach(Array(photoPaths.enumerated()), id: \.offset) { index, path in
+                            if let image = PhotoStorage.loadImage(at: path) {
+                                image
+                                    .resizable()
+                                    .scaledToFill()
+                                    .onTapGesture {
+                                        selectedPhotoIndex = index
+                                        showPhotoViewer = true
+                                    }
+                                    .frame(height: 220)
+                                    .frame(maxWidth: .infinity)
+                                    .clipped()
+                                    .cornerRadius(12)
+                                    .tag(index)
+                            }
+                        }
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .automatic))
+                    .frame(height: 240)
+                }
+                if let diary {
+                    if let mood = diary.mood {
+                        HStack(spacing: 8) {
+                            Text(mood.emoji)
+                            Text("気分 \(mood.rawValue)")
+                        }
+                        .foregroundStyle(.primary)
+                    }
+                    if let condition = diary.conditionScore {
+                        HStack(spacing: 8) {
+                            Text(conditionEmoji(for: condition))
+                            Text("体調 \(condition)")
+                        }
+                        .foregroundStyle(.primary)
+                    }
+                    if let place = diary.locationName, place.isEmpty == false {
+                        Label(place, systemImage: "mappin.and.ellipse")
+                            .foregroundStyle(.primary)
+                    }
+                    if diary.text.isEmpty == false {
+                        Text(diary.text)
+                            .font(.body)
+                            .lineLimit(1)
+                    }
+                    Button {
+                        showDiaryEditor = true
+                    } label: {
+                        Text("この日の日記を開く")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                } else {
+                    Text("この日の日記はまだありません。")
+                        .foregroundStyle(.secondary)
+                    Button {
+                        showDiaryEditor = true
+                    } label: {
+                        Text("日記を書く")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+            Spacer(minLength: 0)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .onAppear {
+                // お気に入り写真があればそれを表示
+                let maxIndex = max(photoPaths.count - 1, 0)
+                let initial = min(preferredIndex, maxIndex)
+                photoSelection = max(0, initial)
+            }
+            .onChange(of: photoPaths) { paths in
+                let maxIndex = max(paths.count - 1, 0)
+                reviewPhotoIndex = min(reviewPhotoIndex, maxIndex)
+            }
+        }
+        .sheet(isPresented: $showDiaryEditor) {
+            NavigationStack {
+                DiaryEditorView(store: store, date: date)
+            }
+        }
+        .fullScreenCover(isPresented: $showPhotoViewer) {
+            DiaryPhotoViewerView(viewModel: DiaryViewModel(store: store, date: date),
+                                 initialIndex: selectedPhotoIndex)
+        }
+    }
+    
+    private func conditionEmoji(for score: Int) -> String {
+        switch score {
+        case 1: return "😷"
+        case 2: return "😓"
+        case 3: return "😐"
+        case 4: return "🙂"
+        case 5: return "💪"
+        default: return "😐"
         }
     }
 }
