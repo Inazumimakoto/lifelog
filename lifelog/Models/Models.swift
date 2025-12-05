@@ -237,6 +237,10 @@ struct Habit: Identifiable, Codable, Hashable {
     var createdAt: Date
     var archivedAt: Date?
 
+    enum CodingKeys: String, CodingKey {
+        case id, title, iconName, colorHex, schedule, isArchived, createdAt, archivedAt
+    }
+
     init(id: UUID = UUID(),
          title: String,
          iconName: String,
@@ -253,6 +257,19 @@ struct Habit: Identifiable, Codable, Hashable {
         self.isArchived = isArchived
         self.createdAt = createdAt
         self.archivedAt = archivedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        iconName = try container.decode(String.self, forKey: .iconName)
+        colorHex = try container.decode(String.self, forKey: .colorHex)
+        schedule = try container.decode(HabitSchedule.self, forKey: .schedule)
+        // New fields: use defaults if missing
+        isArchived = try container.decodeIfPresent(Bool.self, forKey: .isArchived) ?? false
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date.distantPast
+        archivedAt = try container.decodeIfPresent(Date.self, forKey: .archivedAt)
     }
 }
 
