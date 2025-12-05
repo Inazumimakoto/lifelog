@@ -1782,59 +1782,49 @@ private struct TimelineColumnView: View {
                     let (offset, blockHeight) = position(for: item, in: timelineHeight)
                     if blockHeight > 1 {
                         let threshold: CGFloat = 36
-                        let alignment: Alignment = blockHeight < threshold ? .center : .top
+                        let itemColor = color(for: item)
 
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(color(for: item))
-                            .frame(height: blockHeight)
-                            .overlay(alignment: alignment) {
-                                HStack(alignment: .top) {
-                                    VStack(alignment: .leading) {
-                                        Text(item.title)
-                                            .font(.caption2)
-                                            .foregroundStyle(.white)
-                                            .lineLimit(1)
-                                        
-                                        if blockHeight >= threshold { // 長い予定の場合のみ詳細を表示
-                                            if let detail = item.detail, detail.isEmpty == false, detail != "__completed__" {
-                                                 Text(detail)
-                                                    .font(.system(size: 8))
-                                                    .foregroundStyle(.white.opacity(0.9))
-                                                    .lineLimit(1)
-                                            }
-                                        }
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    VStack(alignment: .trailing) {
-                                        if item.isAllDay {
-                                            Text("終日")
-                                                .font(.system(size: 8, weight: .semibold))
-                                                .foregroundStyle(.white.opacity(0.9))
-                                        } else if blockHeight < threshold {
-                                            Text(item.start.formatted(date: .omitted, time: .shortened))
-                                                .font(.system(size: 8))
-                                                .foregroundStyle(.white.opacity(0.85))
-                                        } else {
-                                            Text(item.start.formatted(date: .omitted, time: .shortened))
-                                                .font(.system(size: 8))
-                                                .foregroundStyle(.white.opacity(0.85))
-                                            Text(item.end.formatted(date: .omitted, time: .shortened))
-                                                .font(.system(size: 8))
-                                                .foregroundStyle(.white.opacity(0.85))
-                                        }
-                                    }
+                        // Googleカレンダー風: 左に色ストライプ、右は白背景
+                        HStack(spacing: 0) {
+                            // カラーストライプ（左端）
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(itemColor)
+                                .frame(width: 4)
+                            
+                            // コンテンツエリア
+                            VStack(alignment: .leading, spacing: 2) {
+                                // タイトル
+                                Text(item.title)
+                                    .font(.caption2.weight(.medium))
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(blockHeight < threshold ? 1 : 2)
+                                
+                                // 時間
+                                if item.isAllDay {
+                                    Text("終日")
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    Text(item.start.formatted(date: .omitted, time: .shortened))
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(.secondary)
                                 }
-                                .padding(EdgeInsets(top: 4, leading: 6, bottom: 4, trailing: 6))
+                                
+                                Spacer(minLength: 0)
                             }
-                            .offset(y: offset)
-                            .onTapGesture {
-                                onTapItem(item)
-                            }
-                            .onLongPressGesture {
-                                onLongPressItem(item)
-                            }
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                        }
+                        .frame(height: blockHeight)
+                        .background(itemColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
+                        .offset(y: offset)
+                        .onTapGesture {
+                            onTapItem(item)
+                        }
+                        .onLongPressGesture {
+                            onLongPressItem(item)
+                        }
                     }
                 }
             }
