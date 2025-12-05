@@ -533,10 +533,15 @@ struct JournalView: View {
             ForEach(days) { day in
                 let previews = dayPreviewItems(for: day.date)
                 let (visible, overflow) = previewDisplay(previews, limit: itemLimit)
-                VStack(alignment: .leading, spacing: 4) {
+                ZStack(alignment: .topLeading) {
+                    // Date fixed in top-left
                     Text("\(Calendar.current.component(.day, from: day.date))")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
+                        .padding(.leading, 2)
+                        .padding(.top, 2)
+                    
+                    // Items below the date
                     VStack(alignment: .leading, spacing: 2) {
                         ForEach(visible) { item in
                             Text(previewLabel(for: item))
@@ -554,8 +559,9 @@ struct JournalView: View {
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .padding(.top, 20)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
                 .frame(height: 72)
                 .padding(.vertical, 2)
                 .clipped()
