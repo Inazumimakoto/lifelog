@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 struct TaskRowView: View {
     let task: Task
@@ -23,6 +24,16 @@ struct TaskRowView: View {
 
     var body: some View {
         Button(action: {
+            // ハプティックフィードバック
+            if task.isCompleted {
+                // 解除時は軽めのフィードバック
+                let generator = UIImpactFeedbackGenerator(style: .light)
+                generator.impactOccurred()
+            } else {
+                // 完了時は成功のフィードバック
+                let generator = UINotificationFeedbackGenerator()
+                generator.notificationOccurred(.success)
+            }
             onToggle?()
         }) {
             HStack(alignment: .top, spacing: 12) {
@@ -59,6 +70,8 @@ struct TaskRowView: View {
         Image(systemName: task.isCompleted ? "checkmark.circle.fill" : "circle")
             .font(.system(size: 20))
             .foregroundStyle(task.isCompleted ? Color.accentColor : .secondary)
+            .scaleEffect(task.isCompleted ? 1.15 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.5), value: task.isCompleted)
     }
 
     @ViewBuilder

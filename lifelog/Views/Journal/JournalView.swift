@@ -1002,6 +1002,14 @@ struct JournalView: View {
     }
 
     private func toggleTask(_ task: Task) {
+        // ハプティックフィードバック
+        if task.isCompleted {
+            let generator = UIImpactFeedbackGenerator(style: .light)
+            generator.impactOccurred()
+        } else {
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.success)
+        }
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
             store.toggleTaskCompletion(task.id)
         }
@@ -1531,6 +1539,8 @@ private struct CalendarDetailPanel: View {
                                 taskGroup(title: "完了済み", tasks: snapshot.completedTasks)
                             }
                         }
+                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: snapshot.pendingTasks.map(\.id))
+                        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: snapshot.completedTasks.map(\.id))
                     }
                 }
                 OverviewSection(icon: "list.bullet", title: "習慣") {
@@ -1591,6 +1601,9 @@ private struct CalendarDetailPanel: View {
                                         .foregroundStyle(.secondary)
                                 }
                             }
+                            .padding()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
                         } else {
                             placeholder("まだ日記は追加されていません")
                         }
