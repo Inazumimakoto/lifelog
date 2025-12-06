@@ -262,6 +262,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "外部カレンダーの予定を読み取ってTodayで表示するために使用します。";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "アプリのロック解除に使用します";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "We need to read your health data to display it in the app.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "We do not write any health data.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "現在地の天気情報を取得・表示するために位置情報を使用します。";
@@ -301,6 +302,7 @@
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "外部カレンダーの予定を読み取ってTodayで表示するために使用します。";
+				INFOPLIST_KEY_NSFaceIDUsageDescription = "アプリのロック解除に使用します";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "We need to read your health data to display it in the app.";
 				INFOPLIST_KEY_NSHealthUpdateUsageDescription = "We do not write any health data.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "現在地の天気情報を取得・表示するために位置情報を使用します。";

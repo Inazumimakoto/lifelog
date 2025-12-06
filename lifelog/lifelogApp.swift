@@ -25,15 +25,36 @@ struct lifelogApp: App {
         }
     }
 
+    @StateObject private var appLockService = AppLockService.shared
+    @Environment(\.scenePhase) private var scenePhase
+
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .environmentObject(store)
-                .environment(\.locale, Locale(identifier: "ja_JP"))
-                .onAppear {
-                    // 日記リマインダーを再スケジュール（今日書いていなければ通知）
-                    store.rescheduleDiaryReminderIfNeeded()
+            ZStack {
+                ContentView()
+                    .environmentObject(store)
+                    .environment(\.locale, Locale(identifier: "ja_JP"))
+                    .onAppear {
+                        // 日記リマインダーを再スケジュール（今日書いていなければ通知）
+                        store.rescheduleDiaryReminderIfNeeded()
+                    }
+                
+                if !appLockService.isUnlocked && appLockService.isAppLockEnabled {
+                    LockView()
+                        .transition(.opacity)
+                        .zIndex(999)
                 }
+            }
+            .onChange(of: scenePhase) { newPhase in
+                if newPhase == .inactive || newPhase == .background {
+                    appLockService.lock()
+                } else if newPhase == .active {
+                    // アプリがアクティブになった時にロックが有効なら認証を試みる
+                    if appLockService.isAppLockEnabled && !appLockService.isUnlocked {
+                        appLockService.authenticate()
+                    }
+                }
+            }
         }
     }
 }

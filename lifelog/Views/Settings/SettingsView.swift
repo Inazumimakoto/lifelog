@@ -9,12 +9,42 @@ import SwiftUI
 import MessageUI
 
 struct SettingsView: View {
+    @EnvironmentObject private var store: AppDataStore
     @Environment(\.dismiss) private var dismiss
     @State private var showMailComposer = false
     @State private var showMailErrorAlert = false
     
     var body: some View {
         Form {
+            Section("カレンダー") {
+                NavigationLink {
+                    CalendarCategorySettingsView(store: store)
+                } label: {
+                    Label("カレンダー連携", systemImage: "arrow.triangle.2.circlepath")
+                }
+            }
+            
+            Section("プライバシー") {
+                Toggle(isOn: AppLockService.shared.$isAppLockEnabled) {
+                    Label("アプリロック", systemImage: "lock.fill")
+                }
+            }
+            
+            Section("ヘルスケア") {
+                Button {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    Label("ヘルスケア設定を開く", systemImage: "heart.fill")
+                        .foregroundStyle(.primary)
+                }
+                
+                Text("設定画面が開いたら「ヘルスケア」を選択して、データの読み書きを許可してください。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("サポート") {
                 Button {
                     ReviewRequestManager.shared.requestReviewManually()
