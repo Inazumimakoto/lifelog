@@ -13,8 +13,8 @@ import SwiftUI
 final class TasksViewModel: ObservableObject {
 
     enum TaskSection: String, CaseIterable, Identifiable {
-        case today = "今日のタスク"
         case upcoming = "今後のタスク"
+        case overdue = "期限切れ"
         case completed = "完了済み"
 
         var id: String { rawValue }
@@ -53,14 +53,18 @@ final class TasksViewModel: ObservableObject {
         let calendar = Calendar.current
         let todayStart = calendar.startOfDay(for: Date())
         switch section {
-        case .today:
-            return tasks
-                .filter { isTask($0, on: todayStart, calendar: calendar) && !$0.isCompleted }
-                .sorted(by: sortTasks)
         case .upcoming:
             return tasks.filter { task in
+                guard !task.isCompleted else { return false }
+                guard let displayDate = displayDate(for: task) else { return true } // No date = Upcoming
+                return calendar.startOfDay(for: displayDate) >= todayStart
+            }
+            .sorted(by: sortTasks)
+        case .overdue:
+            return tasks.filter { task in
+                guard !task.isCompleted else { return false }
                 guard let displayDate = displayDate(for: task) else { return false }
-                return calendar.startOfDay(for: displayDate) > todayStart && !task.isCompleted
+                return calendar.startOfDay(for: displayDate) < todayStart
             }
             .sorted(by: sortTasks)
         case .completed:
