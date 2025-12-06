@@ -16,7 +16,7 @@ final class DiaryViewModel: ObservableObject {
 
     @Published private(set) var entry: DiaryEntry
 
-    private let store: AppDataStore
+    private(set) var store: AppDataStore
 
     init(store: AppDataStore, date: Date) {
         self.store = store

@@ -22,6 +22,10 @@ struct CalendarEventEditorView: View {
     @State private var startDate: Date
     @State private var endDate: Date
     @State private var isAllDay: Bool
+    @State private var hasReminder: Bool
+    @State private var useRelativeReminder: Bool
+    @State private var reminderMinutes: Int
+    @State private var reminderDate: Date
 
     init(defaultDate: Date = Date(),
          event: CalendarEvent? = nil,
@@ -42,6 +46,15 @@ struct CalendarEventEditorView: View {
         _startDate = State(initialValue: event?.isAllDay == true ? calendar.startOfDay(for: initialStart) : initialStart)
         _endDate = State(initialValue: event?.isAllDay == true ? calendar.startOfDay(for: allDayEndForState) : initialEnd)
         _isAllDay = State(initialValue: event?.isAllDay ?? false)
+        
+        let hasReminderValue = event?.reminderMinutes != nil || event?.reminderDate != nil
+        _hasReminder = State(initialValue: hasReminderValue)
+        _useRelativeReminder = State(initialValue: event?.reminderDate == nil)
+        _reminderMinutes = State(initialValue: event?.reminderMinutes ?? 15)
+        // 日時指定の初期値: 開始時刻 - reminderMinutes
+        let defaultMinutes = event?.reminderMinutes ?? 15
+        let defaultReminderDate = initialStart.addingTimeInterval(-Double(defaultMinutes * 60))
+        _reminderDate = State(initialValue: event?.reminderDate ?? defaultReminderDate)
     }
 
     var body: some View {
@@ -71,6 +84,10 @@ struct CalendarEventEditorView: View {
                         if isAllDay {
                             startDate = Calendar.current.startOfDay(for: newValue)
                         }
+                        // 日時指定モードの場合、reminderDateも連動更新（開始時刻 - reminderMinutes）
+                        if !useRelativeReminder {
+                            reminderDate = newValue.addingTimeInterval(-Double(reminderMinutes * 60))
+                        }
                     }
                 DatePicker("終了", selection: $endDate, in: startDate..., displayedComponents: isAllDay ? [.date] : [.date, .hourAndMinute])
                     .onChange(of: endDate) { _, newValue in
@@ -79,6 +96,33 @@ struct CalendarEventEditorView: View {
                             endDate = Calendar.current.startOfDay(for: endDate)
                         }
                     }
+            }
+            
+            Section("通知") {
+                Toggle("リマインダー", isOn: $hasReminder)
+                if hasReminder {
+                    Picker("通知方法", selection: $useRelativeReminder) {
+                        Text("開始前").tag(true)
+                        Text("日時指定").tag(false)
+                    }
+                    .pickerStyle(.segmented)
+                    
+                    if useRelativeReminder {
+                        Picker("タイミング", selection: $reminderMinutes) {
+                            Text("5分前").tag(5)
+                            Text("15分前").tag(15)
+                            Text("30分前").tag(30)
+                            Text("1時間前").tag(60)
+                            Text("1日前").tag(1440)
+                        }
+                        .onChange(of: reminderMinutes) { _, newValue in
+                            // 開始前設定変更時も日時指定を更新
+                            reminderDate = startDate.addingTimeInterval(-Double(newValue * 60))
+                        }
+                    } else {
+                        DatePicker("通知日時", selection: $reminderDate, displayedComponents: [.date, .hourAndMinute])
+                    }
+                }
             }
             
             if originalEvent != nil && onDelete != nil {
@@ -114,7 +158,9 @@ struct CalendarEventEditorView: View {
                                               startDate: normalizedStart,
                                               endDate: normalizedEnd,
                                               calendarName: category,
-                                              isAllDay: isAllDay)
+                                              isAllDay: isAllDay,
+                                              reminderMinutes: hasReminder && useRelativeReminder ? reminderMinutes : nil,
+                                              reminderDate: hasReminder && !useRelativeReminder ? reminderDate : nil)
                     onSave(event)
                     dismiss()
                 }

@@ -23,6 +23,8 @@ struct TaskEditorView: View {
     @State private var startDate: Date
     @State private var endDate: Date
     @State private var priority: TaskPriority
+    @State private var hasReminder: Bool
+    @State private var reminderDate: Date
 
     init(task: Task? = nil,
          defaultDate: Date? = nil,
@@ -39,6 +41,8 @@ struct TaskEditorView: View {
         _startDate = State(initialValue: base)
         _endDate = State(initialValue: max(base, end))
         _priority = State(initialValue: task?.priority ?? .medium)
+        _hasReminder = State(initialValue: task?.reminderDate != nil)
+        _reminderDate = State(initialValue: task?.reminderDate ?? calendar.date(bySettingHour: 9, minute: 0, second: 0, of: base) ?? base)
     }
 
     var body: some View {
@@ -67,6 +71,13 @@ struct TaskEditorView: View {
                     .foregroundStyle(.secondary)
             }
             
+            Section("通知") {
+                Toggle("リマインダー", isOn: $hasReminder)
+                if hasReminder {
+                    DatePicker("通知日時", selection: $reminderDate, displayedComponents: [.date, .hourAndMinute])
+                }
+            }
+            
             if originalTask != nil && onDelete != nil {
                 Section {
                     Button(role: .destructive) {
@@ -91,7 +102,8 @@ struct TaskEditorView: View {
                                     startDate: calendar.startOfDay(for: startDate),
                                     endDate: calendar.startOfDay(for: endDate),
                                     priority: priority,
-                                    isCompleted: originalTask?.isCompleted ?? false)
+                                    isCompleted: originalTask?.isCompleted ?? false,
+                                    reminderDate: hasReminder ? reminderDate : nil)
                     onSave(task)
                     dismiss()
                 }

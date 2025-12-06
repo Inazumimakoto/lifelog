@@ -112,17 +112,20 @@ final class AppDataStore: ObservableObject {
     func addCalendarEvent(_ event: CalendarEvent) {
         calendarEvents.append(event)
         persistCalendarEvents()
+        scheduleEventNotification(event)
     }
 
     func updateCalendarEvent(_ event: CalendarEvent) {
         guard let index = calendarEvents.firstIndex(where: { $0.id == event.id }) else { return }
         calendarEvents[index] = event
         persistCalendarEvents()
+        scheduleEventNotification(event)
     }
 
     func deleteCalendarEvent(_ eventID: UUID) {
         calendarEvents.removeAll { $0.id == eventID }
         persistCalendarEvents()
+        NotificationService.shared.cancelEventReminder(eventId: eventID)
     }
 
     func updateExternalCalendarEvents(_ events: [CalendarEvent]) {
@@ -209,22 +212,28 @@ final class AppDataStore: ObservableObject {
     func addTask(_ task: Task) {
         tasks.append(task)
         persistTasks()
+        scheduleTaskNotification(task)
     }
 
     func updateTask(_ task: Task) {
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         tasks[index] = task
         persistTasks()
+        scheduleTaskNotification(task)
     }
 
     func deleteTasks(at offsets: IndexSet) {
         for index in offsets.sorted(by: >) where tasks.indices.contains(index) {
+            NotificationService.shared.cancelTaskReminder(taskId: tasks[index].id)
             tasks.remove(at: index)
         }
         persistTasks()
     }
 
     func deleteTasks(withIDs ids: [UUID]) {
+        for id in ids {
+            NotificationService.shared.cancelTaskReminder(taskId: id)
+        }
         tasks.removeAll { ids.contains($0.id) }
         persistTasks()
     }
@@ -251,6 +260,13 @@ final class AppDataStore: ObservableObject {
             diaryEntries.append(normalized)
         }
         persistDiaryEntries()
+        
+        // 今日の日記を書いたらその日のリマインダーをキャンセル
+        if Calendar.current.isDateInToday(entry.date) && diaryReminderEnabled {
+            NotificationService.shared.cancelDiaryReminder()
+            // 翌日の通知を即座にスケジュール（repeats:trueで時刻を設定）
+            NotificationService.shared.scheduleDiaryReminder(hour: diaryReminderHour, minute: diaryReminderMinute)
+        }
     }
 
     // MARK: - Habits
@@ -339,17 +355,20 @@ final class AppDataStore: ObservableObject {
     func addAnniversary(_ anniversary: Anniversary) {
         anniversaries.append(anniversary)
         persistAnniversaries()
+        scheduleAnniversaryNotification(anniversary)
     }
 
     func updateAnniversary(_ anniversary: Anniversary) {
         guard let index = anniversaries.firstIndex(where: { $0.id == anniversary.id }) else { return }
         anniversaries[index] = anniversary
         persistAnniversaries()
+        scheduleAnniversaryNotification(anniversary)
     }
 
     func deleteAnniversary(_ anniversaryID: UUID) {
         anniversaries.removeAll { $0.id == anniversaryID }
         persistAnniversaries()
+        NotificationService.shared.cancelAnniversaryReminder(anniversaryId: anniversaryID)
     }
 
     // MARK: - Memo Pad
@@ -390,6 +409,25 @@ final class AppDataStore: ObservableObject {
     private func persistAppState() {
         if let data = try? JSONEncoder().encode(appState) {
             UserDefaults.standard.set(data, forKey: Self.appStateDefaultsKey)
+        }
+    }
+
+    // MARK: - Diary Reminder Settings
+
+    var diaryReminderEnabled: Bool { appState.diaryReminderEnabled }
+    var diaryReminderHour: Int { appState.diaryReminderHour }
+    var diaryReminderMinute: Int { appState.diaryReminderMinute }
+
+    func updateDiaryReminder(enabled: Bool, hour: Int, minute: Int) {
+        appState.diaryReminderEnabled = enabled
+        appState.diaryReminderHour = hour
+        appState.diaryReminderMinute = minute
+        persistAppState()
+        
+        if enabled {
+            NotificationService.shared.scheduleDiaryReminder(hour: hour, minute: minute)
+        } else {
+            NotificationService.shared.cancelDiaryReminder()
         }
     }
 
@@ -441,6 +479,65 @@ final class AppDataStore: ObservableObject {
 
     private func persistCalendarEvents() {
         persist(calendarEvents, forKey: Self.calendarEventsDefaultsKey)
+    }
+
+    private func scheduleEventNotification(_ event: CalendarEvent) {
+        // キャンセルしてから再スケジュール
+        NotificationService.shared.cancelEventReminder(eventId: event.id)
+        
+        if let minutes = event.reminderMinutes, minutes > 0 {
+            // 相対時間（X分前）
+            NotificationService.shared.scheduleEventReminder(
+                eventId: event.id,
+                title: event.title,
+                startDate: event.startDate,
+                minutesBefore: minutes
+            )
+        } else if let reminderDate = event.reminderDate {
+            // 絶対日時指定
+            NotificationService.shared.scheduleTaskReminder(
+                taskId: event.id,
+                title: event.title,
+                reminderDate: reminderDate
+            )
+        }
+    }
+
+    private func scheduleTaskNotification(_ task: Task) {
+        // キャンセルしてから再スケジュール
+        NotificationService.shared.cancelTaskReminder(taskId: task.id)
+        if let reminderDate = task.reminderDate {
+            NotificationService.shared.scheduleTaskReminder(
+                taskId: task.id,
+                title: task.title,
+                reminderDate: reminderDate
+            )
+        }
+    }
+
+    private func scheduleAnniversaryNotification(_ anniversary: Anniversary) {
+        // キャンセルしてから再スケジュール
+        NotificationService.shared.cancelAnniversaryReminder(anniversaryId: anniversary.id)
+        
+        if let daysBefore = anniversary.reminderDaysBefore,
+           let time = anniversary.reminderTime {
+            // 相対時間（X日前）
+            NotificationService.shared.scheduleAnniversaryReminder(
+                anniversaryId: anniversary.id,
+                title: anniversary.title,
+                targetDate: anniversary.targetDate,
+                daysBefore: daysBefore,
+                time: time,
+                repeatsYearly: anniversary.repeatsYearly
+            )
+        } else if let reminderDate = anniversary.reminderDate {
+            // 絶対日時指定
+            NotificationService.shared.scheduleTaskReminder(
+                taskId: anniversary.id,
+                title: anniversary.title,
+                reminderDate: reminderDate
+            )
+        }
     }
 
     // MARK: - Sample Data (DEBUG only)

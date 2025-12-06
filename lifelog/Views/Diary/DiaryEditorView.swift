@@ -22,6 +22,8 @@ struct DiaryEditorView: View {
     @State private var isShowingPhotoViewer = false
     @State private var showTagManager = false
     @State private var isTagSectionExpanded = false
+    @State private var diaryReminderEnabled: Bool = false
+    @State private var diaryReminderTime: Date = Date()
 
     init(store: AppDataStore, date: Date) {
         _viewModel = StateObject(wrappedValue: DiaryViewModel(store: store, date: date))
@@ -35,6 +37,7 @@ struct DiaryEditorView: View {
             conditionSection
             locationSection
             photosSection
+            diaryReminderSection
         }
         .navigationTitle("日記")
         .toolbar {
@@ -48,6 +51,13 @@ struct DiaryEditorView: View {
                let lon = viewModel.entry.longitude {
                 selectedCoordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
             }
+            // 日記リマインダー設定を読み込み
+            diaryReminderEnabled = viewModel.store.diaryReminderEnabled
+            let calendar = Calendar.current
+            diaryReminderTime = calendar.date(bySettingHour: viewModel.store.diaryReminderHour,
+                                               minute: viewModel.store.diaryReminderMinute,
+                                               second: 0,
+                                               of: Date()) ?? Date()
         }
         .onChange(of: selection) {
             _Concurrency.Task {
@@ -283,6 +293,30 @@ struct DiaryEditorView: View {
             ConditionLevel(value: 4, emoji: "🙂"),
             ConditionLevel(value: 5, emoji: "😄")
         ]
+    }
+
+    private var diaryReminderSection: some View {
+        Section("日記リマインダー") {
+            Toggle("毎日通知", isOn: $diaryReminderEnabled)
+                .onChange(of: diaryReminderEnabled) { _, newValue in
+                    let calendar = Calendar.current
+                    let hour = calendar.component(.hour, from: diaryReminderTime)
+                    let minute = calendar.component(.minute, from: diaryReminderTime)
+                    viewModel.store.updateDiaryReminder(enabled: newValue, hour: hour, minute: minute)
+                }
+            if diaryReminderEnabled {
+                DatePicker("通知時刻", selection: $diaryReminderTime, displayedComponents: .hourAndMinute)
+                    .onChange(of: diaryReminderTime) { _, newValue in
+                        let calendar = Calendar.current
+                        let hour = calendar.component(.hour, from: newValue)
+                        let minute = calendar.component(.minute, from: newValue)
+                        viewModel.store.updateDiaryReminder(enabled: diaryReminderEnabled, hour: hour, minute: minute)
+                    }
+            }
+            Text("オンにすると毎日指定時刻に日記のリマインダーが届きます。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
     }
 }
 

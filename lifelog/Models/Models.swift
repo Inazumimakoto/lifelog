@@ -173,6 +173,7 @@ struct Task: Identifiable, Codable, Hashable {
     var endDate: Date?
     var priority: TaskPriority
     var isCompleted: Bool
+    var reminderDate: Date?
 
     init(id: UUID = UUID(),
          title: String,
@@ -180,7 +181,8 @@ struct Task: Identifiable, Codable, Hashable {
          startDate: Date? = nil,
          endDate: Date? = nil,
          priority: TaskPriority = .medium,
-         isCompleted: Bool = false) {
+         isCompleted: Bool = false,
+         reminderDate: Date? = nil) {
         self.id = id
         self.title = title
         self.detail = detail
@@ -188,6 +190,7 @@ struct Task: Identifiable, Codable, Hashable {
         self.endDate = endDate
         self.priority = priority
         self.isCompleted = isCompleted
+        self.reminderDate = reminderDate
     }
 }
 
@@ -296,17 +299,26 @@ struct Anniversary: Identifiable, Codable, Hashable {
     var targetDate: Date
     var type: AnniversaryType
     var repeatsYearly: Bool
+    var reminderDaysBefore: Int?
+    var reminderTime: Date?
+    var reminderDate: Date?
 
     init(id: UUID = UUID(),
          title: String,
          targetDate: Date,
          type: AnniversaryType,
-         repeatsYearly: Bool) {
+         repeatsYearly: Bool,
+         reminderDaysBefore: Int? = nil,
+         reminderTime: Date? = nil,
+         reminderDate: Date? = nil) {
         self.id = id
         self.title = title
         self.targetDate = targetDate
         self.type = type
         self.repeatsYearly = repeatsYearly
+        self.reminderDaysBefore = reminderDaysBefore
+        self.reminderTime = reminderTime
+        self.reminderDate = reminderDate
     }
 
     func daysRelative(to date: Date) -> Int {
@@ -349,6 +361,8 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
     var calendarName: String
     var isAllDay: Bool
     var sourceCalendarIdentifier: String?
+    var reminderMinutes: Int?
+    var reminderDate: Date?
 
     init(id: UUID = UUID(),
          title: String,
@@ -356,7 +370,9 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
          endDate: Date,
          calendarName: String,
          isAllDay: Bool = false,
-         sourceCalendarIdentifier: String? = nil) {
+         sourceCalendarIdentifier: String? = nil,
+         reminderMinutes: Int? = nil,
+         reminderDate: Date? = nil) {
         self.id = id
         self.title = title
         self.startDate = startDate
@@ -364,6 +380,8 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
         self.calendarName = calendarName
         self.isAllDay = isAllDay
         self.sourceCalendarIdentifier = sourceCalendarIdentifier
+        self.reminderMinutes = reminderMinutes
+        self.reminderDate = reminderDate
     }
 }
 
