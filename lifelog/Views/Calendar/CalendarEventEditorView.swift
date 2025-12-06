@@ -54,23 +54,38 @@ struct CalendarEventEditorView: View {
         
         let hasReminderValue: Bool
         let defaultMinutes: Int
+        let useRelative: Bool
+        var defaultReminderDate: Date
+        
         if event != nil {
             hasReminderValue = event?.reminderMinutes != nil || event?.reminderDate != nil
             defaultMinutes = event?.reminderMinutes ?? 30
+            useRelative = event?.reminderDate == nil
+            defaultReminderDate = event?.reminderDate ?? initialStart.addingTimeInterval(-Double(defaultMinutes * 60))
         } else if categoryEnabled, let setting = categorySetting, setting.enabled {
             hasReminderValue = true
-            defaultMinutes = setting.minutesBefore
+            if setting.useRelativeTime {
+                defaultMinutes = setting.minutesBefore
+                useRelative = true
+                defaultReminderDate = initialStart.addingTimeInterval(-Double(defaultMinutes * 60))
+            } else {
+                defaultMinutes = 30
+                useRelative = false
+                // 開始日の指定時刻に通知
+                let cal = Calendar.current
+                defaultReminderDate = cal.date(bySettingHour: setting.hour, minute: setting.minute, second: 0, of: initialStart) ?? initialStart
+            }
         } else {
             hasReminderValue = false
             defaultMinutes = 30
+            useRelative = true
+            defaultReminderDate = initialStart.addingTimeInterval(-Double(defaultMinutes * 60))
         }
         
         _hasReminder = State(initialValue: hasReminderValue)
-        _useRelativeReminder = State(initialValue: event?.reminderDate == nil)
-        _reminderMinutes = State(initialValue: event?.reminderMinutes ?? defaultMinutes)
-        // 日時指定の初期値: 開始時刻 - reminderMinutes
-        let defaultReminderDate = initialStart.addingTimeInterval(-Double(defaultMinutes * 60))
-        _reminderDate = State(initialValue: event?.reminderDate ?? defaultReminderDate)
+        _useRelativeReminder = State(initialValue: useRelative)
+        _reminderMinutes = State(initialValue: defaultMinutes)
+        _reminderDate = State(initialValue: defaultReminderDate)
     }
 
     var body: some View {
@@ -100,8 +115,8 @@ struct CalendarEventEditorView: View {
                         if isAllDay {
                             startDate = Calendar.current.startOfDay(for: newValue)
                         }
-                        // 日時指定モードの場合、reminderDateも連動更新（開始時刻 - reminderMinutes）
-                        if !useRelativeReminder {
+                        // 開始前モードの場合のみ、reminderDateを連動更新（開始時刻 - reminderMinutes）
+                        if useRelativeReminder {
                             reminderDate = newValue.addingTimeInterval(-Double(reminderMinutes * 60))
                         }
                     }
@@ -202,8 +217,15 @@ struct CalendarEventEditorView: View {
             if let setting = NotificationSettingsManager.shared.getSetting(for: newCategory) {
                 hasReminder = setting.enabled
                 if setting.enabled {
-                    reminderMinutes = setting.minutesBefore
-                    reminderDate = startDate.addingTimeInterval(-Double(setting.minutesBefore * 60))
+                    useRelativeReminder = setting.useRelativeTime
+                    if setting.useRelativeTime {
+                        reminderMinutes = setting.minutesBefore
+                        reminderDate = startDate.addingTimeInterval(-Double(setting.minutesBefore * 60))
+                    } else {
+                        // 時刻指定: 開始日の指定時刻に通知
+                        let cal = Calendar.current
+                        reminderDate = cal.date(bySettingHour: setting.hour, minute: setting.minute, second: 0, of: startDate) ?? startDate
+                    }
                 }
             } else {
                 hasReminder = false

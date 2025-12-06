@@ -13,14 +13,20 @@ struct CategoryNotificationSetting: Codable, Identifiable, Equatable {
     var id: String { categoryName }
     let categoryName: String
     var enabled: Bool
-    var minutesBefore: Int  // 5, 15, 30, 60, 1440 (-1 = none, but we use enabled toggle instead)
+    var useRelativeTime: Bool  // true = X分前, false = 時刻指定
+    var minutesBefore: Int     // 5, 15, 30, 60, 1440
+    var hour: Int              // 時刻指定の場合
+    var minute: Int            // 時刻指定の場合
     
     static let defaultMinutes = 30
     
-    init(categoryName: String, enabled: Bool = true, minutesBefore: Int = 30) {
+    init(categoryName: String, enabled: Bool = true, useRelativeTime: Bool = true, minutesBefore: Int = 30, hour: Int = 9, minute: Int = 0) {
         self.categoryName = categoryName
         self.enabled = enabled
+        self.useRelativeTime = useRelativeTime
         self.minutesBefore = minutesBefore
+        self.hour = hour
+        self.minute = minute
     }
 }
 

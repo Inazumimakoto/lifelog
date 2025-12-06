@@ -104,12 +104,35 @@ struct NotificationSettingsView: View {
                         }
                         
                         if setting.enabled {
-                            Picker("通知タイミング", selection: $setting.minutesBefore) {
-                                ForEach(reminderOptions, id: \.1) { option in
-                                    Text(option.0).tag(option.1)
-                                }
+                            // 通知方法の選択
+                            Picker("通知方法", selection: $setting.useRelativeTime) {
+                                Text("開始前").tag(true)
+                                Text("時刻指定").tag(false)
                             }
                             .pickerStyle(.segmented)
+                            
+                            if setting.useRelativeTime {
+                                Picker("通知タイミング", selection: $setting.minutesBefore) {
+                                    ForEach(reminderOptions, id: \.1) { option in
+                                        Text(option.0).tag(option.1)
+                                    }
+                                }
+                                .pickerStyle(.segmented)
+                            } else {
+                                DatePicker(
+                                    "通知時刻",
+                                    selection: Binding(
+                                        get: {
+                                            Calendar.current.date(bySettingHour: setting.hour, minute: setting.minute, second: 0, of: Date()) ?? Date()
+                                        },
+                                        set: { newDate in
+                                            setting.hour = Calendar.current.component(.hour, from: newDate)
+                                            setting.minute = Calendar.current.component(.minute, from: newDate)
+                                        }
+                                    ),
+                                    displayedComponents: .hourAndMinute
+                                )
+                            }
                         }
                     }
                     .padding(.vertical, 4)
