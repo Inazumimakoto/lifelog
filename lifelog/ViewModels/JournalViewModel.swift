@@ -161,17 +161,19 @@ final class JournalViewModel: ObservableObject {
         let dayStart = calendar.startOfDay(for: date)
         guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return [] }
 
-        // Find all sleep sessions that overlap with the given date
+        // Find all sleep stages that overlap with the given date
         for summary in store.healthSummaries {
-            guard let sleepStart = summary.sleepStart, let sleepEnd = summary.sleepEnd else { continue }
-            if sleepStart < dayEnd && sleepEnd > dayStart {
-                items.append(TimelineItem(sourceId: nil,
-                                          title: "睡眠",
-                                          start: sleepStart,
-                                          end: sleepEnd,
-                                          kind: .sleep,
-                                          detail: nil,
-                                          isAllDay: false))
+            // 睡眠ステージごとに表示（より正確）
+            for stage in summary.sleepStages {
+                if stage.start < dayEnd && stage.end > dayStart {
+                    items.append(TimelineItem(sourceId: nil,
+                                              title: "睡眠",
+                                              start: stage.start,
+                                              end: stage.end,
+                                              kind: .sleep,
+                                              detail: nil,
+                                              isAllDay: false))
+                }
             }
         }
 
