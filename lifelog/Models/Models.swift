@@ -299,6 +299,9 @@ struct Anniversary: Identifiable, Codable, Hashable {
     var targetDate: Date
     var type: AnniversaryType
     var repeatsYearly: Bool
+    var startDate: Date?              // 開始日（プログレスバー用）
+    var startLabel: String?           // 開始ラベル（例：「生まれてから」）
+    var endLabel: String?             // 終了ラベル（例：「100歳まで」）
     var reminderDaysBefore: Int?
     var reminderTime: Date?
     var reminderDate: Date?
@@ -308,6 +311,9 @@ struct Anniversary: Identifiable, Codable, Hashable {
          targetDate: Date,
          type: AnniversaryType,
          repeatsYearly: Bool,
+         startDate: Date? = nil,
+         startLabel: String? = nil,
+         endLabel: String? = nil,
          reminderDaysBefore: Int? = nil,
          reminderTime: Date? = nil,
          reminderDate: Date? = nil) {
@@ -316,6 +322,9 @@ struct Anniversary: Identifiable, Codable, Hashable {
         self.targetDate = targetDate
         self.type = type
         self.repeatsYearly = repeatsYearly
+        self.startDate = startDate
+        self.startLabel = startLabel
+        self.endLabel = endLabel
         self.reminderDaysBefore = reminderDaysBefore
         self.reminderTime = reminderTime
         self.reminderDate = reminderDate
@@ -332,6 +341,43 @@ struct Anniversary: Identifiable, Codable, Hashable {
             return 0
         }
         return days
+    }
+    
+    /// 開始日からの進捗（0.0〜1.0）、開始日が未設定の場合はnil
+    func progress(on date: Date) -> Double? {
+        guard let start = startDate else { return nil }
+        let calendar = Calendar.current
+        let startDay = calendar.startOfDay(for: start)
+        let targetDay = calendar.startOfDay(for: targetDate)
+        let today = calendar.startOfDay(for: date)
+        
+        let totalDays = calendar.dateComponents([.day], from: startDay, to: targetDay).day ?? 0
+        guard totalDays > 0 else { return nil }
+        
+        let elapsedDays = calendar.dateComponents([.day], from: startDay, to: today).day ?? 0
+        let progress = Double(elapsedDays) / Double(totalDays)
+        return min(max(progress, 0), 1)  // 0〜1にクランプ
+    }
+    
+    /// 全期間の日数
+    var totalDays: Int? {
+        guard let start = startDate else { return nil }
+        let calendar = Calendar.current
+        return calendar.dateComponents([.day], from: calendar.startOfDay(for: start), to: calendar.startOfDay(for: targetDate)).day
+    }
+    
+    /// 開始日からの経過日数
+    func elapsedDays(on date: Date) -> Int? {
+        guard let start = startDate else { return nil }
+        let calendar = Calendar.current
+        return calendar.dateComponents([.day], from: calendar.startOfDay(for: start), to: calendar.startOfDay(for: date)).day
+    }
+    
+    /// 終了日までの残り日数
+    func remainingDays(on date: Date) -> Int? {
+        guard startDate != nil else { return nil }
+        let calendar = Calendar.current
+        return calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: targetDate)).day
     }
 }
 

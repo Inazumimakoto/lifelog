@@ -23,6 +23,10 @@ struct AnniversaryEditorView: View {
     @State private var reminderDaysBefore: Int
     @State private var reminderTime: Date
     @State private var reminderDate: Date
+    @State private var hasStartDate: Bool
+    @State private var startDate: Date
+    @State private var startLabel: String
+    @State private var endLabel: String
 
     init(anniversary: Anniversary? = nil,
          onSave: @escaping (Anniversary) -> Void,
@@ -59,40 +63,50 @@ struct AnniversaryEditorView: View {
             return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: reminderDay) ?? reminderDay
         }()
         _reminderDate = State(initialValue: anniversary?.reminderDate ?? defaultReminderDate)
+        _hasStartDate = State(initialValue: anniversary?.startDate != nil)
+        _startDate = State(initialValue: anniversary?.startDate ?? Date())
+        _startLabel = State(initialValue: anniversary?.startLabel ?? "")
+        _endLabel = State(initialValue: anniversary?.endLabel ?? "")
     }
 
     var body: some View {
         Form {
             Section("基本情報") {
                 TextField("タイトル", text: $title)
-                DatePicker("日付", selection: $date, displayedComponents: .date)
-                    .onChange(of: date) { _, newValue in
-                        // 日時指定モードの場合、reminderDateも連動更新
-                        if !useRelativeReminder {
-                            let calendar = Calendar.current
-                            let today = Date()
-                            
-                            // 次回の記念日を計算
-                            var nextTargetDate = newValue
-                            while nextTargetDate < today {
-                                nextTargetDate = calendar.date(byAdding: .year, value: 1, to: nextTargetDate) ?? nextTargetDate
-                            }
-                            
-                            if let reminderDay = calendar.date(byAdding: .day, value: -reminderDaysBefore, to: nextTargetDate) {
-                                let hour = calendar.component(.hour, from: reminderTime)
-                                let minute = calendar.component(.minute, from: reminderTime)
-                                reminderDate = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: reminderDay) ?? reminderDay
-                            }
-                        }
-                    }
+                // 日付範囲: 毎年繰り返しOFFの場合のみ制限
+                datePicker
                 Picker("種類", selection: $type) {
                     ForEach(AnniversaryType.allCases) { type in
                         Text(type == .countdown ? "までの残り日数" : "経過日数").tag(type)
                     }
                 }
                 Toggle("毎年繰り返す", isOn: $repeatsYearly)
+                    .disabled(hasStartDate)
                 if repeatsYearly {
                     Text("通知は毎年この月日に届きます（年は無視されます）")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if hasStartDate {
+                    Text("開始日が設定されているため無効です")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            
+            Section("開始日") {
+                Toggle("開始日を設定", isOn: $hasStartDate)
+                    .disabled(repeatsYearly)
+                if hasStartDate {
+                    DatePicker("開始日", selection: $startDate, in: ...date, displayedComponents: .date)
+                    TextField("開始ラベル（例：生まれてから）", text: $startLabel)
+                    TextField("終了ラベル（例：100歳まで）", text: $endLabel)
+                    Text("進捗バーと経過/残り日数が表示されます")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if repeatsYearly {
+                    Text("毎年繰り返しが設定されているため無効です")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -173,6 +187,9 @@ struct AnniversaryEditorView: View {
                         targetDate: date,
                         type: type,
                         repeatsYearly: repeatsYearly,
+                        startDate: hasStartDate ? startDate : nil,
+                        startLabel: hasStartDate && !startLabel.isEmpty ? startLabel : nil,
+                        endLabel: hasStartDate && !endLabel.isEmpty ? endLabel : nil,
                         reminderDaysBefore: hasReminder && useRelativeReminder ? reminderDaysBefore : nil,
                         reminderTime: hasReminder && useRelativeReminder ? reminderTime : nil,
                         reminderDate: hasReminder && !useRelativeReminder ? reminderDate : nil
@@ -193,6 +210,36 @@ struct AnniversaryEditorView: View {
                 dismiss()
             }
             Button("キャンセル", role: .cancel) { }
+        }
+        .onChange(of: date) { _, newValue in
+            // 日時指定モードの場合、reminderDateも連動更新
+            if !useRelativeReminder {
+                let calendar = Calendar.current
+                let today = Date()
+                
+                // 次回の記念日を計算
+                var nextTargetDate = newValue
+                while nextTargetDate < today {
+                    nextTargetDate = calendar.date(byAdding: .year, value: 1, to: nextTargetDate) ?? nextTargetDate
+                }
+                
+                if let reminderDay = calendar.date(byAdding: .day, value: -reminderDaysBefore, to: nextTargetDate) {
+                    let hour = calendar.component(.hour, from: reminderTime)
+                    let minute = calendar.component(.minute, from: reminderTime)
+                    reminderDate = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: reminderDay) ?? reminderDay
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var datePicker: some View {
+        if repeatsYearly {
+            DatePicker("日付", selection: $date, displayedComponents: .date)
+        } else if type == .since {
+            DatePicker("日付", selection: $date, in: ...Date(), displayedComponents: .date)
+        } else {
+            DatePicker("日付", selection: $date, in: Date()..., displayedComponents: .date)
         }
     }
 }

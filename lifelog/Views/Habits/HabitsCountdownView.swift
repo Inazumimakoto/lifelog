@@ -212,24 +212,70 @@ struct HabitsCountdownView: View {
                     .foregroundStyle(.secondary)
             } else {
                 ForEach(Array(anniversaryViewModel.rows.enumerated()), id: \.element.id) { index, row in
-                    HStack {
-                        VStack(alignment: .leading) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
                             Text(row.anniversary.title)
                                 .font(.headline)
+                            Spacer()
+                            // 開始日がない場合のみ従来の表示
+                            if row.anniversary.startDate == nil {
+                                Text(row.relativeText)
+                                    .font(.headline)
+                            }
+                            Button {
+                                editingAnniversary = row.anniversary
+                            } label: {
+                                Image(systemName: "square.and.pencil")
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        // 開始日がある場合は経過/残りを1行で左右に表示
+                        if let elapsed = row.anniversary.elapsedDays(on: Date()),
+                           let remaining = row.anniversary.remainingDays(on: Date()) {
+                            HStack {
+                                let startText = row.anniversary.startLabel ?? "開始から"
+                                Text("\(startText) \(elapsed)日")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Spacer()
+                                let endText = row.anniversary.endLabel ?? "終了まで"
+                                Text("\(endText) あと\(remaining)日")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else {
+                            // 開始日がない場合は日付のみ
                             Text(row.anniversary.targetDate.jaYearMonthDayString)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
-                        Spacer()
-                        Text(row.relativeText)
-                            .font(.headline)
-                        Button {
-                            editingAnniversary = row.anniversary
-                        } label: {
-                            Image(systemName: "square.and.pencil")
-                                .foregroundStyle(.secondary)
+                        // プログレスバー（開始日が設定されている場合）
+                        if let progress = row.anniversary.progress(on: Date()),
+                           let totalDays = row.anniversary.totalDays {
+                            VStack(spacing: 4) {
+                                GeometryReader { geometry in
+                                    ZStack(alignment: .leading) {
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(Color(.systemGray5))
+                                            .frame(height: 8)
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(Color.green)
+                                            .frame(width: geometry.size.width * progress, height: 8)
+                                    }
+                                }
+                                .frame(height: 8)
+                                HStack {
+                                    Text("\(Int(progress * 100))%")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text("全\(totalDays)日")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
                         }
-                        .buttonStyle(.plain)
                     }
                     if index < anniversaryViewModel.rows.count - 1 {
                         Divider()
