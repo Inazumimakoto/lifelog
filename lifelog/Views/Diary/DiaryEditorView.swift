@@ -136,36 +136,42 @@ struct DiaryEditorView: View {
         
         return Section {
             DisclosureGroup(isExpanded: $isTagSectionExpanded) {
-                // タグボタン一覧
-                FlowLayout(spacing: 8) {
-                    ForEach(availableTags) { tag in
-                        let isSelected = viewModel.entry.text.contains(tag.hashTag)
-                        Button {
-                            toggleTag(tag)
-                        } label: {
-                            Text(tag.displayText)
-                                .font(.caption)
-                                .padding(.horizontal, 10)
-                                .padding(.vertical, 6)
-                                .background(isSelected ? Color.accentColor : Color(.secondarySystemBackground),
-                                           in: Capsule())
-                                .foregroundStyle(isSelected ? .white : .primary)
+                VStack(alignment: .leading, spacing: 12) {
+                    // タグボタン一覧
+                    FlowLayout(spacing: 8) {
+                        ForEach(availableTags) { tag in
+                            let isSelected = viewModel.entry.text.contains(tag.hashTag)
+                            Button {
+                                toggleTag(tag)
+                            } label: {
+                                Text(tag.displayText)
+                                    .font(.caption)
+                                    .padding(.horizontal, 10)
+                                    .padding(.vertical, 6)
+                                    .background(isSelected ? Color.accentColor : Color(.secondarySystemBackground),
+                                               in: Capsule())
+                                    .foregroundStyle(isSelected ? .white : .primary)
+                            }
+                            .buttonStyle(.plain)
                         }
-                        .buttonStyle(.plain)
                     }
-                }
-            } label: {
-                HStack {
-                    Text("感情タグ")
-                        .foregroundStyle(.primary)
-                    Spacer()
+                    
+                    // タグ管理ボタン
                     Button {
                         showTagManager = true
                     } label: {
-                        Image(systemName: "tag")
-                            .font(.caption)
+                        HStack {
+                            Image(systemName: "tag")
+                            Text("タグを管理")
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(Color.accentColor)
                     }
                 }
+            } label: {
+                Text("感情タグ")
+                    .font(.body)
+                    .foregroundStyle(.primary)
             }
         } footer: {
             if isTagSectionExpanded {
