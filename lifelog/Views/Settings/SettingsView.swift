@@ -30,6 +30,14 @@ struct SettingsView: View {
                 }
             }
             
+            Section("通知") {
+                NavigationLink {
+                    NotificationSettingsView()
+                } label: {
+                    Label("通知設定", systemImage: "bell.fill")
+                }
+            }
+            
             Section("ヘルスケア") {
                 Button {
                     if let url = URL(string: UIApplication.openSettingsURLString) {

@@ -11,6 +11,7 @@ import HealthKit
 
 struct HealthDashboardView: View {
     @StateObject private var viewModel: HealthViewModel
+    @State private var showSettings = false
 
     init(store: AppDataStore) {
         _viewModel = StateObject(wrappedValue: HealthViewModel(store: store))
@@ -55,6 +56,21 @@ struct HealthDashboardView: View {
                 }
             }
         )
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .foregroundStyle(.primary)
+                }
+            }
+        }
+        .sheet(isPresented: $showSettings) {
+            NavigationStack {
+                SettingsView()
+            }
+        }
     }
 
     private var summarySection: some View {

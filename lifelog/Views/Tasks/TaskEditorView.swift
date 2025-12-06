@@ -41,8 +41,36 @@ struct TaskEditorView: View {
         _startDate = State(initialValue: base)
         _endDate = State(initialValue: max(base, end))
         _priority = State(initialValue: task?.priority ?? .medium)
-        _hasReminder = State(initialValue: task?.reminderDate != nil)
-        _reminderDate = State(initialValue: task?.reminderDate ?? calendar.date(bySettingHour: 9, minute: 0, second: 0, of: base) ?? base)
+        
+        // 優先度別通知設定を読み込み（新規作成時のみ適用）
+        let initialPriority = task?.priority ?? .medium
+        let priorityEnabled = UserDefaults.standard.bool(forKey: "taskPriorityNotificationEnabled")
+        let prioritySetting = NotificationSettingsManager.shared.getSetting(for: initialPriority)
+        
+        let hasReminderValue: Bool
+        let defaultHour: Int
+        let defaultMinute: Int
+        if task != nil {
+            hasReminderValue = task?.reminderDate != nil
+            defaultHour = 9
+            defaultMinute = 0
+        } else if priorityEnabled, let setting = prioritySetting, setting.enabled {
+            hasReminderValue = true
+            defaultHour = setting.hour
+            defaultMinute = setting.minute
+        } else {
+            hasReminderValue = false
+            defaultHour = 9
+            defaultMinute = 0
+        }
+        _hasReminder = State(initialValue: hasReminderValue)
+        
+        // 新規タスクの場合、開始日の指定時刻に通知
+        let defaultReminderDateTime: Date = {
+            let cal = Calendar.current
+            return cal.date(bySettingHour: defaultHour, minute: defaultMinute, second: 0, of: base) ?? base
+        }()
+        _reminderDate = State(initialValue: task?.reminderDate ?? defaultReminderDateTime)
     }
 
     var body: some View {
@@ -121,6 +149,30 @@ struct TaskEditorView: View {
                 dismiss()
             }
             Button("キャンセル", role: .cancel) { }
+        }
+        .onChange(of: priority) { _, newPriority in
+            // 新規作成時のみ優先度変更で通知設定を連動
+            guard originalTask == nil else { return }
+            let priorityEnabled = UserDefaults.standard.bool(forKey: "taskPriorityNotificationEnabled")
+            guard priorityEnabled else { return }
+            
+            if let setting = NotificationSettingsManager.shared.getSetting(for: newPriority), setting.enabled {
+                hasReminder = true
+                // 開始日の指定時刻に通知
+                if let newReminderDate = calendar.date(bySettingHour: setting.hour, minute: setting.minute, second: 0, of: startDate) {
+                    reminderDate = newReminderDate
+                }
+            } else {
+                hasReminder = false
+            }
+        }
+        .onChange(of: startDate) { _, newStartDate in
+            // リマインダーONの場合、開始日変更時に通知日時の日付部分を連動更新
+            guard hasReminder else { return }
+            let currentTime = calendar.dateComponents([.hour, .minute], from: reminderDate)
+            if let newReminderDate = calendar.date(bySettingHour: currentTime.hour ?? 9, minute: currentTime.minute ?? 0, second: 0, of: newStartDate) {
+                reminderDate = newReminderDate
+            }
         }
     }
 }

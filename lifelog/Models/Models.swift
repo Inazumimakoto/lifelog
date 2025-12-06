@@ -12,9 +12,9 @@ import EventKit
 // MARK: - Enumerations
 
 enum TaskPriority: Int, Codable, CaseIterable, Identifiable {
-    case low = 1
-    case medium = 2
     case high = 3
+    case medium = 2
+    case low = 1
 
     var id: Int { rawValue }
 

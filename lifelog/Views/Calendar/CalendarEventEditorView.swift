@@ -47,12 +47,28 @@ struct CalendarEventEditorView: View {
         _endDate = State(initialValue: event?.isAllDay == true ? calendar.startOfDay(for: allDayEndForState) : initialEnd)
         _isAllDay = State(initialValue: event?.isAllDay ?? false)
         
-        let hasReminderValue = event?.reminderMinutes != nil || event?.reminderDate != nil
+        // カテゴリ別通知設定を読み込み（新規作成時のみ適用）
+        let initialCategory = event?.calendarName ?? CategoryPalette.defaultCategoryName
+        let categoryEnabled = UserDefaults.standard.bool(forKey: "eventCategoryNotificationEnabled")
+        let categorySetting = NotificationSettingsManager.shared.getSetting(for: initialCategory)
+        
+        let hasReminderValue: Bool
+        let defaultMinutes: Int
+        if event != nil {
+            hasReminderValue = event?.reminderMinutes != nil || event?.reminderDate != nil
+            defaultMinutes = event?.reminderMinutes ?? 30
+        } else if categoryEnabled, let setting = categorySetting, setting.enabled {
+            hasReminderValue = true
+            defaultMinutes = setting.minutesBefore
+        } else {
+            hasReminderValue = false
+            defaultMinutes = 30
+        }
+        
         _hasReminder = State(initialValue: hasReminderValue)
         _useRelativeReminder = State(initialValue: event?.reminderDate == nil)
-        _reminderMinutes = State(initialValue: event?.reminderMinutes ?? 15)
+        _reminderMinutes = State(initialValue: event?.reminderMinutes ?? defaultMinutes)
         // 日時指定の初期値: 開始時刻 - reminderMinutes
-        let defaultMinutes = event?.reminderMinutes ?? 15
         let defaultReminderDate = initialStart.addingTimeInterval(-Double(defaultMinutes * 60))
         _reminderDate = State(initialValue: event?.reminderDate ?? defaultReminderDate)
     }
@@ -175,6 +191,22 @@ struct CalendarEventEditorView: View {
                 let calendar = Calendar.current
                 startDate = calendar.startOfDay(for: startDate)
                 endDate = calendar.startOfDay(for: max(endDate, startDate))
+            }
+        }
+        .onChange(of: category) { _, newCategory in
+            // 新規作成時のみカテゴリ変更で通知設定を連動
+            guard originalEvent == nil else { return }
+            let categoryEnabled = UserDefaults.standard.bool(forKey: "eventCategoryNotificationEnabled")
+            guard categoryEnabled else { return }
+            
+            if let setting = NotificationSettingsManager.shared.getSetting(for: newCategory) {
+                hasReminder = setting.enabled
+                if setting.enabled {
+                    reminderMinutes = setting.minutesBefore
+                    reminderDate = startDate.addingTimeInterval(-Double(setting.minutesBefore * 60))
+                }
+            } else {
+                hasReminder = false
             }
         }
         .sheet(isPresented: $isShowingCategorySelection) {

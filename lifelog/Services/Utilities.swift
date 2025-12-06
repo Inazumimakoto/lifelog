@@ -237,6 +237,10 @@ enum CategoryPalette {
             .map { CustomCategory(name: $0.key, colorName: $0.value) }
             .sorted(by: { $0.name < $1.name })
     }
+    
+    static func allCategoryNames() -> [String] {
+        allCategories().map { $0.name }
+    }
 
     static func saveCategory(name: String, colorName: String) {
         var map = allCategoriesMapping()

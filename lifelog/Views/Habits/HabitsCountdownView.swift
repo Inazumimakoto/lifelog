@@ -19,6 +19,7 @@ struct HabitsCountdownView: View {
     @State private var displayMode: DisplayMode = .habits
     @State private var selectedHabitForDetail: Habit?
     @State private var selectedSummaryDate: Date?
+    @State private var showSettings = false
 
     init(store: AppDataStore, resetTrigger: Int = 0) {
         self.store = store
@@ -93,6 +94,21 @@ struct HabitsCountdownView: View {
         }
         .onChange(of: resetTrigger) {
             displayMode = .habits
+        }
+        .toolbar {
+            ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .foregroundStyle(.primary)
+                }
+            }
+        }
+        .sheet(isPresented: $showSettings) {
+            NavigationStack {
+                SettingsView()
+            }
         }
     }
 
