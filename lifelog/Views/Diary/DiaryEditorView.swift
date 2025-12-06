@@ -37,7 +37,6 @@ struct DiaryEditorView: View {
             conditionSection
             locationSection
             photosSection
-            diaryReminderSection
         }
         .navigationTitle("日記")
         .toolbar {
