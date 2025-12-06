@@ -165,17 +165,30 @@ final class JournalViewModel: ObservableObject {
 
         // Find all sleep stages that overlap with the given date
         for summary in store.healthSummaries {
-            // 睡眠ステージごとに表示（より正確）
-            for stage in summary.sleepStages {
-                if stage.start < dayEnd && stage.end > dayStart {
-                    items.append(TimelineItem(sourceId: nil,
-                                              title: "睡眠",
-                                              start: stage.start,
-                                              end: stage.end,
-                                              kind: .sleep,
-                                              detail: nil,
-                                              isAllDay: false))
+            // 睡眠ステージを結合して表示（断片化を防ぐ）
+            let sortedStages = summary.sleepStages.sorted { $0.start < $1.start }
+            var mergedStages: [(start: Date, end: Date)] = []
+            
+            for stage in sortedStages {
+                // 前回の終了時間から2時間以内なら結合する
+                if let last = mergedStages.last, 
+                   stage.start.timeIntervalSince(last.end) < 7200,
+                   stage.start < dayEnd && stage.end > dayStart {
+                    mergedStages[mergedStages.count - 1].end = max(last.end, stage.end)
+                } else if stage.start < dayEnd && stage.end > dayStart {
+                    // 新しいブロック
+                    mergedStages.append((stage.start, stage.end))
                 }
+            }
+            
+            for stage in mergedStages {
+                items.append(TimelineItem(sourceId: nil,
+                                          title: "睡眠",
+                                          start: stage.start,
+                                          end: stage.end,
+                                          kind: .sleep,
+                                          detail: nil,
+                                          isAllDay: false))
             }
         }
 
