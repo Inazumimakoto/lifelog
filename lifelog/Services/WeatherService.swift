@@ -126,6 +126,18 @@ struct CurrentWeatherData {
         guard let high = highTemperature, let low = lowTemperature else { return nil }
         return String(format: "H:%.0f° L:%.0f°", high, low)
     }
+
+    /// コンパクト形式: 20°/15°
+    var compactHighLowString: String? {
+        guard let high = highTemperature, let low = lowTemperature else { return nil }
+        return String(format: "%.0f°/%.0f°", high, low)
+    }
+
+    /// 数字のみ: 20/15
+    var numericHighLowString: String? {
+        guard let high = highTemperature, let low = lowTemperature else { return nil }
+        return String(format: "%.0f/%.0f", high, low)
+    }
     
     var conditionDescription: String {
         switch condition {

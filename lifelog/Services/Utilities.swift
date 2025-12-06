@@ -78,6 +78,13 @@ extension DateFormatter {
         formatter.dateFormat = "M/d HH:mm"
         return formatter
     }()
+
+    static let compactDate: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = JapaneseLocaleProvider.locale
+        formatter.dateFormat = "yyyy/MM/dd"
+        return formatter
+    }()
 }
 
 extension Date {
@@ -125,6 +132,30 @@ extension Date {
             return DateFormatter.japaneseTime.string(from: self)
         }
         return DateFormatter.memoPadDateTime.string(from: self)
+    }
+
+    /// YYYY/MM/DD(曜日) 形式
+    var compactDateString: String {
+        let dateStr = DateFormatter.compactDate.string(from: self)
+        let weekday = DateFormatter.japaneseWeekdayNarrow.string(from: self)
+        return "\(dateStr)(\(weekday))"
+    }
+
+    /// 年のみ: 2024
+    var yearString: String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy"
+        return formatter.string(from: self)
+    }
+
+    /// MM/DD(曜日) 形式
+    var monthDayWeekdayString: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "MM/dd"
+        let dateStr = formatter.string(from: self)
+        let weekday = DateFormatter.japaneseWeekdayNarrow.string(from: self)
+        return "\(dateStr)(\(weekday))"
     }
 }
 

@@ -35,7 +35,6 @@ struct TodayView: View {
         ScrollView {
             VStack(spacing: 16) {
                 header
-                WeatherCardView(weatherService: weatherService)
                 eventsSection
 //                todayTimelineSection
                 tasksSection
@@ -156,18 +155,50 @@ struct TodayView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .lastTextBaseline) {
-                Text(viewModel.date.jaYearMonthDayString)
-                    .font(.largeTitle.bold())
-                Text(viewModel.date.jaWeekdayWideString)
-                    .font(.title3)
+        HStack(alignment: .top) {
+            // 日付: 2行表示
+            VStack(alignment: .leading, spacing: 0) {
+                Text(viewModel.date.yearString)
+                    .font(.headline)
                     .foregroundStyle(.secondary)
+                Text(viewModel.date.monthDayWeekdayString)
+                    .font(.largeTitle.bold())
             }
-            Text("今日の予定・タスク・記録をここでまとめて確認できます。")
-                .foregroundStyle(.secondary)
+            
+            Spacer()
+            
+            // 天気（コンパクト + 状態）
+            if let weather = weatherService.currentWeather {
+                VStack(alignment: .trailing, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: weather.symbolName)
+                            .font(.title2)
+                            .symbolRenderingMode(.multicolor)
+                        Text(weather.conditionDescription)
+                            .font(.headline)
+                    }
+                    HStack(spacing: 6) {
+                        Text(weather.temperatureString)
+                            .font(.title2.bold())
+                        if let highLow = weather.numericHighLowString {
+                            Text(highLow)
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            } else if weatherService.isLoading {
+                ProgressView()
+            } else if weatherService.locationStatus == .notDetermined {
+                Button {
+                    weatherService.requestLocationPermission()
+                } label: {
+                    Image(systemName: "location.circle")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var eventsSection: some View {
