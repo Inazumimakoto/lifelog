@@ -51,6 +51,10 @@ final class CalendarEventService {
     }
 
     func refreshCalendarLinks(store: AppDataStore) {
+        // Only access calendars if authorized
+        let status = EKEventStore.authorizationStatus(for: .event)
+        guard status == .authorized else { return }
+        
         let calendars = eventStore.calendars(for: .event)
         store.updateCalendarLinks(with: calendars)
     }

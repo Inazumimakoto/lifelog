@@ -20,6 +20,7 @@ struct NotificationSettingsView: View {
     // カテゴリ・優先度設定
     @State private var categorySettings: [CategoryNotificationSetting] = []
     @State private var prioritySettings: [PriorityNotificationSetting] = []
+    @State private var hasLoaded: Bool = false
     
     private let reminderOptions: [(String, Int)] = [
         ("5分前", 5),
@@ -42,7 +43,10 @@ struct NotificationSettingsView: View {
         }
         .navigationTitle("通知")
         .navigationBarTitleDisplayMode(.inline)
-        .onAppear {
+        .task {
+            // 一度だけ実行
+            guard !hasLoaded else { return }
+            hasLoaded = true
             loadSettings()
         }
         .onChange(of: diaryReminderEnabled) { _, enabled in

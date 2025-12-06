@@ -86,7 +86,6 @@ struct JournalView: View {
         ZStack(alignment: .bottomTrailing) {
             ScrollViewReader { proxy in
                 mainScrollContent(proxy: proxy)
-                    .padding(.bottom, 80) // FABのための余白
             }
             
             // FAB

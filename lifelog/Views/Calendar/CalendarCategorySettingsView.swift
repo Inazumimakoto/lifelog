@@ -14,6 +14,7 @@ struct CalendarCategorySettingsView: View {
 
     @State private var selection: CalendarCategoryLink?
     @State private var tempCategory: String = ""
+    @State private var links: [CalendarCategoryLink] = []
 
     var body: some View {
         List {
@@ -24,7 +25,7 @@ struct CalendarCategorySettingsView: View {
             }
             .listRowBackground(Color.clear)
             
-            ForEach(store.appState.calendarCategoryLinks.sorted(by: { $0.calendarTitle < $1.calendarTitle })) { link in
+            ForEach(links.sorted(by: { $0.calendarTitle < $1.calendarTitle })) { link in
                 Button {
                     selection = link
                     tempCategory = link.categoryId ?? ""
@@ -56,14 +57,25 @@ struct CalendarCategorySettingsView: View {
             .onDisappear {
                 let categoryName = tempCategory.isEmpty ? nil : tempCategory
                 store.updateCalendarLinkCategory(calendarIdentifier: link.calendarIdentifier, categoryName: categoryName)
+                // ローカルのlinksも更新
+                if let index = links.firstIndex(where: { $0.calendarIdentifier == link.calendarIdentifier }) {
+                    links[index].categoryId = categoryName
+                }
                 let _ = _Concurrency.Task.detached {
                     await resyncExternalEvents()
                 }
             }
         }
         .onAppear {
-            calendarService.refreshCalendarLinks(store: store)
+            loadLinks()
         }
+    }
+    
+    private func loadLinks() {
+        // 一度だけロード（linksが空の場合のみ）
+        guard links.isEmpty else { return }
+        calendarService.refreshCalendarLinks(store: store)
+        links = store.appState.calendarCategoryLinks
     }
 
     private func displayColor(for link: CalendarCategoryLink) -> Color {
@@ -81,8 +93,8 @@ struct CalendarCategorySettingsView: View {
         guard granted else { return }
         calendarService.refreshCalendarLinks(store: store)
         if let events = try? await calendarService.fetchEventsForCurrentAndNextMonth() {
-            let links = store.appState.calendarCategoryLinks
-            let linkMap = Dictionary(uniqueKeysWithValues: links.map { ($0.calendarIdentifier, $0) })
+            let currentLinks = store.appState.calendarCategoryLinks
+            let linkMap = Dictionary(uniqueKeysWithValues: currentLinks.map { ($0.calendarIdentifier, $0) })
             let defaultCategory = CategoryPalette.defaultCategoryName
             let external = events.compactMap { event -> CalendarEvent? in
                 let identifier = event.calendar.calendarIdentifier

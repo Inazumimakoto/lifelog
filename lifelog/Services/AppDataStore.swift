@@ -144,18 +144,18 @@ final class AppDataStore: ObservableObject {
 
     func updateCalendarLinks(with calendars: [EKCalendar]) {
         var links = appState.calendarCategoryLinks
-        let defaultCategory = CategoryPalette.defaultCategoryName
         for calendar in calendars {
+            let colorHex = calendar.cgColor?.hexString
             if let index = links.firstIndex(where: { $0.calendarIdentifier == calendar.calendarIdentifier }) {
                 links[index].calendarTitle = calendar.title
-                links[index].colorHex = calendar.cgColor.hexString
+                links[index].colorHex = colorHex
             } else {
                 // Auto-map category based on calendar name
                 let autoCategory = autoMapCategory(for: calendar.title)
                 let link = CalendarCategoryLink(calendarIdentifier: calendar.calendarIdentifier,
                                                 calendarTitle: calendar.title,
                                                 categoryId: autoCategory,
-                                                colorHex: calendar.cgColor.hexString)
+                                                colorHex: colorHex)
                 links.append(link)
             }
         }

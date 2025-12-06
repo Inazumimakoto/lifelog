@@ -49,9 +49,12 @@ final class ReviewRequestManager {
     }
     
     /// 手動でレビュー依頼を表示（設定画面などから）
+    /// App Store のレビューページを直接開く
     func requestReviewManually() {
-        guard let scene = UIApplication.shared.connectedScenes.first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else { return }
-        SKStoreReviewController.requestReview(in: scene)
+        let appID = "6755782099"
+        if let url = URL(string: "https://apps.apple.com/app/id\(appID)?action=write-review") {
+            UIApplication.shared.open(url)
+        }
     }
     
     // MARK: - Private

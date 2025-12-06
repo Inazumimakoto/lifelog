@@ -11,31 +11,46 @@ import MessageUI
 struct SettingsView: View {
     @EnvironmentObject private var store: AppDataStore
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var appLockService = AppLockService.shared
     @State private var showMailComposer = false
     @State private var showMailErrorAlert = false
+    @State private var showCalendarSettings = false
+    @State private var showNotificationSettings = false
     
     var body: some View {
         Form {
             Section("カレンダー") {
-                NavigationLink {
-                    CalendarCategorySettingsView(store: store)
+                Button {
+                    showCalendarSettings = true
                 } label: {
-                    Label("カレンダー連携", systemImage: "arrow.triangle.2.circlepath")
+                    HStack {
+                        Label("カレンダー連携", systemImage: "arrow.triangle.2.circlepath")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                .foregroundStyle(.primary)
             }
             
             Section("プライバシー") {
-                Toggle(isOn: AppLockService.shared.$isAppLockEnabled) {
+                Toggle(isOn: $appLockService.isAppLockEnabled) {
                     Label("アプリロック", systemImage: "lock.fill")
                 }
             }
             
             Section("通知") {
-                NavigationLink {
-                    NotificationSettingsView()
+                Button {
+                    showNotificationSettings = true
                 } label: {
-                    Label("通知設定", systemImage: "bell.fill")
+                    HStack {
+                        Label("通知設定", systemImage: "bell.fill")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                .foregroundStyle(.primary)
             }
             
             Section("ヘルスケア") {
@@ -100,6 +115,30 @@ struct SettingsView: View {
             Button("OK") { }
         } message: {
             Text("メールアプリでアカウントを設定するか、support@example.com まで直接ご連絡ください。")
+        }
+        .sheet(isPresented: $showCalendarSettings) {
+            NavigationStack {
+                CalendarCategorySettingsView(store: store)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("閉じる") {
+                                showCalendarSettings = false
+                            }
+                        }
+                    }
+            }
+        }
+        .sheet(isPresented: $showNotificationSettings) {
+            NavigationStack {
+                NotificationSettingsView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("閉じる") {
+                                showNotificationSettings = false
+                            }
+                        }
+                    }
+            }
         }
     }
 }

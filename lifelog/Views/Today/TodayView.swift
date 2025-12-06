@@ -231,6 +231,7 @@ struct TodayView: View {
                     Text("本日の予定はありません")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .center)
                 } else {
                     ForEach(viewModel.events) { event in
                         VStack(alignment: .leading, spacing: 8) {
