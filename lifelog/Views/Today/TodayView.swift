@@ -183,7 +183,7 @@ struct TodayView: View {
             
             // 天気（コンパクト + 状態）
             if let weather = weatherService.currentWeather {
-                VStack(alignment: .trailing, spacing: 4) {
+                VStack(alignment: .trailing, spacing: 0) {
                     HStack(spacing: 6) {
                         Image(systemName: weather.symbolName)
                             .font(.title2)
@@ -191,9 +191,9 @@ struct TodayView: View {
                         Text(weather.conditionDescription)
                             .font(.headline)
                     }
-                    HStack(spacing: 6) {
+                    HStack(alignment: .lastTextBaseline, spacing: 8) {
                         Text(weather.temperatureString)
-                            .font(.title2.bold())
+                            .font(.largeTitle.bold())
                         if let highLow = weather.numericHighLowString {
                             Text(highLow)
                                 .font(.headline)
