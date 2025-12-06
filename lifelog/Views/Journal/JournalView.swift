@@ -79,8 +79,27 @@ struct JournalView: View {
     }
 
     var body: some View {
-        ScrollViewReader { proxy in
-            mainScrollContent(proxy: proxy)
+        ZStack(alignment: .bottomTrailing) {
+            ScrollViewReader { proxy in
+                mainScrollContent(proxy: proxy)
+                    .padding(.bottom, 80) // FABのための余白
+            }
+            
+            // FAB
+            FloatingButton(iconName: "plus") {
+                Button {
+                    newItemDate = viewModel.selectedDate
+                    showTaskEditor = true
+                } label: {
+                    Label("タスクを追加", systemImage: "checkmark.circle")
+                }
+                Button {
+                    newItemDate = viewModel.selectedDate
+                    showEventEditor = true
+                } label: {
+                    Label("予定を追加", systemImage: "calendar")
+                }
+            }
         }
         .fullScreenCover(item: $reviewPhotoViewerDate) { date in
             DiaryPhotoViewerView(viewModel: makeDiaryViewModel(for: date),
@@ -88,18 +107,6 @@ struct JournalView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
-                Menu {
-                    Button("予定を追加") {
-                        newItemDate = viewModel.selectedDate
-                        showEventEditor = true
-                    }
-                    Button("タスクを追加") {
-                        newItemDate = viewModel.selectedDate
-                        showTaskEditor = true
-                    }
-                } label: {
-                    Image(systemName: "plus")
-                }
                 Menu {
                     Button("カレンダー設定") {
                         showCalendarSettings = true

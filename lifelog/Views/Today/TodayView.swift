@@ -33,47 +33,57 @@ struct TodayView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 16) {
-                header
-                eventsSection
-//                todayTimelineSection
-                tasksSection
-                memoSection
-                habitsSection
-                healthSection
-                diarySection
+        ZStack(alignment: .bottomTrailing) {
+            ScrollView {
+                VStack(spacing: 16) {
+                    header
+                    eventsSection
+                    //                todayTimelineSection
+                    tasksSection
+                    memoSection
+                    habitsSection
+                    healthSection
+                    diarySection
+                }
+                .padding()
+                .padding(.bottom, 80) // FABのための余白
             }
-            .padding()
-        }
-        .task {
-            await weatherService.fetchWeather()
-        }
-        .task(id: calendarSyncTrigger) {
-            await syncCalendarsIfNeeded()
-        }
-        .onChange(of: scenePhase, initial: false) { oldPhase, newPhase in
-            if oldPhase != .active && newPhase == .active {
-                calendarSyncTrigger += 1
+            .task {
+                await weatherService.fetchWeather()
+            }
+            .task(id: calendarSyncTrigger) {
+                await syncCalendarsIfNeeded()
+            }
+            .onChange(of: scenePhase, initial: false) { oldPhase, newPhase in
+                if oldPhase != .active && newPhase == .active {
+                    calendarSyncTrigger += 1
+                }
+            }
+            
+            // FAB
+            FloatingButton(iconName: "plus") {
+                Button {
+                    showTaskEditor = true
+                } label: {
+                    Label("タスクを追加", systemImage: "checkmark.circle")
+                }
+                Button {
+                    showEventEditor = true
+                } label: {
+                    Label("予定を追加", systemImage: "calendar")
+                }
             }
         }
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    showSettings = true
-                } label: {
-                    Image(systemName: "gearshape")
-                        .foregroundStyle(.primary)
-                }
-            }
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button {
                     showMemoEditor = true
                 } label: {
                     Image(systemName: "note.text")
                 }
+                
                 Menu {
                     Button {
                         showEventManager = true
@@ -88,15 +98,12 @@ struct TodayView: View {
                 } label: {
                     Image(systemName: "list.bullet")
                 }
-                Menu {
-                    Button("予定を追加") {
-                        showEventEditor = true
-                    }
-                    Button("タスクを追加") {
-                        showTaskEditor = true
-                    }
+                
+                Button {
+                    showSettings = true
                 } label: {
-                    Image(systemName: "plus")
+                    Image(systemName: "gearshape")
+                        .foregroundStyle(.primary)
                 }
             }
         }
