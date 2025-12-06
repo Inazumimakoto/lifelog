@@ -10,11 +10,14 @@ All notable changes to this project will be documented in this file.
 - **Smart Review**: Automatic review requests based on user engagement (journaling, habits, tasks).
 - **FAB (Floating Action Button)**: Standardized "Add" button in Today and Calendar tabs.
 - **Haptic Feedback**: Added tactile feedback for key actions (completion, navigation).
+- **Notification Settings**: Category-based event reminders and priority-based task reminders with customizable defaults.
+- **Reminder Indicator**: Bell icon displayed on events and tasks with reminders enabled.
 
 ### Changed
 - **Toolbar**: Unified top-right toolbar buttons (Memo, List, Settings) across home and calendar.
 - **Header**: Redesigned Today view header for better date and weather visibility.
 - **Calendar Settings**: Moved external calendar mapping to the main Settings screen for better accessibility.
+- **Priority Order**: Task priority picker now shows High → Medium → Low order.
 
 ### Fixed
 - **Sleep Timeline**: Merged fragmented sleep intervals into continuous blocks for better readability.

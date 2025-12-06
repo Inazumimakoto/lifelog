@@ -39,11 +39,17 @@ struct TaskRowView: View {
             HStack(alignment: .top, spacing: 12) {
                 toggleIcon
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack {
+                    HStack(spacing: 6) {
                         Text(task.title)
                             .font(.body.weight(.semibold))
                             .strikethrough(task.isCompleted, color: .primary.opacity(0.6))
                             .foregroundStyle(task.isCompleted ? .secondary : .primary)
+                        // リマインダー設定済みインジケーター
+                        if task.reminderDate != nil {
+                            Image(systemName: "bell.fill")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
                         Spacer()
                         Circle()
                             .fill(priorityColor)

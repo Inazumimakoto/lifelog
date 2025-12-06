@@ -240,8 +240,16 @@ struct TodayView: View {
                                     .frame(width: 10, height: 10)
                                     .padding(.top, 6)
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(event.title)
-                                        .font(.body.weight(.semibold))
+                                    HStack(spacing: 6) {
+                                        Text(event.title)
+                                            .font(.body.weight(.semibold))
+                                        // リマインダー設定済みインジケーター
+                                        if event.reminderMinutes != nil || event.reminderDate != nil {
+                                            Image(systemName: "bell.fill")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
                                     Label(eventTimeLabel(event), systemImage: "clock")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
