@@ -318,6 +318,8 @@ final class AppDataStore: ObservableObject {
             if streakAfter > streakBefore && streakAfter >= 3 {
                 // 3日以上の連続達成更新時は特別なハプティック
                 HapticManager.streak()
+                // 3日以上連続達成でポジティブアクションとして記録
+                ReviewRequestManager.shared.registerPositiveAction()
             } else {
                 HapticManager.success()
             }

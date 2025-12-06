@@ -12,6 +12,7 @@ struct TodayView: View {
     @StateObject private var viewModel: TodayViewModel
     @StateObject private var weatherService = WeatherService()
     @Environment(\.scenePhase) private var scenePhase
+    @State private var showSettings = false
     @State private var showTaskManager = false
     @State private var showEventManager = false
     @State private var showTaskEditor = false
@@ -59,6 +60,14 @@ struct TodayView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .foregroundStyle(.primary)
+                }
+            }
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button {
                     showMemoEditor = true
@@ -94,6 +103,11 @@ struct TodayView: View {
         .fullScreenCover(isPresented: $showMemoEditor) {
             NavigationStack {
                 MemoEditorView(store: store)
+            }
+        }
+        .sheet(isPresented: $showSettings) {
+            NavigationStack {
+                SettingsView()
             }
         }
         .sheet(isPresented: $showTaskManager) {

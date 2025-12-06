@@ -100,5 +100,10 @@ final class DiaryViewModel: ObservableObject {
         entry.mood = entry.mood ?? .neutral
         entry.conditionScore = entry.conditionScore ?? 3
         store.upsert(entry: entry)
+        
+        // 日記の内容がある程度ある場合にポジティブアクションとして記録
+        if !entry.text.isEmpty && entry.text.count > 10 {
+            ReviewRequestManager.shared.registerPositiveAction()
+        }
     }
 }

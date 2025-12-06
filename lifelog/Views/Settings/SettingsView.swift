@@ -1,0 +1,101 @@
+//
+//  SettingsView.swift
+//  lifelog
+//
+//  Created by Codex on 2025/12/06.
+//
+
+import SwiftUI
+import MessageUI
+
+struct SettingsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var showMailComposer = false
+    @State private var showMailErrorAlert = false
+    
+    var body: some View {
+        Form {
+            Section("サポート") {
+                Button {
+                    ReviewRequestManager.shared.requestReviewManually()
+                } label: {
+                    Label("このアプリを応援する", systemImage: "star.fill")
+                        .foregroundStyle(.primary)
+                }
+                
+                Button {
+                    if MFMailComposeViewController.canSendMail() {
+                        showMailComposer = true
+                    } else {
+                        showMailErrorAlert = true
+                    }
+                } label: {
+                    Label("ご意見・不具合報告", systemImage: "envelope.fill")
+                        .foregroundStyle(.primary)
+                }
+            }
+            
+            Section {
+                Text("バージョン 1.0.0")
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .listRowBackground(Color.clear)
+        }
+        .navigationTitle("設定")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("閉じる") {
+                    dismiss()
+                }
+            }
+        }
+        .sheet(isPresented: $showMailComposer) {
+            MailComposerView(
+                subject: "lifelogご意見・不具合報告",
+                recipients: ["inazumimakoto@gmail.com"], // 実際のサポートアドレスに変更する
+                body: "\n\n\nデバイス: \(UIDevice.current.model)\niOSバージョン: \(UIDevice.current.systemVersion)\nアプリバージョン: 1.0.0"
+            )
+        }
+        .alert("メールアカウントが設定されていません", isPresented: $showMailErrorAlert) {
+            Button("OK") { }
+        } message: {
+            Text("メールアプリでアカウントを設定するか、support@example.com まで直接ご連絡ください。")
+        }
+    }
+}
+
+// メール作成用のラッパーView
+struct MailComposerView: UIViewControllerRepresentable {
+    let subject: String
+    let recipients: [String]?
+    let body: String
+    
+    func makeUIViewController(context: Context) -> MFMailComposeViewController {
+        let composer = MFMailComposeViewController()
+        composer.mailComposeDelegate = context.coordinator
+        composer.setSubject(subject)
+        composer.setToRecipients(recipients)
+        composer.setMessageBody(body, isHTML: false)
+        return composer
+    }
+    
+    func updateUIViewController(_ uiViewController: MFMailComposeViewController, context: Context) {}
+    
+    func makeCoordinator() -> Coordinator {
+        Coordinator(self)
+    }
+    
+    class Coordinator: NSObject, MFMailComposeViewControllerDelegate {
+        let parent: MailComposerView
+        
+        init(_ parent: MailComposerView) {
+            self.parent = parent
+        }
+        
+        func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
+            controller.dismiss(animated: true)
+        }
+    }
+}
