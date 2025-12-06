@@ -108,7 +108,7 @@ struct JournalView: View {
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Menu {
-                    Button("カレンダー設定") {
+                    Button("カレンダー連携") {
                         showCalendarSettings = true
                     }
                 } label: {

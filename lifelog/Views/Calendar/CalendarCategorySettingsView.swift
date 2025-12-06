@@ -17,6 +17,13 @@ struct CalendarCategorySettingsView: View {
 
     var body: some View {
         List {
+            Section {
+                Text("iPhoneの標準カレンダーの予定をアプリ内に表示します。\n各カレンダーに対応させるカテゴリを選択してください。")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .listRowBackground(Color.clear)
+            
             ForEach(store.appState.calendarCategoryLinks.sorted(by: { $0.calendarTitle < $1.calendarTitle })) { link in
                 Button {
                     selection = link
