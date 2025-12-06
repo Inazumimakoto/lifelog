@@ -115,6 +115,7 @@ final class JournalViewModel: ObservableObject {
     }
 
     func stepBackward(displayMode: DisplayMode) {
+        HapticManager.light()
         switch displayMode {
         case .month:
             goToPreviousMonth()
@@ -124,6 +125,7 @@ final class JournalViewModel: ObservableObject {
     }
 
     func stepForward(displayMode: DisplayMode) {
+        HapticManager.light()
         switch displayMode {
         case .month:
             goToNextMonth()

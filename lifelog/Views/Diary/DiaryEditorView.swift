@@ -42,7 +42,10 @@ struct DiaryEditorView: View {
         .navigationTitle("日記")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
-                Button("完了") { dismiss() }
+                Button("完了") {
+                    HapticManager.success()
+                    dismiss()
+                }
             }
         }
         .onAppear {
@@ -181,6 +184,7 @@ struct DiaryEditorView: View {
     }
     
     private func toggleTag(_ tag: EmotionTag) {
+        HapticManager.soft()
         var text = viewModel.entry.text
         if text.contains(tag.hashTag) {
             // タグを削除

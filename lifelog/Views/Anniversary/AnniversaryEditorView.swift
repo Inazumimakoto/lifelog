@@ -178,6 +178,7 @@ struct AnniversaryEditorView: View {
                         reminderDate: hasReminder && !useRelativeReminder ? reminderDate : nil
                     )
                     onSave(item)
+                    HapticManager.medium()
                     dismiss()
                 }
                 .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)

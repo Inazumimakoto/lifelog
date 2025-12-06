@@ -281,9 +281,14 @@ final class AppDataStore: ObservableObject {
         let calendar = Calendar.current
         let dateDay = calendar.startOfDay(for: date)
         
+        // Check streak before toggling
+        let streakBefore = calculateCurrentStreak(for: habitID, upTo: date)
+        var isCompleting = true
+        
         if let index = habitRecords.firstIndex(where: {
             $0.habitID == habitID && Calendar.current.isDate($0.date, inSameDayAs: date)
         }) {
+            isCompleting = !habitRecords[index].isCompleted
             habitRecords[index].isCompleted.toggle()
             // If toggling to completed and date is before createdAt, update createdAt
             if habitRecords[index].isCompleted, let habitIndex = habits.firstIndex(where: { $0.id == habitID }) {
@@ -306,6 +311,65 @@ final class AppDataStore: ObservableObject {
             }
         }
         persistHabitRecords()
+        
+        // Haptic feedback
+        if isCompleting {
+            let streakAfter = calculateCurrentStreak(for: habitID, upTo: date)
+            if streakAfter > streakBefore && streakAfter >= 3 {
+                // 3日以上の連続達成更新時は特別なハプティック
+                HapticManager.streak()
+            } else {
+                HapticManager.success()
+            }
+            
+            // 全習慣達成チェック
+            checkAllHabitsComplete(on: date)
+        } else {
+            HapticManager.light()
+        }
+    }
+    
+    private func calculateCurrentStreak(for habitID: UUID, upTo date: Date) -> Int {
+        let calendar = Calendar.current
+        var streakCount = 0
+        var currentDate = calendar.startOfDay(for: date)
+        
+        while true {
+            let isCompleted = habitRecords.contains {
+                $0.habitID == habitID &&
+                calendar.isDate($0.date, inSameDayAs: currentDate) &&
+                $0.isCompleted
+            }
+            
+            if isCompleted {
+                streakCount += 1
+            } else {
+                break
+            }
+            
+            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: currentDate) else { break }
+            currentDate = previousDay
+        }
+        
+        return streakCount
+    }
+    
+    private func checkAllHabitsComplete(on date: Date) {
+        let calendar = Calendar.current
+        let activeHabits = habits.filter { $0.schedule.isActive(on: date) }
+        guard !activeHabits.isEmpty else { return }
+        
+        let allComplete = activeHabits.allSatisfy { habit in
+            habitRecords.contains {
+                $0.habitID == habit.id &&
+                calendar.isDate($0.date, inSameDayAs: date) &&
+                $0.isCompleted
+            }
+        }
+        
+        if allComplete {
+            HapticManager.allHabitsComplete()
+        }
     }
 
     func setHabitCompletion(_ habitID: UUID, on date: Date, completed: Bool) {
