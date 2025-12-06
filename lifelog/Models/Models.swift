@@ -348,8 +348,23 @@ struct HealthSummary: Identifiable, Hashable, Codable {
     var sleepEnd: Date?
     var sleepStages: [SleepStage] = []
     
+    // 天気データ
+    var weatherCondition: String?      // 天気状態（晴れ、曇り、雨など）
+    var highTemperature: Double?       // 最高気温
+    var lowTemperature: Double?        // 最低気温
+    
     init(date: Date) {
         self.date = date
+    }
+    
+    /// 天気の説明文（AI分析用）
+    var weatherDescription: String? {
+        guard let condition = weatherCondition else { return nil }
+        var parts = [condition]
+        if let high = highTemperature, let low = lowTemperature {
+            parts.append("最高\(Int(high))°C/最低\(Int(low))°C")
+        }
+        return parts.joined(separator: "、")
     }
 }
 

@@ -1612,12 +1612,28 @@ private struct CalendarDetailPanel: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(snapshot.date.jaYearMonthDayString)
-                .font(.title3.bold())
-            Text(snapshot.date.jaWeekdayWideString)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(snapshot.date.jaYearMonthDayString)
+                    .font(.title3.bold())
+                Text(snapshot.date.jaWeekdayWideString)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            // 天気表示
+            if let summary = snapshot.healthSummary,
+               let condition = summary.weatherCondition {
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(condition)
+                        .font(.subheadline)
+                    if let high = summary.highTemperature, let low = summary.lowTemperature {
+                        Text(String(format: "%.0f°/%.0f°", high, low))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
         }
     }
 

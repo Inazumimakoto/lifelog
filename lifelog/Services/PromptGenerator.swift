@@ -113,6 +113,11 @@ struct PromptGenerator {
                 }
             }
             
+            // 天気データを追加
+            if let weatherDesc = day.healthSummary?.weatherDescription {
+                stats.append("🌤️ 天気: \(weatherDesc)")
+            }
+            
             if !stats.isEmpty {
                 result += stats.joined(separator: " / ") + "\n"
             }

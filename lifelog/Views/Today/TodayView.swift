@@ -59,6 +59,17 @@ struct TodayView: View {
                     calendarSyncTrigger += 1
                 }
             }
+            .onChange(of: weatherService.currentWeather?.temperature) { _, _ in
+                // 天気データをHealthSummaryに保存
+                if let weather = weatherService.currentWeather {
+                    store.updateWeather(
+                        for: Date(),
+                        condition: weather.conditionDescription,
+                        high: weather.highTemperature,
+                        low: weather.lowTemperature
+                    )
+                }
+            }
             
             // FAB
             FloatingButton(iconName: "plus") {

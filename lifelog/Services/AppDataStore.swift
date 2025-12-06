@@ -96,6 +96,26 @@ final class AppDataStore: ObservableObject {
     private func persistHealthSummaries() {
         persist(healthSummaries, forKey: Self.healthSummariesDefaultsKey)
     }
+    
+    /// 指定日の天気データを更新
+    func updateWeather(for date: Date, condition: String, high: Double?, low: Double?) {
+        let calendar = Calendar.current
+        let targetDate = calendar.startOfDay(for: date)
+        
+        if let index = healthSummaries.firstIndex(where: { calendar.isDate($0.date, inSameDayAs: targetDate) }) {
+            healthSummaries[index].weatherCondition = condition
+            healthSummaries[index].highTemperature = high
+            healthSummaries[index].lowTemperature = low
+        } else {
+            var summary = HealthSummary(date: targetDate)
+            summary.weatherCondition = condition
+            summary.highTemperature = high
+            summary.lowTemperature = low
+            healthSummaries.append(summary)
+            healthSummaries.sort { $0.date > $1.date }
+        }
+        persistHealthSummaries()
+    }
 
     // MARK: - Calendar
 
