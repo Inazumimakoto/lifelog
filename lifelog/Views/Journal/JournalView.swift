@@ -60,7 +60,11 @@ struct JournalView: View {
     @State private var showingDetailPanel = false
     @State private var pendingDiaryDate: Date?
     @State private var calendarSyncTrigger = 0
-    @State private var showCalendarSettings = false
+    @State private var showCalendarSettings = false // Used internally by SettingsView logic if needed, but we are moving entry point
+    @State private var showSettings = false
+    @State private var showTaskManager = false
+    @State private var showEventManager = false
+    @State private var showMemoEditor = false
     @State private var calendarMode: CalendarMode = .schedule
     @State private var selectedReviewDate: Date? = Date().startOfDay
     @State private var reviewPhotoIndex: Int = 0
@@ -107,12 +111,32 @@ struct JournalView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
+                Button {
+                    showMemoEditor = true
+                } label: {
+                    Image(systemName: "note.text")
+                }
+                
                 Menu {
-                    Button("カレンダー連携") {
-                        showCalendarSettings = true
+                    Button {
+                        showEventManager = true
+                    } label: {
+                        Label("予定リスト", systemImage: "calendar")
+                    }
+                    Button {
+                        showTaskManager = true
+                    } label: {
+                        Label("タスクリスト", systemImage: "checklist")
                     }
                 } label: {
-                    Image(systemName: "ellipsis.circle")
+                    Image(systemName: "list.bullet")
+                }
+                
+                Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .foregroundStyle(.primary)
                 }
             }
         }
@@ -150,9 +174,24 @@ struct JournalView: View {
                                onDelete: { store.deleteTasks(withIDs: [task.id]) })
             }
         }
-        .sheet(isPresented: $showCalendarSettings) {
+        .fullScreenCover(isPresented: $showMemoEditor) {
             NavigationStack {
-                CalendarCategorySettingsView(store: store)
+                MemoEditorView(store: store)
+            }
+        }
+        .sheet(isPresented: $showSettings) {
+            NavigationStack {
+                SettingsView()
+            }
+        }
+        .sheet(isPresented: $showTaskManager) {
+            NavigationStack {
+                TasksView(store: store)
+            }
+        }
+        .sheet(isPresented: $showEventManager) {
+            NavigationStack {
+                EventsView(store: store)
             }
         }
         .confirmationDialog("予定を削除", isPresented: $showTimelineDeleteConfirmation, presenting: timelineEventToDelete) { event in
