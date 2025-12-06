@@ -70,6 +70,28 @@ class NotificationService {
         }
     }
     
+    /// 予定の通知をスケジュール（日時指定）
+    func scheduleEventReminderAtDate(eventId: UUID, title: String, reminderDate: Date) {
+        guard reminderDate > Date() else { return }
+        
+        let content = UNMutableNotificationContent()
+        content.title = "予定のリマインダー"
+        content.body = title
+        content.sound = .default
+        
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: reminderDate)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        
+        let identifier = "\(NotificationType.event.rawValue)-\(eventId.uuidString)"
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+        
+        center.add(request) { error in
+            if let error = error {
+                print("予定通知スケジュールエラー: \(error)")
+            }
+        }
+    }
+    
     /// 予定の通知をキャンセル
     func cancelEventReminder(eventId: UUID) {
         let identifier = "\(NotificationType.event.rawValue)-\(eventId.uuidString)"
@@ -167,18 +189,33 @@ class NotificationService {
     
     private let diaryReminderIdentifier = "diary-daily-reminder"
     
-    /// 日記リマインダーをスケジュール（毎日繰り返し）
+    /// 日記リマインダーをスケジュール（翌日以降の次の通知時刻）
     func scheduleDiaryReminder(hour: Int, minute: Int) {
+        // まずキャンセル
+        cancelDiaryReminder()
+        
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // 今日の指定時刻を計算
+        var dateComponents = calendar.dateComponents([.year, .month, .day], from: now)
+        dateComponents.hour = hour
+        dateComponents.minute = minute
+        
+        guard var targetDate = calendar.date(from: dateComponents) else { return }
+        
+        // 今日の時刻が過ぎていれば翌日にする
+        if targetDate <= now {
+            targetDate = calendar.date(byAdding: .day, value: 1, to: targetDate) ?? targetDate
+        }
+        
         let content = UNMutableNotificationContent()
         content.title = "日記を書きましょう"
         content.body = "今日の出来事を振り返ってみませんか？"
         content.sound = .default
         
-        var dateComponents = DateComponents()
-        dateComponents.hour = hour
-        dateComponents.minute = minute
-        
-        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: true)
+        let triggerComponents = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: targetDate)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: triggerComponents, repeats: false)
         let request = UNNotificationRequest(identifier: diaryReminderIdentifier, content: content, trigger: trigger)
         
         center.add(request) { error in

@@ -9,6 +9,7 @@ import Foundation
 import Combine
 import HealthKit
 import EventKit
+import UserNotifications
 
 @MainActor
 final class AppDataStore: ObservableObject {
@@ -261,11 +262,12 @@ final class AppDataStore: ObservableObject {
         }
         persistDiaryEntries()
         
-        // 今日の日記を書いたらその日のリマインダーをキャンセル
-        if Calendar.current.isDateInToday(entry.date) && diaryReminderEnabled {
+        // 今日の日記を書いたら（内容があれば）その日のリマインダーをキャンセル
+        let isToday = Calendar.current.isDateInToday(entry.date)
+        let hasContent = !normalized.text.isEmpty
+        
+        if isToday && diaryReminderEnabled && hasContent {
             NotificationService.shared.cancelDiaryReminder()
-            // 翌日の通知を即座にスケジュール（repeats:trueで時刻を設定）
-            NotificationService.shared.scheduleDiaryReminder(hour: diaryReminderHour, minute: diaryReminderMinute)
         }
     }
 
@@ -431,6 +433,48 @@ final class AppDataStore: ObservableObject {
         }
     }
 
+    /// アプリ起動時に日記リマインダーを再スケジュール（今日書いていなければ）
+    func rescheduleDiaryReminderIfNeeded() {
+        guard diaryReminderEnabled else { return }
+        
+        // 今日の日記があるかチェック
+        let today = Date()
+        let hasTodayEntry = diaryEntries.contains { entry in
+            Calendar.current.isDate(entry.date, inSameDayAs: today) && !entry.text.isEmpty
+        }
+        
+        if hasTodayEntry {
+            // 今日書いてあれば翌日用にスケジュール
+            NotificationService.shared.cancelDiaryReminder()
+            // 翌日の通知をスケジュール
+            let calendar = Calendar.current
+            if let tomorrow = calendar.date(byAdding: .day, value: 1, to: today),
+               let targetDate = calendar.date(bySettingHour: diaryReminderHour, minute: diaryReminderMinute, second: 0, of: tomorrow) {
+                let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: targetDate)
+                scheduleDiaryReminderForDate(components: components)
+            }
+        } else {
+            // 今日まだ書いていなければ通常スケジュール
+            NotificationService.shared.scheduleDiaryReminder(hour: diaryReminderHour, minute: diaryReminderMinute)
+        }
+    }
+
+    private func scheduleDiaryReminderForDate(components: DateComponents) {
+        let content = UNMutableNotificationContent()
+        content.title = "日記を書きましょう"
+        content.body = "今日の出来事を振り返ってみませんか？"
+        content.sound = .default
+        
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        let request = UNNotificationRequest(identifier: "diary-daily-reminder", content: content, trigger: trigger)
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("日記通知スケジュールエラー: \(error)")
+            }
+        }
+    }
+
     // MARK: - Persistence Helpers
 
     private static func loadValue<T: Decodable>(forKey key: String, defaultValue: T) -> T {
@@ -495,8 +539,8 @@ final class AppDataStore: ObservableObject {
             )
         } else if let reminderDate = event.reminderDate {
             // 絶対日時指定
-            NotificationService.shared.scheduleTaskReminder(
-                taskId: event.id,
+            NotificationService.shared.scheduleEventReminderAtDate(
+                eventId: event.id,
                 title: event.title,
                 reminderDate: reminderDate
             )
