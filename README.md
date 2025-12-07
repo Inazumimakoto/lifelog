@@ -42,7 +42,7 @@
   &nbsp;&nbsp;&nbsp;
   <a href="https://x.ai"><img src="https://registry.npmmirror.com/@lobehub/icons-static-png/1.39.0/files/dark/grok.png" width="64" height="64" alt="Grok"/></a>
   &nbsp;&nbsp;&nbsp;
-  <a href="https://github.com/features/copilot"><img src="https://registry.npmmirror.com/@lobehub/icons-static-png/1.39.0/files/dark/github-copilot.png" width="64" height="64" alt="GitHub Copilot"/></a>
+  <a href="https://github.com/features/copilot"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/GitHub_Copilot_logo.svg/64px-GitHub_Copilot_logo.svg.png" width="64" height="64" alt="GitHub Copilot"/></a>
 </p>
 
 <p align="center">
