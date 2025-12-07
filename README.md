@@ -4,29 +4,6 @@
 
 <a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=500&size=24&pause=1000&color=20C20E&center=true&vCenter=true&random=false&width=500&lines=🤖+AI+System+Online...;🧠+Analyzing+Requirements...;⚡️+Generating+SwiftUI+Code...;✅+Project+Status:+Active."></a>
 
-<br>
-
-![Model ChatGPT](https://img.shields.io/badge/Model-ChatGPT-00A67E?style=for-the-badge&logo=openai&logoColor=white&labelColor=black)
-![Model Gemini](https://img.shields.io/badge/Model-Gemini-4E8BF5?style=for-the-badge&logo=google-gemini&logoColor=white&labelColor=black)
-![Model Claude](https://img.shields.io/badge/Model-Claude-D97757?style=for-the-badge&logo=anthropic&logoColor=white&labelColor=black)
-![Model DeepSeek](https://img.shields.io/badge/Model-DeepSeek-1E90FF?style=for-the-badge&logo=sparkles&logoColor=white&labelColor=black)
-![Model Grok](https://img.shields.io/badge/Model-Grok-white?style=for-the-badge&logo=x&logoColor=black&labelColor=black)
-
-<br>
-
-![IDE Antigravity](https://img.shields.io/badge/IDE-Google_Antigravity-8E75B2?style=for-the-badge&logo=google-cloud&logoColor=white&labelColor=black)
-![Tool GitHub_Copilot](https://img.shields.io/badge/Tool-GitHub_Copilot-68217A?style=for-the-badge&logo=github-copilot&logoColor=white&labelColor=black)
-![Tool Codex_CLI](https://img.shields.io/badge/Tool-Codex_CLI-555555?style=for-the-badge&logo=github-copilot&logoColor=white&labelColor=black)
-![Tool Gemini_CLI](https://img.shields.io/badge/Tool-Gemini_CLI-4E8BF5?style=for-the-badge&logo=google-gemini&logoColor=white&labelColor=black)
-![Tool Claude_Code](https://img.shields.io/badge/Tool-Claude_Code-CC6633?style=for-the-badge&logo=anthropic&logoColor=white&labelColor=black)
-
-<br>
-
-![Inference Groq](https://img.shields.io/badge/Inference-Groq-F55036?style=for-the-badge&logo=fastapi&logoColor=white&labelColor=black)
-![Local Ollama](https://img.shields.io/badge/Local-Ollama-white?style=for-the-badge&logo=ollama&logoColor=black&labelColor=black)
-![Platform iOS](https://img.shields.io/badge/Platform-iOS-000000?style=for-the-badge&logo=apple&logoColor=white&labelColor=black)
-![Framework SwiftUI](https://img.shields.io/badge/Framework-SwiftUI-FF4500?style=for-the-badge&logo=swift&logoColor=white&labelColor=black)
-
 <br><br>
 
 ### 🤖 Powered by AI Models
