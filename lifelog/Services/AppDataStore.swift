@@ -27,6 +27,7 @@ final class AppDataStore: ObservableObject {
     @Published private(set) var calendarEvents: [CalendarEvent] = []
     @Published private(set) var memoPad: MemoPad = MemoPad()
     @Published private(set) var externalCalendarEvents: [CalendarEvent] = []
+    @Published private(set) var letters: [Letter] = []
     @Published private(set) var appState: AppState = AppState()
 
     // MARK: - Legacy Persistence Keys
@@ -84,6 +85,10 @@ final class AppDataStore: ObservableObject {
             // CalendarEvents (Internal)
             let sdEvents = try modelContext.fetch(FetchDescriptor<SDCalendarEvent>())
             self.calendarEvents = sdEvents.map { CalendarEvent(sd: $0) }
+            
+            // Letters
+            let sdLetters = try modelContext.fetch(FetchDescriptor<SDLetter>())
+            self.letters = sdLetters.map { Letter(sd: $0) }
             
             // HealthSummaries (Cache)
             let sdHealth = try modelContext.fetch(FetchDescriptor<SDHealthSummary>(sortBy: [SortDescriptor(\.date, order: .reverse)]))
@@ -860,7 +865,120 @@ final class AppDataStore: ObservableObject {
         }
     }
 
-    // MARK: - Persistence Helpers
+    // MARK: - Letter to the Future
+
+    /// 開封可能な手紙を取得（配達日時を過ぎていて未開封）
+    func deliverableLetters() -> [Letter] {
+        let now = Date()
+        return letters.filter { letter in
+            letter.status == .sealed && letter.deliveryDate <= now
+        }
+    }
+
+    /// 今日届いた手紙（今日開封した or 今日配達された未開封）
+    func todaysDeliveredLetters() -> [Letter] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        return letters.filter { letter in
+            let deliveryDay = calendar.startOfDay(for: letter.deliveryDate)
+            let isDeliveredToday = deliveryDay == today
+            let isDeliverableNow = letter.status == .sealed && Date() >= letter.deliveryDate
+            let openedToday = letter.status == .opened && 
+                              letter.openedAt.map { calendar.startOfDay(for: $0) == today } ?? false
+            return (isDeliveredToday && isDeliverableNow) || openedToday
+        }
+    }
+
+    func addLetter(_ letter: Letter) {
+        letters.append(letter)
+        
+        let sdLetter = SDLetter(domain: letter)
+        modelContext.insert(sdLetter)
+        try? modelContext.save()
+    }
+
+    func updateLetter(_ letter: Letter) {
+        guard let index = letters.firstIndex(where: { $0.id == letter.id }) else { return }
+        letters[index] = letter
+        
+        let letterID = letter.id
+        let descriptor = FetchDescriptor<SDLetter>(predicate: #Predicate { $0.id == letterID })
+        if let existing = try? modelContext.fetch(descriptor).first {
+            existing.update(from: letter)
+            try? modelContext.save()
+        }
+    }
+
+    func sealLetter(_ letterID: UUID) {
+        guard let index = letters.firstIndex(where: { $0.id == letterID }) else { return }
+        var letter = letters[index]
+        letter.seal()
+        letters[index] = letter
+        
+        let descriptor = FetchDescriptor<SDLetter>(predicate: #Predicate { $0.id == letterID })
+        if let existing = try? modelContext.fetch(descriptor).first {
+            existing.update(from: letter)
+            try? modelContext.save()
+        }
+        
+        // 通知をスケジュール
+        scheduleLetterNotification(letter)
+    }
+
+    func openLetter(_ letterID: UUID) {
+        guard let index = letters.firstIndex(where: { $0.id == letterID }) else { return }
+        var letter = letters[index]
+        letter.open()
+        letters[index] = letter
+        
+        let descriptor = FetchDescriptor<SDLetter>(predicate: #Predicate { $0.id == letterID })
+        if let existing = try? modelContext.fetch(descriptor).first {
+            existing.update(from: letter)
+            try? modelContext.save()
+        }
+        
+        // 通知をキャンセル
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["letter-\(letterID.uuidString)"])
+    }
+
+    func deleteLetter(_ letterID: UUID) {
+        letters.removeAll { $0.id == letterID }
+        
+        let descriptor = FetchDescriptor<SDLetter>(predicate: #Predicate { $0.id == letterID })
+        if let existing = try? modelContext.fetch(descriptor).first {
+            modelContext.delete(existing)
+            try? modelContext.save()
+        }
+        
+        // 通知をキャンセル
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["letter-\(letterID.uuidString)"])
+    }
+
+    private func scheduleLetterNotification(_ letter: Letter) {
+        guard letter.status == .sealed else { return }
+        
+        let content = UNMutableNotificationContent()
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "yyyy年M月d日"
+        let dateString = formatter.string(from: letter.createdAt)
+        
+        content.title = "📨 手紙が届きました"
+        content.body = "\(dateString)のあなたから手紙が届きました"
+        content.sound = .default
+        
+        let triggerDate = letter.deliveryDate
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: triggerDate)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        
+        let request = UNNotificationRequest(identifier: "letter-\(letter.id.uuidString)", content: content, trigger: trigger)
+        
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("手紙通知スケジュールエラー: \(error)")
+            }
+        }
+    }
 
     private static func loadValue<T: Decodable>(forKey key: String, defaultValue: T) -> T {
         // Use Shared Defaults if possible

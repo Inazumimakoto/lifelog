@@ -22,6 +22,8 @@ struct TodayView: View {
     @State private var showAnalysisExport = false
     @State private var editingEvent: CalendarEvent?
     @State private var editingTask: Task?
+    @State private var showLetterOpening = false
+    @State private var letterToOpen: Letter?
     private let memoPlaceholder = "買い物リストや気づいたことを書いておけます"
     private let store: AppDataStore
     @State private var didAppear = false
@@ -37,6 +39,7 @@ struct TodayView: View {
             ScrollView {
                 VStack(spacing: 16) {
                     header
+                    letterSection
                     eventsSection
                     //                todayTimelineSection
                     tasksSection
@@ -115,6 +118,19 @@ struct TodayView: View {
                 } label: {
                     Image(systemName: "gearshape")
                         .foregroundStyle(.primary)
+                }
+            }
+        }
+        .fullScreenCover(isPresented: $showLetterOpening) {
+            Group {
+                if let letter = letterToOpen {
+                    LetterOpeningView(letter: letter) {
+                        store.openLetter(letter.id)
+                    }
+                } else {
+                    // フォールバック（通常は表示されない）
+                    Color(uiColor: UIColor(red: 0.1, green: 0.1, blue: 0.18, alpha: 1))
+                        .ignoresSafeArea()
                 }
             }
         }
@@ -517,5 +533,69 @@ struct TodayView: View {
     // タイムライン仕様: docs/requirements.md 4.1 + docs/ui-guidelines.md (Today)
     private var todayTimelineSection: some View {
         TodayTimelineView(items: viewModel.timelineItems, anchorDate: viewModel.date)
+    }
+    
+    // MARK: - Letter to the Future
+    
+    @ViewBuilder
+    private var letterSection: some View {
+        let deliverableLetters = store.deliverableLetters()
+        
+        if !deliverableLetters.isEmpty {
+            VStack(spacing: 12) {
+                ForEach(deliverableLetters) { letter in
+                    Button {
+                        // 手紙を設定するだけ（onChangeでフルスクリーンを表示）
+                        letterToOpen = letter
+                    } label: {
+                        HStack(spacing: 16) {
+                            Image(systemName: "envelope.fill")
+                                .font(.title)
+                                .foregroundStyle(.orange)
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("📬 過去のあなたから手紙が届いています")
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(.primary)
+                                Text("タップして開封")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding()
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.orange.opacity(0.1))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .strokeBorder(Color.orange.opacity(0.3), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .onChange(of: letterToOpen) { _, newLetter in
+                if newLetter != nil {
+                    showLetterOpening = true
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Letter Opening Wrapper（ストアの更新から独立）
+struct LetterOpeningWrapper: View {
+    let letter: Letter
+    let onOpen: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        LetterOpeningView(letter: letter, onOpen: onOpen)
     }
 }

@@ -548,3 +548,163 @@ extension SleepStage {
         ]
     }
 }
+
+// MARK: - Letter to the Future
+
+enum LetterDeliveryType: String, Codable, CaseIterable, Identifiable {
+    case fixed
+    case random
+    
+    var id: String { rawValue }
+    
+    var label: String {
+        switch self {
+        case .fixed: return "固定"
+        case .random: return "ランダム"
+        }
+    }
+}
+
+enum LetterStatus: String, Codable, CaseIterable, Identifiable {
+    case draft       // 下書き
+    case sealed      // 封印済み（開封待ち）
+    case deliverable // 開封可能
+    case opened      // 開封済み
+    
+    var id: String { rawValue }
+    
+    var label: String {
+        switch self {
+        case .draft: return "下書き"
+        case .sealed: return "送信済み"
+        case .deliverable: return "開封可能"
+        case .opened: return "開封済み"
+        }
+    }
+}
+
+struct LetterRandomSettings: Codable, Hashable {
+    var useDateRange: Bool
+    var startDate: Date?
+    var endDate: Date?
+    var useTimeRange: Bool
+    var startHour: Int
+    var startMinute: Int
+    var endHour: Int
+    var endMinute: Int
+    
+    init(useDateRange: Bool = false,
+         startDate: Date? = nil,
+         endDate: Date? = nil,
+         useTimeRange: Bool = false,
+         startHour: Int = 9,
+         startMinute: Int = 0,
+         endHour: Int = 21,
+         endMinute: Int = 0) {
+        self.useDateRange = useDateRange
+        self.startDate = startDate
+        self.endDate = endDate
+        self.useTimeRange = useTimeRange
+        self.startHour = startHour
+        self.startMinute = startMinute
+        self.endHour = endHour
+        self.endMinute = endMinute
+    }
+    
+    /// ランダムな配達日時を生成
+    func generateDeliveryDate() -> Date {
+        let calendar = Calendar.current
+        let now = Date()
+        
+        // 期間の決定（指定がある場合はその期間、なければ1日〜3年）
+        let rangeStart: Date
+        let rangeEnd: Date
+        
+        if useDateRange, let start = startDate, let end = endDate {
+            // 期間指定: 制限なし（100年先でもOK）
+            rangeStart = start
+            rangeEnd = end
+        } else {
+            // 完全ランダム: 1日後 〜 3年後
+            rangeStart = calendar.date(byAdding: .day, value: 1, to: now) ?? now
+            rangeEnd = calendar.date(byAdding: .year, value: 3, to: now) ?? now
+        }
+        
+        // ランダムな日を選択
+        let dayRange = calendar.dateComponents([.day], from: rangeStart, to: rangeEnd).day ?? 1
+        let randomDays = Int.random(in: 0...max(0, dayRange))
+        var deliveryDate = calendar.date(byAdding: .day, value: randomDays, to: rangeStart) ?? rangeStart
+        
+        // 時間の決定
+        let hour: Int
+        let minute: Int
+        
+        if useTimeRange {
+            // 開始時刻と終了時刻を分単位でランダムに選択
+            let startTotalMinutes = startHour * 60 + startMinute
+            let endTotalMinutes = endHour * 60 + endMinute
+            let randomTotalMinutes = Int.random(in: startTotalMinutes..<max(startTotalMinutes + 1, endTotalMinutes))
+            hour = randomTotalMinutes / 60
+            minute = randomTotalMinutes % 60
+        } else {
+            hour = Int.random(in: 0...23)
+            minute = Int.random(in: 0...59)
+        }
+        
+        deliveryDate = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: deliveryDate) ?? deliveryDate
+        
+        return deliveryDate
+    }
+}
+
+struct Letter: Identifiable, Codable, Hashable {
+    let id: UUID
+    var content: String
+    var photoPaths: [String]
+    var createdAt: Date
+    var deliveryType: LetterDeliveryType
+    var deliveryDate: Date
+    var randomSettings: LetterRandomSettings?
+    var status: LetterStatus
+    var openedAt: Date?
+    
+    init(id: UUID = UUID(),
+         content: String = "",
+         photoPaths: [String] = [],
+         createdAt: Date = Date(),
+         deliveryType: LetterDeliveryType = .fixed,
+         deliveryDate: Date = Date().addingTimeInterval(60 * 60 * 24), // 1日後デフォルト
+         randomSettings: LetterRandomSettings? = nil,
+         status: LetterStatus = .draft,
+         openedAt: Date? = nil) {
+        self.id = id
+        self.content = content
+        self.photoPaths = photoPaths
+        self.createdAt = createdAt
+        self.deliveryType = deliveryType
+        self.deliveryDate = deliveryDate
+        self.randomSettings = randomSettings
+        self.status = status
+        self.openedAt = openedAt
+    }
+    
+    /// 開封可能かどうか
+    var isDeliverable: Bool {
+        status == .sealed && Date() >= deliveryDate
+    }
+    
+    /// 手紙を封印する
+    mutating func seal() {
+        if deliveryType == .random, let settings = randomSettings {
+            deliveryDate = settings.generateDeliveryDate()
+        }
+        status = .sealed
+    }
+    
+    /// 手紙を開封する
+    mutating func open() {
+        status = .opened
+        openedAt = Date()
+    }
+}
+

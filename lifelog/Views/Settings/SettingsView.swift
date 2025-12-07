@@ -17,6 +17,7 @@ struct SettingsView: View {
     @State private var showCalendarSettings = false
     @State private var showNotificationSettings = false
     @State private var showHelp = false
+    @State private var showLetterList = false
     
     var body: some View {
         Form {
@@ -56,6 +57,18 @@ struct SettingsView: View {
                 } label: {
                     HStack {
                         Label("使い方", systemImage: "questionmark.circle.fill")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary)
+                
+                Button {
+                    showLetterList = true
+                } label: {
+                    HStack {
+                        Label("未来への手紙", systemImage: "envelope.fill")
                         Spacer()
                         Image(systemName: "chevron.right")
                             .foregroundStyle(.secondary)
@@ -187,6 +200,18 @@ struct SettingsView: View {
         }
         .sheet(isPresented: $showHelp) {
             HelpView()
+        }
+        .sheet(isPresented: $showLetterList) {
+            NavigationStack {
+                LetterListView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("閉じる") {
+                                showLetterList = false
+                            }
+                        }
+                    }
+            }
         }
     }
 }

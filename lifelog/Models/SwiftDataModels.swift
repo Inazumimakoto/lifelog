@@ -325,3 +325,61 @@ final class SDAppState {
         self.diaryReminderMinute = diaryReminderMinute
     }
 }
+
+// MARK: - SDLetter (Letter to the Future)
+@Model
+final class SDLetter {
+    @Attribute(.unique) var id: UUID
+    var content: String
+    var photoPaths: [String]
+    var createdAt: Date
+    var deliveryType: String // LetterDeliveryType.rawValue
+    var deliveryDate: Date
+    var statusRaw: String // LetterStatus.rawValue
+    var openedAt: Date?
+    
+    // Random settings (flattened)
+    var randomUseDateRange: Bool
+    var randomStartDate: Date?
+    var randomEndDate: Date?
+    var randomUseTimeRange: Bool
+    var randomStartHour: Int
+    var randomStartMinute: Int = 0  // デフォルト値でマイグレーション対応
+    var randomEndHour: Int
+    var randomEndMinute: Int = 0    // デフォルト値でマイグレーション対応
+    
+    init(id: UUID = UUID(),
+         content: String = "",
+         photoPaths: [String] = [],
+         createdAt: Date = Date(),
+         deliveryType: String = "fixed",
+         deliveryDate: Date = Date().addingTimeInterval(60 * 60 * 24),
+         statusRaw: String = "draft",
+         openedAt: Date? = nil,
+         randomUseDateRange: Bool = false,
+         randomStartDate: Date? = nil,
+         randomEndDate: Date? = nil,
+         randomUseTimeRange: Bool = false,
+         randomStartHour: Int = 9,
+         randomStartMinute: Int = 0,
+         randomEndHour: Int = 21,
+         randomEndMinute: Int = 0) {
+        self.id = id
+        self.content = content
+        self.photoPaths = photoPaths
+        self.createdAt = createdAt
+        self.deliveryType = deliveryType
+        self.deliveryDate = deliveryDate
+        self.statusRaw = statusRaw
+        self.openedAt = openedAt
+        self.randomUseDateRange = randomUseDateRange
+        self.randomStartDate = randomStartDate
+        self.randomEndDate = randomEndDate
+        self.randomUseTimeRange = randomUseTimeRange
+        self.randomStartHour = randomStartHour
+        self.randomStartMinute = randomStartMinute
+        self.randomEndHour = randomEndHour
+        self.randomEndMinute = randomEndMinute
+    }
+}
+

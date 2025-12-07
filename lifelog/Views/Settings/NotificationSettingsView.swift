@@ -30,10 +30,16 @@ struct NotificationSettingsView: View {
         ("1日前", 1440)
     ]
     
+    // 未来への手紙通知
+    @AppStorage("letterNotificationEnabled") private var letterNotificationEnabled: Bool = true
+    
     var body: some View {
         Form {
             // 日記リマインダーセクション
             diaryReminderSection
+            
+            // 未来への手紙セクション
+            letterSection
             
             // 予定セクション
             eventSection
@@ -83,6 +89,18 @@ struct NotificationSettingsView: View {
                 .foregroundStyle(.secondary)
         } header: {
             Text("日記リマインダー")
+        }
+    }
+    
+    private var letterSection: some View {
+        Section {
+            Toggle("未来への手紙", isOn: $letterNotificationEnabled)
+            
+            Text("手紙が届いたときに通知を受け取ります。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } header: {
+            Text("未来への手紙")
         }
     }
     

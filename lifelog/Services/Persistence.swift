@@ -26,7 +26,8 @@ struct PersistenceController {
             SDHealthSummary.self,
             SDCalendarEvent.self,
             SDMemoPad.self,
-            SDAppState.self
+            SDAppState.self,
+            SDLetter.self
         ])
         
         if inMemory {

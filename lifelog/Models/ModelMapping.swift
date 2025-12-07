@@ -363,3 +363,77 @@ extension AppState {
         )
     }
 }
+
+// MARK: - Letter Mapping
+extension Letter {
+    init(sd: SDLetter) {
+        let randomSettings: LetterRandomSettings? = {
+            if sd.randomUseDateRange || sd.randomUseTimeRange {
+                return LetterRandomSettings(
+                    useDateRange: sd.randomUseDateRange,
+                    startDate: sd.randomStartDate,
+                    endDate: sd.randomEndDate,
+                    useTimeRange: sd.randomUseTimeRange,
+                    startHour: sd.randomStartHour,
+                    startMinute: sd.randomStartMinute,
+                    endHour: sd.randomEndHour,
+                    endMinute: sd.randomEndMinute
+                )
+            }
+            return nil
+        }()
+        
+        self.init(
+            id: sd.id,
+            content: sd.content,
+            photoPaths: sd.photoPaths,
+            createdAt: sd.createdAt,
+            deliveryType: LetterDeliveryType(rawValue: sd.deliveryType) ?? .fixed,
+            deliveryDate: sd.deliveryDate,
+            randomSettings: randomSettings,
+            status: LetterStatus(rawValue: sd.statusRaw) ?? .draft,
+            openedAt: sd.openedAt
+        )
+    }
+}
+
+extension SDLetter {
+    convenience init(domain: Letter) {
+        self.init(
+            id: domain.id,
+            content: domain.content,
+            photoPaths: domain.photoPaths,
+            createdAt: domain.createdAt,
+            deliveryType: domain.deliveryType.rawValue,
+            deliveryDate: domain.deliveryDate,
+            statusRaw: domain.status.rawValue,
+            openedAt: domain.openedAt,
+            randomUseDateRange: domain.randomSettings?.useDateRange ?? false,
+            randomStartDate: domain.randomSettings?.startDate,
+            randomEndDate: domain.randomSettings?.endDate,
+            randomUseTimeRange: domain.randomSettings?.useTimeRange ?? false,
+            randomStartHour: domain.randomSettings?.startHour ?? 9,
+            randomStartMinute: domain.randomSettings?.startMinute ?? 0,
+            randomEndHour: domain.randomSettings?.endHour ?? 21,
+            randomEndMinute: domain.randomSettings?.endMinute ?? 0
+        )
+    }
+    
+    func update(from domain: Letter) {
+        self.content = domain.content
+        self.photoPaths = domain.photoPaths
+        self.deliveryType = domain.deliveryType.rawValue
+        self.deliveryDate = domain.deliveryDate
+        self.statusRaw = domain.status.rawValue
+        self.openedAt = domain.openedAt
+        self.randomUseDateRange = domain.randomSettings?.useDateRange ?? false
+        self.randomStartDate = domain.randomSettings?.startDate
+        self.randomEndDate = domain.randomSettings?.endDate
+        self.randomUseTimeRange = domain.randomSettings?.useTimeRange ?? false
+        self.randomStartHour = domain.randomSettings?.startHour ?? 9
+        self.randomStartMinute = domain.randomSettings?.startMinute ?? 0
+        self.randomEndHour = domain.randomSettings?.endHour ?? 21
+        self.randomEndMinute = domain.randomSettings?.endMinute ?? 0
+    }
+}
+
