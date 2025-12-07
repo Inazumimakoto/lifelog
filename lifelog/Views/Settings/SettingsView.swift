@@ -54,12 +54,29 @@ struct SettingsView: View {
             // 外部リンク
             Section {
                 Button {
+                    // lifelogのアプリ設定を開く（位置情報・カレンダー等）
                     if let url = URL(string: UIApplication.openSettingsURLString) {
                         UIApplication.shared.open(url)
                     }
                 } label: {
                     HStack {
-                        Label("ヘルスケア設定を開く", systemImage: "heart.fill")
+                        Label("lifelogの権限設定", systemImage: "gearshape.fill")
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary)
+                
+                Button {
+                    // ヘルスケアアプリを直接開く
+                    if let url = URL(string: "x-apple-health://") {
+                        UIApplication.shared.open(url)
+                    }
+                } label: {
+                    HStack {
+                        Label("ヘルスケアアプリを開く", systemImage: "heart.fill")
                         Spacer()
                         Image(systemName: "arrow.up.right")
                             .font(.caption)
