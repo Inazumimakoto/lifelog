@@ -134,7 +134,7 @@ struct SettingsView: View {
             }
             
             Section {
-                Text("バージョン 1.4")
+                Text("バージョン 1.5")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
             }
@@ -153,7 +153,7 @@ struct SettingsView: View {
             MailComposerView(
                 subject: "lifelogご意見・不具合報告",
                 recipients: ["inazumimakoto@gmail.com"], // 実際のサポートアドレスに変更する
-                body: "\n\n\nデバイス: \(UIDevice.current.model)\niOSバージョン: \(UIDevice.current.systemVersion)\nアプリバージョン: 1.4"
+                body: "\n\n\nデバイス: \(UIDevice.current.model)\niOSバージョン: \(UIDevice.current.systemVersion)\nアプリバージョン: 1.5"
             )
         }
         .alert("メールアカウントが設定されていません", isPresented: $showMailErrorAlert) {

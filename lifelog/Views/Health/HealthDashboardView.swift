@@ -396,11 +396,62 @@ struct HealthDashboardView: View {
         let lastWeekHours = lastWeekSummary?.sleepHours ?? 0
         let weekDiff = lastWeekHours > 0 ? hours - lastWeekHours : nil
         
+        // 時刻フォーマッター
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "HH:mm"
+        
+        // 就寝/起床時刻の平均を計算
+        let sleepStarts = allSummaries.compactMap { $0.sleepStart }
+        let sleepEnds = allSummaries.compactMap { $0.sleepEnd }
+        
+        func averageTime(from dates: [Date]) -> Date? {
+            guard !dates.isEmpty else { return nil }
+            let calendar = Calendar.current
+            let minutes = dates.compactMap { date -> Int? in
+                let comps = calendar.dateComponents([.hour, .minute], from: date)
+                guard let h = comps.hour, let m = comps.minute else { return nil }
+                // 就寝は日をまたぐ場合があるので24時以降として扱う
+                let adjustedHour = h < 12 ? h + 24 : h
+                return adjustedHour * 60 + m
+            }
+            let avgMinutes = minutes.reduce(0, +) / minutes.count
+            let hour = (avgMinutes / 60) % 24
+            let minute = avgMinutes % 60
+            return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: Date())
+        }
+        
+        let avgSleepStart = averageTime(from: sleepStarts)
+        let avgSleepEnd = averageTime(from: sleepEnds)
+        
         return VStack(alignment: .leading, spacing: 6) {
             Text(summary.date.jaMonthDayWeekdayString)
                 .font(.caption.bold())
             Text(String(format: "%.1f 時間", hours))
                 .font(.subheadline.bold())
+            
+            // 就寝/起床時刻
+            if summary.sleepStart != nil || summary.sleepEnd != nil {
+                HStack(spacing: 8) {
+                    if let start = summary.sleepStart {
+                        HStack(spacing: 2) {
+                            Image(systemName: "moon.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.indigo)
+                            Text(timeFormatter.string(from: start))
+                                .font(.caption)
+                        }
+                    }
+                    if let end = summary.sleepEnd {
+                        HStack(spacing: 2) {
+                            Image(systemName: "sun.max.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.orange)
+                            Text(timeFormatter.string(from: end))
+                                .font(.caption)
+                        }
+                    }
+                }
+            }
             
             Divider()
             
@@ -412,6 +463,24 @@ struct HealthDashboardView: View {
                 Text(String(format: avgDiff >= 0 ? "+%.1f h" : "%.1f h", avgDiff))
                     .font(.caption.bold())
                     .foregroundStyle(avgDiff >= 0 ? .green : .red)
+            }
+            
+            // 平均就寝/起床時刻
+            if avgSleepStart != nil || avgSleepEnd != nil {
+                HStack(spacing: 8) {
+                    Text("平均")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    if let avg = avgSleepStart {
+                        Text("🌙\(timeFormatter.string(from: avg))")
+                            .font(.caption)
+                    }
+                    if let avg = avgSleepEnd {
+                        Text("☀️\(timeFormatter.string(from: avg))")
+                            .font(.caption)
+                    }
+                }
             }
             
             if let diff = weekDiff {
@@ -429,7 +498,7 @@ struct HealthDashboardView: View {
         .padding(12)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
         .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
-        .frame(maxWidth: 180)
+        .frame(maxWidth: 200)
     }
 
     private var fitnessSection: some View {

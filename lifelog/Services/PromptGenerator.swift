@@ -12,6 +12,13 @@ struct DailyData: Identifiable {
     let date: Date
     let diary: DiaryEntry?
     let healthSummary: HealthSummary?
+    // 予定・タスク
+    var eventCount: Int = 0
+    var taskCount: Int = 0
+    var completedTasks: Int = 0
+    // 習慣
+    var totalHabits: Int = 0
+    var completedHabits: Int = 0
 }
 
 struct PromptGenerator {
@@ -23,7 +30,9 @@ struct PromptGenerator {
         includeDiary: Bool,
         includeSleep: Bool,
         includeSteps: Bool,
-        includeMood: Bool
+        includeMood: Bool,
+        includeEvents: Bool = false,
+        includeHabits: Bool = false
     ) -> String {
         
         var prompt = ""
@@ -54,9 +63,22 @@ struct PromptGenerator {
             prompt += "・「睡眠」「歩数（活動量）」「気分・体調」の相関関係（因果関係）を重点的に探ってください。\n"
         }
         
+        // 新データに対する分析指示
+        if includeSleep {
+            prompt += "・就寝/起床時刻のばらつきと「睡眠の質」「翌日のパフォーマンス」の関係を分析してください。\n"
+        }
+        
+        if includeEvents {
+            prompt += "・予定の多さやタスク完了率と「疲労度」「ストレス」「達成感」の関係を探ってください。\n"
+        }
+        
+        if includeHabits {
+            prompt += "・習慣達成率の推移と「モチベーション」「生活リズムの安定性」の関連を分析してください。\n"
+        }
+        
         // 4. データ本体
         prompt += "\n【分析対象データ】\n"
-        prompt += generateDataString(days: days, includeDiary: includeDiary, includeSleep: includeSleep, includeSteps: includeSteps, includeMood: includeMood)
+        prompt += generateDataString(days: days, includeDiary: includeDiary, includeSleep: includeSleep, includeSteps: includeSteps, includeMood: includeMood, includeEvents: includeEvents, includeHabits: includeHabits)
         
         return prompt
     }
@@ -67,7 +89,9 @@ struct PromptGenerator {
         includeDiary: Bool,
         includeSleep: Bool,
         includeSteps: Bool,
-        includeMood: Bool
+        includeMood: Bool,
+        includeEvents: Bool,
+        includeHabits: Bool
     ) -> String {
         var result = ""
         let dateFormatter = DateFormatter()
@@ -101,6 +125,16 @@ struct PromptGenerator {
                 if let sleepHours = day.healthSummary?.sleepHours, sleepHours > 0 {
                     let sleepStr = String(format: "%.1f", sleepHours)
                     stats.append("💤 睡眠: \(sleepStr)h")
+                    
+                    // 就寝/起床時刻を追加
+                    let timeFormatter = DateFormatter()
+                    timeFormatter.dateFormat = "HH:mm"
+                    if let sleepStart = day.healthSummary?.sleepStart {
+                        stats.append("🌙 就寝: \(timeFormatter.string(from: sleepStart))")
+                    }
+                    if let sleepEnd = day.healthSummary?.sleepEnd {
+                        stats.append("☀️ 起床: \(timeFormatter.string(from: sleepEnd))")
+                    }
                 } else {
                     stats.append("💤 睡眠: 未登録")
                 }
@@ -116,6 +150,22 @@ struct PromptGenerator {
             // 天気データを追加
             if let weatherDesc = day.healthSummary?.weatherDescription {
                 stats.append("🌤️ 天気: \(weatherDesc)")
+            }
+            
+            // 予定・タスク数
+            if includeEvents {
+                stats.append("📅 予定: \(day.eventCount)件")
+                if day.taskCount > 0 {
+                    stats.append("📋 タスク: \(day.completedTasks)/\(day.taskCount)完了")
+                } else {
+                    stats.append("📋 タスク: 0件")
+                }
+            }
+            
+            // 習慣達成率
+            if includeHabits && day.totalHabits > 0 {
+                let rate = day.totalHabits > 0 ? Int(Double(day.completedHabits) / Double(day.totalHabits) * 100) : 0
+                stats.append("✅ 習慣: \(day.completedHabits)/\(day.totalHabits) (\(rate)%)")
             }
             
             if !stats.isEmpty {

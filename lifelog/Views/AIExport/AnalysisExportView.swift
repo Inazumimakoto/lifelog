@@ -24,6 +24,8 @@ struct AnalysisExportView: View {
     @State private var includeSleep: Bool = true
     @State private var includeSteps: Bool = true
     @State private var includeMood: Bool = true
+    @State private var includeEvents: Bool = true
+    @State private var includeHabits: Bool = true
     
     // アラート用
     @State private var showCopyAlert = false
@@ -40,7 +42,26 @@ struct AnalysisExportView: View {
         while currentDate <= end {
             let diary = store.diaryEntries.first { calendar.isDate($0.date, inSameDayAs: currentDate) }
             let health = store.healthSummaries.first { calendar.isDate($0.date, inSameDayAs: currentDate) }
-            days.append(DailyData(date: currentDate, diary: diary, healthSummary: health))
+            let events = store.events(on: currentDate)
+            let dayTasks = store.tasks.filter { task in
+                if let startDate = task.startDate {
+                    return calendar.isDate(startDate, inSameDayAs: currentDate)
+                }
+                return false
+            }
+            let habitRecordsForDay = store.habitRecords.filter { calendar.isDate($0.date, inSameDayAs: currentDate) }
+            let totalHabits = store.habits.count
+            let completedHabits = habitRecordsForDay.filter { $0.isCompleted }.count
+            days.append(DailyData(
+                date: currentDate,
+                diary: diary,
+                healthSummary: health,
+                eventCount: events.count,
+                taskCount: dayTasks.count,
+                completedTasks: dayTasks.filter { $0.isCompleted }.count,
+                totalHabits: totalHabits,
+                completedHabits: completedHabits
+            ))
             currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate) ?? currentDate.addingTimeInterval(86400)
         }
         
@@ -55,7 +76,9 @@ struct AnalysisExportView: View {
             includeDiary: includeDiary,
             includeSleep: includeSleep,
             includeSteps: includeSteps,
-            includeMood: includeMood
+            includeMood: includeMood,
+            includeEvents: includeEvents,
+            includeHabits: includeHabits
         )
     }
     
@@ -108,6 +131,8 @@ struct AnalysisExportView: View {
                     Toggle("😊 気分・体調", isOn: $includeMood)
                     Toggle("💤 睡眠時間", isOn: $includeSleep)
                     Toggle("👣 歩数", isOn: $includeSteps)
+                    Toggle("📅 予定・タスク数", isOn: $includeEvents)
+                    Toggle("✅ 習慣達成率", isOn: $includeHabits)
                 }
                 
                 // 4. アクション & 注意書き
