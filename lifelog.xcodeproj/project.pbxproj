@@ -6,14 +6,78 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		0EB039742EE55C1200AFE3B0 /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0EB039732EE55C1200AFE3B0 /* WidgetKit.framework */; };
+		0EB039762EE55C1200AFE3B0 /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0EB039752EE55C1200AFE3B0 /* SwiftUI.framework */; };
+		0EB039852EE55C1400AFE3B0 /* LifelogWidgetsExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 0EB039712EE55C1200AFE3B0 /* LifelogWidgetsExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		0EB039832EE55C1400AFE3B0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0E6196DE2EC5A3A000A0734C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 0EB039702EE55C1200AFE3B0;
+			remoteInfo = LifelogWidgetsExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		0EB0398A2EE55C1400AFE3B0 /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				0EB039852EE55C1400AFE3B0 /* LifelogWidgetsExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
 		0E6196E62EC5A3A000A0734C /* lifelog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = lifelog.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0EB039712EE55C1200AFE3B0 /* LifelogWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LifelogWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		0EB039732EE55C1200AFE3B0 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		0EB039752EE55C1200AFE3B0 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		0EB039992EE55E6100AFE3B0 /* LifelogWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LifelogWidgetsExtension.entitlements; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		0EB039862EE55C1400AFE3B0 /* Exceptions for "LifelogWidgets" folder in "LifelogWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 0EB039702EE55C1200AFE3B0 /* LifelogWidgetsExtension */;
+		};
+		0EB039962EE55DEE00AFE3B0 /* Exceptions for "lifelog" folder in "LifelogWidgetsExtension" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Models/Models.swift,
+				Models/SwiftDataModels.swift,
+				Services/Persistence.swift,
+			);
+			target = 0EB039702EE55C1200AFE3B0 /* LifelogWidgetsExtension */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		0E6196E82EC5A3A000A0734C /* lifelog */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0EB039962EE55DEE00AFE3B0 /* Exceptions for "lifelog" folder in "LifelogWidgetsExtension" target */,
+			);
 			path = lifelog;
+			sourceTree = "<group>";
+		};
+		0EB039772EE55C1200AFE3B0 /* LifelogWidgets */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				0EB039862EE55C1400AFE3B0 /* Exceptions for "LifelogWidgets" folder in "LifelogWidgetsExtension" target */,
+			);
+			path = LifelogWidgets;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -26,13 +90,25 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0EB0396E2EE55C1200AFE3B0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0EB039762EE55C1200AFE3B0 /* SwiftUI.framework in Frameworks */,
+				0EB039742EE55C1200AFE3B0 /* WidgetKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		0E6196DD2EC5A3A000A0734C = {
 			isa = PBXGroup;
 			children = (
+				0EB039992EE55E6100AFE3B0 /* LifelogWidgetsExtension.entitlements */,
 				0E6196E82EC5A3A000A0734C /* lifelog */,
+				0EB039772EE55C1200AFE3B0 /* LifelogWidgets */,
+				0EB039722EE55C1200AFE3B0 /* Frameworks */,
 				0E6196E72EC5A3A000A0734C /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,8 +117,18 @@
 			isa = PBXGroup;
 			children = (
 				0E6196E62EC5A3A000A0734C /* lifelog.app */,
+				0EB039712EE55C1200AFE3B0 /* LifelogWidgetsExtension.appex */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		0EB039722EE55C1200AFE3B0 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				0EB039732EE55C1200AFE3B0 /* WidgetKit.framework */,
+				0EB039752EE55C1200AFE3B0 /* SwiftUI.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -55,10 +141,12 @@
 				0E6196E22EC5A3A000A0734C /* Sources */,
 				0E6196E32EC5A3A000A0734C /* Frameworks */,
 				0E6196E42EC5A3A000A0734C /* Resources */,
+				0EB0398A2EE55C1400AFE3B0 /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				0EB039842EE55C1400AFE3B0 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				0E6196E82EC5A3A000A0734C /* lifelog */,
@@ -69,6 +157,28 @@
 			productName = lifelog;
 			productReference = 0E6196E62EC5A3A000A0734C /* lifelog.app */;
 			productType = "com.apple.product-type.application";
+		};
+		0EB039702EE55C1200AFE3B0 /* LifelogWidgetsExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 0EB039872EE55C1400AFE3B0 /* Build configuration list for PBXNativeTarget "LifelogWidgetsExtension" */;
+			buildPhases = (
+				0EB0396D2EE55C1200AFE3B0 /* Sources */,
+				0EB0396E2EE55C1200AFE3B0 /* Frameworks */,
+				0EB0396F2EE55C1200AFE3B0 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				0EB039772EE55C1200AFE3B0 /* LifelogWidgets */,
+			);
+			name = LifelogWidgetsExtension;
+			packageProductDependencies = (
+			);
+			productName = LifelogWidgetsExtension;
+			productReference = 0EB039712EE55C1200AFE3B0 /* LifelogWidgetsExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -88,6 +198,10 @@
 							};
 						};
 					};
+					0EB039702EE55C1200AFE3B0 = {
+						CreatedOnToolsVersion = 26.1;
+						LastSwiftMigration = 2610;
+					};
 				};
 			};
 			buildConfigurationList = 0E6196E12EC5A3A000A0734C /* Build configuration list for PBXProject "lifelog" */;
@@ -105,12 +219,20 @@
 			projectRoot = "";
 			targets = (
 				0E6196E52EC5A3A000A0734C /* lifelog */,
+				0EB039702EE55C1200AFE3B0 /* LifelogWidgetsExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		0E6196E42EC5A3A000A0734C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		0EB0396F2EE55C1200AFE3B0 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -127,7 +249,22 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		0EB0396D2EE55C1200AFE3B0 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		0EB039842EE55C1400AFE3B0 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 0EB039702EE55C1200AFE3B0 /* LifelogWidgetsExtension */;
+			targetProxy = 0EB039832EE55C1400AFE3B0 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		0E6196EF2EC5A3A100A0734C /* Debug */ = {
@@ -329,6 +466,75 @@
 			};
 			name = Release;
 		};
+		0EB039882EE55C1400AFE3B0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = LifelogWidgetsExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = V7XG8HDQL4;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LifelogWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = LifelogWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.inazumimakoto.lifelog.LifelogWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		0EB039892EE55C1400AFE3B0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = LifelogWidgetsExtension.entitlements;
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = V7XG8HDQL4;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = LifelogWidgets/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = LifelogWidgets;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.inazumimakoto.lifelog.LifelogWidgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -346,6 +552,15 @@
 			buildConfigurations = (
 				0E6196F22EC5A3A100A0734C /* Debug */,
 				0E6196F32EC5A3A100A0734C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		0EB039872EE55C1400AFE3B0 /* Build configuration list for PBXNativeTarget "LifelogWidgetsExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0EB039882EE55C1400AFE3B0 /* Debug */,
+				0EB039892EE55C1400AFE3B0 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

@@ -1,0 +1,197 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -scheme LifelogWidgetsExtension -destination generic/platform=iOS CODE_SIGNING_ALLOWED=NO
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+ComputePackagePrebuildTargetDependencyGraph
+
+Prepare packages
+
+CreateBuildRequest
+
+SendProjectDescription
+
+CreateBuildOperation
+
+ComputeTargetDependencyGraph
+note: Building targets in dependency order
+note: Target dependency graph (2 targets)
+    Target 'lifelog' in project 'lifelog'
+        ➜ Explicit dependency on target 'LifelogWidgetsExtension' in project 'lifelog'
+    Target 'LifelogWidgetsExtension' in project 'lifelog' (no dependencies)
+
+GatherProvisioningInputs
+
+CreateBuildDescription
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang -v -E -dM -isysroot /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk -x c -c /dev/null
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --version --output-format xml1
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/usr/bin/actool --print-asset-tag-combinations --output-format xml1 /Users/inazumimakoto/Desktop/lifelog/lifelog/Assets.xcassets
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc --version
+
+ExecuteExternalTool /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/ld -version_details
+
+Build description signature: cef7a357114ae843c465aa84526217f0
+Build description path: /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/XCBuildData/cef7a357114ae843c465aa84526217f0.xcbuilddata
+ClangStatCache /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphoneos26.1-23B77-69b33fc7382b27d9b5d46e82a00f8e78.sdkstatcache
+    cd /Users/inazumimakoto/Desktop/lifelog/lifelog.xcodeproj
+    /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/clang-stat-cache /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk -o /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphoneos26.1-23B77-69b33fc7382b27d9b5d46e82a00f8e78.sdkstatcache
+
+ProcessInfoPlistFile /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Products/Debug-iphoneos/LifelogWidgetsExtension.appex/Info.plist /Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/Info.plist (in target 'LifelogWidgetsExtension' from project 'lifelog')
+    cd /Users/inazumimakoto/Desktop/lifelog
+    builtin-infoPlistUtility /Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/Info.plist -producttype com.apple.product-type.app-extension -expandbuildsettings -format binary -platform iphoneos -additionalcontentfile /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/assetcatalog_generated_info.plist -requiredArchitecture arm64 -o /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Products/Debug-iphoneos/LifelogWidgetsExtension.appex/Info.plist
+
+SwiftDriver LifelogWidgetsExtension normal arm64 com.apple.xcode.tools.swift.compiler (in target 'LifelogWidgetsExtension' from project 'lifelog')
+    cd /Users/inazumimakoto/Desktop/lifelog
+    builtin-SwiftDriver -- /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swiftc -module-name LifelogWidgetsExtension -Onone -enforce-exclusivity\=checked @/Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/Objects-normal/arm64/LifelogWidgetsExtension.SwiftFileList -DDEBUG -enable-bare-slash-regex -enable-upcoming-feature DisableOutwardActorInference -enable-upcoming-feature InferSendableFromCaptures -enable-upcoming-feature GlobalActorIsolatedTypesUsability -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature NonisolatedNonsendingByDefault -enable-experimental-feature DebugDescriptionMacro -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk -target arm64-apple-ios26.1 -g -module-cache-path /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -Xfrontend -serialize-debugging-options -application-extension -enable-testing -index-store-path /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Index.noindex/DataStore -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -swift-version 5 -I /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Products/Debug-iphoneos -F /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Products/Debug-iphoneos -emit-localized-strings -emit-localized-strings-path /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/Objects-normal/arm64 -c -j10 -enable-batch-mode -incremental -Xcc -ivfsstatcache -Xcc /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphoneos26.1-23B77-69b33fc7382b27d9b5d46e82a00f8e78.sdkstatcache -output-file-map /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/Objects-normal/arm64/LifelogWidgetsExtension-OutputFileMap.json -use-frontend-parseable-output -save-temps -no-color-diagnostics -explicit-module-build -module-cache-path /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -clang-scanner-module-cache-path /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -sdk-module-cache-path /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/ModuleCache.noindex -serialize-diagnostics -emit-dependencies -emit-module -emit-module-path /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/Objects-normal/arm64/LifelogWidgetsExtension.swiftmodule -validate-clang-modules-once -clang-build-session-file /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -I/Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/swift-overrides.hmap -emit-const-values -Xfrontend -const-gather-protocols-file -Xfrontend /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/Objects-normal/arm64/LifelogWidgetsExtension_const_extract_protocols.json -Xcc -iquote -Xcc /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/LifelogWidgetsExtension-generated-files.hmap -Xcc -I/Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/LifelogWidgetsExtension-own-target-headers.hmap -Xcc -I/Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/LifelogWidgetsExtension-all-target-headers.hmap -Xcc -iquote -Xcc /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/LifelogWidgetsExtension-project-headers.hmap -Xcc -I/Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Products/Debug-iphoneos/include -Xcc -I/Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/DerivedSources-normal/arm64 -Xcc -I/Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/DerivedSources/arm64 -Xcc -I/Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/DerivedSources -Xcc -DDEBUG\=1 -emit-objc-header -emit-objc-header-path /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/Objects-normal/arm64/LifelogWidgetsExtension-Swift.h -working-directory /Users/inazumimakoto/Desktop/lifelog -experimental-emit-module-separately -disable-cmo
+
+SwiftCompile normal arm64 Compiling\ AnniversaryWidget.swift /Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/AnniversaryWidget.swift (in target 'LifelogWidgetsExtension' from project 'lifelog')
+
+SwiftCompile normal arm64 /Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/AnniversaryWidget.swift (in target 'LifelogWidgetsExtension' from project 'lifelog')
+    cd /Users/inazumimakoto/Desktop/lifelog
+    
+
+SwiftCompile normal arm64 Compiling\ HabitWidget.swift /Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/HabitWidget.swift (in target 'LifelogWidgetsExtension' from project 'lifelog')
+
+SwiftCompile normal arm64 /Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/HabitWidget.swift (in target 'LifelogWidgetsExtension' from project 'lifelog')
+    cd /Users/inazumimakoto/Desktop/lifelog
+    
+
+SwiftCompile normal arm64 Compiling\ LifelogWidgetsBundle.swift /Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/LifelogWidgetsBundle.swift (in target 'LifelogWidgetsExtension' from project 'lifelog')
+SwiftCompile normal arm64 /Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/LifelogWidgetsBundle.swift (in target 'LifelogWidgetsExtension' from project 'lifelog')
+    cd /Users/inazumimakoto/Desktop/lifelog
+    
+
+SwiftCompile normal arm64 Compiling\ Models.swift /Users/inazumimakoto/Desktop/lifelog/lifelog/Models/Models.swift (in target 'LifelogWidgetsExtension' from project 'lifelog')
+
+SwiftCompile normal arm64 /Users/inazumimakoto/Desktop/lifelog/lifelog/Models/Models.swift (in target 'LifelogWidgetsExtension' from project 'lifelog')
+    cd /Users/inazumimakoto/Desktop/lifelog
+    
+
+SwiftCompile normal arm64 Compiling\ ScheduleWidget.swift /Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/ScheduleWidget.swift (in target 'LifelogWidgetsExtension' from project 'lifelog')
+
+SwiftCompile normal arm64 /Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/ScheduleWidget.swift (in target 'LifelogWidgetsExtension' from project 'lifelog')
+    cd /Users/inazumimakoto/Desktop/lifelog
+    
+
+SwiftCompile normal arm64 Compiling\ SwiftDataModels.swift /Users/inazumimakoto/Desktop/lifelog/lifelog/Models/SwiftDataModels.swift (in target 'LifelogWidgetsExtension' from project 'lifelog')
+
+SwiftCompile normal arm64 /Users/inazumimakoto/Desktop/lifelog/lifelog/Models/SwiftDataModels.swift (in target 'LifelogWidgetsExtension' from project 'lifelog')
+    cd /Users/inazumimakoto/Desktop/lifelog
+    
+
+SwiftEmitModule normal arm64 Emitting\ module\ for\ LifelogWidgetsExtension (in target 'LifelogWidgetsExtension' from project 'lifelog')
+Failed frontend command:
+/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin/swift-frontend -frontend -emit-module -experimental-skip-non-inlinable-function-bodies-without-types /Users/inazumimakoto/Desktop/lifelog/lifelog/Models/Models.swift /Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/AnniversaryWidget.swift /Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/HabitWidget.swift /Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/LifelogWidgetsBundle.swift /Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/MemoWidget.swift /Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/ScheduleWidget.swift /Users/inazumimakoto/Desktop/lifelog/lifelog/Models/SwiftDataModels.swift /Users/inazumimakoto/Desktop/lifelog/lifelog/Services/Persistence.swift /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/DerivedSources/GeneratedAssetSymbols.swift -target arm64-apple-ios26.1 -module-can-import-version DeveloperToolsSupport 23.0.4 23.0.4 -module-can-import-version SwiftUI 7.1.13.1 7.1.13 -module-can-import-version UIKit 9126.1.12.1 9126.1.12 -disable-cross-import-overlay-search -swift-module-cross-import SwiftData /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/SwiftData.framework/Modules/SwiftData.swiftcrossimport/CoreData.swiftoverlay -swift-module-cross-import SwiftData /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk/System/Library/Frameworks/SwiftData.framework/Modules/SwiftData.swiftcrossimport/SwiftUI.swiftoverlay -load-resolved-plugin /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib/swift/host/plugins/libAppIntentsMacros.dylib\#/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/swift-plugin-server\#AppIntentsMacros -load-resolved-plugin /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib/swift/host/plugins/libFoundationMacros.dylib\#/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/swift-plugin-server\#FoundationMacros -load-resolved-plugin /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib/swift/host/plugins/libObservationMacros.dylib\#/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/swift-plugin-server\#ObservationMacros -load-resolved-plugin /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib/swift/host/plugins/libPreviewsMacros.dylib\#/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/swift-plugin-server\#PreviewsMacros -load-resolved-plugin /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib/swift/host/plugins/libSwiftDataMacros.dylib\#/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/swift-plugin-server\#SwiftDataMacros -load-resolved-plugin /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib/swift/host/plugins/libSwiftMacros.dylib\#/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/swift-plugin-server\#SwiftMacros -load-resolved-plugin /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/lib/swift/host/plugins/libSwiftUIMacros.dylib\#/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/usr/bin/swift-plugin-server\#SwiftUIMacros -disable-implicit-swift-modules -Xcc -fno-implicit-modules -Xcc -fno-implicit-module-maps -explicit-swift-module-map-file /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/Objects-normal/arm64/LifelogWidgetsExtension-dependencies-1.json -Xllvm -aarch64-use-tbi -enable-objc-interop -stack-check -sdk /Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.1.sdk -I /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Products/Debug-iphoneos -F /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Products/Debug-iphoneos -no-color-diagnostics -Xcc -fno-color-diagnostics -application-extension -enable-testing -g -debug-info-format\=dwarf -dwarf-version\=5 -module-cache-path /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/SwiftExplicitPrecompiledModules -swift-version 5 -enforce-exclusivity\=checked -Onone -D DEBUG -serialize-debugging-options -const-gather-protocols-file /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/Objects-normal/arm64/LifelogWidgetsExtension_const_extract_protocols.json -enable-upcoming-feature DisableOutwardActorInference -enable-upcoming-feature InferSendableFromCaptures -enable-upcoming-feature GlobalActorIsolatedTypesUsability -enable-upcoming-feature MemberImportVisibility -enable-upcoming-feature InferIsolatedConformances -enable-upcoming-feature NonisolatedNonsendingByDefault -enable-experimental-feature DebugDescriptionMacro -enable-bare-slash-regex -empty-abi-descriptor -validate-clang-modules-once -clang-build-session-file /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/ModuleCache.noindex/Session.modulevalidation -Xcc -working-directory -Xcc /Users/inazumimakoto/Desktop/lifelog -enable-anonymous-context-mangled-names -file-compilation-dir /Users/inazumimakoto/Desktop/lifelog -Xcc -D_LIBCPP_HARDENING_MODE\=_LIBCPP_HARDENING_MODE_DEBUG -Xcc -ivfsstatcache -Xcc /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/SDKStatCaches.noindex/iphoneos26.1-23B77-69b33fc7382b27d9b5d46e82a00f8e78.sdkstatcache -Xcc -I/Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/swift-overrides.hmap -Xcc -iquote -Xcc /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/LifelogWidgetsExtension-generated-files.hmap -Xcc -I/Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/LifelogWidgetsExtension-own-target-headers.hmap -Xcc -I/Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/LifelogWidgetsExtension-all-target-headers.hmap -Xcc -iquote -Xcc /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/LifelogWidgetsExtension-project-headers.hmap -Xcc -I/Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Products/Debug-iphoneos/include -Xcc -I/Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/DerivedSources-normal/arm64 -Xcc -I/Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/DerivedSources/arm64 -Xcc -I/Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/DerivedSources -Xcc -DDEBUG\=1 -no-auto-bridging-header-chaining -module-name LifelogWidgetsExtension -frontend-parseable-output -disable-clang-spi -target-sdk-version 26.1 -target-sdk-name iphoneos26.1 -clang-target arm64-apple-ios26.1 -in-process-plugin-server-path /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/swift/host/libSwiftInProcPluginServer.dylib -emit-module-doc-path /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/Objects-normal/arm64/LifelogWidgetsExtension.swiftdoc -emit-module-source-info-path /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/Objects-normal/arm64/LifelogWidgetsExtension.swiftsourceinfo -emit-objc-header-path /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/Objects-normal/arm64/LifelogWidgetsExtension-Swift.h -serialize-diagnostics-path /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/Objects-normal/arm64/LifelogWidgetsExtension-primary-emit-module.dia -emit-dependencies-path /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/Objects-normal/arm64/LifelogWidgetsExtension-primary-emit-module.d -o /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/Objects-normal/arm64/LifelogWidgetsExtension.swiftmodule -emit-abi-descriptor-path /Users/inazumimakoto/Library/Developer/Xcode/DerivedData/lifelog-dlcpibjbhsajbleipoqwnvlvwlev/Build/Intermediates.noindex/lifelog.build/Debug-iphoneos/LifelogWidgetsExtension.build/Objects-normal/arm64/LifelogWidgetsExtension.abi.json
+
+EmitSwiftModule normal arm64 (in target 'LifelogWidgetsExtension' from project 'lifelog')
+    cd /Users/inazumimakoto/Desktop/lifelog
+    
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/AnniversaryWidget.swift:12:29: warning: conformance of 'AnniversaryProvider' to protocol 'TimelineProvider' crosses into main actor-isolated code and can cause data races; this is an error in the Swift 6 language mode
+struct AnniversaryProvider: TimelineProvider {
+                            ^
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/AnniversaryWidget.swift:12:29: note: isolate this conformance to the main actor with '@MainActor'
+struct AnniversaryProvider: TimelineProvider {
+                            ^
+                            @MainActor 
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/AnniversaryWidget.swift:12:29: note: turn data races into runtime errors with '@preconcurrency'
+struct AnniversaryProvider: TimelineProvider {
+                            ^
+                            @preconcurrency 
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/AnniversaryWidget.swift:14:10: note: main actor-isolated instance method 'placeholder(in:)' cannot satisfy nonisolated requirement
+    func placeholder(in context: Context) -> AnniversaryEntry {
+         ^
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/AnniversaryWidget.swift:19:10: note: main actor-isolated instance method 'getSnapshot(in:completion:)' cannot satisfy nonisolated requirement
+    func getSnapshot(in context: Context, completion: @escaping (AnniversaryEntry) -> ()) {
+         ^
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/AnniversaryWidget.swift:25:10: note: main actor-isolated instance method 'getTimeline(in:completion:)' cannot satisfy nonisolated requirement
+    func getTimeline(in context: Context, completion: @escaping (Timeline<AnniversaryEntry>) -> ()) {
+         ^
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/HabitWidget.swift:12:23: warning: conformance of 'HabitProvider' to protocol 'TimelineProvider' crosses into main actor-isolated code and can cause data races; this is an error in the Swift 6 language mode
+struct HabitProvider: TimelineProvider {
+                      ^
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/HabitWidget.swift:12:23: note: isolate this conformance to the main actor with '@MainActor'
+struct HabitProvider: TimelineProvider {
+                      ^
+                      @MainActor 
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/HabitWidget.swift:12:23: note: turn data races into runtime errors with '@preconcurrency'
+struct HabitProvider: TimelineProvider {
+                      ^
+                      @preconcurrency 
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/HabitWidget.swift:14:10: note: main actor-isolated instance method 'placeholder(in:)' cannot satisfy nonisolated requirement
+    func placeholder(in context: Context) -> HabitEntry {
+         ^
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/HabitWidget.swift:19:10: note: main actor-isolated instance method 'getSnapshot(in:completion:)' cannot satisfy nonisolated requirement
+    func getSnapshot(in context: Context, completion: @escaping (HabitEntry) -> ()) {
+         ^
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/HabitWidget.swift:25:10: note: main actor-isolated instance method 'getTimeline(in:completion:)' cannot satisfy nonisolated requirement
+    func getTimeline(in context: Context, completion: @escaping (Timeline<HabitEntry>) -> ()) {
+         ^
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/MemoWidget.swift:12:22: warning: conformance of 'MemoProvider' to protocol 'TimelineProvider' crosses into main actor-isolated code and can cause data races; this is an error in the Swift 6 language mode
+struct MemoProvider: TimelineProvider {
+                     ^
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/MemoWidget.swift:12:22: note: isolate this conformance to the main actor with '@MainActor'
+struct MemoProvider: TimelineProvider {
+                     ^
+                     @MainActor 
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/MemoWidget.swift:12:22: note: turn data races into runtime errors with '@preconcurrency'
+struct MemoProvider: TimelineProvider {
+                     ^
+                     @preconcurrency 
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/MemoWidget.swift:14:10: note: main actor-isolated instance method 'placeholder(in:)' cannot satisfy nonisolated requirement
+    func placeholder(in context: Context) -> MemoEntry {
+         ^
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/MemoWidget.swift:19:10: note: main actor-isolated instance method 'getSnapshot(in:completion:)' cannot satisfy nonisolated requirement
+    func getSnapshot(in context: Context, completion: @escaping (MemoEntry) -> ()) {
+         ^
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/MemoWidget.swift:25:10: note: main actor-isolated instance method 'getTimeline(in:completion:)' cannot satisfy nonisolated requirement
+    func getTimeline(in context: Context, completion: @escaping (Timeline<MemoEntry>) -> ()) {
+         ^
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/ScheduleWidget.swift:12:26: warning: conformance of 'ScheduleProvider' to protocol 'TimelineProvider' crosses into main actor-isolated code and can cause data races; this is an error in the Swift 6 language mode
+struct ScheduleProvider: TimelineProvider {
+                         ^
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/ScheduleWidget.swift:12:26: note: isolate this conformance to the main actor with '@MainActor'
+struct ScheduleProvider: TimelineProvider {
+                         ^
+                         @MainActor 
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/ScheduleWidget.swift:12:26: note: turn data races into runtime errors with '@preconcurrency'
+struct ScheduleProvider: TimelineProvider {
+                         ^
+                         @preconcurrency 
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/ScheduleWidget.swift:14:10: note: main actor-isolated instance method 'placeholder(in:)' cannot satisfy nonisolated requirement
+    func placeholder(in context: Context) -> ScheduleEntry {
+         ^
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/ScheduleWidget.swift:19:10: note: main actor-isolated instance method 'getSnapshot(in:completion:)' cannot satisfy nonisolated requirement
+    func getSnapshot(in context: Context, completion: @escaping (ScheduleEntry) -> ()) {
+         ^
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/ScheduleWidget.swift:25:10: note: main actor-isolated instance method 'getTimeline(in:completion:)' cannot satisfy nonisolated requirement
+    func getTimeline(in context: Context, completion: @escaping (Timeline<ScheduleEntry>) -> ()) {
+         ^
+/Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/ScheduleWidget.swift:142:11: error: cannot find type 'VerticalText' in scope
+extension VerticalText where Content == Text {
+          ^~~~~~~~~~~~
+/Users/inazumimakoto/Desktop/lifelog/lifelog/Models/SwiftDataModels.swift:297:33: error: cannot find type 'CalendarCategoryLink' in scope
+    var calendarCategoryLinks: [CalendarCategoryLink] // CalendarCategoryLink must be Codable
+                                ^~~~~~~~~~~~~~~~~~~~
+/Users/inazumimakoto/Desktop/lifelog/lifelog/Models/SwiftDataModels.swift:303:34: error: cannot find type 'CalendarCategoryLink' in scope
+         calendarCategoryLinks: [CalendarCategoryLink] = [],
+                                 ^~~~~~~~~~~~~~~~~~~~
+
+SwiftCompile normal arm64 Compiling\ MemoWidget.swift /Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/MemoWidget.swift (in target 'LifelogWidgetsExtension' from project 'lifelog')
+
+SwiftCompile normal arm64 /Users/inazumimakoto/Desktop/lifelog/LifelogWidgets/MemoWidget.swift (in target 'LifelogWidgetsExtension' from project 'lifelog')
+    cd /Users/inazumimakoto/Desktop/lifelog
+    
+
+** BUILD FAILED **
+
+
+The following build commands failed:
+	SwiftEmitModule normal arm64 Emitting\ module\ for\ LifelogWidgetsExtension (in target 'LifelogWidgetsExtension' from project 'lifelog')
+	EmitSwiftModule normal arm64 (in target 'LifelogWidgetsExtension' from project 'lifelog')
+	Building project lifelog with scheme LifelogWidgetsExtension
+(3 failures)

@@ -126,6 +126,20 @@ final class SDHabit {
         self.archivedAt = archivedAt
         self.orderIndex = orderIndex
     }
+    
+    func scheduleIsActive(on date: Date) -> Bool {
+        switch scheduleType {
+        case "daily":
+            return true
+        case "weekdays":
+            return !Calendar.current.isDateInWeekend(date)
+        case "custom":
+            let weekdayInt = Calendar.current.component(.weekday, from: date)
+            return scheduleDays.contains(weekdayInt)
+        default:
+            return false
+        }
+    }
 }
 
 // MARK: - SDHabitRecord

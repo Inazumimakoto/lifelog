@@ -863,7 +863,8 @@ final class AppDataStore: ObservableObject {
     // MARK: - Persistence Helpers
 
     private static func loadValue<T: Decodable>(forKey key: String, defaultValue: T) -> T {
-        let defaults = UserDefaults.standard
+        // Use Shared Defaults if possible
+        let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier) ?? UserDefaults.standard
         if let data = defaults.data(forKey: key),
            let decoded = try? JSONDecoder().decode(T.self, from: data) {
             return decoded
@@ -882,7 +883,9 @@ final class AppDataStore: ObservableObject {
 
     private func persist<T: Encodable>(_ value: T, forKey key: String) {
         if let data = try? JSONEncoder().encode(value) {
-            UserDefaults.standard.set(data, forKey: key)
+            let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier) ?? UserDefaults.standard
+            defaults.set(data, forKey: key)
+            // Backup to standard for safety? Not strictly needed if we fully migrate, but good for now.
         }
     }
 

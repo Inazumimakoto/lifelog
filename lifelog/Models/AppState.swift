@@ -18,15 +18,4 @@ struct AppState: Codable {
     var diaryReminderMinute: Int = 0
 }
 
-struct CalendarCategoryLink: Identifiable, Codable, Equatable {
-    /// EventKit の EKCalendar.calendarIdentifier
-    let calendarIdentifier: String
-    /// 表示用タイトル
-    var calendarTitle: String
-    /// 対応させる lifelog カテゴリ名（nilなら取り込まない）
-    var categoryId: String?
-    /// iOSカレンダーの色 (hex)
-    var colorHex: String?
-
-    var id: String { calendarIdentifier }
-}
+// CalendarCategoryLink moved to Models.swift for shared access

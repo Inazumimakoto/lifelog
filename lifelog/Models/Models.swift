@@ -11,12 +11,16 @@ import EventKit
 
 // MARK: - Enumerations
 
-enum TaskPriority: Int, Codable, CaseIterable, Identifiable {
+enum TaskPriority: Int, Codable, CaseIterable, Identifiable, Comparable {
     case high = 3
     case medium = 2
     case low = 1
 
     var id: Int { rawValue }
+
+    static func < (lhs: TaskPriority, rhs: TaskPriority) -> Bool {
+        return lhs.rawValue < rhs.rawValue
+    }
 
     var label: String {
         switch self {
@@ -154,6 +158,19 @@ enum Weekday: Int, CaseIterable, Identifiable, Codable {
 }
 
 // MARK: - Core Models
+
+struct CalendarCategoryLink: Identifiable, Codable, Equatable {
+    /// EventKit の EKCalendar.calendarIdentifier
+    let calendarIdentifier: String
+    /// 表示用タイトル
+    var calendarTitle: String
+    /// 対応させる lifelog カテゴリ名（nilなら取り込まない）
+    var categoryId: String?
+    /// iOSカレンダーの色 (hex)
+    var colorHex: String?
+
+    var id: String { calendarIdentifier }
+}
 
 struct MemoPad: Codable, Hashable {
     var text: String
