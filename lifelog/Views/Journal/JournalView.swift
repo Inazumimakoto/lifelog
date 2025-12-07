@@ -1436,8 +1436,8 @@ private struct CalendarDetailPanel: View {
                                         HStack(spacing: 6) {
                                             Text(event.title)
                                                 .font(.body.weight(.semibold))
-                                            // リマインダー設定済みインジケーター
-                                            if event.reminderMinutes != nil || event.reminderDate != nil {
+                                            // リマインダー設定済みインジケーター（イベント個別またはカテゴリ設定）
+                                            if hasReminder(for: event) {
                                                 Image(systemName: "bell.fill")
                                                     .font(.caption)
                                                     .foregroundStyle(.secondary)
@@ -1677,6 +1677,19 @@ private struct CalendarDetailPanel: View {
 
     private func color(for category: String) -> Color {
         CategoryPalette.color(for: category)
+    }
+    
+    private func hasReminder(for event: CalendarEvent) -> Bool {
+        // 個別イベントのリマインダー設定
+        if event.reminderMinutes != nil || event.reminderDate != nil {
+            return true
+        }
+        // カテゴリの通知設定
+        if let setting = NotificationSettingsManager.shared.getSetting(for: event.calendarName),
+           setting.enabled {
+            return true
+        }
+        return false
     }
 
     private func eventTimeLabel(for event: CalendarEvent) -> String {
