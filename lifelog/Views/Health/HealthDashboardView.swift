@@ -30,6 +30,7 @@ struct HealthDashboardView: View {
             }
             .padding()
         }
+        .showHint(.healthChartTap, message: "グラフをタップで詳細を表示")
         .navigationTitle("ヘルスケア")
         .overlay(
             Group {

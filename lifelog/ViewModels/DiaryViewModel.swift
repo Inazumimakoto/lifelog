@@ -33,6 +33,16 @@ final class DiaryViewModel: ObservableObject {
 
         cleanupMissingPhotos()
     }
+    
+    /// 別の日付のエントリを読み込む
+    func loadEntry(for date: Date) {
+        let existingEntry = store.entry(for: date)
+        var normalized = existingEntry ?? DiaryEntry(date: date, text: "")
+        normalized.mood = normalized.mood ?? .neutral
+        normalized.conditionScore = normalized.conditionScore ?? 3
+        self.entry = normalized
+        cleanupMissingPhotos()
+    }
 
     func update(text: String) {
         entry.text = text

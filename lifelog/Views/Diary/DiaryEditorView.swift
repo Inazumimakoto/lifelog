@@ -38,8 +38,29 @@ struct DiaryEditorView: View {
             locationSection
             photosSection
         }
-        .navigationTitle("日記")
+        .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                HStack(spacing: 12) {
+                    Button {
+                        navigateDay(offset: -1)
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.body.weight(.semibold))
+                    }
+                    
+                    Text(viewModel.entry.date.jaMonthDayWeekdayString)
+                        .font(.headline)
+                    
+                    Button {
+                        navigateDay(offset: 1)
+                    } label: {
+                        Image(systemName: "chevron.right")
+                            .font(.body.weight(.semibold))
+                    }
+                    .disabled(Calendar.current.isDateInToday(viewModel.entry.date))
+                }
+            }
             ToolbarItem(placement: .confirmationAction) {
                 Button("完了") {
                     HapticManager.success()
@@ -47,6 +68,25 @@ struct DiaryEditorView: View {
                 }
             }
         }
+        .gesture(
+            DragGesture(minimumDistance: 50, coordinateSpace: .local)
+                .onEnded { value in
+                    let horizontal = value.translation.width
+                    let vertical = value.translation.height
+                    // 水平方向が優勢な場合のみ
+                    if abs(horizontal) > abs(vertical) {
+                        if horizontal > 0 {
+                            // 右スワイプ → 前日
+                            navigateDay(offset: -1)
+                        } else {
+                            // 左スワイプ → 翌日
+                            if !Calendar.current.isDateInToday(viewModel.entry.date) {
+                                navigateDay(offset: 1)
+                            }
+                        }
+                    }
+                }
+        )
         .onAppear {
             selectedPlaceName = viewModel.entry.locationName ?? ""
             if let lat = viewModel.entry.latitude,
@@ -84,6 +124,22 @@ struct DiaryEditorView: View {
             get: { viewModel.entry.text },
             set: { viewModel.update(text: $0) }
         )
+    }
+    
+    private func navigateDay(offset: Int) {
+        guard let newDate = Calendar.current.date(byAdding: .day, value: offset, to: viewModel.entry.date) else { return }
+        // 未来の日付には移動しない
+        if newDate > Date() { return }
+        HapticManager.light()
+        viewModel.loadEntry(for: newDate)
+        // 位置情報をリセット
+        selectedPlaceName = viewModel.entry.locationName ?? ""
+        if let lat = viewModel.entry.latitude,
+           let lon = viewModel.entry.longitude {
+            selectedCoordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
+        } else {
+            selectedCoordinate = nil
+        }
     }
 
     private var moodBinding: Binding<MoodLevel> {

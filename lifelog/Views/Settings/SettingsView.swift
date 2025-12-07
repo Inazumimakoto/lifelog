@@ -16,6 +16,7 @@ struct SettingsView: View {
     @State private var showMailErrorAlert = false
     @State private var showCalendarSettings = false
     @State private var showNotificationSettings = false
+    @State private var showHelp = false
     
     var body: some View {
         Form {
@@ -43,6 +44,18 @@ struct SettingsView: View {
                 } label: {
                     HStack {
                         Label("通知設定", systemImage: "bell.fill")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary)
+                
+                Button {
+                    showHelp = true
+                } label: {
+                    HStack {
+                        Label("使い方", systemImage: "questionmark.circle.fill")
                         Spacer()
                         Image(systemName: "chevron.right")
                             .foregroundStyle(.secondary)
@@ -171,6 +184,9 @@ struct SettingsView: View {
                         }
                     }
             }
+        }
+        .sheet(isPresented: $showHelp) {
+            HelpView()
         }
     }
 }
