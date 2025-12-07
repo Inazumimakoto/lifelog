@@ -76,6 +76,16 @@
 
 <img src="https://github-readme-streak-stats.herokuapp.com/?user=Inazumimakoto&theme=radical&hide_border=true" alt="GitHub Streak" />
 
+### ⭐ Star History
+
+<a href="https://star-history.com/#Inazumimakoto/lifelog&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=Inazumimakoto/lifelog&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=Inazumimakoto/lifelog&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=Inazumimakoto/lifelog&type=Date" />
+ </picture>
+</a>
+
 ## Built with multiple AIs, end to end
 
 This iOS app was built **entirely with multiple AI coding assistants**.
