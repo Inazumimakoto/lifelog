@@ -19,7 +19,8 @@ struct SettingsView: View {
     
     var body: some View {
         Form {
-            Section("カレンダー") {
+            // アプリ内設定
+            Section("アプリ設定") {
                 Button {
                     showCalendarSettings = true
                 } label: {
@@ -31,15 +32,12 @@ struct SettingsView: View {
                     }
                 }
                 .foregroundStyle(.primary)
-            }
-            
-            Section("プライバシー") {
+                
                 Toggle(isOn: $appLockService.isAppLockEnabled) {
                     Label("アプリロック", systemImage: "lock.fill")
+                        .foregroundStyle(.primary)
                 }
-            }
-            
-            Section("通知") {
+                
                 Button {
                     showNotificationSettings = true
                 } label: {
@@ -53,28 +51,35 @@ struct SettingsView: View {
                 .foregroundStyle(.primary)
             }
             
-            Section("ヘルスケア") {
+            // 外部リンク
+            Section {
                 Button {
                     if let url = URL(string: UIApplication.openSettingsURLString) {
                         UIApplication.shared.open(url)
                     }
                 } label: {
-                    Label("ヘルスケア設定を開く", systemImage: "heart.fill")
-                        .foregroundStyle(.primary)
+                    HStack {
+                        Label("ヘルスケア設定を開く", systemImage: "heart.fill")
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                .foregroundStyle(.primary)
                 
-                Text("設定画面が開いたら「ヘルスケア」を選択して、データの読み書きを許可してください。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("サポート") {
                 Button {
                     ReviewRequestManager.shared.requestReviewManually()
                 } label: {
-                    Label("このアプリを応援する", systemImage: "star.fill")
-                        .foregroundStyle(.primary)
+                    HStack {
+                        Label("このアプリを応援する", systemImage: "star.fill")
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                .foregroundStyle(.primary)
                 
                 Button {
                     if MFMailComposeViewController.canSendMail() {
@@ -83,9 +88,19 @@ struct SettingsView: View {
                         showMailErrorAlert = true
                     }
                 } label: {
-                    Label("ご意見・不具合報告", systemImage: "envelope.fill")
-                        .foregroundStyle(.primary)
+                    HStack {
+                        Label("ご意見・不具合報告", systemImage: "envelope.fill")
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
+                .foregroundStyle(.primary)
+            } header: {
+                Text("外部リンク")
+            } footer: {
+                Text("タップすると外部アプリやウェブサイトが開きます")
             }
             
             Section {
