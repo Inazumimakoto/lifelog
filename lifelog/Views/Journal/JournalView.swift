@@ -346,9 +346,43 @@ struct JournalView: View {
                 let snapshot = calendarSnapshot(for: viewModel.selectedDate)
                 let pager = detailPager(includeAddButtons: true, minHeight: 640)
                 VStack(spacing: 0) {
+                    // Header: TodayView-style layout
+                    HStack(alignment: .lastTextBaseline) {
+                        // 日付: 2行表示
+                        VStack(alignment: .leading, spacing: 0) {
+                            Text(viewModel.selectedDate.yearString)
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+                            Text(viewModel.selectedDate.monthDayWeekdayString)
+                                .font(.largeTitle.bold())
+                        }
+                        
+                        Spacer()
+                        
+                        // 天気（右側）- TodayViewと同じ構造
+                        if let summary = snapshot.healthSummary,
+                           let condition = summary.weatherCondition {
+                            VStack(alignment: .trailing, spacing: 0) {
+                                Text(condition)
+                                    .font(.headline)
+                                HStack(alignment: .lastTextBaseline, spacing: 8) {
+                                    if let high = summary.highTemperature, let low = summary.lowTemperature {
+                                        Text(String(format: "%.0f°C", (high + low) / 2))
+                                            .font(.largeTitle.bold())
+                                        Text(String(format: "%.0f/%.0f", high, low))
+                                            .font(.headline)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.top, 16)
+                    .padding(.bottom, 8)
+                    
                     pager
                         .padding(.horizontal, 16)
-                        .padding(.top, 8)
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -356,23 +390,6 @@ struct JournalView: View {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("完了") {
                             showingDetailPanel = false
-                        }
-                    }
-                    ToolbarItem(placement: .principal) {
-                        VStack(spacing: 0) {
-                            Text(viewModel.selectedDate.slashMonthDayWeekdayString)
-                                .font(.title3.weight(.bold))
-                            if let summary = snapshot.healthSummary,
-                               let condition = summary.weatherCondition {
-                                HStack(spacing: 4) {
-                                    Text(condition)
-                                    if let high = summary.highTemperature, let low = summary.lowTemperature {
-                                        Text(String(format: "%.0f°/%.0f°", high, low))
-                                    }
-                                }
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            }
                         }
                     }
                 }
