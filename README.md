@@ -80,6 +80,26 @@
 
 <img src="https://github-readme-activity-graph.vercel.app/graph?username=Inazumimakoto&theme=react-dark&hide_border=true&area=true" alt="Activity Graph" />
 
+---
+
+### 🧬 Tech Stack
+
+<p align="center">
+  <img src="https://img.shields.io/badge/SwiftUI-F05138?style=for-the-badge&logo=swift&logoColor=white" alt="SwiftUI"/>
+  <img src="https://img.shields.io/badge/SwiftData-F05138?style=for-the-badge&logo=swift&logoColor=white" alt="SwiftData"/>
+  <img src="https://img.shields.io/badge/HealthKit-FF3B30?style=for-the-badge&logo=apple&logoColor=white" alt="HealthKit"/>
+  <img src="https://img.shields.io/badge/EventKit-5856D6?style=for-the-badge&logo=apple&logoColor=white" alt="EventKit"/>
+  <img src="https://img.shields.io/badge/WidgetKit-007AFF?style=for-the-badge&logo=apple&logoColor=white" alt="WidgetKit"/>
+  <img src="https://img.shields.io/badge/MVVM-000000?style=for-the-badge&logo=swift&logoColor=white" alt="MVVM"/>
+</p>
+
+---
+
+> ### 💬 *"I didn't write a single line of SwiftUI.*
+> ### *The AI did. All of it."*
+
+---
+
 ## Built with multiple AIs, end to end
 
 This iOS app was built **entirely with multiple AI coding assistants**.
