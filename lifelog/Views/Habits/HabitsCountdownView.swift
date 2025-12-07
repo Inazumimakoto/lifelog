@@ -20,6 +20,8 @@ struct HabitsCountdownView: View {
     @State private var selectedHabitForDetail: Habit?
     @State private var selectedSummaryDate: Date?
     @State private var showSettings = false
+    @State private var showHabitReorder = false
+    @State private var showAnniversaryReorder = false
 
     init(store: AppDataStore, resetTrigger: Int = 0) {
         self.store = store
@@ -98,6 +100,16 @@ struct HabitsCountdownView: View {
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button {
+                    if displayMode == .habits {
+                        showHabitReorder = true
+                    } else {
+                        showAnniversaryReorder = true
+                    }
+                } label: {
+                    Image(systemName: "arrow.up.arrow.down")
+                        .foregroundStyle(.primary)
+                }
+                Button {
                     showSettings = true
                 } label: {
                     Image(systemName: "gearshape")
@@ -108,6 +120,16 @@ struct HabitsCountdownView: View {
         .sheet(isPresented: $showSettings) {
             NavigationStack {
                 SettingsView()
+            }
+        }
+        .sheet(isPresented: $showHabitReorder) {
+            NavigationStack {
+                HabitReorderView(habitsViewModel: habitsViewModel)
+            }
+        }
+        .sheet(isPresented: $showAnniversaryReorder) {
+            NavigationStack {
+                AnniversaryReorderView(anniversaryViewModel: anniversaryViewModel)
             }
         }
     }
@@ -150,7 +172,7 @@ struct HabitsCountdownView: View {
                     actionTitle: "追加",
                     action: { showHabitEditor = true }) {
             VStack(alignment: .leading, spacing: 12) {
-                Text("行をタップすると詳細。色や曜日は編集からいつでも変更できます。")
+                Text("行をタップすると詳細。長押しで順番を入れ替えれます。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 if habitsViewModel.statuses.isEmpty {
@@ -194,6 +216,28 @@ struct HabitsCountdownView: View {
                             }
                             weekRow(for: status)
                         }
+                        .draggable(status.habit.id.uuidString) {
+                            HStack {
+                                Circle()
+                                    .fill(Color(hex: status.habit.colorHex) ?? .accentColor)
+                                    .frame(width: 10, height: 10)
+                                Text(status.habit.title)
+                            }
+                            .padding(8)
+                            .background(.regularMaterial)
+                            .cornerRadius(8)
+                        }
+                        .dropDestination(for: String.self) { items, _ in
+                            guard let draggedID = items.first,
+                                  let draggedUUID = UUID(uuidString: draggedID),
+                                  let fromIndex = habitsViewModel.statuses.firstIndex(where: { $0.habit.id == draggedUUID }) else {
+                                return false
+                            }
+                            if fromIndex != index {
+                                habitsViewModel.moveHabit(from: IndexSet(integer: fromIndex), to: index > fromIndex ? index + 1 : index)
+                            }
+                            return true
+                        }
                         if index < habitsViewModel.statuses.count - 1 {
                             Divider()
                         }
@@ -207,6 +251,9 @@ struct HabitsCountdownView: View {
         SectionCard(title: "記念日 / カウントダウン",
                     actionTitle: "追加",
                     action: { showAnniversaryEditor = true }) {
+            Text("長押しで順番を入れ替えれます。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
             if anniversaryViewModel.rows.isEmpty {
                 Text("記念日は未登録です")
                     .foregroundStyle(.secondary)
@@ -276,6 +323,23 @@ struct HabitsCountdownView: View {
                                 }
                             }
                         }
+                    }
+                    .draggable(row.anniversary.id.uuidString) {
+                        Text(row.anniversary.title)
+                            .padding(8)
+                            .background(.regularMaterial)
+                            .cornerRadius(8)
+                    }
+                    .dropDestination(for: String.self) { items, _ in
+                        guard let draggedID = items.first,
+                              let draggedUUID = UUID(uuidString: draggedID),
+                              let fromIndex = anniversaryViewModel.rows.firstIndex(where: { $0.anniversary.id == draggedUUID }) else {
+                            return false
+                        }
+                        if fromIndex != index {
+                            anniversaryViewModel.move(from: IndexSet(integer: fromIndex), to: index > fromIndex ? index + 1 : index)
+                        }
+                        return true
                     }
                     if index < anniversaryViewModel.rows.count - 1 {
                         Divider()
@@ -601,5 +665,58 @@ struct HabitDaySummarySheet: View {
             Spacer()
         }
         .padding()
+    }
+}
+
+// MARK: - 習慣並び替えビュー
+private struct HabitReorderView: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var habitsViewModel: HabitsViewModel
+    
+    var body: some View {
+        List {
+            ForEach(habitsViewModel.habits) { habit in
+                HStack {
+                    Circle()
+                        .fill(Color(hex: habit.colorHex) ?? .accentColor)
+                        .frame(width: 10, height: 10)
+                    Text(habit.title)
+                }
+            }
+            .onMove { source, destination in
+                habitsViewModel.moveHabit(from: source, to: destination)
+            }
+        }
+        .environment(\.editMode, .constant(.active))
+        .navigationTitle("習慣の並び替え")
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("完了") { dismiss() }
+            }
+        }
+    }
+}
+
+// MARK: - カウントダウン並び替えビュー
+private struct AnniversaryReorderView: View {
+    @Environment(\.dismiss) private var dismiss
+    @ObservedObject var anniversaryViewModel: AnniversaryViewModel
+    
+    var body: some View {
+        List {
+            ForEach(anniversaryViewModel.rows) { row in
+                Text(row.anniversary.title)
+            }
+            .onMove { source, destination in
+                anniversaryViewModel.move(from: source, to: destination)
+            }
+        }
+        .environment(\.editMode, .constant(.active))
+        .navigationTitle("カウントダウンの並び替え")
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("完了") { dismiss() }
+            }
+        }
     }
 }

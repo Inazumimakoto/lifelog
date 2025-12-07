@@ -49,7 +49,7 @@ final class AnniversaryViewModel: ObservableObject {
             default: text = "から\(abs(relative))日"
             }
             return Row(anniversary: anniversary, relativeText: text)
-        }.sorted(by: { $0.anniversary.targetDate < $1.anniversary.targetDate })
+        }
     }
 
     func addAnniversary(title: String,
@@ -70,5 +70,9 @@ final class AnniversaryViewModel: ObservableObject {
 
     func delete(_ anniversary: Anniversary) {
         store.deleteAnniversary(anniversary.id)
+    }
+    
+    func move(from source: IndexSet, to destination: Int) {
+        store.moveAnniversary(from: source, to: destination)
     }
 }

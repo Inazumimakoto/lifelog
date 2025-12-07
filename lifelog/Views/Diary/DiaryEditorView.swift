@@ -260,6 +260,7 @@ struct DiaryEditorView: View {
                                 .overlay(alignment: .topLeading) {
                                     Button {
                                         viewModel.setFavoritePhoto(at: index)
+                                        HapticManager.light()
                                     } label: {
                                         Image(systemName: isFavorite ? "star.fill" : "star")
                                             .font(.caption)

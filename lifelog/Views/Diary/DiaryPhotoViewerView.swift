@@ -102,6 +102,7 @@ struct DiaryPhotoViewerView: View {
         return Button {
             guard viewModel.entry.photoPaths.indices.contains(currentIndex) else { return }
             viewModel.setFavoritePhoto(at: currentIndex)
+            HapticManager.light()
         } label: {
             Image(systemName: isFavorite ? "star.fill" : "star")
                 .font(.title2)

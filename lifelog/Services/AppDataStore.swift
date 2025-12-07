@@ -10,6 +10,7 @@ import Combine
 import HealthKit
 import EventKit
 import UserNotifications
+import SwiftUI
 
 @MainActor
 final class AppDataStore: ObservableObject {
@@ -437,6 +438,11 @@ final class AppDataStore: ObservableObject {
         habits[index].archivedAt = Date()
         persistHabits()
     }
+    
+    func moveHabit(from source: IndexSet, to destination: Int) {
+        habits.move(fromOffsets: source, toOffset: destination)
+        persistHabits()
+    }
 
     // MARK: - Anniversaries
 
@@ -457,6 +463,11 @@ final class AppDataStore: ObservableObject {
         anniversaries.removeAll { $0.id == anniversaryID }
         persistAnniversaries()
         NotificationService.shared.cancelAnniversaryReminder(anniversaryId: anniversaryID)
+    }
+    
+    func moveAnniversary(from source: IndexSet, to destination: Int) {
+        anniversaries.move(fromOffsets: source, toOffset: destination)
+        persistAnniversaries()
     }
 
     // MARK: - Memo Pad

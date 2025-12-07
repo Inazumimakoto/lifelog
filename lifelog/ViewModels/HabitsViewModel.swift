@@ -204,6 +204,10 @@ final class HabitsViewModel: ObservableObject {
     func deleteHabit(_ habit: Habit) {
         store.deleteHabit(habit.id)
     }
+    
+    func moveHabit(from source: IndexSet, to destination: Int) {
+        store.moveHabit(from: source, to: destination)
+    }
 
     func monthlyCompletionCount(for habit: Habit, in month: Date = Date()) -> Int {
         let calendar = Calendar.current
