@@ -15,6 +15,7 @@ struct EmotionTagManagerView: View {
     @State private var newTagEmoji = ""
     @State private var newTagName = ""
     @State private var newTagMoodRange = 3 // 1=ネガティブ, 3=中立, 5=ポジティブ
+    @State private var showEmojiPicker = false
     
     private let emojiOptions = [
         // 気分1-2（ネガティブ）
@@ -32,9 +33,15 @@ struct EmotionTagManagerView: View {
                 Section("タグを追加") {
                     // 絵文字選択
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("絵文字を選択")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        HStack {
+                            Text("絵文字を選択")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Text("← スクロール →")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 ForEach(emojiOptions, id: \.self) { emoji in
@@ -49,6 +56,17 @@ struct EmotionTagManagerView: View {
                                     }
                                     .buttonStyle(.plain)
                                 }
+                                // もっと選ぶボタン
+                                Button {
+                                    showEmojiPicker = true
+                                } label: {
+                                    Image(systemName: "plus")
+                                        .font(.title2)
+                                        .foregroundStyle(Color.accentColor)
+                                        .padding(8)
+                                        .background(Color(.secondarySystemBackground), in: Circle())
+                                }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
@@ -59,22 +77,28 @@ struct EmotionTagManagerView: View {
                             .font(.title2)
                             .frame(width: 44)
                         TextField("タグ名を入力", text: $newTagName)
-                        Button {
-                            addNewTag()
-                        } label: {
-                            Image(systemName: "plus.circle.fill")
-                                .foregroundStyle(.green)
-                                .font(.title2)
-                        }
-                        .disabled(newTagName.isEmpty)
                     }
                     
+                    // 表示する気分
                     Picker("表示する気分", selection: $newTagMoodRange) {
                         Text("😢 気分1-2").tag(1)
                         Text("😐 気分3").tag(3)
                         Text("😊 気分4-5").tag(5)
                     }
                     .pickerStyle(.segmented)
+                    
+                    // 追加ボタン
+                    Button {
+                        addNewTag()
+                    } label: {
+                        HStack {
+                            Image(systemName: "plus.circle.fill")
+                            Text("タグを追加")
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(newTagName.isEmpty)
                 }
                 
                 // カスタムタグ一覧
@@ -116,8 +140,17 @@ struct EmotionTagManagerView: View {
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("完了") {
+                        // 入力中のタグがあれば保存
+                        if !newTagName.isEmpty {
+                            addNewTag()
+                        }
                         dismiss()
                     }
+                }
+            }
+            .sheet(isPresented: $showEmojiPicker) {
+                EmojiGridPickerSheet { emoji in
+                    newTagEmoji = emoji
                 }
             }
         }
@@ -150,5 +183,79 @@ struct EmotionTagManagerView: View {
         case 4...5: return "気分4-5"
         default: return "気分\(range.lowerBound)-\(range.upperBound)"
         }
+    }
+}
+
+// MARK: - Emoji Grid Picker Sheet
+private struct EmojiGridPickerSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let onSelect: (String) -> Void
+    
+    // 絵文字カテゴリ
+    private let categories: [(name: String, emojis: [String])] = [
+        ("顔", ["😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "😊", "😇", "🥰", "😍", "🤩", "😘", "😗", "😚", "😋", "😛", "😜", "🤪", "😝", "🤑", "🤗", "🤭", "🤫", "🤔", "🤐", "🤨", "😐", "😑", "😶", "😏", "😒", "🙄", "😬", "😮‍💨", "🤥", "😌", "😔", "😪", "🤤", "😴", "😷", "🤒", "🤕", "🤢", "🤮", "🤧", "🥵", "🥶", "🥴", "😵", "🤯", "🤠", "🥳", "🥸", "😎", "🤓", "🧐", "😭", "😢", "😰", "😱", "😔", "😩", "😣", "😖", "😓"]),
+        ("感情", ["❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "🤎", "💔", "❤️‍🔥", "❤️‍🩹", "💕", "💞", "💓", "💗", "💖", "💝", "💘", "✨", "⭐", "🌟", "💫", "🔥", "💯", "💢", "💥", "💦", "💨", "💣", "💬", "💭", "💤"]),
+        ("ジェスチャー", ["👍", "👎", "👊", "✊", "🤛", "🤜", "👏", "🙌", "👐", "🤲", "🤝", "🙏", "✍️", "💅", "🤳", "💪", "👀", "👁️", "👅", "👄"]),
+        ("自然", ["🌸", "💮", "🌹", "🥀", "🌺", "🌻", "🌼", "🌷", "🌱", "🪴", "🌲", "🌳", "🌴", "🌵", "🌿", "☘️", "🍀", "🍁", "🍂", "🍃", "🌙", "☀️", "⭐", "🌟", "🌈", "☔", "❄️", "🔥", "💧", "🌊"]),
+        ("食べ物", ["🍎", "🍊", "🍋", "🍌", "🍉", "🍇", "🍓", "🍈", "🍒", "🍑", "🥭", "🍍", "🥝", "🍅", "🥑", "🥦", "🌽", "🥕", "🍕", "🍔", "🍟", "🍰", "🍩", "🍪", "☕", "🍵", "🍺", "🍷"]),
+        ("活動", ["⚽", "🏀", "🎾", "🎮", "🎨", "🎬", "🎤", "🎧", "🎼", "🎹", "🎸", "🏆", "🥇", "🥈", "🥉", "🏅", "🎯", "🎳"]),
+        ("記号", ["❤️", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💝", "💘", "✅", "❌", "⭕", "💯", "💢", "❗", "❓", "‼️", "⁉️", "✔️", "☑️", "🔴", "🟠", "🟡", "🟢", "🔵", "🟣", "⚫", "⚪", "🟤"])
+    ]
+    
+    @State private var selectedCategory = 0
+    
+    var body: some View {
+        NavigationStack {
+            VStack(spacing: 0) {
+                // カテゴリタブ
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 12) {
+                        ForEach(Array(categories.enumerated()), id: \.offset) { index, category in
+                            Button {
+                                selectedCategory = index
+                            } label: {
+                                Text(category.name)
+                                    .font(.subheadline)
+                                    .padding(.horizontal, 12)
+                                    .padding(.vertical, 6)
+                                    .background(selectedCategory == index ? Color.accentColor : Color(.secondarySystemBackground), in: Capsule())
+                                    .foregroundStyle(selectedCategory == index ? .white : .primary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal)
+                }
+                .padding(.vertical, 12)
+                
+                Divider()
+                
+                // 絵文字グリッド
+                ScrollView {
+                    LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8, alignment: .center), count: 8), alignment: .leading, spacing: 8) {
+                        ForEach(categories[selectedCategory].emojis, id: \.self) { emoji in
+                            Button {
+                                onSelect(emoji)
+                                HapticManager.light()
+                                dismiss()
+                            } label: {
+                                Text(emoji)
+                                    .font(.title)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding()
+                }
+            }
+            .navigationTitle("絵文字を選択")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") { dismiss() }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
     }
 }
