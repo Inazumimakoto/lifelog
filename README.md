@@ -41,10 +41,12 @@
   <a href="https://deepseek.com"><img src="https://registry.npmmirror.com/@lobehub/icons-static-png/1.39.0/files/dark/deepseek-color.png" width="64" height="64" alt="DeepSeek"/></a>
   &nbsp;&nbsp;&nbsp;
   <a href="https://x.ai"><img src="https://registry.npmmirror.com/@lobehub/icons-static-png/1.39.0/files/dark/grok.png" width="64" height="64" alt="Grok"/></a>
+  &nbsp;&nbsp;&nbsp;
+  <a href="https://github.com/features/copilot"><img src="https://registry.npmmirror.com/@lobehub/icons-static-png/1.39.0/files/dark/github-copilot.png" width="64" height="64" alt="GitHub Copilot"/></a>
 </p>
 
 <p align="center">
-  <strong>ChatGPT</strong> &nbsp;•&nbsp; <strong>Gemini</strong> &nbsp;•&nbsp; <strong>Claude</strong> &nbsp;•&nbsp; <strong>DeepSeek</strong> &nbsp;•&nbsp; <strong>Grok</strong>
+  <strong>ChatGPT</strong> &nbsp;•&nbsp; <strong>Gemini</strong> &nbsp;•&nbsp; <strong>Claude</strong> &nbsp;•&nbsp; <strong>DeepSeek</strong> &nbsp;•&nbsp; <strong>Grok</strong> &nbsp;•&nbsp; <strong>Copilot</strong>
 </p>
 
 <br>
