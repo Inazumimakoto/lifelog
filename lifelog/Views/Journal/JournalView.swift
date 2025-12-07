@@ -342,14 +342,42 @@ struct JournalView: View {
             )
         }
         .sheet(isPresented: $showingDetailPanel) {
-            let pager = detailPager(includeAddButtons: true, minHeight: 640)
-            VStack(spacing: 0) {
-                pager
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-                Spacer(minLength: 0)
+            NavigationStack {
+                let snapshot = calendarSnapshot(for: viewModel.selectedDate)
+                let pager = detailPager(includeAddButtons: true, minHeight: 640)
+                VStack(spacing: 0) {
+                    pager
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("完了") {
+                            showingDetailPanel = false
+                        }
+                    }
+                    ToolbarItem(placement: .principal) {
+                        VStack(spacing: 0) {
+                            Text(viewModel.selectedDate.slashMonthDayWeekdayString)
+                                .font(.title3.weight(.bold))
+                            if let summary = snapshot.healthSummary,
+                               let condition = summary.weatherCondition {
+                                HStack(spacing: 4) {
+                                    Text(condition)
+                                    if let high = summary.highTemperature, let low = summary.lowTemperature {
+                                        Text(String(format: "%.0f°/%.0f°", high, low))
+                                    }
+                                }
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                .navigationBarTitleDisplayMode(.inline)
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .onAppear {
                 prepareDetailPagerIfNeeded()
                 ensureDetailPagerIncludes(date: viewModel.selectedDate)
@@ -1063,33 +1091,35 @@ struct JournalView: View {
     }
 
     private func detailPager(includeAddButtons: Bool, minHeight: CGFloat = 520) -> some View {
-        SectionCard(title: "") {
-            TabView(selection: $detailPagerSelection) {
-                ForEach(Array(detailPagerAnchors.enumerated()), id: \.offset) { index, anchor in
-                    let snapshot = calendarSnapshot(for: anchor)
-                    let content: AnyView = calendarMode == .schedule
-                    ? AnyView(
-                        CalendarDetailPanel(snapshot: snapshot,
-                                            store: store,
-                                            includeAddButtons: includeAddButtons,
-                                            onToggleTask: { toggleTask($0) },
-                                            onToggleHabit: { toggleHabit($0, on: snapshot.date) })
-                    )
-                    : AnyView(reviewDetailCard(for: anchor))
-                    content.tag(index)
-                }
+        TabView(selection: $detailPagerSelection) {
+            ForEach(Array(detailPagerAnchors.enumerated()), id: \.offset) { index, anchor in
+                let snapshot = calendarSnapshot(for: anchor)
+                let content: AnyView = calendarMode == .schedule
+                ? AnyView(
+                    CalendarDetailPanel(snapshot: snapshot,
+                                        store: store,
+                                        includeAddButtons: includeAddButtons,
+                                        onToggleTask: { toggleTask($0) },
+                                        onToggleHabit: { toggleHabit($0, on: snapshot.date) })
+                )
+                : AnyView(reviewDetailCard(for: anchor))
+                content.tag(index)
             }
-            .tabViewStyle(.page(indexDisplayMode: .never))
-            .frame(maxWidth: .infinity)
-            .frame(minHeight: calendarMode == .schedule ? minHeight : nil)
-            .onChange(of: detailPagerSelection) { _, newSelection in
-                guard detailPagerAnchors.indices.contains(newSelection) else { return }
-                let date = detailPagerAnchors[newSelection]
-                if date.startOfDay != viewModel.selectedDate.startOfDay {
-                    isSyncingDetailPager = true
-                    viewModel.selectedDate = date
-                }
-                extendDetailPagerIfNeeded(at: newSelection)
+        }
+        .tabViewStyle(.page(indexDisplayMode: .never))
+        .frame(maxWidth: .infinity)
+        .frame(minHeight: calendarMode == .schedule ? minHeight : nil)
+        .onChange(of: detailPagerSelection) { _, newSelection in
+            guard detailPagerAnchors.indices.contains(newSelection) else { return }
+            let date = detailPagerAnchors[newSelection]
+            if date.startOfDay != viewModel.selectedDate.startOfDay {
+                isSyncingDetailPager = true
+                viewModel.selectedDate = date
+            }
+            extendDetailPagerIfNeeded(at: newSelection)
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                self.isSyncingDetailPager = false
             }
         }
         .id(ScrollTarget.detailPanel)
@@ -1277,7 +1307,7 @@ struct JournalView: View {
     }
 
     private func dayPreviewItems(for date: Date) -> [DayPreviewItem] {
-        let calendar = Calendar.current
+
         let events = store.events(on: date).sorted { lhs, rhs in
             if lhs.isAllDay != rhs.isAllDay {
                 return lhs.isAllDay && rhs.isAllDay == false
@@ -1416,7 +1446,7 @@ private struct CalendarDetailPanel: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
-                header
+
                 summaryRow
                 OverviewSection(icon: "calendar",
                                 title: "予定",
@@ -1611,31 +1641,7 @@ private struct CalendarDetailPanel: View {
         }
     }
 
-    private var header: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(snapshot.date.jaYearMonthDayString)
-                    .font(.title3.bold())
-                Text(snapshot.date.jaWeekdayWideString)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-            // 天気表示
-            if let summary = snapshot.healthSummary,
-               let condition = summary.weatherCondition {
-                VStack(alignment: .trailing, spacing: 2) {
-                    Text(condition)
-                        .font(.subheadline)
-                    if let high = summary.highTemperature, let low = summary.lowTemperature {
-                        Text(String(format: "%.0f°/%.0f°", high, low))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-    }
+
 
     private var summaryRow: some View {
         HStack(spacing: 12) {
@@ -1950,90 +1956,85 @@ private struct ReviewDetailPanel: View {
     }
     
     var body: some View {
-        SectionCard(title: "") {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack {
-                    Text("\(DateFormatter.japaneseYearMonthDay.string(from: date)) (\(date.jaWeekdayWideString))")
-                        .font(.headline)
-                    Spacer()
-                }
-                if let diary, photoPaths.isEmpty == false {
-                    TabView(selection: $photoSelection) {
-                        ForEach(Array(photoPaths.enumerated()), id: \.offset) { index, path in
-                            if let image = PhotoStorage.loadImage(at: path) {
-                                image
-                                    .resizable()
-                                    .scaledToFill()
-                                    .onTapGesture {
-                                        selectedPhotoIndex = index
-                                        showPhotoViewer = true
-                                    }
-                                    .frame(height: 220)
-                                    .frame(maxWidth: .infinity)
-                                    .clipped()
-                                    .cornerRadius(12)
-                                    .tag(index)
-                            }
+        VStack(alignment: .leading, spacing: 12) {
+            if let diary, photoPaths.isEmpty == false {
+                TabView(selection: $photoSelection) {
+                    ForEach(Array(photoPaths.enumerated()), id: \.offset) { index, path in
+                        if let image = PhotoStorage.loadImage(at: path) {
+                            image
+                                .resizable()
+                                .scaledToFill()
+                                .onTapGesture {
+                                    selectedPhotoIndex = index
+                                    showPhotoViewer = true
+                                }
+                                .frame(height: 220)
+                                .frame(maxWidth: .infinity)
+                                .clipped()
+                                .cornerRadius(12)
+                                .tag(index)
                         }
                     }
-                    .tabViewStyle(.page(indexDisplayMode: .automatic))
-                    .frame(height: 240)
                 }
-                if let diary {
-                    if let mood = diary.mood {
-                        HStack(spacing: 8) {
-                            Text(mood.emoji)
-                            Text("気分 \(mood.rawValue)")
-                        }
+                .tabViewStyle(.page(indexDisplayMode: .automatic))
+                .frame(height: 240)
+            }
+            if let diary {
+                if let mood = diary.mood {
+                    HStack(spacing: 8) {
+                        Text(mood.emoji)
+                        Text("気分 \(mood.rawValue)")
+                    }
+                    .foregroundStyle(.primary)
+                }
+                if let condition = diary.conditionScore {
+                    HStack(spacing: 8) {
+                        Text(conditionEmoji(for: condition))
+                        Text("体調 \(condition)")
+                    }
+                    .foregroundStyle(.primary)
+                }
+                if let place = diary.locationName, place.isEmpty == false {
+                    Label(place, systemImage: "mappin.and.ellipse")
                         .foregroundStyle(.primary)
-                    }
-                    if let condition = diary.conditionScore {
-                        HStack(spacing: 8) {
-                            Text(conditionEmoji(for: condition))
-                            Text("体調 \(condition)")
-                        }
-                        .foregroundStyle(.primary)
-                    }
-                    if let place = diary.locationName, place.isEmpty == false {
-                        Label(place, systemImage: "mappin.and.ellipse")
-                            .foregroundStyle(.primary)
-                    }
-                    if diary.text.isEmpty == false {
-                        Text(diary.text)
-                            .font(.body)
-                            .lineLimit(1)
-                    }
-                    Button {
-                        showDiaryEditor = true
-                    } label: {
-                        Text("この日の日記を開く")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
-                } else {
-                    Text("この日の日記はまだありません。")
-                        .foregroundStyle(.secondary)
-                    Button {
-                        showDiaryEditor = true
-                    } label: {
-                        Text("日記を書く")
-                            .frame(maxWidth: .infinity)
-                    }
-                    .buttonStyle(.borderedProminent)
                 }
+                if diary.text.isEmpty == false {
+                    Text(diary.text)
+                        .font(.body)
+                        .lineLimit(1)
+                }
+                Button {
+                    showDiaryEditor = true
+                } label: {
+                    Text("この日の日記を開く")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+            } else {
+                Text("この日の日記はまだありません。")
+                    .foregroundStyle(.secondary)
+                Button {
+                    showDiaryEditor = true
+                } label: {
+                    Text("日記を書く")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
             }
             Spacer(minLength: 0)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .onAppear {
-                // お気に入り写真があればそれを表示
-                let maxIndex = max(photoPaths.count - 1, 0)
-                let initial = min(preferredIndex, maxIndex)
-                photoSelection = max(0, initial)
-            }
-            .onChange(of: photoPaths) { paths in
-                let maxIndex = max(paths.count - 1, 0)
-                reviewPhotoIndex = min(reviewPhotoIndex, maxIndex)
-            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .onAppear {
+            // お気に入り写真があればそれを表示
+            let maxIndex = max(photoPaths.count - 1, 0)
+            let initial = min(preferredIndex, maxIndex)
+            photoSelection = max(0, initial)
+        }
+        .onChange(of: photoPaths) { paths in
+            let maxIndex = max(paths.count - 1, 0)
+            reviewPhotoIndex = min(reviewPhotoIndex, maxIndex)
         }
         .sheet(isPresented: $showDiaryEditor) {
             NavigationStack {

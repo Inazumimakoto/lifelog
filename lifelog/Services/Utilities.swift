@@ -135,6 +135,14 @@ extension Date {
         return formatter.string(from: self)
     }
 
+    /// 2024年 形式
+    var jaYearString: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "yyyy年"
+        return formatter.string(from: self)
+    }
+
     func memoPadDisplayString(relativeTo reference: Date = Date()) -> String {
         if Calendar.current.isDate(self, inSameDayAs: reference) {
             return DateFormatter.japaneseTime.string(from: self)
@@ -145,6 +153,16 @@ extension Date {
     /// YYYY/MM/DD(曜日) 形式
     var compactDateString: String {
         let dateStr = DateFormatter.compactDate.string(from: self)
+        let weekday = DateFormatter.japaneseWeekdayNarrow.string(from: self)
+        return "\(dateStr)(\(weekday))"
+    }
+
+    /// 12/07(日) 形式
+    var slashMonthDayWeekdayString: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "MM/dd"
+        let dateStr = formatter.string(from: self)
         let weekday = DateFormatter.japaneseWeekdayNarrow.string(from: self)
         return "\(dateStr)(\(weekday))"
     }
