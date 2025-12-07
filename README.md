@@ -56,7 +56,7 @@
   &nbsp;&nbsp;&nbsp;
   <a href="https://www.apple.com/ios/"><img src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/IOS_logo.svg/64px-IOS_logo.svg.png" width="64" height="64" alt="iOS"/></a>
   &nbsp;&nbsp;&nbsp;
-  <a href="https://deepmind.google/"><img src="https://registry.npmmirror.com/@lobehub/icons-static-png/1.39.0/files/dark/google.png" width="64" height="64" alt="Google Antigravity"/></a>
+  <a href="https://deepmind.google/"><img src="assets/antigravity-logo.png" width="64" height="64" alt="Google Antigravity"/></a>
 </p>
 
 <p align="center">
