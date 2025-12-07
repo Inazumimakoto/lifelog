@@ -57,6 +57,14 @@
 
 <img src="https://github-readme-activity-graph.vercel.app/graph?username=Inazumimakoto&theme=react-dark&hide_border=true&area=true" alt="Activity Graph" />
 
+### 🐍 Contribution Snake
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/Inazumimakoto/Inazumimakoto/output/github-snake-dark.svg" />
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/Inazumimakoto/Inazumimakoto/output/github-snake.svg" />
+  <img alt="github-snake" src="https://raw.githubusercontent.com/Inazumimakoto/Inazumimakoto/output/github-snake-dark.svg" />
+</picture>
+
 ---
 
 ### 🧬 Tech Stack
