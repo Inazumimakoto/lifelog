@@ -12,6 +12,8 @@ import HealthKit
 struct HealthDashboardView: View {
     @StateObject private var viewModel: HealthViewModel
     @State private var showSettings = false
+    @State private var selectedStepsIndex: Int? = nil
+    @State private var selectedSleepIndex: Int? = nil
 
     init(store: AppDataStore) {
         _viewModel = StateObject(wrappedValue: HealthViewModel(store: store))
@@ -216,28 +218,106 @@ struct HealthDashboardView: View {
                     .foregroundStyle(.secondary)
             } else {
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack(alignment: .bottom, spacing: 8) {
-                        ForEach(Array(summaries.enumerated()), id: \.offset) { _, summary in
-                            let steps = summary.steps ?? 0
-                            VStack(spacing: 4) {
-                                Text("\(steps)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(Color.accentColor)
-                                    .frame(height: barHeight(for: steps, in: summaries))
-                        Text(summary.date.jaWeekdayNarrowString)
-                                    .font(.caption2)
+                    ZStack(alignment: .top) {
+                        HStack(alignment: .bottom, spacing: 8) {
+                            ForEach(Array(summaries.enumerated()), id: \.offset) { index, summary in
+                                let steps = summary.steps ?? 0
+                                VStack(spacing: 4) {
+                                    Text("\(steps)")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(selectedStepsIndex == index ? Color.accentColor.opacity(0.7) : Color.accentColor)
+                                        .frame(height: barHeight(for: steps, in: summaries))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .stroke(selectedStepsIndex == index ? Color.white : Color.clear, lineWidth: 2)
+                                        )
+                                        .onTapGesture {
+                                            HapticManager.light()
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                if selectedStepsIndex == index {
+                                                    selectedStepsIndex = nil
+                                                } else {
+                                                    selectedStepsIndex = index
+                                                }
+                                            }
+                                        }
+                                    Text(summary.date.jaWeekdayNarrowString)
+                                        .font(.caption2)
+                                }
+                                .frame(maxWidth: .infinity)
                             }
-                            .frame(maxWidth: .infinity)
+                        }
+                        
+                        // ツールチップ
+                        if let index = selectedStepsIndex, index < summaries.count {
+                            stepsTooltip(for: summaries[index], allSummaries: summaries)
+                                .transition(.opacity.combined(with: .scale(scale: 0.9)))
                         }
                     }
-                Text("直近7日分の歩数です。")
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    Text("タップで詳細を表示")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
                 }
             }
         }
+        .onTapGesture {
+            // 外側タップで閉じる
+            if selectedStepsIndex != nil {
+                withAnimation { selectedStepsIndex = nil }
+            }
+        }
+    }
+    
+    private func stepsTooltip(for summary: HealthSummary, allSummaries: [HealthSummary]) -> some View {
+        let steps = summary.steps ?? 0
+        let average = allSummaries.compactMap { $0.steps }.reduce(0, +) / max(allSummaries.count, 1)
+        let avgDiff = steps - average
+        
+        // 前週同曜日を取得
+        let calendar = Calendar.current
+        let lastWeekDate = calendar.date(byAdding: .day, value: -7, to: summary.date)
+        let lastWeekSummary = viewModel.summaries.first { 
+            lastWeekDate != nil && calendar.isDate($0.date, inSameDayAs: lastWeekDate!) 
+        }
+        let lastWeekSteps = lastWeekSummary?.steps ?? 0
+        let weekDiff = lastWeekSteps > 0 ? steps - lastWeekSteps : nil
+        
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(summary.date.jaMonthDayWeekdayString)
+                .font(.caption.bold())
+            Text("\(steps.formatted()) 歩")
+                .font(.subheadline.bold())
+            
+            Divider()
+            
+            HStack {
+                Text("週平均比")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(avgDiff >= 0 ? "+\(avgDiff.formatted())" : "\(avgDiff.formatted())")
+                    .font(.caption.bold())
+                    .foregroundStyle(avgDiff >= 0 ? .green : .red)
+            }
+            
+            if let diff = weekDiff {
+                HStack {
+                    Text("先週\(summary.date.jaWeekdayNarrowString)比")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(diff >= 0 ? "+\(diff.formatted())" : "\(diff.formatted())")
+                        .font(.caption.bold())
+                        .foregroundStyle(diff >= 0 ? .green : .red)
+                }
+            }
+        }
+        .padding(12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+        .frame(maxWidth: 180)
     }
 
     private var sleepDurationChart: some View {
@@ -249,28 +329,106 @@ struct HealthDashboardView: View {
                     .foregroundStyle(.secondary)
             } else {
                 VStack(alignment: .leading, spacing: 12) {
-                    HStack(alignment: .bottom, spacing: 8) {
-                        ForEach(Array(summaries.enumerated()), id: \.offset) { _, summary in
-                            let hours = summary.sleepHours ?? 0
-                            VStack(spacing: 4) {
-                                Text(String(format: "%.1f h", hours))
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(Color.purple)
-                                    .frame(height: sleepBarHeight(for: hours, in: summaries))
-                        Text(summary.date.jaWeekdayNarrowString)
-                                    .font(.caption2)
+                    ZStack(alignment: .top) {
+                        HStack(alignment: .bottom, spacing: 8) {
+                            ForEach(Array(summaries.enumerated()), id: \.offset) { index, summary in
+                                let hours = summary.sleepHours ?? 0
+                                VStack(spacing: 4) {
+                                    Text(String(format: "%.1f h", hours))
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    RoundedRectangle(cornerRadius: 6)
+                                        .fill(selectedSleepIndex == index ? Color.purple.opacity(0.7) : Color.purple)
+                                        .frame(height: sleepBarHeight(for: hours, in: summaries))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 6)
+                                                .stroke(selectedSleepIndex == index ? Color.white : Color.clear, lineWidth: 2)
+                                        )
+                                        .onTapGesture {
+                                            HapticManager.light()
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                if selectedSleepIndex == index {
+                                                    selectedSleepIndex = nil
+                                                } else {
+                                                    selectedSleepIndex = index
+                                                }
+                                            }
+                                        }
+                                    Text(summary.date.jaWeekdayNarrowString)
+                                        .font(.caption2)
+                                }
+                                .frame(maxWidth: .infinity)
                             }
-                            .frame(maxWidth: .infinity)
+                        }
+                        
+                        // ツールチップ
+                        if let index = selectedSleepIndex, index < summaries.count {
+                            sleepTooltip(for: summaries[index], allSummaries: summaries)
+                                .transition(.opacity.combined(with: .scale(scale: 0.9)))
                         }
                     }
-                    Text("直近7日分の睡眠時間です。")
+                    Text("タップで詳細を表示")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
         }
+        .onTapGesture {
+            // 外側タップで閉じる
+            if selectedSleepIndex != nil {
+                withAnimation { selectedSleepIndex = nil }
+            }
+        }
+    }
+    
+    private func sleepTooltip(for summary: HealthSummary, allSummaries: [HealthSummary]) -> some View {
+        let hours = summary.sleepHours ?? 0
+        let average = allSummaries.compactMap { $0.sleepHours }.reduce(0, +) / Double(max(allSummaries.count, 1))
+        let avgDiff = hours - average
+        
+        // 前週同曜日を取得
+        let calendar = Calendar.current
+        let lastWeekDate = calendar.date(byAdding: .day, value: -7, to: summary.date)
+        let lastWeekSummary = viewModel.summaries.first { 
+            lastWeekDate != nil && calendar.isDate($0.date, inSameDayAs: lastWeekDate!) 
+        }
+        let lastWeekHours = lastWeekSummary?.sleepHours ?? 0
+        let weekDiff = lastWeekHours > 0 ? hours - lastWeekHours : nil
+        
+        return VStack(alignment: .leading, spacing: 6) {
+            Text(summary.date.jaMonthDayWeekdayString)
+                .font(.caption.bold())
+            Text(String(format: "%.1f 時間", hours))
+                .font(.subheadline.bold())
+            
+            Divider()
+            
+            HStack {
+                Text("週平均比")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(String(format: avgDiff >= 0 ? "+%.1f h" : "%.1f h", avgDiff))
+                    .font(.caption.bold())
+                    .foregroundStyle(avgDiff >= 0 ? .green : .red)
+            }
+            
+            if let diff = weekDiff {
+                HStack {
+                    Text("先週\(summary.date.jaWeekdayNarrowString)比")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Text(String(format: diff >= 0 ? "+%.1f h" : "%.1f h", diff))
+                        .font(.caption.bold())
+                        .foregroundStyle(diff >= 0 ? .green : .red)
+                }
+            }
+        }
+        .padding(12)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12))
+        .shadow(color: .black.opacity(0.2), radius: 8, x: 0, y: 4)
+        .frame(maxWidth: 180)
     }
 
     private var fitnessSection: some View {

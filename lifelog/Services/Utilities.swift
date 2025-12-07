@@ -127,6 +127,14 @@ extension Date {
         jaWeekdayNarrowString
     }
 
+    /// 12月5日(火) 形式
+    var jaMonthDayWeekdayString: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "M月d日(EEE)"
+        return formatter.string(from: self)
+    }
+
     func memoPadDisplayString(relativeTo reference: Date = Date()) -> String {
         if Calendar.current.isDate(self, inSameDayAs: reference) {
             return DateFormatter.japaneseTime.string(from: self)
