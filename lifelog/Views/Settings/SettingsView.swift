@@ -166,7 +166,7 @@ struct SettingsView: View {
             MailComposerView(
                 subject: "lifelogご意見・不具合報告",
                 recipients: ["inazumimakoto@gmail.com"], // 実際のサポートアドレスに変更する
-                body: "\n\n\nデバイス: \(UIDevice.current.model)\niOSバージョン: \(UIDevice.current.systemVersion)\nアプリバージョン: 1.5"
+                body: "\n\n\nデバイス: \(UIDevice.current.model)\niOSバージョン: \(UIDevice.current.systemVersion)\nアプリバージョン: 1.6"
             )
         }
         .alert("メールアカウントが設定されていません", isPresented: $showMailErrorAlert) {
