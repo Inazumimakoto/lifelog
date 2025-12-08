@@ -19,6 +19,10 @@ struct SettingsView: View {
     @State private var showHelp = false
     @State private var showLetterList = false
     
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    }
+    
     var body: some View {
         Form {
             // アプリ内設定
@@ -147,7 +151,7 @@ struct SettingsView: View {
             }
             
             Section {
-                Text("バージョン 1.5")
+                Text("バージョン \(appVersion)")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .center)
             }
@@ -166,7 +170,7 @@ struct SettingsView: View {
             MailComposerView(
                 subject: "lifelogご意見・不具合報告",
                 recipients: ["inazumimakoto@gmail.com"], // 実際のサポートアドレスに変更する
-                body: "\n\n\nデバイス: \(UIDevice.current.model)\niOSバージョン: \(UIDevice.current.systemVersion)\nアプリバージョン: 1.6"
+                body: "\n\n\nデバイス: \(UIDevice.current.model)\niOSバージョン: \(UIDevice.current.systemVersion)\nアプリバージョン: \(appVersion)"
             )
         }
         .alert("メールアカウントが設定されていません", isPresented: $showMailErrorAlert) {
