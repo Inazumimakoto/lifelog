@@ -121,7 +121,10 @@ struct TodayView: View {
                 }
             }
         }
-        .fullScreenCover(isPresented: $showLetterOpening) {
+        .fullScreenCover(isPresented: $showLetterOpening, onDismiss: {
+            // キャンセル時に状態をリセット
+            letterToOpen = nil
+        }) {
             Group {
                 if let letter = letterToOpen {
                     LetterOpeningView(letter: letter) {

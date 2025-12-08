@@ -10,6 +10,8 @@ import SwiftUI
 struct LetterContentView: View {
     let letter: Letter
     @State private var loadedImages: [UIImage] = []
+    @State private var selectedPhotoIndex: Int = 0
+    @State private var showFullscreenPhoto = false
     
     var body: some View {
         ScrollView {
@@ -38,21 +40,41 @@ struct LetterContentView: View {
                     .font(.body)
                     .lineSpacing(6)
                 
-                // 写真があれば表示
+                // 写真カルーセル（写真がある場合のみ）
                 if !loadedImages.isEmpty {
                     Divider()
                     
-                    Text("添付写真")
-                        .font(.headline)
-                    
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                        ForEach(loadedImages.indices, id: \.self) { index in
-                            Image(uiImage: loadedImages[index])
-                                .resizable()
-                                .scaledToFill()
-                                .frame(height: 150)
-                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                    VStack(spacing: 12) {
+                        // セクションヘッダー
+                        HStack {
+                            Image(systemName: "photo.on.rectangle.angled")
+                                .foregroundColor(.orange)
+                            Text("添付写真")
+                                .font(.headline)
+                            Spacer()
+                            Text("\(loadedImages.count)枚")
+                                .font(.caption)
+                                .foregroundColor(.gray)
                         }
+                        
+                        // カルーセル
+                        TabView(selection: $selectedPhotoIndex) {
+                            ForEach(loadedImages.indices, id: \.self) { index in
+                                Image(uiImage: loadedImages[index])
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(maxWidth: .infinity)
+                                    .frame(height: 200)
+                                    .clipped()
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .tag(index)
+                                    .onTapGesture {
+                                        showFullscreenPhoto = true
+                                    }
+                            }
+                        }
+                        .tabViewStyle(.page(indexDisplayMode: .automatic))
+                        .frame(height: 220)
                     }
                 }
                 
@@ -65,6 +87,9 @@ struct LetterContentView: View {
         .task {
             loadPhotos()
         }
+        .fullScreenCover(isPresented: $showFullscreenPhoto) {
+            fullscreenPhotoViewer
+        }
     }
     
     private func loadPhotos() {
@@ -72,6 +97,47 @@ struct LetterContentView: View {
             if let data = FileManager.default.contents(atPath: path),
                let image = UIImage(data: data) {
                 loadedImages.append(image)
+            }
+        }
+    }
+    
+    // MARK: - フルスクリーン写真ビューア
+    
+    private var fullscreenPhotoViewer: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+            
+            TabView(selection: $selectedPhotoIndex) {
+                ForEach(loadedImages.indices, id: \.self) { index in
+                    Image(uiImage: loadedImages[index])
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .tag(index)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .automatic))
+            
+            // 閉じるボタン
+            VStack {
+                HStack {
+                    Spacer()
+                    Button {
+                        showFullscreenPhoto = false
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title)
+                            .foregroundStyle(.white.opacity(0.8))
+                            .padding()
+                    }
+                }
+                Spacer()
+                
+                // ページ表示
+                Text("\(selectedPhotoIndex + 1) / \(loadedImages.count)")
+                    .font(.caption)
+                    .foregroundColor(.white.opacity(0.8))
+                    .padding(.bottom, 40)
             }
         }
     }
