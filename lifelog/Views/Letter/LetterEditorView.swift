@@ -98,7 +98,7 @@ struct LetterEditorView: View {
                 saveLetter()
             }
         } message: {
-            Text("届くまで編集・削除ができません。")
+            Text(deliveryConfirmationMessage)
         }
         .onChange(of: selectedItems) { _, newItems in
             loadPhotos(from: newItems)
@@ -182,6 +182,47 @@ struct LetterEditorView: View {
                 Text("期間・時間帯を指定しない場合は、1日後〜3年後の間でランダムに届きます。サプライズ感を楽しみましょう！")
             }
         }
+    }
+    
+    /// 送信確認ダイアログ用のメッセージ
+    private var deliveryConfirmationMessage: String {
+        var lines: [String] = []
+        
+        if deliveryType == .fixed {
+            // 固定日時
+            let formatter = DateFormatter()
+            formatter.locale = Locale(identifier: "ja_JP")
+            formatter.dateFormat = "M月d日 H:mm"
+            lines.append("📅 \(formatter.string(from: fixedDate)) に届きます")
+        } else {
+            // ランダム
+            if useDateRange || useTimeRange {
+                var parts: [String] = []
+                
+                if useDateRange {
+                    let formatter = DateFormatter()
+                    formatter.locale = Locale(identifier: "ja_JP")
+                    formatter.dateFormat = "M/d"
+                    parts.append("\(formatter.string(from: randomStartDate))〜\(formatter.string(from: randomEndDate))")
+                }
+                
+                if useTimeRange {
+                    let timeFormatter = DateFormatter()
+                    timeFormatter.dateFormat = "H:mm"
+                    parts.append("\(timeFormatter.string(from: startTime))〜\(timeFormatter.string(from: endTime))")
+                }
+                
+                lines.append("🎲 \(parts.joined(separator: " ")) の間に届きます")
+            } else {
+                // 完全ランダム
+                lines.append("✨ いつか届きます（1日後〜3年後）")
+            }
+        }
+        
+        lines.append("")
+        lines.append("届くまで編集・削除ができません。")
+        
+        return lines.joined(separator: "\n")
     }
     
     @ViewBuilder
