@@ -966,6 +966,7 @@ final class AppDataStore: ObservableObject {
         content.title = "📨 手紙が届きました"
         content.body = "\(dateString)のあなたから手紙が届きました"
         content.sound = .default
+        content.userInfo = ["letterID": letter.id.uuidString]
         
         let triggerDate = letter.deliveryDate
         let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: triggerDate)

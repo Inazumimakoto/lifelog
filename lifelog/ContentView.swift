@@ -9,10 +9,14 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var store: AppDataStore
+    @EnvironmentObject private var deepLinkManager: DeepLinkManager
     @State private var selection: Int = 0
     @State private var lastSelection: Int = 0
     @State private var calendarResetTrigger: Int = 0
     @State private var habitsResetTrigger: Int = 0
+    
+    /// ディープリンクで開く手紙
+    @State private var letterToOpen: Letter? = nil
 
     var body: some View {
         TabView(selection: $selection) {
@@ -63,6 +67,23 @@ struct ContentView: View {
             lastSelection = newSelection
         }
         .toast()
+        // ディープリンク: 通知タップで手紙開封画面を表示
+        .onChange(of: deepLinkManager.pendingLetterID) { _, letterID in
+            guard let letterID = letterID else { return }
+            // 開封可能な手紙を検索
+            if let letter = store.letters.first(where: { $0.id == letterID && $0.isDeliverable }) {
+                letterToOpen = letter
+            } else {
+                // 見つからない場合（すでに開封済みなど）はクリア
+                deepLinkManager.clearPendingLetter()
+            }
+        }
+        .fullScreenCover(item: $letterToOpen) { letter in
+            LetterOpeningView(letter: letter) {
+                store.openLetter(letter.id)
+                deepLinkManager.clearPendingLetter()
+            }
+        }
     }
 
     @ViewBuilder
