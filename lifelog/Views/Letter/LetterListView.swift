@@ -15,15 +15,13 @@ struct LetterListView: View {
     @State private var showLetterOpening = false
     @State private var hasOpenedEnvelope = false
     
-    private var draftLetters: [Letter] {
-        store.letters.filter { $0.status == .draft }
-    }
-    
-    private var sealedLetters: [Letter] {
-        store.letters.filter { $0.status == .sealed }
+    /// 配達日を過ぎた未開封の手紙（開封待ち）
+    private var deliverableLetters: [Letter] {
+        store.letters.filter { $0.status == .sealed && $0.isDeliverable }
             .sorted { $0.deliveryDate < $1.deliveryDate }
     }
     
+    /// 開封済みの手紙
     private var openedLetters: [Letter] {
         store.letters.filter { $0.status == .opened }
             .sorted { ($0.openedAt ?? Date()) > ($1.openedAt ?? Date()) }
@@ -31,54 +29,57 @@ struct LetterListView: View {
     
     var body: some View {
         List {
-            if draftLetters.isEmpty && sealedLetters.isEmpty && openedLetters.isEmpty {
-                emptyState
-            }
-            
-            if !draftLetters.isEmpty {
-                Section("下書き") {
-                    ForEach(draftLetters) { letter in
-                        letterRow(letter)
-                    }
-                    .onDelete { offsets in
-                        deleteDraftLetters(at: offsets)
-                    }
-                }
-            }
-            
-            if !sealedLetters.isEmpty {
-                Section("送信済み（開封待ち）") {
-                    ForEach(sealedLetters) { letter in
-                        sealedRow(letter)
-                    }
-                    .onDelete { offsets in
-                        deleteSealedLetters(at: offsets)
+            // 新規作成CTA（一番上）
+            Section {
+                Button {
+                    editingLetter = nil
+                    showEditor = true
+                } label: {
+                    HStack {
+                        Image(systemName: "pencil.and.outline")
+                            .font(.title2)
+                            .foregroundStyle(.orange)
+                        Text("新しい手紙を書く")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
             
+            // 開封待ち（配達日を過ぎた未開封）
+            if !deliverableLetters.isEmpty {
+                Section {
+                    ForEach(deliverableLetters) { letter in
+                        deliverableRow(letter)
+                    }
+                } header: {
+                    Label("開封待ち", systemImage: "envelope.badge")
+                }
+            }
+            
+            // 開封済み
             if !openedLetters.isEmpty {
-                Section("開封済み") {
+                Section {
                     ForEach(openedLetters) { letter in
                         openedRow(letter)
                     }
                     .onDelete { offsets in
                         deleteOpenedLetters(at: offsets)
                     }
+                } header: {
+                    Label("開封済み", systemImage: "envelope.open")
                 }
+            }
+            
+            // 空の状態（何もない場合）
+            if deliverableLetters.isEmpty && openedLetters.isEmpty {
+                emptyState
             }
         }
         .navigationTitle("未来への手紙")
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    editingLetter = nil
-                    showEditor = true
-                } label: {
-                    Image(systemName: "plus")
-                }
-            }
-        }
         .sheet(isPresented: $showEditor) {
             NavigationStack {
                 LetterEditorView(letter: editingLetter)
@@ -111,12 +112,12 @@ struct LetterListView: View {
     
     private var emptyState: some View {
         VStack(spacing: 12) {
-            Image(systemName: "envelope")
-                .font(.largeTitle)
+            Image(systemName: "envelope.open")
+                .font(.system(size: 40))
                 .foregroundStyle(.secondary)
-            Text("手紙はまだありません")
+            Text("まだ手紙がありません")
                 .font(.headline)
-            Text("右上の＋ボタンから未来の自分に手紙を書きましょう")
+            Text("上のボタンから未来の自分に手紙を書いてみましょう！")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
@@ -125,50 +126,27 @@ struct LetterListView: View {
         .padding(.vertical, 40)
         .listRowBackground(Color.clear)
     }
-    
-    private func letterRow(_ letter: Letter) -> some View {
-        Button {
-            editingLetter = letter
-            showEditor = true
-        } label: {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(letter.content.isEmpty ? "（内容なし）" : letter.content)
-                    .lineLimit(2)
-                    .foregroundStyle(.primary)
-                Text("作成日: \(letter.createdAt.jaMonthDayString)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-    }
-    
-    private func sealedRow(_ letter: Letter) -> some View {
+    /// 開封待ちの手紙行
+    private func deliverableRow(_ letter: Letter) -> some View {
         HStack {
             Image(systemName: "envelope.fill")
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 4) {
-                if letter.isDeliverable {
-                    Text("📬 開封可能")
-                        .font(.subheadline.weight(.bold))
-                        .foregroundStyle(.orange)
-                } else {
-                    Text("🔒 封印中")
-                        .font(.subheadline.weight(.semibold))
-                }
-                Text(deliveryDescription(for: letter))
+                Text("📬 開封可能")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.orange)
+                Text(deliveredDescription(for: letter))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
             
-            if letter.isDeliverable {
-                Button("開封") {
-                    letterToOpen = letter
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.orange)
-                .font(.caption)
+            Button("開封") {
+                letterToOpen = letter
             }
+            .buttonStyle(.borderedProminent)
+            .tint(.orange)
+            .font(.caption)
         }
         .onChange(of: letterToOpen) { _, newLetter in
             if newLetter != nil {
@@ -177,42 +155,15 @@ struct LetterListView: View {
         }
     }
     
-    /// 配達情報の表示テキスト（完全ランダムは非表示、それ以外は条件に応じて表示）
-    private func deliveryDescription(for letter: Letter) -> String {
-        if letter.deliveryType == .fixed {
-            // 固定: 日時を表示
-            return "開封予定: \(letter.deliveryDate.jaDateTimeString)"
-        }
-        
-        // ランダムの場合
-        guard let settings = letter.randomSettings else {
-            // 設定がない場合（完全ランダム）
-            return "いつか届きます ✨"
-        }
-        
-        var parts: [String] = []
-        
-        // 期間指定がある場合
-        if settings.useDateRange, let start = settings.startDate, let end = settings.endDate {
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "ja_JP")
-            formatter.dateFormat = "M/d"
-            parts.append("\(formatter.string(from: start))〜\(formatter.string(from: end))")
-        }
-        
-        // 時間帯指定がある場合
-        if settings.useTimeRange {
-            parts.append("\(settings.startHour):\(String(format: "%02d", settings.startMinute))〜\(settings.endHour):\(String(format: "%02d", settings.endMinute))")
-        }
-        
-        if parts.isEmpty {
-            // 何も指定していない（完全ランダム）
-            return "いつか届きます ✨"
-        }
-        
-        return "開封予定: \(parts.joined(separator: " "))のどこか"
+    /// 届いた日時の表示
+    private func deliveredDescription(for letter: Letter) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "M月d日"
+        return "\(formatter.string(from: letter.deliveryDate))に届きました"
     }
     
+    /// 開封済みの手紙行
     private func openedRow(_ letter: Letter) -> some View {
         NavigationLink {
             LetterContentView(letter: letter)
@@ -229,23 +180,9 @@ struct LetterListView: View {
         }
     }
     
-    private func deleteDraftLetters(at offsets: IndexSet) {
-        for index in offsets {
-            let letter = draftLetters[index]
-            store.deleteLetter(letter.id)
-        }
-    }
-    
     private func deleteOpenedLetters(at offsets: IndexSet) {
         for index in offsets {
             let letter = openedLetters[index]
-            store.deleteLetter(letter.id)
-        }
-    }
-    
-    private func deleteSealedLetters(at offsets: IndexSet) {
-        for index in offsets {
-            let letter = sealedLetters[index]
             store.deleteLetter(letter.id)
         }
     }

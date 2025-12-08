@@ -30,6 +30,7 @@ struct LetterEditorView: View {
     @State private var selectedImages: [UIImage] = []
     
     @State private var showDeleteConfirmation = false
+    @State private var showSendConfirmation = false
     
     init(letter: Letter? = nil) {
         self.existingLetter = letter
@@ -78,7 +79,7 @@ struct LetterEditorView: View {
             }
             ToolbarItem(placement: .confirmationAction) {
                 Button("封印する") {
-                    saveLetter()
+                    showSendConfirmation = true
                 }
                 .disabled(content.isEmpty)
             }
@@ -90,6 +91,14 @@ struct LetterEditorView: View {
                 }
                 dismiss()
             }
+        }
+        .alert("未来の自分に手紙を送りますか？", isPresented: $showSendConfirmation) {
+            Button("キャンセル", role: .cancel) { }
+            Button("送る") {
+                saveLetter()
+            }
+        } message: {
+            Text("届くまで編集・削除ができません。")
         }
         .onChange(of: selectedItems) { _, newItems in
             loadPhotos(from: newItems)
