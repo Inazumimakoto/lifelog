@@ -84,4 +84,11 @@ extension Date {
         formatter.dateFormat = "yyyy年M月d日"
         return formatter.string(from: self)
     }
+    
+    var jaShortDateString: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "yyyy/M/d"
+        return formatter.string(from: self)
+    }
 }
