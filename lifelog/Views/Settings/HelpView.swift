@@ -44,7 +44,14 @@ struct HelpView: View {
                     HelpRow(icon: "face.smiling", title: "感情タグ", description: "ムードに合わせた絵文字タグを追加できます")
                     HelpRow(icon: "plus.circle.fill", title: "カスタムタグ", description: "「タグを管理」→「+」で好きな絵文字を追加")
                     HelpRow(icon: "star.fill", title: "お気に入り写真", description: "写真の星マークをタップでお気に入りに")
-                    HelpRow(icon: "hand.draw.fill", title: "スワイプ", description: "左右スワイプで前後の日記に移動", highlight: true)
+                    HelpRow(icon: "hand.draw.fill", title: "スワイプ", description: "左右スワイプで前後の日記に移動")
+                }
+                
+                // 未来への手紙
+                Section("✉️ 未来への手紙") {
+                    HelpRow(icon: "envelope.fill", title: "手紙を書く", description: "未来の自分にメッセージを送れます", highlight: true)
+                    HelpRow(icon: "calendar.badge.clock", title: "配達日設定", description: "届く日を指定、またはランダムに設定", highlight: true)
+                    HelpRow(icon: "envelope.open.fill", title: "開封", description: "届いた手紙をスワイプで開封できます", highlight: true)
                 }
                 
                 // 習慣機能
@@ -63,8 +70,8 @@ struct HelpView: View {
                 
                 // ヘルス機能
                 Section("❤️ ヘルスケア") {
-                    HelpRow(icon: "figure.walk", title: "歩数グラフ", description: "棒をタップで週平均・先週比を表示", highlight: true)
-                    HelpRow(icon: "bed.double.fill", title: "睡眠グラフ", description: "棒をタップで週平均・先週比を表示", highlight: true)
+                    HelpRow(icon: "figure.walk", title: "歩数グラフ", description: "棒をタップで週平均・先週比を表示")
+                    HelpRow(icon: "bed.double.fill", title: "睡眠グラフ", description: "棒をタップで週平均・先週比を表示")
                     HelpRow(icon: "heart.fill", title: "連携設定", description: "設定→外部リンク→ヘルスケアアプリを開く")
                 }
                 

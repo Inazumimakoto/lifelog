@@ -162,7 +162,35 @@ final class AppDataStore: ObservableObject {
     private func mergeHealthSummaries(_ newData: [HealthSummary]) {
         var summaryDict = Dictionary(uniqueKeysWithValues: healthSummaries.map { ($0.date, $0) })
         for summary in newData {
-            summaryDict[summary.date] = summary
+            if var existing = summaryDict[summary.date] {
+                // 既存データがある場合は、天気データを保持しながらマージ
+                // HealthKitデータで更新
+                existing.steps = summary.steps ?? existing.steps
+                existing.sleepHours = summary.sleepHours ?? existing.sleepHours
+                existing.sleepStart = summary.sleepStart ?? existing.sleepStart
+                existing.sleepEnd = summary.sleepEnd ?? existing.sleepEnd
+                existing.activeEnergy = summary.activeEnergy ?? existing.activeEnergy
+                existing.moveMinutes = summary.moveMinutes ?? existing.moveMinutes
+                existing.exerciseMinutes = summary.exerciseMinutes ?? existing.exerciseMinutes
+                existing.standHours = summary.standHours ?? existing.standHours
+                if !summary.sleepStages.isEmpty {
+                    existing.sleepStages = summary.sleepStages
+                }
+                // 天気データは新データにある場合のみ更新（nilで上書きしない）
+                if summary.weatherCondition != nil {
+                    existing.weatherCondition = summary.weatherCondition
+                }
+                if summary.highTemperature != nil {
+                    existing.highTemperature = summary.highTemperature
+                }
+                if summary.lowTemperature != nil {
+                    existing.lowTemperature = summary.lowTemperature
+                }
+                summaryDict[summary.date] = existing
+            } else {
+                // 新規データ
+                summaryDict[summary.date] = summary
+            }
         }
         healthSummaries = Array(summaryDict.values).sorted { $0.date > $1.date }
     }
