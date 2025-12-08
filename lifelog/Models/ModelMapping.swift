@@ -392,7 +392,8 @@ extension Letter {
             deliveryDate: sd.deliveryDate,
             randomSettings: randomSettings,
             status: LetterStatus(rawValue: sd.statusRaw) ?? .draft,
-            openedAt: sd.openedAt
+            openedAt: sd.openedAt,
+            dismissedFromHome: sd.dismissedFromHome
         )
     }
 }
@@ -408,6 +409,7 @@ extension SDLetter {
             deliveryDate: domain.deliveryDate,
             statusRaw: domain.status.rawValue,
             openedAt: domain.openedAt,
+            dismissedFromHome: domain.dismissedFromHome,
             randomUseDateRange: domain.randomSettings?.useDateRange ?? false,
             randomStartDate: domain.randomSettings?.startDate,
             randomEndDate: domain.randomSettings?.endDate,
@@ -426,6 +428,7 @@ extension SDLetter {
         self.deliveryDate = domain.deliveryDate
         self.statusRaw = domain.status.rawValue
         self.openedAt = domain.openedAt
+        self.dismissedFromHome = domain.dismissedFromHome
         self.randomUseDateRange = domain.randomSettings?.useDateRange ?? false
         self.randomStartDate = domain.randomSettings?.startDate
         self.randomEndDate = domain.randomSettings?.endDate

@@ -667,6 +667,7 @@ struct Letter: Identifiable, Codable, Hashable {
     var randomSettings: LetterRandomSettings?
     var status: LetterStatus
     var openedAt: Date?
+    var dismissedFromHome: Bool  // ホームから非表示にしたか
     
     init(id: UUID = UUID(),
          content: String = "",
@@ -676,7 +677,8 @@ struct Letter: Identifiable, Codable, Hashable {
          deliveryDate: Date = Date().addingTimeInterval(60 * 60 * 24), // 1日後デフォルト
          randomSettings: LetterRandomSettings? = nil,
          status: LetterStatus = .draft,
-         openedAt: Date? = nil) {
+         openedAt: Date? = nil,
+         dismissedFromHome: Bool = false) {
         self.id = id
         self.content = content
         self.photoPaths = photoPaths
@@ -686,11 +688,31 @@ struct Letter: Identifiable, Codable, Hashable {
         self.randomSettings = randomSettings
         self.status = status
         self.openedAt = openedAt
+        self.dismissedFromHome = dismissedFromHome
     }
     
     /// 開封可能かどうか
     var isDeliverable: Bool {
         status == .sealed && Date() >= deliveryDate
+    }
+    
+    /// ホームに表示すべきかどうか
+    /// - 開封可能（未開封）な手紙
+    /// - または、開封済みだが配達日が今日の手紙
+    /// - ただし、ユーザーが非表示にした場合は除く
+    var shouldShowOnHome: Bool {
+        if dismissedFromHome { return false }
+        
+        // 開封可能（未開封）
+        if isDeliverable { return true }
+        
+        // 開封済みだが配達日が今日
+        if status == .opened {
+            let calendar = Calendar.current
+            return calendar.isDateInToday(deliveryDate)
+        }
+        
+        return false
     }
     
     /// 手紙を封印する
@@ -705,6 +727,11 @@ struct Letter: Identifiable, Codable, Hashable {
     mutating func open() {
         status = .opened
         openedAt = Date()
+    }
+    
+    /// ホームから非表示にする
+    mutating func dismissFromHome() {
+        dismissedFromHome = true
     }
 }
 

@@ -337,6 +337,7 @@ final class SDLetter {
     var deliveryDate: Date
     var statusRaw: String // LetterStatus.rawValue
     var openedAt: Date?
+    var dismissedFromHome: Bool = false  // デフォルト値でマイグレーション対応
     
     // Random settings (flattened)
     var randomUseDateRange: Bool
@@ -356,6 +357,7 @@ final class SDLetter {
          deliveryDate: Date = Date().addingTimeInterval(60 * 60 * 24),
          statusRaw: String = "draft",
          openedAt: Date? = nil,
+         dismissedFromHome: Bool = false,
          randomUseDateRange: Bool = false,
          randomStartDate: Date? = nil,
          randomEndDate: Date? = nil,
@@ -372,6 +374,7 @@ final class SDLetter {
         self.deliveryDate = deliveryDate
         self.statusRaw = statusRaw
         self.openedAt = openedAt
+        self.dismissedFromHome = dismissedFromHome
         self.randomUseDateRange = randomUseDateRange
         self.randomStartDate = randomStartDate
         self.randomEndDate = randomEndDate

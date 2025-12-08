@@ -11,6 +11,9 @@ struct LetterListView: View {
     @EnvironmentObject var store: AppDataStore
     @State private var showEditor = false
     @State private var editingLetter: Letter?
+    @State private var letterToOpen: Letter?
+    @State private var showLetterOpening = false
+    @State private var hasOpenedEnvelope = false
     
     private var draftLetters: [Letter] {
         store.letters.filter { $0.status == .draft }
@@ -81,6 +84,29 @@ struct LetterListView: View {
                 LetterEditorView(letter: editingLetter)
             }
         }
+        .fullScreenCover(isPresented: $showLetterOpening, onDismiss: {
+            // 画面を閉じたタイミングで、かつ封筒を開封済みの場合のみステータスを更新
+            if let letter = letterToOpen, hasOpenedEnvelope {
+                withAnimation {
+                    store.openLetter(letter.id)
+                }
+            }
+            letterToOpen = nil
+            hasOpenedEnvelope = false
+        }) {
+            Group {
+                if let letter = letterToOpen {
+                    LetterOpeningView(letter: letter) {
+                        // アニメーション完了（封筒開封）時にフラグを立てる
+                        hasOpenedEnvelope = true
+                    }
+                } else {
+                    // フォールバック
+                    Color(uiColor: UIColor(red: 0.1, green: 0.1, blue: 0.18, alpha: 1))
+                        .ignoresSafeArea()
+                }
+            }
+        }
     }
     
     private var emptyState: some View {
@@ -121,13 +147,33 @@ struct LetterListView: View {
             Image(systemName: "envelope.fill")
                 .foregroundStyle(.orange)
             VStack(alignment: .leading, spacing: 4) {
-                Text("🔒 封印中")
-                    .font(.subheadline.weight(.semibold))
+                if letter.isDeliverable {
+                    Text("📬 開封可能")
+                        .font(.subheadline.weight(.bold))
+                        .foregroundStyle(.orange)
+                } else {
+                    Text("🔒 封印中")
+                        .font(.subheadline.weight(.semibold))
+                }
                 Text(deliveryDescription(for: letter))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
+            
+            if letter.isDeliverable {
+                Button("開封") {
+                    letterToOpen = letter
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.orange)
+                .font(.caption)
+            }
+        }
+        .onChange(of: letterToOpen) { _, newLetter in
+            if newLetter != nil {
+                showLetterOpening = true
+            }
         }
     }
     

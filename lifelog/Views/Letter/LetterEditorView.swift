@@ -219,7 +219,8 @@ struct LetterEditorView: View {
             return paths
         }
         
-        let lettersDir = documentsDir.appendingPathComponent("Letters/\(letterId.uuidString)", isDirectory: true)
+        let relativeDirPath = "Letters/\(letterId.uuidString)"
+        let lettersDir = documentsDir.appendingPathComponent(relativeDirPath, isDirectory: true)
         
         // ディレクトリを作成
         try? FileManager.default.createDirectory(at: lettersDir, withIntermediateDirectories: true)
@@ -232,7 +233,8 @@ struct LetterEditorView: View {
                 
                 do {
                     try data.write(to: filePath)
-                    paths.append(filePath.path)
+                    // 相対パスを保存（リビルド後も有効）
+                    paths.append("\(relativeDirPath)/\(fileName)")
                 } catch {
                     print("写真保存エラー: \(error)")
                 }

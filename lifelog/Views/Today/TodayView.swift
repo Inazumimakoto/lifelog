@@ -547,41 +547,14 @@ struct TodayView: View {
         if !deliverableLetters.isEmpty {
             VStack(spacing: 12) {
                 ForEach(deliverableLetters) { letter in
-                    Button {
-                        // 手紙を設定するだけ（onChangeでフルスクリーンを表示）
-                        letterToOpen = letter
-                    } label: {
-                        HStack(spacing: 16) {
-                            Image(systemName: "envelope.fill")
-                                .font(.title)
-                                .foregroundStyle(.orange)
-                            
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("📬 過去のあなたから手紙が届いています")
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(.primary)
-                                Text("タップして開封")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            
-                            Spacer()
-                            
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding()
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.orange.opacity(0.1))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .strokeBorder(Color.orange.opacity(0.3), lineWidth: 1)
-                        )
-                    }
-                    .buttonStyle(.plain)
+                    letterCardView(for: letter)
                 }
+                
+                // 設定から見れるメッセージ
+                Text("✕で非表示にしても設定 > 未来への手紙 からいつでも読めます")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
             }
             .onChange(of: letterToOpen) { _, newLetter in
                 if newLetter != nil {
@@ -590,15 +563,56 @@ struct TodayView: View {
             }
         }
     }
-}
-
-// MARK: - Letter Opening Wrapper（ストアの更新から独立）
-struct LetterOpeningWrapper: View {
-    let letter: Letter
-    let onOpen: () -> Void
-    @Environment(\.dismiss) private var dismiss
     
-    var body: some View {
-        LetterOpeningView(letter: letter, onOpen: onOpen)
+    @ViewBuilder
+    private func letterCardView(for letter: Letter) -> some View {
+        let isOpened = letter.status == .opened
+        let bgColor: Color = isOpened ? Color(.systemGray6) : Color.orange.opacity(0.1)
+        let borderColor: Color = isOpened ? Color.gray.opacity(0.2) : Color.orange.opacity(0.3)
+        
+        ZStack(alignment: .topTrailing) {
+            Button {
+                letterToOpen = letter
+            } label: {
+                HStack(spacing: 16) {
+                    Image(systemName: isOpened ? "envelope.open" : "envelope.fill")
+                        .font(.title)
+                        .foregroundStyle(isOpened ? AnyShapeStyle(.secondary) : AnyShapeStyle(.orange))
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text(isOpened ? "今日届いた手紙" : "📬 過去のあなたから手紙が届いています")
+                            .font(.subheadline.weight(isOpened ? .medium : .semibold))
+                            .foregroundStyle(.primary)
+                        Text(isOpened ? "タップしてもう一度読む" : "タップして開封")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.secondary)
+                }
+                .padding()
+                .background(RoundedRectangle(cornerRadius: 12).fill(bgColor))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(borderColor, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            
+            // ✕ボタン（非表示にする）
+            Button {
+                withAnimation {
+                    store.dismissLetterFromHome(letter.id)
+                }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(.gray.opacity(0.5))
+                    .background(Circle().fill(.white))
+            }
+            .offset(x: 8, y: -8)
+        }
     }
 }
+
+

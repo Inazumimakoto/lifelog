@@ -94,11 +94,25 @@ struct LetterContentView: View {
     
     private func loadPhotos() {
         for path in letter.photoPaths {
-            if let data = FileManager.default.contents(atPath: path),
+            let fullPath = resolvePhotoPath(path)
+            if let data = FileManager.default.contents(atPath: fullPath),
                let image = UIImage(data: data) {
                 loadedImages.append(image)
             }
         }
+    }
+    
+    /// 相対パスまたは絶対パスをフルパスに解決する
+    private func resolvePhotoPath(_ path: String) -> String {
+        // 既に絶対パスの場合はそのまま返す（後方互換性）
+        if path.hasPrefix("/") {
+            return path
+        }
+        // 相対パスの場合はDocumentsディレクトリに結合
+        guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return path
+        }
+        return documentsDir.appendingPathComponent(path).path
     }
     
     // MARK: - フルスクリーン写真ビューア

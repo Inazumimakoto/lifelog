@@ -867,12 +867,12 @@ final class AppDataStore: ObservableObject {
 
     // MARK: - Letter to the Future
 
-    /// 開封可能な手紙を取得（配達日時を過ぎていて未開封）
+    /// ホームに表示すべき手紙を取得
+    /// - 開封可能（未開封）な手紙
+    /// - または、開封済みだが配達日が今日の手紙
+    /// - ただし、ユーザーが非表示にした場合は除く
     func deliverableLetters() -> [Letter] {
-        let now = Date()
-        return letters.filter { letter in
-            letter.status == .sealed && letter.deliveryDate <= now
-        }
+        return letters.filter { $0.shouldShowOnHome }
     }
 
     /// 今日届いた手紙（今日開封した or 今日配達された未開封）
@@ -905,6 +905,17 @@ final class AppDataStore: ObservableObject {
         let descriptor = FetchDescriptor<SDLetter>(predicate: #Predicate { $0.id == letterID })
         if let existing = try? modelContext.fetch(descriptor).first {
             existing.update(from: letter)
+            try? modelContext.save()
+        }
+    }
+    
+    func dismissLetterFromHome(_ letterID: UUID) {
+        guard let index = letters.firstIndex(where: { $0.id == letterID }) else { return }
+        letters[index].dismissFromHome()
+        
+        let descriptor = FetchDescriptor<SDLetter>(predicate: #Predicate { $0.id == letterID })
+        if let existing = try? modelContext.fetch(descriptor).first {
+            existing.update(from: letters[index])
             try? modelContext.save()
         }
     }

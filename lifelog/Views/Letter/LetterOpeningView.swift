@@ -766,8 +766,10 @@ struct LetterOpeningView: View {
     
     @ViewBuilder
     private func photoView(for path: String) -> some View {
-        // パスは absolute path として保存されている
-        if let uiImage = UIImage(contentsOfFile: path) {
+        // 相対パスをフルパスに変換
+        let fullPath = resolvePhotoPath(path)
+        
+        if let uiImage = UIImage(contentsOfFile: fullPath) {
             Image(uiImage: uiImage)
                 .resizable()
                 .scaledToFill()
@@ -790,6 +792,19 @@ struct LetterOpeningView: View {
                     }
                 )
         }
+    }
+    
+    /// 相対パスまたは絶対パスをフルパスに解決する
+    private func resolvePhotoPath(_ path: String) -> String {
+        // 既に絶対パスの場合はそのまま返す（後方互換性）
+        if path.hasPrefix("/") {
+            return path
+        }
+        // 相対パスの場合はDocumentsディレクトリに結合
+        guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return path
+        }
+        return documentsDir.appendingPathComponent(path).path
     }
     
     // MARK: - フルスクリーン写真ビューア
@@ -832,8 +847,10 @@ struct LetterOpeningView: View {
     
     @ViewBuilder
     private func fullscreenPhotoView(for path: String) -> some View {
-        // パスは absolute path として保存されている
-        if let uiImage = UIImage(contentsOfFile: path) {
+        // 相対パスをフルパスに変換
+        let fullPath = resolvePhotoPath(path)
+        
+        if let uiImage = UIImage(contentsOfFile: fullPath) {
             Image(uiImage: uiImage)
                 .resizable()
                 .scaledToFit()
@@ -933,3 +950,13 @@ struct LetterOpeningView: View {
     }
 }
 
+// MARK: - Letter Opening Wrapper（ストアの更新から独立）
+struct LetterOpeningWrapper: View {
+    let letter: Letter
+    let onOpen: () -> Void
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        LetterOpeningView(letter: letter, onOpen: onOpen)
+    }
+}
