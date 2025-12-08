@@ -15,14 +15,21 @@ struct LetterEditorView: View {
     private let existingLetter: Letter?
     
     @State private var content: String
-    @State private var deliveryType: LetterDeliveryType
+    
+    // 日付設定
+    @State private var dateMode: DeliveryMode  // 固定 or ランダム
     @State private var fixedDate: Date
     @State private var useDateRange: Bool
     @State private var randomStartDate: Date
     @State private var randomEndDate: Date
+    
+    // 時間設定
+    @State private var timeMode: DeliveryMode  // 固定 or ランダム
+    @State private var fixedTime: Date
     @State private var useTimeRange: Bool
     @State private var startTime: Date
     @State private var endTime: Date
+    
     @State private var photoPaths: [String]
     
     // Photo picker
@@ -32,32 +39,77 @@ struct LetterEditorView: View {
     @State private var showDeleteConfirmation = false
     @State private var showSendConfirmation = false
     
+    enum DeliveryMode: String, CaseIterable, Identifiable {
+        case fixed = "固定"
+        case random = "ランダム"
+        var id: String { rawValue }
+    }
+    
     init(letter: Letter? = nil) {
         self.existingLetter = letter
         _content = State(initialValue: letter?.content ?? "")
-        _deliveryType = State(initialValue: letter?.deliveryType ?? .fixed)
         
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
-        _fixedDate = State(initialValue: letter?.deliveryDate ?? tomorrow)
-        
-        let settings = letter?.randomSettings
-        _useDateRange = State(initialValue: settings?.useDateRange ?? false)
-        _randomStartDate = State(initialValue: settings?.startDate ?? tomorrow)
-        
         let threeMonthsLater = Calendar.current.date(byAdding: .month, value: 3, to: Date()) ?? Date()
-        _randomEndDate = State(initialValue: settings?.endDate ?? threeMonthsLater)
-        
-        _useTimeRange = State(initialValue: settings?.useTimeRange ?? false)
-        
-        // 時間を Date として扱う
         let calendar = Calendar.current
-        let startHour = settings?.startHour ?? 9
-        let startMinute = settings?.startMinute ?? 0
-        let endHour = settings?.endHour ?? 21
-        let endMinute = settings?.endMinute ?? 0
         
-        _startTime = State(initialValue: calendar.date(bySettingHour: startHour, minute: startMinute, second: 0, of: Date()) ?? Date())
-        _endTime = State(initialValue: calendar.date(bySettingHour: endHour, minute: endMinute, second: 0, of: Date()) ?? Date())
+        // 既存の手紙から設定を復元
+        if let letter = letter {
+            if letter.deliveryType == .fixed {
+                // 両方固定
+                _dateMode = State(initialValue: .fixed)
+                _timeMode = State(initialValue: .fixed)
+                _fixedDate = State(initialValue: letter.deliveryDate)
+                _fixedTime = State(initialValue: letter.deliveryDate)
+                // ランダム用のデフォルト値も初期化
+                _useDateRange = State(initialValue: false)
+                _randomStartDate = State(initialValue: tomorrow)
+                _randomEndDate = State(initialValue: threeMonthsLater)
+                _useTimeRange = State(initialValue: false)
+                _startTime = State(initialValue: calendar.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date())
+                _endTime = State(initialValue: calendar.date(bySettingHour: 21, minute: 0, second: 0, of: Date()) ?? Date())
+            } else {
+                // ランダム設定を復元
+                let settings = letter.randomSettings
+                let hasDateRange = settings?.useDateRange ?? false
+                let hasTimeRange = settings?.useTimeRange ?? false
+                
+                // 日付モードの判定（fixedDateがあれば固定モード）
+                let isDateFixed = settings?.fixedDate != nil
+                _dateMode = State(initialValue: isDateFixed ? .fixed : .random)
+                _useDateRange = State(initialValue: hasDateRange)
+                _randomStartDate = State(initialValue: settings?.startDate ?? tomorrow)
+                _randomEndDate = State(initialValue: settings?.endDate ?? threeMonthsLater)
+                _fixedDate = State(initialValue: settings?.fixedDate ?? tomorrow)
+                
+                // 時間モードの判定（fixedHourがあれば固定モード）
+                let isTimeFixed = settings?.fixedHour != nil
+                _timeMode = State(initialValue: isTimeFixed ? .fixed : .random)
+                _useTimeRange = State(initialValue: hasTimeRange)
+                let startHour = settings?.startHour ?? 9
+                let startMinute = settings?.startMinute ?? 0
+                let endHour = settings?.endHour ?? 21
+                let endMinute = settings?.endMinute ?? 0
+                _startTime = State(initialValue: calendar.date(bySettingHour: startHour, minute: startMinute, second: 0, of: Date()) ?? Date())
+                _endTime = State(initialValue: calendar.date(bySettingHour: endHour, minute: endMinute, second: 0, of: Date()) ?? Date())
+                
+                let fixedHour = settings?.fixedHour ?? 12
+                let fixedMinute = settings?.fixedMinute ?? 0
+                _fixedTime = State(initialValue: calendar.date(bySettingHour: fixedHour, minute: fixedMinute, second: 0, of: Date()) ?? Date())
+            }
+        } else {
+            // 新規作成のデフォルト
+            _dateMode = State(initialValue: .fixed)
+            _timeMode = State(initialValue: .fixed)
+            _fixedDate = State(initialValue: tomorrow)
+            _fixedTime = State(initialValue: calendar.date(bySettingHour: 12, minute: 0, second: 0, of: Date()) ?? Date())
+            _useDateRange = State(initialValue: false)
+            _randomStartDate = State(initialValue: tomorrow)
+            _randomEndDate = State(initialValue: threeMonthsLater)
+            _useTimeRange = State(initialValue: false)
+            _startTime = State(initialValue: calendar.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date())
+            _endTime = State(initialValue: calendar.date(bySettingHour: 21, minute: 0, second: 0, of: Date()) ?? Date())
+        }
         
         _photoPaths = State(initialValue: letter?.photoPaths ?? [])
     }
@@ -149,37 +201,67 @@ struct LetterEditorView: View {
     }
     
     private var deliverySection: some View {
-        Section {
-            Picker("配達タイプ", selection: $deliveryType) {
-                ForEach(LetterDeliveryType.allCases) { type in
-                    Text(type.label).tag(type)
+        Group {
+            // 日付設定セクション
+            Section {
+                Picker("日付", selection: $dateMode) {
+                    ForEach(DeliveryMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                
+                if dateMode == .fixed {
+                    DatePicker("開封日", selection: $fixedDate, in: Date()..., displayedComponents: .date)
+                } else {
+                    Toggle("期間を指定する", isOn: $useDateRange)
+                    
+                    if useDateRange {
+                        DatePicker("開始日", selection: $randomStartDate, in: Date()..., displayedComponents: .date)
+                        DatePicker("終了日", selection: $randomEndDate, in: randomStartDate..., displayedComponents: .date)
+                    }
+                }
+            } header: {
+                Text("📅 日付の設定")
+            } footer: {
+                if dateMode == .random {
+                    if useDateRange {
+                        Text("指定した期間内のどこかの日に届きます")
+                    } else {
+                        Text("💡 期間を指定しない場合、1日後〜3年後の間でサプライズ配達されます")
+                    }
                 }
             }
-            .pickerStyle(.segmented)
             
-            if deliveryType == .fixed {
-                DatePicker("開封日時", selection: $fixedDate, in: Date()..., displayedComponents: [.date, .hourAndMinute])
-            } else {
-                // ランダム設定
-                Toggle("期間を指定する", isOn: $useDateRange)
-                
-                if useDateRange {
-                    DatePicker("開始日", selection: $randomStartDate, in: Date()..., displayedComponents: .date)
-                    DatePicker("終了日", selection: $randomEndDate, in: randomStartDate..., displayedComponents: .date)
+            // 時間設定セクション
+            Section {
+                Picker("時間", selection: $timeMode) {
+                    ForEach(DeliveryMode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
                 }
+                .pickerStyle(.segmented)
                 
-                Toggle("時間帯を指定する", isOn: $useTimeRange)
-                
-                if useTimeRange {
-                    DatePicker("開始時刻", selection: $startTime, displayedComponents: .hourAndMinute)
-                    DatePicker("終了時刻", selection: $endTime, displayedComponents: .hourAndMinute)
+                if timeMode == .fixed {
+                    DatePicker("開封時刻", selection: $fixedTime, displayedComponents: .hourAndMinute)
+                } else {
+                    Toggle("時間帯を指定する", isOn: $useTimeRange)
+                    
+                    if useTimeRange {
+                        DatePicker("開始時刻", selection: $startTime, displayedComponents: .hourAndMinute)
+                        DatePicker("終了時刻", selection: $endTime, displayedComponents: .hourAndMinute)
+                    }
                 }
-            }
-        } header: {
-            Text("開封日時の設定")
-        } footer: {
-            if deliveryType == .random {
-                Text("期間・時間帯を指定しない場合は、1日後〜3年後の間でランダムに届きます。サプライズ感を楽しみましょう！")
+            } header: {
+                Text("⏰ 時間の設定")
+            } footer: {
+                if timeMode == .random {
+                    if useTimeRange {
+                        Text("指定した時間帯のどこかの時刻に届きます")
+                    } else {
+                        Text("💡 時間帯を指定しない場合、終日いつでも届く可能性があります")
+                    }
+                }
             }
         }
     }
@@ -188,35 +270,41 @@ struct LetterEditorView: View {
     private var deliveryConfirmationMessage: String {
         var lines: [String] = []
         
-        if deliveryType == .fixed {
-            // 固定日時
-            let formatter = DateFormatter()
-            formatter.locale = Locale(identifier: "ja_JP")
-            formatter.dateFormat = "M月d日 H:mm"
-            lines.append("📅 \(formatter.string(from: fixedDate)) に届きます")
+        // 日付部分
+        let dateFormatter = DateFormatter()
+        dateFormatter.locale = Locale(identifier: "ja_JP")
+        dateFormatter.dateFormat = "M月d日"
+        
+        var datePart: String
+        if dateMode == .fixed {
+            datePart = dateFormatter.string(from: fixedDate)
+        } else if useDateRange {
+            dateFormatter.dateFormat = "M/d"
+            datePart = "\(dateFormatter.string(from: randomStartDate))〜\(dateFormatter.string(from: randomEndDate))"
         } else {
-            // ランダム
-            if useDateRange || useTimeRange {
-                var parts: [String] = []
-                
-                if useDateRange {
-                    let formatter = DateFormatter()
-                    formatter.locale = Locale(identifier: "ja_JP")
-                    formatter.dateFormat = "M/d"
-                    parts.append("\(formatter.string(from: randomStartDate))〜\(formatter.string(from: randomEndDate))")
-                }
-                
-                if useTimeRange {
-                    let timeFormatter = DateFormatter()
-                    timeFormatter.dateFormat = "H:mm"
-                    parts.append("\(timeFormatter.string(from: startTime))〜\(timeFormatter.string(from: endTime))")
-                }
-                
-                lines.append("🎲 \(parts.joined(separator: " ")) の間に届きます")
-            } else {
-                // 完全ランダム
-                lines.append("✨ いつか届きます（1日後〜3年後）")
-            }
+            datePart = "1日後〜3年後"
+        }
+        
+        // 時間部分
+        let timeFormatter = DateFormatter()
+        timeFormatter.dateFormat = "H:mm"
+        
+        var timePart: String
+        if timeMode == .fixed {
+            timePart = timeFormatter.string(from: fixedTime)
+        } else if useTimeRange {
+            timePart = "\(timeFormatter.string(from: startTime))〜\(timeFormatter.string(from: endTime))"
+        } else {
+            timePart = "終日"
+        }
+        
+        // メッセージ組み立て
+        if dateMode == .fixed && timeMode == .fixed {
+            lines.append("📅 \(datePart) \(timePart) に届きます")
+        } else if dateMode == .random && timeMode == .random && !useDateRange && !useTimeRange {
+            lines.append("✨ いつか届きます（1日後〜3年後）")
+        } else {
+            lines.append("🎲 \(datePart) \(timePart) に届きます")
         }
         
         lines.append("")
@@ -297,35 +385,50 @@ struct LetterEditorView: View {
     private func saveLetter() {
         var letter: Letter
         
+        // deliveryType を判定：両方固定なら .fixed、それ以外は .random
+        let computedDeliveryType: LetterDeliveryType = (dateMode == .fixed && timeMode == .fixed) ? .fixed : .random
+        
         if let existing = existingLetter {
             letter = existing
             letter.content = content
-            letter.deliveryType = deliveryType
+            letter.deliveryType = computedDeliveryType
         } else {
             letter = Letter(
                 content: content,
-                deliveryType: deliveryType
+                deliveryType: computedDeliveryType
             )
         }
         
         // 写真を保存してパスを設定
         letter.photoPaths = savePhotos(letterId: letter.id)
         
-        if deliveryType == .fixed {
-            letter.deliveryDate = fixedDate
+        let calendar = Calendar.current
+        
+        if computedDeliveryType == .fixed {
+            // 両方固定：固定日付 + 固定時刻を組み合わせ
+            var components = calendar.dateComponents([.year, .month, .day], from: fixedDate)
+            let timeComponents = calendar.dateComponents([.hour, .minute], from: fixedTime)
+            components.hour = timeComponents.hour
+            components.minute = timeComponents.minute
+            letter.deliveryDate = calendar.date(from: components) ?? fixedDate
             letter.randomSettings = nil
         } else {
-            let calendar = Calendar.current
-            letter.randomSettings = LetterRandomSettings(
-                useDateRange: useDateRange,
-                startDate: useDateRange ? randomStartDate : nil,
-                endDate: useDateRange ? randomEndDate : nil,
-                useTimeRange: useTimeRange,
+            // 少なくとも1つがランダム
+            let settings = LetterRandomSettings(
+                useDateRange: dateMode == .random && useDateRange,
+                startDate: (dateMode == .random && useDateRange) ? randomStartDate : nil,
+                endDate: (dateMode == .random && useDateRange) ? randomEndDate : nil,
+                useTimeRange: timeMode == .random && useTimeRange,
                 startHour: calendar.component(.hour, from: startTime),
                 startMinute: calendar.component(.minute, from: startTime),
                 endHour: calendar.component(.hour, from: endTime),
-                endMinute: calendar.component(.minute, from: endTime)
+                endMinute: calendar.component(.minute, from: endTime),
+                // 新しいフィールド：固定日付・固定時刻
+                fixedDate: dateMode == .fixed ? fixedDate : nil,
+                fixedHour: timeMode == .fixed ? calendar.component(.hour, from: fixedTime) : nil,
+                fixedMinute: timeMode == .fixed ? calendar.component(.minute, from: fixedTime) : nil
             )
+            letter.randomSettings = settings
         }
         
         if existingLetter != nil {

@@ -593,6 +593,11 @@ struct LetterRandomSettings: Codable, Hashable {
     var endHour: Int
     var endMinute: Int
     
+    // 新規追加: 日付固定・時間ランダム or 日付ランダム・時間固定 のサポート
+    var fixedDate: Date?      // 日付が固定の場合
+    var fixedHour: Int?       // 時刻が固定の場合
+    var fixedMinute: Int?     // 時刻が固定の場合
+    
     init(useDateRange: Bool = false,
          startDate: Date? = nil,
          endDate: Date? = nil,
@@ -600,7 +605,10 @@ struct LetterRandomSettings: Codable, Hashable {
          startHour: Int = 9,
          startMinute: Int = 0,
          endHour: Int = 21,
-         endMinute: Int = 0) {
+         endMinute: Int = 0,
+         fixedDate: Date? = nil,
+         fixedHour: Int? = nil,
+         fixedMinute: Int? = nil) {
         self.useDateRange = useDateRange
         self.startDate = startDate
         self.endDate = endDate
@@ -609,6 +617,9 @@ struct LetterRandomSettings: Codable, Hashable {
         self.startMinute = startMinute
         self.endHour = endHour
         self.endMinute = endMinute
+        self.fixedDate = fixedDate
+        self.fixedHour = fixedHour
+        self.fixedMinute = fixedMinute
     }
     
     /// ランダムな配達日時を生成
@@ -616,42 +627,48 @@ struct LetterRandomSettings: Codable, Hashable {
         let calendar = Calendar.current
         let now = Date()
         
-        // 期間の決定（指定がある場合はその期間、なければ1日〜3年）
-        let rangeStart: Date
-        let rangeEnd: Date
+        // 日付の決定
+        let deliveryDay: Date
         
-        if useDateRange, let start = startDate, let end = endDate {
-            // 期間指定: 制限なし（100年先でもOK）
-            rangeStart = start
-            rangeEnd = end
+        if let fixed = fixedDate {
+            // 日付固定
+            deliveryDay = fixed
+        } else if useDateRange, let start = startDate, let end = endDate {
+            // 期間指定ランダム
+            let dayRange = calendar.dateComponents([.day], from: start, to: end).day ?? 1
+            let randomDays = Int.random(in: 0...max(0, dayRange))
+            deliveryDay = calendar.date(byAdding: .day, value: randomDays, to: start) ?? start
         } else {
             // 完全ランダム: 1日後 〜 3年後
-            rangeStart = calendar.date(byAdding: .day, value: 1, to: now) ?? now
-            rangeEnd = calendar.date(byAdding: .year, value: 3, to: now) ?? now
+            let rangeStart = calendar.date(byAdding: .day, value: 1, to: now) ?? now
+            let rangeEnd = calendar.date(byAdding: .year, value: 3, to: now) ?? now
+            let dayRange = calendar.dateComponents([.day], from: rangeStart, to: rangeEnd).day ?? 1
+            let randomDays = Int.random(in: 0...max(0, dayRange))
+            deliveryDay = calendar.date(byAdding: .day, value: randomDays, to: rangeStart) ?? rangeStart
         }
-        
-        // ランダムな日を選択
-        let dayRange = calendar.dateComponents([.day], from: rangeStart, to: rangeEnd).day ?? 1
-        let randomDays = Int.random(in: 0...max(0, dayRange))
-        var deliveryDate = calendar.date(byAdding: .day, value: randomDays, to: rangeStart) ?? rangeStart
         
         // 時間の決定
         let hour: Int
         let minute: Int
         
-        if useTimeRange {
-            // 開始時刻と終了時刻を分単位でランダムに選択
+        if let fh = fixedHour, let fm = fixedMinute {
+            // 時刻固定
+            hour = fh
+            minute = fm
+        } else if useTimeRange {
+            // 時間帯ランダム
             let startTotalMinutes = startHour * 60 + startMinute
             let endTotalMinutes = endHour * 60 + endMinute
             let randomTotalMinutes = Int.random(in: startTotalMinutes..<max(startTotalMinutes + 1, endTotalMinutes))
             hour = randomTotalMinutes / 60
             minute = randomTotalMinutes % 60
         } else {
+            // 終日ランダム
             hour = Int.random(in: 0...23)
             minute = Int.random(in: 0...59)
         }
         
-        deliveryDate = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: deliveryDate) ?? deliveryDate
+        let deliveryDate = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: deliveryDay) ?? deliveryDay
         
         return deliveryDate
     }

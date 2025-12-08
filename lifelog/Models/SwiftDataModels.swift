@@ -349,6 +349,11 @@ final class SDLetter {
     var randomEndHour: Int
     var randomEndMinute: Int = 0    // デフォルト値でマイグレーション対応
     
+    // 新規追加: 日付固定・時間ランダム or 日付ランダム・時間固定 のサポート
+    var randomFixedDate: Date?
+    var randomFixedHour: Int?
+    var randomFixedMinute: Int?
+    
     init(id: UUID = UUID(),
          content: String = "",
          photoPaths: [String] = [],
@@ -365,7 +370,10 @@ final class SDLetter {
          randomStartHour: Int = 9,
          randomStartMinute: Int = 0,
          randomEndHour: Int = 21,
-         randomEndMinute: Int = 0) {
+         randomEndMinute: Int = 0,
+         randomFixedDate: Date? = nil,
+         randomFixedHour: Int? = nil,
+         randomFixedMinute: Int? = nil) {
         self.id = id
         self.content = content
         self.photoPaths = photoPaths
@@ -383,6 +391,9 @@ final class SDLetter {
         self.randomStartMinute = randomStartMinute
         self.randomEndHour = randomEndHour
         self.randomEndMinute = randomEndMinute
+        self.randomFixedDate = randomFixedDate
+        self.randomFixedHour = randomFixedHour
+        self.randomFixedMinute = randomFixedMinute
     }
 }
 

@@ -172,7 +172,7 @@ struct SettingsView: View {
         .alert("メールアカウントが設定されていません", isPresented: $showMailErrorAlert) {
             Button("OK") { }
         } message: {
-            Text("メールアプリでアカウントを設定するか、support@example.com まで直接ご連絡ください。")
+            Text("メールアプリでアカウントを設定するか、inazumimakoto@gmail.com まで直接ご連絡ください。")
         }
         .sheet(isPresented: $showCalendarSettings) {
             NavigationStack {

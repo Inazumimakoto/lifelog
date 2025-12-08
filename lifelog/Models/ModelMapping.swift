@@ -368,7 +368,8 @@ extension AppState {
 extension Letter {
     init(sd: SDLetter) {
         let randomSettings: LetterRandomSettings? = {
-            if sd.randomUseDateRange || sd.randomUseTimeRange {
+            // 新しいフィールドも含めて判定
+            if sd.randomUseDateRange || sd.randomUseTimeRange || sd.randomFixedDate != nil || sd.randomFixedHour != nil {
                 return LetterRandomSettings(
                     useDateRange: sd.randomUseDateRange,
                     startDate: sd.randomStartDate,
@@ -377,7 +378,10 @@ extension Letter {
                     startHour: sd.randomStartHour,
                     startMinute: sd.randomStartMinute,
                     endHour: sd.randomEndHour,
-                    endMinute: sd.randomEndMinute
+                    endMinute: sd.randomEndMinute,
+                    fixedDate: sd.randomFixedDate,
+                    fixedHour: sd.randomFixedHour,
+                    fixedMinute: sd.randomFixedMinute
                 )
             }
             return nil
@@ -417,7 +421,10 @@ extension SDLetter {
             randomStartHour: domain.randomSettings?.startHour ?? 9,
             randomStartMinute: domain.randomSettings?.startMinute ?? 0,
             randomEndHour: domain.randomSettings?.endHour ?? 21,
-            randomEndMinute: domain.randomSettings?.endMinute ?? 0
+            randomEndMinute: domain.randomSettings?.endMinute ?? 0,
+            randomFixedDate: domain.randomSettings?.fixedDate,
+            randomFixedHour: domain.randomSettings?.fixedHour,
+            randomFixedMinute: domain.randomSettings?.fixedMinute
         )
     }
     
@@ -437,6 +444,9 @@ extension SDLetter {
         self.randomStartMinute = domain.randomSettings?.startMinute ?? 0
         self.randomEndHour = domain.randomSettings?.endHour ?? 21
         self.randomEndMinute = domain.randomSettings?.endMinute ?? 0
+        self.randomFixedDate = domain.randomSettings?.fixedDate
+        self.randomFixedHour = domain.randomSettings?.fixedHour
+        self.randomFixedMinute = domain.randomSettings?.fixedMinute
     }
 }
 
