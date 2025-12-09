@@ -27,8 +27,8 @@ struct AnalysisExportView: View {
     @State private var includeEvents: Bool = true
     @State private var includeHabits: Bool = true
     
-    // アラート用
-    @State private var showCopyAlert = false
+    // AIアプリ選択シート用
+    @State private var showAIAppSelectionSheet = false
     
     // 期間内のデータをフィルタリング
     private var targetDays: [DailyData] {
@@ -180,15 +180,8 @@ struct AnalysisExportView: View {
                     Button("閉じる") { dismiss() }
                 }
             }
-            .alert("コピーしました", isPresented: $showCopyAlert) {
-                Button("OK", role: .cancel) { }
-            } message: {
-                Text("""
-                AIのチャット画面に貼り付けてください。
-
-                ・「一時チャット」や「新しいチャット」での利用をおすすめします。
-                ・期間が長いほど、コピーやAI側の処理に時間がかかることがあります。
-                """)
+            .sheet(isPresented: $showAIAppSelectionSheet) {
+                AIAppSelectionSheet()
             }
         }
         // 初期化時の期間設定（今月の1日から今日まで）
@@ -211,6 +204,6 @@ struct AnalysisExportView: View {
         UIPasteboard.general.string = generatedText
         let generator = UINotificationFeedbackGenerator()
         generator.notificationOccurred(.success)
-        showCopyAlert = true
+        showAIAppSelectionSheet = true
     }
 }
