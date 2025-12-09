@@ -912,8 +912,34 @@ struct LetterOpeningView: View {
     // MARK: - 開封アニメーション
     
     private func openEnvelope() {
-        // 成功ハプティクス
-        notificationFeedback.notificationOccurred(.success)
+        // 💥 最大級ハプティクス - 開封の達成感を演出
+        
+        // フェーズ1: 強い衝撃で始まる
+        impactRigid.impactOccurred(intensity: 1.0)
+        
+        // フェーズ2: 成功通知
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            self.notificationFeedback.notificationOccurred(.success)
+        }
+        
+        // フェーズ3: 連続した強い振動パターン（お祝い感）
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            self.impactHeavy.impactOccurred(intensity: 1.0)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            self.impactHeavy.impactOccurred(intensity: 0.9)
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
+            self.impactRigid.impactOccurred(intensity: 1.0)
+        }
+        
+        // フェーズ4: 最後のフィニッシュ（手紙が拡大するタイミング）
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+            self.impactHeavy.impactOccurred(intensity: 0.8)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.notificationFeedback.notificationOccurred(.success)
+            }
+        }
         
         // パーティクルを非表示
         showParticles = false
