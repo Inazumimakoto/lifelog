@@ -47,6 +47,20 @@ struct TodayView: View {
                     habitsSection
                     healthSection
                     diarySection
+                    
+                    // Apple Weather Attribution (Required by WeatherKit)
+                    if weatherService.currentWeather != nil {
+                        Link(destination: URL(string: "https://weatherkit.apple.com/legal-attribution.html")!) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "apple.logo")
+                                    .font(.system(size: 9))
+                                Text("Weather")
+                                    .font(.system(size: 10))
+                            }
+                            .foregroundStyle(.secondary.opacity(0.6))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                    }
                 }
                 .padding()
                 .padding(.bottom, 80) // FABのための余白
@@ -329,7 +343,7 @@ struct TodayView: View {
                     Button {
                         showEventManager = true
                     } label: {
-                        Label("予定リストを開く", systemImage: "list.bullet")
+                        Label("全てを表示", systemImage: "chevron.right")
                             .font(.caption.weight(.semibold))
                     }
                 }
@@ -397,7 +411,7 @@ struct TodayView: View {
                     Button {
                         showTaskManager = true
                     } label: {
-                        Label("タスクリストを開く", systemImage: "list.bullet")
+                        Label("全てを表示", systemImage: "chevron.right")
                             .font(.caption.weight(.semibold))
                     }
                     Spacer()

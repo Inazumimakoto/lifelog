@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.6] - 2025-12-10
+
+### Added
+- **AI書き出し改善**: コピー完了後にAIアプリ選択シートを表示。ChatGPT、Gemini、Claude、Grok、Poeへ直接遷移可能。
+- **一時チャット推奨**: AI書き出し時に「一時チャット」での利用を推奨するヒントを表示。
+- **Apple Weather クレジット**: WeatherKit利用に伴うApple Weather表記を追加（App Store要件対応）。
+
+### Changed
+- **未来への手紙 ハプティクス強化**: 開封時の振動を最大級に強化。連続振動パターンで達成感を演出。
+
+### Fixed
+- **App Store審査対応**: Apple Weatherのクレジット表記を天気表示画面に追加。
+
 ## [1.4] - 2025-12-06
 
 ### Added

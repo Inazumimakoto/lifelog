@@ -55,24 +55,15 @@ struct SettingsView: View {
                     }
                 }
                 .foregroundStyle(.primary)
-                
+            }
+            
+            // ヘルプ
+            Section("ヘルプ") {
                 Button {
                     showHelp = true
                 } label: {
                     HStack {
                         Label("使い方", systemImage: "questionmark.circle.fill")
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .foregroundStyle(.primary)
-                
-                Button {
-                    showLetterList = true
-                } label: {
-                    HStack {
-                        Label("未来への手紙", systemImage: "envelope.fill")
                         Spacer()
                         Image(systemName: "chevron.right")
                             .foregroundStyle(.secondary)
@@ -156,6 +147,21 @@ struct SettingsView: View {
                     .frame(maxWidth: .infinity, alignment: .center)
             }
             .listRowBackground(Color.clear)
+            
+            // ひみつの機能（一番下に配置）
+            Section("ひみつの機能 🤫") {
+                Button {
+                    showLetterList = true
+                } label: {
+                    HStack {
+                        Label("未来への手紙", systemImage: "envelope.fill")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary)
+            }
         }
         .navigationTitle("設定")
         .navigationBarTitleDisplayMode(.inline)

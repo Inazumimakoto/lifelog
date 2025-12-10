@@ -33,30 +33,46 @@ struct WeatherCardView: View {
     }
     
     private func weatherContent(_ weather: CurrentWeatherData) -> some View {
-        HStack(spacing: 12) {
-            // 天気アイコン
-            Image(systemName: weather.symbolName)
-                .font(.system(size: 32))
-                .symbolRenderingMode(.multicolor)
-            
-            VStack(alignment: .leading, spacing: 2) {
-                // 天気状態
-                Text(weather.conditionDescription)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+        VStack(spacing: 8) {
+            HStack(spacing: 12) {
+                // 天気アイコン
+                Image(systemName: weather.symbolName)
+                    .font(.system(size: 32))
+                    .symbolRenderingMode(.multicolor)
                 
-                // 現在の気温
-                Text(weather.temperatureString)
-                    .font(.title2.bold())
+                VStack(alignment: .leading, spacing: 2) {
+                    // 天気状態
+                    Text(weather.conditionDescription)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    
+                    // 現在の気温
+                    Text(weather.temperatureString)
+                        .font(.title2.bold())
+                }
+                
+                Spacer()
+                
+                // 最高・最低気温
+                if let highLow = weather.highLowString {
+                    Text(highLow)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
             }
             
-            Spacer()
-            
-            // 最高・最低気温
-            if let highLow = weather.highLowString {
-                Text(highLow)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+            // Apple Weather Attribution (Required by WeatherKit)
+            HStack(spacing: 4) {
+                Spacer()
+                Link(destination: URL(string: "https://weatherkit.apple.com/legal-attribution.html")!) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "apple.logo")
+                            .font(.system(size: 8))
+                        Text("Weather")
+                            .font(.system(size: 9))
+                    }
+                    .foregroundStyle(.secondary.opacity(0.7))
+                }
             }
         }
         .padding()

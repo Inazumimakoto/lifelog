@@ -384,6 +384,21 @@ struct JournalView: View {
                     pager
                         .padding(.horizontal, 16)
                     Spacer(minLength: 0)
+                    
+                    // Apple Weather Attribution (Required by WeatherKit) - フッター
+                    if snapshot.healthSummary?.weatherCondition != nil {
+                        Link(destination: URL(string: "https://weatherkit.apple.com/legal-attribution.html")!) {
+                            HStack(spacing: 4) {
+                                Image(systemName: "apple.logo")
+                                    .font(.system(size: 9))
+                                Text("Weather")
+                                    .font(.system(size: 10))
+                            }
+                            .foregroundStyle(.secondary.opacity(0.6))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.bottom, 8)
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .toolbar {

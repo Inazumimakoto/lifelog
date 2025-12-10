@@ -14,6 +14,9 @@ struct LetterListView: View {
     @State private var letterToOpen: Letter?
     @State private var showLetterOpening = false
     @State private var hasOpenedEnvelope = false
+    @State private var showWelcome = false
+    
+    @AppStorage("hasSeenLetterWelcome") private var hasSeenWelcome = false
     
     /// 配達日を過ぎた未開封の手紙（開封待ち）
     private var deliverableLetters: [Letter] {
@@ -107,6 +110,17 @@ struct LetterListView: View {
                         .ignoresSafeArea()
                 }
             }
+        }
+        .onAppear {
+            if !hasSeenWelcome {
+                showWelcome = true
+                hasSeenWelcome = true
+            }
+        }
+        .alert("ようこそ！🤫", isPresented: $showWelcome) {
+            Button("はじめる") { }
+        } message: {
+            Text("「未来への手紙」はひみつの機能です。\n\n未来の自分に手紙を書いて、指定した日に届けることができます。タイムカプセルのように、書いたことを忘れた頃に届くサプライズをお楽しみください！")
         }
     }
     
