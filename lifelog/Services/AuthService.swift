@@ -290,6 +290,53 @@ class AuthService: ObservableObject {
         }
     }
     
+    // MARK: - Block Management
+    
+    /// ユーザーをブロック
+    func blockUser(_ userId: String) async throws {
+        guard let currentUserId = Auth.auth().currentUser?.uid else {
+            throw NSError(domain: "AuthService", code: -1, userInfo: [NSLocalizedDescriptionKey: "ログインが必要です"])
+        }
+        
+        try await db.collection("users").document(currentUserId).updateData([
+            "blockedUsers": FieldValue.arrayUnion([userId])
+        ])
+        
+        // ローカルも更新
+        if var user = currentUser {
+            if !user.blockedUsers.contains(userId) {
+                user.blockedUsers.append(userId)
+                currentUser = user
+            }
+        }
+        
+        print("✅ ユーザーをブロック: \(userId)")
+    }
+    
+    /// ユーザーのブロックを解除
+    func unblockUser(_ userId: String) async throws {
+        guard let currentUserId = Auth.auth().currentUser?.uid else {
+            throw NSError(domain: "AuthService", code: -1, userInfo: [NSLocalizedDescriptionKey: "ログインが必要です"])
+        }
+        
+        try await db.collection("users").document(currentUserId).updateData([
+            "blockedUsers": FieldValue.arrayRemove([userId])
+        ])
+        
+        // ローカルも更新
+        if var user = currentUser {
+            user.blockedUsers.removeAll { $0 == userId }
+            currentUser = user
+        }
+        
+        print("✅ ブロック解除: \(userId)")
+    }
+    
+    /// ユーザーがブロックされているか確認
+    func isBlocked(_ userId: String) -> Bool {
+        return currentUser?.blockedUsers.contains(userId) ?? false
+    }
+    
     // MARK: - Sign Out
     
     /// サインアウト

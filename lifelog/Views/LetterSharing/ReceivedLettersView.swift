@@ -1129,6 +1129,12 @@ struct SharedLetterContentView: View {
     @State private var selectedPhotoIndex: Int = 0
     @State private var showFullscreenPhoto = false
     
+    // 通報・ブロック用
+    @State private var showReportSheet = false
+    @State private var showBlockConfirmation = false
+    @State private var showBlockSuccessAfterReport = false
+    @State private var isBlocking = false
+    
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
@@ -1205,12 +1211,72 @@ struct SharedLetterContentView: View {
                     dismiss()
                 }
             }
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button(role: .destructive) {
+                        showReportSheet = true
+                    } label: {
+                        Label("通報", systemImage: "exclamationmark.triangle")
+                    }
+                    
+                    Button(role: .destructive) {
+                        showBlockConfirmation = true
+                    } label: {
+                        Label("ブロック", systemImage: "hand.raised.fill")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
         }
         .task {
             loadPhotos()
         }
         .fullScreenCover(isPresented: $showFullscreenPhoto) {
             fullscreenPhotoViewer
+        }
+        .sheet(isPresented: $showReportSheet) {
+            ReportSheetView(
+                userName: letter.senderName,
+                userId: letter.senderId,
+                letterId: letter.id,
+                onReportComplete: {
+                    showBlockSuccessAfterReport = true
+                }
+            )
+        }
+        .alert("ブロックしますか？", isPresented: $showBlockConfirmation) {
+            Button("キャンセル", role: .cancel) { }
+            Button("ブロック", role: .destructive) {
+                blockUser()
+            }
+        } message: {
+            Text("\(letter.senderName)さんからの手紙は今後届かなくなります。")
+        }
+        .alert("ブロックしますか？", isPresented: $showBlockSuccessAfterReport) {
+            Button("いいえ", role: .cancel) { }
+            Button("ブロックする", role: .destructive) {
+                blockUser()
+            }
+        } message: {
+            Text("通報を送信しました。このユーザーをブロックしますか？")
+        }
+    }
+    
+    private func blockUser() {
+        isBlocking = true
+        _Concurrency.Task {
+            do {
+                try await AuthService.shared.blockUser(letter.senderId)
+                await MainActor.run {
+                    isBlocking = false
+                    HapticManager.success()
+                }
+            } catch {
+                await MainActor.run {
+                    isBlocking = false
+                }
+            }
         }
     }
     
@@ -1266,6 +1332,106 @@ struct SharedLetterContentView: View {
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.8))
                         .padding(.bottom, 40)
+                }
+            }
+        }
+    }
+}
+
+// MARK: - 通報シート
+
+struct ReportSheetView: View {
+    let userName: String
+    let userId: String
+    let letterId: String?
+    let onReportComplete: () -> Void
+    
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedReason: ReportService.ReportReason?
+    @State private var details: String = ""
+    @State private var isSubmitting = false
+    @State private var showSuccess = false
+    
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
+                    Text("\(userName)さんを通報")
+                        .font(.headline)
+                } header: {
+                    Text("通報対象")
+                }
+                
+                Section {
+                    ForEach(ReportService.ReportReason.allCases, id: \.self) { reason in
+                        Button {
+                            selectedReason = reason
+                        } label: {
+                            HStack {
+                                Text(reason.displayName)
+                                    .foregroundColor(.primary)
+                                Spacer()
+                                if selectedReason == reason {
+                                    Image(systemName: "checkmark")
+                                        .foregroundColor(.blue)
+                                }
+                            }
+                        }
+                    }
+                } header: {
+                    Text("通報理由")
+                }
+                
+                Section {
+                    TextField("詳細（任意）", text: $details, axis: .vertical)
+                        .lineLimit(3...6)
+                } header: {
+                    Text("詳細")
+                }
+            }
+            .navigationTitle("通報")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("送信") {
+                        submitReport()
+                    }
+                    .disabled(selectedReason == nil || isSubmitting)
+                }
+            }
+            .alert("通報を送信しました", isPresented: $showSuccess) {
+                Button("OK") {
+                    dismiss()
+                    onReportComplete()
+                }
+            }
+        }
+    }
+    
+    private func submitReport() {
+        guard let reason = selectedReason else { return }
+        
+        isSubmitting = true
+        _Concurrency.Task {
+            do {
+                try await ReportService.shared.reportUser(
+                    userId: userId,
+                    reason: reason,
+                    letterId: letterId,
+                    details: details.isEmpty ? nil : details
+                )
+                await MainActor.run {
+                    isSubmitting = false
+                    showSuccess = true
+                }
+            } catch {
+                await MainActor.run {
+                    isSubmitting = false
                 }
             }
         }

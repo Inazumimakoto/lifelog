@@ -190,6 +190,17 @@ export const validatePendingLimit = onDocumentCreated("letters/{letterId}", asyn
  */
 async function deliverLetter(letterId: string, data: FirebaseFirestore.DocumentData) {
   const recipientId = data.recipientId;
+  const senderId = data.senderId;
+
+  // ブロックチェック: 受信者が送信者をブロックしているか確認
+  const recipientDoc = await db.collection("users").doc(recipientId).get();
+  const blockedUsers = recipientDoc.data()?.blockedUsers || [];
+  if (blockedUsers.includes(senderId)) {
+    // ブロック中 → 配信せずに手紙を削除
+    await db.collection("letters").doc(letterId).delete();
+    logger.info(`ブロック中のため配信スキップ: ${letterId} (sender: ${senderId})`);
+    return;
+  }
 
   // ステータスを更新
   await db.collection("letters").doc(letterId).update({
