@@ -24,6 +24,9 @@ struct TodayView: View {
     @State private var editingTask: Task?
     @State private var showLetterOpening = false
     @State private var letterToOpen: Letter?
+    @State private var showSharedLetterOpening = false
+    @State private var sharedLetterToOpen: LetterReceivingService.ReceivedLetter?
+    @State private var receivedSharedLetters: [LetterReceivingService.ReceivedLetter] = []
     private let memoPlaceholder = "買い物リストや気づいたことを書いておけます"
     private let store: AppDataStore
     @State private var didAppear = false
@@ -40,6 +43,7 @@ struct TodayView: View {
                 VStack(spacing: 16) {
                     header
                     letterSection
+                    sharedLetterSection
                     eventsSection
                     //                todayTimelineSection
                     tasksSection
@@ -67,6 +71,8 @@ struct TodayView: View {
             }
             .task {
                 await weatherService.fetchWeather()
+                // 共有手紙を取得
+                await loadSharedLetters()
             }
             .task(id: calendarSyncTrigger) {
                 await syncCalendarsIfNeeded()
@@ -149,6 +155,17 @@ struct TodayView: View {
                     Color(uiColor: UIColor(red: 0.1, green: 0.1, blue: 0.18, alpha: 1))
                         .ignoresSafeArea()
                 }
+            }
+        }
+        .fullScreenCover(isPresented: $showSharedLetterOpening, onDismiss: {
+            sharedLetterToOpen = nil
+            // 開封後にリストを更新
+            _Concurrency.Task {
+                await loadSharedLetters()
+            }
+        }) {
+            if let letter = sharedLetterToOpen {
+                SharedLetterOpeningView(letter: letter)
             }
         }
         .fullScreenCover(isPresented: $showMemoEditor) {
@@ -625,6 +642,90 @@ struct TodayView: View {
                     .background(Circle().fill(.white))
             }
             .offset(x: 8, y: -8)
+        }
+    }
+    
+    // MARK: - Shared Letter Section (大切な人からの手紙)
+    
+    @ViewBuilder
+    private var sharedLetterSection: some View {
+        // 未開封の共有手紙のみ表示
+        let unreadLetters = receivedSharedLetters.filter { $0.status == "delivered" }
+        
+        if !unreadLetters.isEmpty {
+            VStack(spacing: 12) {
+                ForEach(unreadLetters) { letter in
+                    sharedLetterCardView(for: letter)
+                }
+                
+                // 設定から見れるメッセージ
+                Text("✕で非表示にしても設定 > みんなの手紙 からいつでも読めます")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .onChange(of: sharedLetterToOpen) { _, newLetter in
+                if newLetter != nil {
+                    showSharedLetterOpening = true
+                }
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private func sharedLetterCardView(for letter: LetterReceivingService.ReceivedLetter) -> some View {
+        let bgColor: Color = Color.blue.opacity(0.1)
+        let borderColor: Color = Color.blue.opacity(0.3)
+        
+        ZStack(alignment: .topTrailing) {
+            Button {
+                sharedLetterToOpen = letter
+            } label: {
+                HStack(spacing: 16) {
+                    Text(letter.senderEmoji)
+                        .font(.title)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("\(letter.senderName)さんから手紙が届いています")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.primary)
+                        Text("タップして開封")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    
+                    Spacer()
+                    
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.secondary)
+                }
+                .padding()
+                .background(RoundedRectangle(cornerRadius: 12).fill(bgColor))
+                .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(borderColor, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            
+            // ✕ボタン（非表示にする）
+            Button {
+                withAnimation {
+                    // 一覧から削除（実際には開封するまで消えない）
+                    receivedSharedLetters.removeAll { $0.id == letter.id }
+                }
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title3)
+                    .foregroundStyle(.gray.opacity(0.5))
+                    .background(Circle().fill(.white))
+            }
+            .offset(x: 8, y: -8)
+        }
+    }
+    
+    private func loadSharedLetters() async {
+        do {
+            receivedSharedLetters = try await LetterReceivingService.shared.getReceivedLetters()
+        } catch {
+            print("共有手紙の取得に失敗: \(error.localizedDescription)")
         }
     }
 }

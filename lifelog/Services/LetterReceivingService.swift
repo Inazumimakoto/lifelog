@@ -41,7 +41,7 @@ class LetterReceivingService {
     }
     
     /// 受信した手紙（未復号）
-    struct ReceivedLetter: Identifiable {
+    struct ReceivedLetter: Identifiable, Equatable {
         let id: String
         let senderId: String
         let senderEmoji: String
