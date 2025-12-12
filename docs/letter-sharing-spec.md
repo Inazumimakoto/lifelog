@@ -597,32 +597,44 @@ interface Report {
 
 ## 実装タスク
 
-### Phase 1: 準備
+### Phase 1: 準備 ✅
 
-- [ ] Firebase プロジェクト作成
-- [ ] Firestore 有効化
-- [ ] Firebase Auth 有効化（Sign in with Apple）
-- [ ] Firebase Storage 有効化
-- [ ] Cloud Messaging 有効化
-- [ ] **Firebase Hosting 有効化**
-- [ ] **apple-app-site-association 配置（Universal Links）**
-- [ ] iOS アプリを Firebase に登録
-- [ ] `GoogleService-Info.plist` をダウンロード
-- [ ] Xcode で Associated Domains 設定
+- [x] Firebase プロジェクト作成
+- [x] Firestore 有効化
+- [x] Firebase Auth 有効化（Sign in with Apple）
+- [x] Firebase Storage 有効化
+- [x] Cloud Messaging 有効化
+- [x] **Firebase Hosting 有効化**
+- [x] **apple-app-site-association 配置（Universal Links）**
+- [x] iOS アプリを Firebase に登録
+- [x] `GoogleService-Info.plist` をダウンロード
+- [x] Xcode で Associated Domains 設定
+- [x] Firebase SDK 追加（SPM）
+- [x] 初期化コード追加（lifelogApp.swift）
 
-### Phase 2: 暗号化基盤
+### Phase 2: 暗号化基盤 ✅
 
-- [ ] CryptoKit でキーペア生成
-- [ ] KeyChain への保存・読み込み（iCloud同期有効）
-- [ ] ECDH 共有シークレット導出
-- [ ] AES-GCM 暗号化・復号
+- [x] CryptoKit でキーペア生成
+- [x] KeyChain への保存・読み込み（iCloud同期有効）
+- [x] ECDH 共有シークレット導出
+- [x] AES-GCM 暗号化・復号
 
-### Phase 3: 認証・プロフィール
+**作成ファイル:**
+- `Services/E2EEService.swift`
 
-- [ ] Sign in with Apple の実装
-- [ ] Firebase Auth との連携
-- [ ] **プロフィール設定画面（絵文字+表示名）**
-- [ ] ユーザー情報の Firestore 保存
+### Phase 3: 認証・プロフィール ✅
+
+- [x] Sign in with Apple の実装
+- [x] Firebase Auth との連携
+- [x] **プロフィール設定画面（絵文字+表示名）**
+- [x] ユーザー情報の Firestore 保存
+- [x] 設定画面からのナビゲーション追加
+
+**作成ファイル:**
+- `Services/AuthService.swift`
+- `Views/LetterSharing/LetterSignInView.swift`
+- `Views/LetterSharing/LetterProfileSetupView.swift`
+- `Views/LetterSharing/LetterSharingView.swift`
 
 ### Phase 4: ペアリング
 

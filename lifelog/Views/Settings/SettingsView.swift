@@ -18,6 +18,7 @@ struct SettingsView: View {
     @State private var showNotificationSettings = false
     @State private var showHelp = false
     @State private var showLetterList = false
+    @State private var showLetterSharing = false
     
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
@@ -161,6 +162,18 @@ struct SettingsView: View {
                     }
                 }
                 .foregroundStyle(.primary)
+                
+                Button {
+                    showLetterSharing = true
+                } label: {
+                    HStack {
+                        Label("大切な人への手紙", systemImage: "envelope.badge.person.crop")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary)
             }
         }
         .navigationTitle("設定")
@@ -222,6 +235,9 @@ struct SettingsView: View {
                         }
                     }
             }
+        }
+        .sheet(isPresented: $showLetterSharing) {
+            LetterSharingView()
         }
     }
 }
