@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.7] - 2025-12-13
+
+### Added
+- **大切な人への手紙 🆕**: 友達と手紙を送り合える新機能。エンドツーエンド暗号化（E2EE）で内容を完全保護。
+  - 招待リンクで友達追加
+  - 配信日時を指定して手紙を送信
+  - 美しい開封アニメーション
+  - 写真添付対応（5枚まで）
+  - プッシュ通知で手紙到着をお知らせ
+- **通報・ブロック機能**: 不適切なユーザーを通報・ブロック可能。
+- **プライバシーポリシーリンク**: 設定画面からプライバシーポリシーを直接確認可能。
+
+### Changed
+- **通知設定**: 「未来への手紙」の設定を「手紙」に統合し、友達からの手紙通知も含むように変更。
+- **プライバシーポリシー更新**: Firebase利用と暗号化についての説明を追加。
+
+### Technical
+- Firebase Authentication（Apple ID Sign-In）
+- Firebase Cloud Firestore（手紙データ保存）
+- Firebase Cloud Functions（配信スケジューリング、ブロック処理）
+- Firebase Cloud Messaging（プッシュ通知）
+- エンドツーエンド暗号化（X25519 + ChaCha20-Poly1305）
+
 ## [1.6] - 2025-12-10
 
 ### Added

@@ -49,9 +49,17 @@ struct HelpView: View {
                 
                 // 未来への手紙
                 Section("✉️ 未来への手紙") {
-                    HelpRow(icon: "envelope.fill", title: "手紙を書く", description: "未来の自分にメッセージを送れます", highlight: true)
-                    HelpRow(icon: "calendar.badge.clock", title: "配達日設定", description: "届く日を指定、またはランダムに設定", highlight: true)
-                    HelpRow(icon: "envelope.open.fill", title: "開封", description: "届いた手紙をスワイプで開封できます", highlight: true)
+                    HelpRow(icon: "envelope.fill", title: "手紙を書く", description: "未来の自分にメッセージを送れます")
+                    HelpRow(icon: "calendar.badge.clock", title: "配達日設定", description: "届く日を指定、またはランダムに設定")
+                    HelpRow(icon: "envelope.open.fill", title: "開封", description: "届いた手紙をスワイプで開封できます")
+                }
+                
+                // 大切な人への手紙
+                Section("💌 大切な人への手紙") {
+                    HelpRow(icon: "person.2.fill", title: "友達を追加", description: "招待リンクを共有して友達を追加", highlight: true)
+                    HelpRow(icon: "envelope.fill", title: "手紙を送る", description: "配信日時を指定して友達に手紙を送信", highlight: true)
+                    HelpRow(icon: "lock.shield.fill", title: "暗号化", description: "内容はE2EE暗号化で開発者にも読めません", highlight: true)
+                    HelpRow(icon: "bell.fill", title: "プッシュ通知", description: "手紙が届いたら通知でお知らせ", highlight: true)
                 }
                 
                 // 習慣機能
