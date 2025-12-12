@@ -147,6 +147,73 @@ deleteLetter(letterId)
 
 ---
 
+## プロフィール設定
+
+### 初回設定画面
+
+```
+┌─────────────────────────────────┐
+│ プロフィール設定                │
+├─────────────────────────────────┤
+│                                 │
+│        [ 😊 ]                   │
+│   タップして変更                │
+│                                 │
+│ 表示名:                         │
+│ [ たなか____________ ]          │
+│                                 │
+│ ※ 友達に表示される名前です      │
+│                                 │
+│      [ 保存 ]                   │
+│                                 │
+└─────────────────────────────────┘
+```
+
+### 仕様
+
+| 項目 | 仕様 |
+|------|------|
+| 絵文字アイコン | 全ての絵文字から選択可能 |
+| 表示名 | 初期値はSign in with Appleの名前、自由に編集可能 |
+| 変更 | 設定画面からいつでも変更可能 |
+
+---
+
+## Deep Link（招待リンク）
+
+### 仕組み
+
+```
+Firebase Hosting でウェブページを公開
+  ↓
+https://lifelog-xxxxx.web.app/invite/ABC123
+  ↓
+LINEでタップ
+  ↓
+アプリがインストール済み → アプリ起動 → 招待画面
+アプリ未インストール → App Store → インストール後に招待画面
+```
+
+### 必要な設定
+
+| 項目 | 内容 |
+|------|------|
+| Firebase Hosting | 無料で使用可能 |
+| Universal Links | Xcode で Associated Domains 設定 |
+| apple-app-site-association | Firebase Hosting に配置 |
+
+---
+
+## 写真の仕様
+
+| 項目 | 仕様 |
+|------|------|
+| 最大枚数 | 5枚 |
+| サイズ制限 | 1枚あたり **10MB以下** |
+| 暗号化 | AES-GCM で暗号化して保存 |
+
+---
+
 ## ユーザーフロー
 
 ### 1. 友達登録（ペアリング）
@@ -422,6 +489,8 @@ SecItemAdd(query as CFDictionary, nil)
 // ユーザー
 interface User {
   id: string;
+  emoji: string;             // プロフィール絵文字 "😊"
+  displayName: string;       // 表示名（編集可能）
   publicKey: string;         // 公開鍵（Base64エンコード）
   fcmToken: string;
   lastActiveAt: Timestamp;
@@ -530,42 +599,65 @@ interface Report {
 
 ### Phase 1: 準備
 
-- [ ] Firebase プロジェクト設定
-- [ ] Deep Link 設定（Universal Links）
-- [ ] プッシュ通知設定
+- [ ] Firebase プロジェクト作成
+- [ ] Firestore 有効化
+- [ ] Firebase Auth 有効化（Sign in with Apple）
+- [ ] Firebase Storage 有効化
+- [ ] Cloud Messaging 有効化
+- [ ] **Firebase Hosting 有効化**
+- [ ] **apple-app-site-association 配置（Universal Links）**
+- [ ] iOS アプリを Firebase に登録
+- [ ] `GoogleService-Info.plist` をダウンロード
+- [ ] Xcode で Associated Domains 設定
 
 ### Phase 2: 暗号化基盤
 
 - [ ] CryptoKit でキーペア生成
-- [ ] KeyChain への保存・読み込み
+- [ ] KeyChain への保存・読み込み（iCloud同期有効）
 - [ ] ECDH 共有シークレット導出
 - [ ] AES-GCM 暗号化・復号
 
-### Phase 3: ペアリング
+### Phase 3: 認証・プロフィール
 
-- [ ] 招待リンク生成
-- [ ] Deep Link 処理
+- [ ] Sign in with Apple の実装
+- [ ] Firebase Auth との連携
+- [ ] **プロフィール設定画面（絵文字+表示名）**
+- [ ] ユーザー情報の Firestore 保存
+
+### Phase 4: ペアリング
+
+- [ ] 招待リンク生成（Firebase Hosting URL）
+- [ ] **Deep Link 処理（Universal Links）**
+- [ ] **App未インストール時のApp Store誘導**
 - [ ] 公開鍵の交換
-- [ ] ペアリングUI
+- [ ] ペアリングUI（友達一覧）
 
-### Phase 4: 手紙機能
+### Phase 5: 手紙機能
 
-- [ ] 手紙作成UI
+- [ ] 手紙作成UI（既存の「未来への手紙」UIを流用）
+- [ ] 写真添付（10MB制限チェック）
 - [ ] 暗号化して送信
-- [ ] 配信条件設定
+- [ ] 配信条件設定（既存ロジック流用）
+- [ ] **未開封上限5通チェック**
 
-### Phase 5: 配信・受信
+### Phase 6: 配信・受信
 
 - [ ] Cloud Functions: 配信判定
 - [ ] プッシュ通知送信
 - [ ] 受信・復号処理
 - [ ] サーバーからの削除
-- [ ] 開封画面遷移
+- [ ] 開封画面遷移（既存の開封画面を流用）
 
-### Phase 6: ローカル保存
+### Phase 7: 安全機能
+
+- [ ] **ブロック機能**
+- [ ] **通報機能**
+- [ ] **友達削除（セッション解除）**
+
+### Phase 8: ローカル保存
 
 - [ ] 復号した手紙をローカルに保存
-- [ ] 手紙一覧表示
+- [ ] 手紙一覧表示（ホームにも表示）
 - [ ] 手紙削除機能
 
 ---
@@ -574,13 +666,15 @@ interface Report {
 
 | Phase | 作業時間 | 難易度 |
 |-------|---------|--------|
-| Phase 1: 準備 | 3-4時間 | ⭐⭐ |
+| Phase 1: 準備 | 4-6時間 | ⭐⭐ |
 | Phase 2: 暗号化基盤 | 8-12時間 | ⭐⭐⭐⭐⭐ |
-| Phase 3: ペアリング | 6-8時間 | ⭐⭐⭐⭐ |
-| Phase 4: 手紙機能 | 5-7時間 | ⭐⭐⭐ |
-| Phase 5: 配信・受信 | 8-10時間 | ⭐⭐⭐⭐ |
-| Phase 6: ローカル保存 | 4-5時間 | ⭐⭐ |
-| **合計** | **34-46時間** | |
+| Phase 3: 認証・プロフィール | 4-6時間 | ⭐⭐⭐ |
+| Phase 4: ペアリング | 8-10時間 | ⭐⭐⭐⭐ |
+| Phase 5: 手紙機能 | 5-7時間 | ⭐⭐⭐ |
+| Phase 6: 配信・受信 | 8-10時間 | ⭐⭐⭐⭐ |
+| Phase 7: 安全機能 | 4-6時間 | ⭐⭐⭐ |
+| Phase 8: ローカル保存 | 4-5時間 | ⭐⭐ |
+| **合計** | **45-62時間** | |
 
 ---
 
