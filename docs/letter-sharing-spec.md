@@ -636,13 +636,21 @@ interface Report {
 - `Views/LetterSharing/LetterProfileSetupView.swift`
 - `Views/LetterSharing/LetterSharingView.swift`
 
-### Phase 4: ペアリング
+### Phase 4: ペアリング ✅
 
-- [ ] 招待リンク生成（Firebase Hosting URL）
-- [ ] **Deep Link 処理（Universal Links）**
-- [ ] **App未インストール時のApp Store誘導**
-- [ ] 公開鍵の交換
-- [ ] ペアリングUI（友達一覧）
+- [x] 招待リンク生成（Firebase Hosting URL、24時間有効）
+- [x] **Deep Link 処理（Universal Links）**
+- [x] **App未インストール時のApp Store誘導**
+- [x] 公開鍵の交換
+- [x] ペアリングUI（友達一覧）
+- [x] **承認式ペアリングフロー**
+- [x] 友達削除機能
+
+**作成ファイル:**
+- `Services/PairingService.swift`
+- `Services/DeepLinkHandler.swift`
+- `Views/LetterSharing/InviteFriendView.swift`
+- `Views/LetterSharing/FriendRequestsView.swift`
 
 ### Phase 5: 手紙機能
 

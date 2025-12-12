@@ -11,10 +11,16 @@ import SwiftUI
 /// 認証状態に応じてサインイン画面またはメイン機能を表示
 struct LetterSharingView: View {
     @ObservedObject private var authService = AuthService.shared
+    @ObservedObject private var pairingService = PairingService.shared
+    @ObservedObject private var deepLinkHandler = DeepLinkHandler.shared
     @State private var showingProfileSetup = false
     @State private var showingProfileEdit = false
     @State private var showingSignOutConfirmation = false
     @State private var showingE2EEInfo = false
+    @State private var showingInvite = false
+    @State private var showingRequests = false
+    @State private var showingRemoveFriendConfirmation = false
+    @State private var friendToRemove: PairingService.Friend?
     
     var body: some View {
         NavigationStack {
@@ -100,10 +106,7 @@ struct LetterSharingView: View {
                 // アクションボタン
                 VStack(spacing: 16) {
                     // 友達を招待
-                    NavigationLink {
-                        // TODO: 友達招待画面
-                        Text("友達を招待（Phase 4で実装）")
-                    } label: {
+                    Button(action: { showingInvite = true }) {
                         actionButton(
                             icon: "person.badge.plus",
                             title: "友達を招待",
@@ -111,6 +114,7 @@ struct LetterSharingView: View {
                             color: .blue
                         )
                     }
+                    .buttonStyle(.plain)
                     
                     // 手紙を書く
                     NavigationLink {
@@ -140,10 +144,44 @@ struct LetterSharingView: View {
                 }
                 .padding(.horizontal)
                 
-                // 友達リスト（プレースホルダー）
+                // 友達リスト
                 friendsSection
             }
             .padding(.vertical)
+        }
+        .onAppear {
+            pairingService.startListeningToFriends()
+            pairingService.startListeningToPendingRequests()
+        }
+        .onDisappear {
+            pairingService.stopListening()
+        }
+        .sheet(isPresented: $showingInvite) {
+            InviteFriendView()
+        }
+        .sheet(isPresented: $showingRequests) {
+            FriendRequestsView()
+        }
+        .sheet(isPresented: $deepLinkHandler.showInviteConfirmation) {
+            InviteConfirmationView()
+        }
+        .alert("友達を削除", isPresented: $showingRemoveFriendConfirmation) {
+            Button("キャンセル", role: .cancel) { }
+            Button("削除", role: .destructive) {
+                if let friend = friendToRemove {
+                    removeFriend(friend)
+                }
+            }
+        } message: {
+            if let friend = friendToRemove {
+                Text("\(friend.friendName)さんを友達から削除しますか？\n\n相手もあなたを友達から削除されます。")
+            }
+        }
+    }
+    
+    private func removeFriend(_ friend: PairingService.Friend) {
+        _Concurrency.Task {
+            try? await pairingService.removeFriend(friend)
         }
     }
     
@@ -228,29 +266,95 @@ struct LetterSharingView: View {
     // 友達セクション
     private var friendsSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("友達")
-                .font(.headline)
-                .padding(.horizontal)
-            
-            // プレースホルダー
-            VStack(spacing: 16) {
-                Image(systemName: "person.2.fill")
-                    .font(.largeTitle)
-                    .foregroundColor(.secondary)
+            // ヘッダー
+            HStack {
+                Text("友達")
+                    .font(.headline)
                 
-                Text("まだ友達がいません")
-                    .foregroundColor(.secondary)
+                Spacer()
                 
-                Text("「友達を招待」から友達を追加しましょう")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                // リクエストバッジ
+                if !pairingService.pendingRequests.isEmpty {
+                    Button(action: { showingRequests = true }) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "bell.fill")
+                            Text("\(pairingService.pendingRequests.count)")
+                        }
+                        .font(.caption)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(Color.red)
+                        .foregroundColor(.white)
+                        .cornerRadius(12)
+                    }
+                }
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 32)
-            .background(Color(.systemGray6))
-            .cornerRadius(16)
             .padding(.horizontal)
+            
+            if pairingService.friends.isEmpty {
+                // 空の状態
+                VStack(spacing: 16) {
+                    Image(systemName: "person.2.fill")
+                        .font(.largeTitle)
+                        .foregroundColor(.secondary)
+                    
+                    Text("まだ友達がいません")
+                        .foregroundColor(.secondary)
+                    
+                    Text("「友達を招待」から友達を追加しましょう")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 32)
+                .background(Color(.systemGray6))
+                .cornerRadius(16)
+                .padding(.horizontal)
+            } else {
+                // 友達一覧
+                VStack(spacing: 8) {
+                    ForEach(pairingService.friends) { friend in
+                        friendRow(friend)
+                    }
+                }
+                .padding(.horizontal)
+            }
         }
+    }
+    
+    // 友達行
+    private func friendRow(_ friend: PairingService.Friend) -> some View {
+        HStack(spacing: 12) {
+            Text(friend.friendEmoji)
+                .font(.largeTitle)
+            
+            VStack(alignment: .leading, spacing: 2) {
+                Text(friend.friendName)
+                    .font(.headline)
+                
+                if friend.pendingLetterCount > 0 {
+                    Text("未読の手紙: \(friend.pendingLetterCount)通")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+            }
+            
+            Spacer()
+            
+            // 削除ボタン
+            Button(action: {
+                friendToRemove = friend
+                showingRemoveFriendConfirmation = true
+            }) {
+                Image(systemName: "person.badge.minus")
+                    .foregroundColor(.red)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(color: .black.opacity(0.05), radius: 3, y: 1)
     }
 }
 
