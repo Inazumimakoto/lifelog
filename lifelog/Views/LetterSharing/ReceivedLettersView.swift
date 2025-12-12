@@ -33,9 +33,21 @@ struct ReceivedLettersView: View {
         .refreshable {
             await loadLetters()
         }
-        .fullScreenCover(isPresented: $showingLetterDetail) {
-            if let letter = selectedLetter {
-                SharedLetterOpeningView(letter: letter)
+        .fullScreenCover(isPresented: $showingLetterDetail, onDismiss: {
+            selectedLetter = nil
+            // 開封後にリストを更新
+            _Concurrency.Task {
+                await loadLetters()
+            }
+        }) {
+            Group {
+                if let letter = selectedLetter {
+                    SharedLetterOpeningView(letter: letter)
+                } else {
+                    // フォールバック（通常は表示されない）
+                    Color(uiColor: UIColor(red: 0.1, green: 0.1, blue: 0.18, alpha: 1))
+                        .ignoresSafeArea()
+                }
             }
         }
     }
@@ -56,42 +68,118 @@ struct ReceivedLettersView: View {
         }
     }
     
+    @ViewBuilder
     private var letterListView: some View {
+        let unreadLetters = letters.filter { $0.status == "delivered" }
+        let readLetters = letters.filter { $0.status == "opened" }
+        
         List {
-            ForEach(letters) { letter in
-                Button(action: {
-                    selectedLetter = letter
-                    showingLetterDetail = true
-                }) {
-                    letterRow(letter)
+            // 開封待ちセクション
+            Section {
+                if unreadLetters.isEmpty {
+                    HStack {
+                        Spacer()
+                        Text("開封待ちの手紙はありません")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
+                    .padding(.vertical, 8)
+                } else {
+                    ForEach(unreadLetters) { letter in
+                        Button(action: {
+                            selectedLetter = letter
+                        }) {
+                            unreadLetterRow(letter)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
-                .buttonStyle(.plain)
+            } header: {
+                Label("開封待ち", systemImage: "envelope.badge")
+                    .font(.headline)
+            }
+            
+            // 開封済みセクション
+            Section {
+                if readLetters.isEmpty {
+                    HStack {
+                        Spacer()
+                        Text("開封済みの手紙はありません")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
+                    .padding(.vertical, 8)
+                } else {
+                    ForEach(readLetters) { letter in
+                        Button(action: {
+                            selectedLetter = letter
+                        }) {
+                            readLetterRow(letter)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            } header: {
+                Label("開封済み", systemImage: "envelope.open")
+                    .font(.headline)
             }
         }
         .listStyle(.insetGrouped)
+        .onChange(of: selectedLetter) { _, newLetter in
+            if newLetter != nil {
+                showingLetterDetail = true
+            }
+        }
     }
     
-    private func letterRow(_ letter: LetterReceivingService.ReceivedLetter) -> some View {
+    private func unreadLetterRow(_ letter: LetterReceivingService.ReceivedLetter) -> some View {
         HStack(spacing: 12) {
-            Text(letter.senderEmoji)
-                .font(.largeTitle)
+            // オレンジ封筒アイコン
+            Image(systemName: "envelope.fill")
+                .font(.title)
+                .foregroundColor(.orange)
             
             VStack(alignment: .leading, spacing: 4) {
-                Text(letter.senderName)
+                Text("\(letter.senderEmoji) \(letter.senderName)さんから")
                     .font(.headline)
+                    .foregroundColor(.orange)
                 
-                Text(formatDate(letter.deliveredAt))
+                Text("\(formatDate(letter.deliveredAt))に届きました")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
             
             Spacer()
             
-            if letter.status == "delivered" {
-                Circle()
-                    .fill(.blue)
-                    .frame(width: 10, height: 10)
+            Text("開封")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.orange)
+                .foregroundColor(.white)
+                .cornerRadius(8)
+        }
+        .padding(.vertical, 8)
+    }
+    
+    private func readLetterRow(_ letter: LetterReceivingService.ReceivedLetter) -> some View {
+        HStack(spacing: 12) {
+            Text(letter.senderEmoji)
+                .font(.title)
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(letter.senderName)
+                    .font(.headline)
+                
+                Text("開封日: \(formatDate(letter.deliveredAt))")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
+            
+            Spacer()
             
             Image(systemName: "chevron.right")
                 .foregroundColor(.secondary)
@@ -332,7 +420,8 @@ struct SharedLetterOpeningView: View {
                 Spacer()
             }
         }
-        .onAppear {
+        .task {
+            // fullScreenCoverで開いた時に確実にアニメーションを開始
             startEntranceAnimation()
         }
         .fullScreenCover(isPresented: $showFullscreenPhoto) {

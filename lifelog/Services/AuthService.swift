@@ -138,12 +138,19 @@ class AuthService: ObservableObject {
                 isSignedIn = true
                 
             } catch {
-                errorMessage = "サインインに失敗しました: \(error.localizedDescription)"
+                // セキュリティ上、詳細なエラー情報は表示しない
+                print("Sign in error: \(error)")
+                errorMessage = "サインインに失敗しました。しばらくしてから再度お試しください。"
             }
             
         case .failure(let error):
-            if (error as NSError).code != ASAuthorizationError.canceled.rawValue {
-                errorMessage = "サインインがキャンセルされました"
+            let nsError = error as NSError
+            if nsError.code == ASAuthorizationError.canceled.rawValue {
+                // ユーザーがキャンセルした場合はエラーを表示しない
+                errorMessage = nil
+            } else {
+                print("Apple Sign In error: \(error)")
+                errorMessage = "サインインに失敗しました。しばらくしてから再度お試しください。"
             }
         }
         
@@ -175,7 +182,8 @@ class AuthService: ObservableObject {
             currentUser = user
             
         } catch {
-            errorMessage = "ユーザー作成に失敗しました: \(error.localizedDescription)"
+            print("Create user error: \(error)")
+            errorMessage = "ユーザー作成に失敗しました。しばらくしてから再度お試しください。"
         }
     }
     
