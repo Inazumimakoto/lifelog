@@ -74,12 +74,22 @@ struct TodayView: View {
                 // 共有手紙を取得
                 await loadSharedLetters()
             }
+            .onAppear {
+                // タブ切り替え時に共有手紙を再読み込み（他画面で開封された可能性）
+                _Concurrency.Task {
+                    await loadSharedLetters()
+                }
+            }
             .task(id: calendarSyncTrigger) {
                 await syncCalendarsIfNeeded()
             }
             .onChange(of: scenePhase, initial: false) { oldPhase, newPhase in
                 if oldPhase != .active && newPhase == .active {
                     calendarSyncTrigger += 1
+                    // 他の画面で開封された可能性があるので再読み込み
+                    _Concurrency.Task {
+                        await loadSharedLetters()
+                    }
                 }
             }
             .onChange(of: weatherService.currentWeather?.temperature) { _, _ in
