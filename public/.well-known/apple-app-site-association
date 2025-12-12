@@ -1,0 +1,15 @@
+{
+    "applinks": {
+        "apps": [],
+        "details": [
+            {
+                "appIDs": [
+                    "V7XG8HDQL4.com.inazumimakoto.lifelog"
+                ],
+                "paths": [
+                    "/invite/*"
+                ]
+            }
+        ]
+    }
+}

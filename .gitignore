@@ -12,6 +12,15 @@ DerivedData/
 
 # Logs
 build.log
+*.log
 
 # App assets generated at runtime
 lifelog/DiaryPhotos/
+
+# Firebase
+.firebase/
+functions/node_modules/
+functions/lib/
+
+# Sensitive files (contains API keys)
+GoogleService-Info.plist

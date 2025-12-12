@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UserNotifications
+import FirebaseCore
 
 /// 通知タップをハンドリングするデリゲート
 class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
@@ -51,6 +52,9 @@ struct lifelogApp: App {
     private let notificationDelegate = NotificationDelegate()
 
     init() {
+        // Firebase初期化
+        FirebaseApp.configure()
+        
         CategoryPalette.initializeIfNeeded()
         
         // 通知デリゲートを設定
