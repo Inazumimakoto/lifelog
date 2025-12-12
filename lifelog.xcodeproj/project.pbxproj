@@ -45,6 +45,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		0E027D482EEBC0D2006CB36F /* Exceptions for "lifelog" folder in "lifelog" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 0E6196E52EC5A3A000A0734C /* lifelog */;
+		};
 		0EB039862EE55C1400AFE3B0 /* Exceptions for "LifelogWidgets" folder in "LifelogWidgetsExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -67,6 +74,7 @@
 		0E6196E82EC5A3A000A0734C /* lifelog */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
+				0E027D482EEBC0D2006CB36F /* Exceptions for "lifelog" folder in "lifelog" target */,
 				0EB039962EE55DEE00AFE3B0 /* Exceptions for "lifelog" folder in "LifelogWidgetsExtension" target */,
 			);
 			path = lifelog;
@@ -398,6 +406,7 @@
 				DEVELOPMENT_TEAM = V7XG8HDQL4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = lifelog/Info.plist;
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "外部カレンダーの予定を読み取ってTodayで表示するために使用します。";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "アプリのロック解除に使用します";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "We need to read your health data to display it in the app.";
@@ -438,6 +447,7 @@
 				DEVELOPMENT_TEAM = V7XG8HDQL4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = lifelog/Info.plist;
 				INFOPLIST_KEY_NSCalendarsUsageDescription = "外部カレンダーの予定を読み取ってTodayで表示するために使用します。";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "アプリのロック解除に使用します";
 				INFOPLIST_KEY_NSHealthShareUsageDescription = "We need to read your health data to display it in the app.";

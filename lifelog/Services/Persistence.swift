@@ -77,7 +77,11 @@ struct PersistenceController {
             storeURL = URL.applicationSupportDirectory.appendingPathComponent("default.store")
         }
         
-        let modelConfiguration = ModelConfiguration(schema: schema, url: storeURL)
+        let modelConfiguration = ModelConfiguration(
+            schema: schema,
+            url: storeURL
+            // CloudKit同期は追加設定が必要 - 後日対応
+        )
 
         do {
             container = try ModelContainer(for: schema, configurations: [modelConfiguration])
