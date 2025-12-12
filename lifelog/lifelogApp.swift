@@ -31,10 +31,20 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     ) {
         let userInfo = response.notification.request.content.userInfo
         
-        // 手紙の通知かチェック
+        // 共有手紙の通知かチェック（Cloud Functionsから送信）
+        if let type = userInfo["type"] as? String,
+           type == "letter",
+           let letterIdString = userInfo["letterId"] as? String {
+            DispatchQueue.main.async {
+                DeepLinkManager.shared.handleSharedLetterNotification(letterID: letterIdString)
+            }
+            completionHandler()
+            return
+        }
+        
+        // 未来への手紙の通知かチェック（ローカル通知）
         if let letterIDString = userInfo["letterID"] as? String,
            let letterID = UUID(uuidString: letterIDString) {
-            // メインスレッドで DeepLinkManager を更新
             DispatchQueue.main.async {
                 DeepLinkManager.shared.handleLetterNotification(letterID: letterID)
             }

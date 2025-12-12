@@ -17,6 +17,10 @@ struct ContentView: View {
     
     /// ディープリンクで開く手紙
     @State private var letterToOpen: Letter? = nil
+    
+    /// 共有手紙用
+    @State private var sharedLetterToOpen: LetterReceivingService.ReceivedLetter? = nil
+    @State private var showSharedLetterOpening = false
 
     var body: some View {
         TabView(selection: $selection) {
@@ -67,7 +71,7 @@ struct ContentView: View {
             lastSelection = newSelection
         }
         .toast()
-        // ディープリンク: 通知タップで手紙開封画面を表示
+        // ディープリンク: 未来への手紙の通知タップ
         .onChange(of: deepLinkManager.pendingLetterID) { _, letterID in
             guard let letterID = letterID else { return }
             // 開封可能な手紙を検索
@@ -78,10 +82,52 @@ struct ContentView: View {
                 deepLinkManager.clearPendingLetter()
             }
         }
+        // ディープリンク: 共有手紙の通知タップ
+        .onChange(of: deepLinkManager.pendingSharedLetterID) { _, letterID in
+            guard let letterID = letterID else { return }
+            fetchSharedLetter(id: letterID)
+        }
         .fullScreenCover(item: $letterToOpen) { letter in
             LetterOpeningView(letter: letter) {
                 store.openLetter(letter.id)
                 deepLinkManager.clearPendingLetter()
+            }
+        }
+        .fullScreenCover(isPresented: $showSharedLetterOpening) {
+            if let letter = sharedLetterToOpen {
+                SharedLetterOpeningView(letter: letter)
+                    .environmentObject(store)
+                    .onDisappear {
+                        sharedLetterToOpen = nil
+                        deepLinkManager.clearPendingSharedLetter()
+                    }
+            }
+        }
+        .onChange(of: sharedLetterToOpen) { _, newLetter in
+            if newLetter != nil {
+                showSharedLetterOpening = true
+            }
+        }
+    }
+    
+    private func fetchSharedLetter(id: String) {
+        _Concurrency.Task {
+            do {
+                let letters = try await LetterReceivingService.shared.getReceivedLetters()
+                if let letter = letters.first(where: { $0.id == id && $0.status == "delivered" }) {
+                    await MainActor.run {
+                        sharedLetterToOpen = letter
+                    }
+                } else {
+                    // 見つからない（既読など）
+                    await MainActor.run {
+                        deepLinkManager.clearPendingSharedLetter()
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    deepLinkManager.clearPendingSharedLetter()
+                }
             }
         }
     }

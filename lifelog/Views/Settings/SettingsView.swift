@@ -136,6 +136,17 @@ struct SettingsView: View {
                     }
                 }
                 .foregroundStyle(.primary)
+                
+                Link(destination: URL(string: "https://inazumimakoto.github.io/lifelog-support/")!) {
+                    HStack {
+                        Label("プライバシーポリシー", systemImage: "lock.shield.fill")
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary)
             } header: {
                 Text("外部リンク")
             } footer: {
