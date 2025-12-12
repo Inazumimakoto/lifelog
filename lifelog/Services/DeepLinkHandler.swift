@@ -83,15 +83,15 @@ class DeepLinkHandler: ObservableObject {
         }
     }
     
-    /// 友達リクエストを送信
-    func sendFriendRequest() {
+    /// 即時友達追加
+    func addFriend() {
         guard let linkId = pendingInviteLinkId else { return }
         
         isLoading = true
         
         _Concurrency.Task {
             do {
-                try await PairingService.shared.sendFriendRequest(inviteLinkId: linkId)
+                try await PairingService.shared.addFriendFromInvite(inviteLinkId: linkId)
                 
                 await MainActor.run {
                     isLoading = false
@@ -139,7 +139,7 @@ struct InviteConfirmationView: View {
                             .font(.title)
                             .fontWeight(.bold)
                         
-                        Text("さんから友達リクエストが届きました")
+                        Text("さんからの招待")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                     }
@@ -169,14 +169,14 @@ struct InviteConfirmationView: View {
                 
                 // アクションボタン
                 VStack(spacing: 12) {
-                    Button(action: handler.sendFriendRequest) {
+                    Button(action: handler.addFriend) {
                         HStack {
                             if handler.isLoading {
                                 ProgressView()
                                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
                             } else {
                                 Image(systemName: "person.badge.plus")
-                                Text("友達リクエストを送る")
+                                Text("友達に追加する")
                             }
                         }
                         .fontWeight(.semibold)
@@ -197,7 +197,7 @@ struct InviteConfirmationView: View {
                 .padding(.horizontal, 32)
                 .padding(.bottom, 32)
             }
-            .navigationTitle("友達リクエスト")
+            .navigationTitle("友達を追加")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

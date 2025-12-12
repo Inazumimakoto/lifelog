@@ -38,6 +38,12 @@ struct FriendRequestsView: View {
             .onDisappear {
                 pairingService.stopListening()
             }
+            .onChange(of: pairingService.pendingRequests.count) { oldCount, newCount in
+                // リクエストがあったがなくなった場合は自動で閉じる
+                if oldCount > 0 && newCount == 0 {
+                    dismiss()
+                }
+            }
         }
     }
     
@@ -111,15 +117,33 @@ struct FriendRequestsView: View {
     private func acceptRequest(_ request: PairingService.FriendRequest) {
         processingRequestId = request.id
         
-        _Concurrency.Task {
-            do {
-                try await pairingService.acceptFriendRequest(request)
-                await MainActor.run {
-                    processingRequestId = nil
-                }
-            } catch {
-                await MainActor.run {
-                    processingRequestId = nil
+        // テストデータ（test-で始まる）はローカルで処理
+        if request.fromUserId.hasPrefix("test-") {
+            // テスト友達を追加
+            let testFriend = PairingService.Friend(
+                id: UUID().uuidString,
+                odic: request.fromUserId,
+                friendEmoji: request.fromUserEmoji,
+                friendName: request.fromUserName,
+                friendPublicKey: request.fromUserPublicKey,
+                pendingLetterCount: 0
+            )
+            pairingService.friends.append(testFriend)
+            
+            // リクエストを削除
+            pairingService.pendingRequests.removeAll { $0.id == request.id }
+            processingRequestId = nil
+        } else {
+            _Concurrency.Task {
+                do {
+                    try await pairingService.acceptFriendRequest(request)
+                    await MainActor.run {
+                        processingRequestId = nil
+                    }
+                } catch {
+                    await MainActor.run {
+                        processingRequestId = nil
+                    }
                 }
             }
         }
@@ -128,15 +152,21 @@ struct FriendRequestsView: View {
     private func rejectRequest(_ request: PairingService.FriendRequest) {
         processingRequestId = request.id
         
-        _Concurrency.Task {
-            do {
-                try await pairingService.rejectFriendRequest(request)
-                await MainActor.run {
-                    processingRequestId = nil
-                }
-            } catch {
-                await MainActor.run {
-                    processingRequestId = nil
+        // テストデータ（test-で始まる）はローカルで処理
+        if request.fromUserId.hasPrefix("test-") {
+            pairingService.pendingRequests.removeAll { $0.id == request.id }
+            processingRequestId = nil
+        } else {
+            _Concurrency.Task {
+                do {
+                    try await pairingService.rejectFriendRequest(request)
+                    await MainActor.run {
+                        processingRequestId = nil
+                    }
+                } catch {
+                    await MainActor.run {
+                        processingRequestId = nil
+                    }
                 }
             }
         }

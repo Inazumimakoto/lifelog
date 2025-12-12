@@ -219,6 +219,68 @@ class PairingService: ObservableObject {
         try await db.collection("friendRequests").document(requestId).setData(data)
     }
     
+    /// 招待リンクから即時友達追加（相互にペアリング作成）
+    func addFriendFromInvite(inviteLinkId: String) async throws {
+        guard let currentUser = Auth.auth().currentUser,
+              let userData = AuthService.shared.currentUser else {
+            throw PairingError.notAuthenticated
+        }
+        
+        // 招待リンクを取得
+        guard let inviteLink = try await getInviteLink(id: inviteLinkId) else {
+            throw PairingError.inviteLinkNotFound
+        }
+        
+        // 有効期限チェック
+        if inviteLink.isExpired {
+            throw PairingError.inviteLinkExpired
+        }
+        
+        // 自分自身への招待チェック
+        if inviteLink.userId == currentUser.uid {
+            throw PairingError.cannotAddSelf
+        }
+        
+        // 既に友達かチェック
+        let existingFriend = try await db.collection("pairings")
+            .whereField("userId", isEqualTo: currentUser.uid)
+            .whereField("friendId", isEqualTo: inviteLink.userId)
+            .getDocuments()
+        
+        if !existingFriend.documents.isEmpty {
+            throw PairingError.alreadyFriends
+        }
+        
+        // 相互にペアリングを作成（即時友達追加）
+        let pairingId1 = UUID().uuidString
+        let pairingId2 = UUID().uuidString
+        
+        // 自分 → 相手
+        let pairing1Data: [String: Any] = [
+            "userId": currentUser.uid,
+            "friendId": inviteLink.userId,
+            "friendEmoji": inviteLink.userEmoji,
+            "friendName": inviteLink.userName,
+            "friendPublicKey": inviteLink.userPublicKey,
+            "pendingLetterCount": 0,
+            "createdAt": Timestamp(date: Date())
+        ]
+        
+        // 相手 → 自分
+        let pairing2Data: [String: Any] = [
+            "userId": inviteLink.userId,
+            "friendId": currentUser.uid,
+            "friendEmoji": userData.emoji,
+            "friendName": userData.displayName,
+            "friendPublicKey": userData.publicKey,
+            "pendingLetterCount": 0,
+            "createdAt": Timestamp(date: Date())
+        ]
+        
+        try await db.collection("pairings").document(pairingId1).setData(pairing1Data)
+        try await db.collection("pairings").document(pairingId2).setData(pairing2Data)
+    }
+    
     /// 友達リクエストを承認
     func acceptFriendRequest(_ request: FriendRequest) async throws {
         guard let currentUser = Auth.auth().currentUser,

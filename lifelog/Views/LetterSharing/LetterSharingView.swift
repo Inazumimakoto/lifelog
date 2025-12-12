@@ -17,10 +17,14 @@ struct LetterSharingView: View {
     @State private var showingProfileEdit = false
     @State private var showingSignOutConfirmation = false
     @State private var showingE2EEInfo = false
-    @State private var showingInvite = false
     @State private var showingRequests = false
     @State private var showingRemoveFriendConfirmation = false
     @State private var friendToRemove: PairingService.Friend?
+    @State private var showingShareSheet = false
+    @State private var inviteURL: URL?
+    @State private var isGeneratingInvite = false
+    @State private var showingLetterEditor = false
+    @State private var preselectedFriend: PairingService.Friend?
     
     var body: some View {
         NavigationStack {
@@ -105,22 +109,51 @@ struct LetterSharingView: View {
                 
                 // アクションボタン
                 VStack(spacing: 16) {
-                    // 友達を招待
-                    Button(action: { showingInvite = true }) {
-                        actionButton(
-                            icon: "person.badge.plus",
-                            title: "友達を招待",
-                            subtitle: "リンクを送って友達を追加",
-                            color: .blue
-                        )
+                    // 友達を招待（タップで即座に共有シート表示）
+                    Button(action: generateAndShareInvite) {
+                        HStack(spacing: 16) {
+                            ZStack {
+                                Image(systemName: "person.badge.plus")
+                                    .font(.title2)
+                                    .foregroundColor(.white)
+                                    .frame(width: 50, height: 50)
+                                    .background(Color.blue)
+                                    .cornerRadius(12)
+                                
+                                if isGeneratingInvite {
+                                    ProgressView()
+                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                }
+                            }
+                            
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text("友達を招待")
+                                    .font(.headline)
+                                    .foregroundColor(.primary)
+                                
+                                Text("リンクを送って友達を追加")
+                                    .font(.caption)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            Image(systemName: "square.and.arrow.up")
+                                .foregroundColor(.blue)
+                        }
+                        .padding()
+                        .background(Color(.systemBackground))
+                        .cornerRadius(16)
+                        .shadow(color: .black.opacity(0.05), radius: 5, y: 2)
                     }
                     .buttonStyle(.plain)
+                    .disabled(isGeneratingInvite)
                     
                     // 手紙を書く
-                    NavigationLink {
-                        // TODO: 手紙作成画面
-                        Text("手紙を書く（Phase 5で実装）")
-                    } label: {
+                    Button(action: {
+                        preselectedFriend = nil
+                        showingLetterEditor = true
+                    }) {
                         actionButton(
                             icon: "square.and.pencil",
                             title: "手紙を書く",
@@ -128,6 +161,7 @@ struct LetterSharingView: View {
                             color: .purple
                         )
                     }
+                    .buttonStyle(.plain)
                     
                     // 受信した手紙
                     NavigationLink {
@@ -146,6 +180,11 @@ struct LetterSharingView: View {
                 
                 // 友達リスト
                 friendsSection
+                
+                // デバッグセクション（リリースビルドでは非表示）
+                #if DEBUG
+                debugSection
+                #endif
             }
             .padding(.vertical)
         }
@@ -156,11 +195,16 @@ struct LetterSharingView: View {
         .onDisappear {
             pairingService.stopListening()
         }
-        .sheet(isPresented: $showingInvite) {
-            InviteFriendView()
+        .sheet(isPresented: $showingShareSheet) {
+            if let url = inviteURL {
+                ShareSheet(items: [url])
+            }
         }
         .sheet(isPresented: $showingRequests) {
             FriendRequestsView()
+        }
+        .sheet(isPresented: $showingLetterEditor) {
+            SharedLetterEditorView(preselectedFriend: preselectedFriend)
         }
         .sheet(isPresented: $deepLinkHandler.showInviteConfirmation) {
             InviteConfirmationView()
@@ -179,9 +223,34 @@ struct LetterSharingView: View {
         }
     }
     
-    private func removeFriend(_ friend: PairingService.Friend) {
+    // 招待リンクを生成して共有シートを表示
+    private func generateAndShareInvite() {
+        isGeneratingInvite = true
+        
         _Concurrency.Task {
-            try? await pairingService.removeFriend(friend)
+            do {
+                let link = try await pairingService.createInviteLink()
+                await MainActor.run {
+                    inviteURL = link.shareURL
+                    isGeneratingInvite = false
+                    showingShareSheet = true
+                }
+            } catch {
+                await MainActor.run {
+                    isGeneratingInvite = false
+                }
+            }
+        }
+    }
+    
+    private func removeFriend(_ friend: PairingService.Friend) {
+        // テストデータ（test-で始まる）はローカルから削除
+        if friend.odic.hasPrefix("test-") {
+            pairingService.friends.removeAll { $0.id == friend.id }
+        } else {
+            _Concurrency.Task {
+                try? await pairingService.removeFriend(friend)
+            }
         }
     }
     
@@ -328,18 +397,20 @@ struct LetterSharingView: View {
             Text(friend.friendEmoji)
                 .font(.largeTitle)
             
-            VStack(alignment: .leading, spacing: 2) {
-                Text(friend.friendName)
-                    .font(.headline)
-                
-                if friend.pendingLetterCount > 0 {
-                    Text("未読の手紙: \(friend.pendingLetterCount)通")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                }
-            }
+            Text(friend.friendName)
+                .font(.headline)
             
             Spacer()
+            
+            // 手紙を書くボタン
+            Button(action: {
+                preselectedFriend = friend
+                showingLetterEditor = true
+            }) {
+                Image(systemName: "square.and.pencil")
+                    .foregroundColor(.purple)
+            }
+            .buttonStyle(.plain)
             
             // 削除ボタン
             Button(action: {
@@ -356,6 +427,144 @@ struct LetterSharingView: View {
         .cornerRadius(12)
         .shadow(color: .black.opacity(0.05), radius: 3, y: 1)
     }
+    
+    // MARK: - Debug Section (Release builds will not include this)
+    
+    #if DEBUG
+    private var debugSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("🛠 デバッグ")
+                    .font(.headline)
+                    .foregroundColor(.orange)
+                
+                Spacer()
+                
+                Text("リリース時は非表示")
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.horizontal)
+            
+            VStack(spacing: 8) {
+                // テスト友達を追加
+                Button(action: addTestFriend) {
+                    HStack {
+                        Image(systemName: "person.fill.badge.plus")
+                            .foregroundColor(.green)
+                        Text("テスト友達を追加")
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color.green.opacity(0.1))
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+                
+                // テストリクエストを追加
+                Button(action: addTestRequest) {
+                    HStack {
+                        Image(systemName: "bell.badge.fill")
+                            .foregroundColor(.blue)
+                        Text("テスト友達リクエストを追加")
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color.blue.opacity(0.1))
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+                
+                // データをクリア
+                Button(action: clearTestData) {
+                    HStack {
+                        Image(systemName: "trash.fill")
+                            .foregroundColor(.red)
+                        Text("テストデータをクリア")
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color.red.opacity(0.1))
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+                
+                // 招待リンク受信テスト
+                Button(action: testDeepLink) {
+                    HStack {
+                        Image(systemName: "link")
+                            .foregroundColor(.purple)
+                        Text("招待リンク受信をテスト")
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color.purple.opacity(0.1))
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(.horizontal)
+        }
+        .padding(.vertical)
+        .background(Color.orange.opacity(0.05))
+        .cornerRadius(16)
+        .padding(.horizontal)
+    }
+    
+    private func addTestFriend() {
+        guard let currentUser = authService.currentUser else { return }
+        
+        let testFriend = PairingService.Friend(
+            id: UUID().uuidString,
+            odic: "test-user-\(Int.random(in: 1000...9999))",
+            friendEmoji: ["🐶", "🐱", "🐰", "🦊", "🐻", "🐼"].randomElement()!,
+            friendName: ["太郎", "花子", "健太", "美咲", "翔太", "さくら"].randomElement()!,
+            friendPublicKey: "test-public-key",
+            pendingLetterCount: Int.random(in: 0...3)
+        )
+        
+        // ローカルに追加（Firestoreには保存しない）
+        pairingService.friends.append(testFriend)
+    }
+    
+    private func addTestRequest() {
+        let testRequest = PairingService.FriendRequest(
+            id: UUID().uuidString,
+            fromUserId: "test-user-\(Int.random(in: 1000...9999))",
+            fromUserEmoji: ["🐶", "🐱", "🐰", "🦊", "🐻", "🐼"].randomElement()!,
+            fromUserName: ["太郎", "花子", "健太", "美咲", "翔太", "さくら"].randomElement()!,
+            fromUserPublicKey: "test-public-key",
+            toUserId: authService.currentUser?.id ?? "",
+            status: .pending,
+            createdAt: Date()
+        )
+        
+        // ローカルに追加（Firestoreには保存しない）
+        pairingService.pendingRequests.append(testRequest)
+    }
+    
+    private func clearTestData() {
+        pairingService.friends.removeAll()
+        pairingService.pendingRequests.removeAll()
+    }
+    
+    private func testDeepLink() {
+        // テスト用の招待リンクデータを設定
+        let testLink = PairingService.InviteLink(
+            id: "test-invite-\(Int.random(in: 1000...9999))",
+            userId: "test-user-\(Int.random(in: 1000...9999))",
+            userEmoji: ["🐶", "🐱", "🐰", "🦊", "🐻", "🐼"].randomElement()!,
+            userName: ["太郎", "花子", "健太", "美咲", "翔太", "さくら"].randomElement()!,
+            userPublicKey: "test-public-key",
+            expiresAt: Date().addingTimeInterval(24 * 60 * 60),
+            createdAt: Date()
+        )
+        
+        deepLinkHandler.inviteLinkData = testLink
+        deepLinkHandler.pendingInviteLinkId = testLink.id
+        deepLinkHandler.showInviteConfirmation = true
+    }
+    #endif
 }
 
 #Preview {

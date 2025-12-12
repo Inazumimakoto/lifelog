@@ -652,6 +652,10 @@ interface Report {
 - `Views/LetterSharing/InviteFriendView.swift`
 - `Views/LetterSharing/FriendRequestsView.swift`
 
+**仕様変更:**
+- 承認式ペアリング → **即時ペアリング**（招待リンクを踏んで「友達に追加」で即座に友達に）
+- リクエスト/承認プロセス不要
+
 ### Phase 5: 手紙機能
 
 - [ ] 手紙作成UI（既存の「未来への手紙」UIを流用）
@@ -672,7 +676,11 @@ interface Report {
 
 - [ ] **ブロック機能**
 - [ ] **通報機能**
-- [ ] **友達削除（セッション解除）**
+- [ ] **友達削除（セッション解除）** ✅ 実装済み
+- [ ] **公開鍵フィンガープリント確認**（MITM対策）
+- [ ] **送信者署名検証**（なりすまし防止）
+- [ ] **リプレイ攻撃防止**（letterId+タイムスタンプ署名）
+- [ ] **DoS防止**（Cloud Functionsでサーバーサイド検証）
 
 ### Phase 8: ローカル保存
 
