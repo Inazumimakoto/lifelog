@@ -226,6 +226,45 @@ class AuthService: ObservableObject {
         currentUser = user
     }
     
+    // MARK: - Last Login Update
+    
+    /// 最終ログイン日時を更新
+    /// アプリ起動時に呼び出す（最終ログイン配信の判定に使用）
+    func updateLastLoginAt() async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        do {
+            try await db.collection("users").document(userId).updateData([
+                "lastLoginAt": FieldValue.serverTimestamp()
+            ])
+            print("✅ lastLoginAt 更新完了")
+        } catch {
+            print("⚠️ lastLoginAt 更新エラー: \(error.localizedDescription)")
+        }
+    }
+    
+    // MARK: - FCM Token
+    
+    /// FCMトークンを保存
+    func saveFCMToken(_ token: String) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        do {
+            try await db.collection("users").document(userId).updateData([
+                "fcmToken": token
+            ])
+            
+            if var user = currentUser {
+                user.fcmToken = token
+                currentUser = user
+            }
+            
+            print("✅ FCMトークン保存完了")
+        } catch {
+            print("⚠️ FCMトークン保存エラー: \(error.localizedDescription)")
+        }
+    }
+    
     // MARK: - Sign Out
     
     /// サインアウト

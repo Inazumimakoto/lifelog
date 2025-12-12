@@ -165,8 +165,7 @@ struct LetterSharingView: View {
                     
                     // 受信した手紙
                     NavigationLink {
-                        // TODO: 受信手紙一覧
-                        Text("受信した手紙（Phase 6で実装）")
+                        ReceivedLettersView()
                     } label: {
                         actionButton(
                             icon: "envelope.open.fill",
@@ -191,6 +190,11 @@ struct LetterSharingView: View {
         .onAppear {
             pairingService.startListeningToFriends()
             pairingService.startListeningToPendingRequests()
+            
+            // 最終ログイン日時を更新（遺言書機能用）
+            _Concurrency.Task {
+                await authService.updateLastLoginAt()
+            }
         }
         .onDisappear {
             pairingService.stopListening()
