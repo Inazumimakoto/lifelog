@@ -208,13 +208,20 @@ async function deliverLetter(letterId: string, data: FirebaseFirestore.DocumentD
  */
 async function sendPushNotification(userId: string, letterId: string) {
   try {
-    // ユーザーのFCMトークンを取得
+    // ユーザーのFCMトークンと通知設定を取得
     const userDoc = await db.collection("users").doc(userId).get();
     const userData = userDoc.data();
     const fcmToken = userData?.fcmToken;
+    const letterNotificationEnabled = userData?.letterNotificationEnabled ?? true;
 
     if (!fcmToken) {
       logger.info(`FCMトークンなし: ${userId}`);
+      return;
+    }
+
+    // 通知設定がオフの場合はスキップ
+    if (!letterNotificationEnabled) {
+      logger.info(`手紙通知オフ: ${userId}`);
       return;
     }
 

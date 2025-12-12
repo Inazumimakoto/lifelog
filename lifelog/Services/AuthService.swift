@@ -273,6 +273,23 @@ class AuthService: ObservableObject {
         }
     }
     
+    // MARK: - Notification Settings
+    
+    /// 手紙通知設定をFirestoreに保存
+    /// Cloud Functionsがプッシュ通知を送信する際に参照
+    func updateLetterNotificationEnabled(_ enabled: Bool) async {
+        guard let userId = Auth.auth().currentUser?.uid else { return }
+        
+        do {
+            try await db.collection("users").document(userId).updateData([
+                "letterNotificationEnabled": enabled
+            ])
+            print("✅ 手紙通知設定を更新: \(enabled)")
+        } catch {
+            print("⚠️ 手紙通知設定更新エラー: \(error.localizedDescription)")
+        }
+    }
+    
     // MARK: - Sign Out
     
     /// サインアウト

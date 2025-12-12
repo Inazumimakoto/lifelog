@@ -68,6 +68,12 @@ struct NotificationSettingsView: View {
                 updateDiaryReminder(enabled: true)
             }
         }
+        .onChange(of: letterNotificationEnabled) { _, enabled in
+            // Firestoreにも同期（Cloud Functionsが参照）
+            _Concurrency.Task {
+                await AuthService.shared.updateLetterNotificationEnabled(enabled)
+            }
+        }
     }
     
     // MARK: - Sections
@@ -94,13 +100,13 @@ struct NotificationSettingsView: View {
     
     private var letterSection: some View {
         Section {
-            Toggle("未来への手紙", isOn: $letterNotificationEnabled)
+            Toggle("手紙の通知", isOn: $letterNotificationEnabled)
             
-            Text("手紙が届いたときに通知を受け取ります。")
+            Text("「未来への手紙」と「大切な人への手紙」が届いたときに通知を受け取ります。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         } header: {
-            Text("未来への手紙")
+            Text("手紙")
         }
     }
     
