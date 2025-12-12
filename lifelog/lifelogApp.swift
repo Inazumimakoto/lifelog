@@ -8,6 +8,7 @@
 import SwiftUI
 import UserNotifications
 import FirebaseCore
+import FirebaseMessaging
 
 /// 通知タップをハンドリングするデリゲート
 class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
@@ -43,6 +44,19 @@ class NotificationDelegate: NSObject, UNUserNotificationCenterDelegate {
     }
 }
 
+/// FCMトークンを受け取るためのデリゲート
+class FCMDelegate: NSObject, MessagingDelegate {
+    func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
+        guard let token = fcmToken else { return }
+        print("✅ FCMトークン取得: \(token.prefix(20))...")
+        
+        // トークンをFirestoreに保存
+        _Concurrency.Task {
+            await AuthService.shared.saveFCMToken(token)
+        }
+    }
+}
+
 @main
 struct lifelogApp: App {
     @StateObject private var store = AppDataStore()
@@ -50,6 +64,7 @@ struct lifelogApp: App {
     
     /// 通知デリゲート（強参照で保持）
     private let notificationDelegate = NotificationDelegate()
+    private let fcmDelegate = FCMDelegate()
 
     init() {
         // Firebase初期化
@@ -60,11 +75,18 @@ struct lifelogApp: App {
         // 通知デリゲートを設定
         UNUserNotificationCenter.current().delegate = notificationDelegate
         
+        // FCMデリゲートを設定
+        Messaging.messaging().delegate = fcmDelegate
+        
         // 通知許可をリクエスト
         _Concurrency.Task {
             let granted = await NotificationService.shared.requestAuthorization()
             if granted {
                 print("✅ 通知許可が取得されました")
+                // リモート通知を登録
+                await MainActor.run {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
             } else {
                 print("❌ 通知許可が拒否されました")
             }
