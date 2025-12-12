@@ -506,6 +506,20 @@ struct LetterSharingView: View {
                     .cornerRadius(8)
                 }
                 .buttonStyle(.plain)
+                
+                // 自分自身に手紙を送る（テスト）
+                Button(action: sendTestLetterToSelf) {
+                    HStack {
+                        Image(systemName: "envelope.fill")
+                            .foregroundColor(.orange)
+                        Text("自分自身にテスト手紙を送る")
+                        Spacer()
+                    }
+                    .padding()
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(8)
+                }
+                .buttonStyle(.plain)
             }
             .padding(.horizontal)
         }
@@ -567,6 +581,27 @@ struct LetterSharingView: View {
         deepLinkHandler.inviteLinkData = testLink
         deepLinkHandler.pendingInviteLinkId = testLink.id
         deepLinkHandler.showInviteConfirmation = true
+    }
+    
+    private func sendTestLetterToSelf() {
+        _Concurrency.Task {
+            do {
+                try await LetterSendingService.shared.sendLetterToSelf(
+                    content: """
+                    これはテスト手紙です🎉
+                    
+                    自分自身に送ったこの手紙は、E2EE暗号化されてFirestoreに保存され、「受信した手紙」から確認できます。
+                    
+                    暗号化と復号が正しく動作していることを確認できます。
+                    
+                    送信日時: \(Date().formatted())
+                    """
+                )
+                print("✅ テスト手紙送信完了！「受信した手紙」を確認してね")
+            } catch {
+                print("❌ テスト手紙送信エラー: \(error.localizedDescription)")
+            }
+        }
     }
     #endif
 }

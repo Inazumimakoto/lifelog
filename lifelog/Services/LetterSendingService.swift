@@ -277,4 +277,57 @@ class LetterSendingService {
             )
         }
     }
+    
+    // MARK: - Send Letter To Self (Debug)
+    
+    /// 自分自身に手紙を送る（テスト用）
+    /// 即座に「配信済み」として保存され、受信一覧に表示される
+    func sendLetterToSelf(content: String, photos: [UIImage] = []) async throws {
+        // 1. 認証チェック
+        guard let currentUser = Auth.auth().currentUser else {
+            throw SendError.notAuthenticated
+        }
+        
+        // 2. 自分の公開鍵を取得
+        let publicKeyData = try e2eeService.getOrCreateKeyPair()
+        let publicKey = e2eeService.encodePublicKey(publicKeyData)
+        
+        // 3. 本文をE2EE暗号化（自分の公開鍵で）
+        let encryptedMessage = try e2eeService.encrypt(
+            message: content,
+            recipientPublicKey: publicKey
+        )
+        let encryptedContentBase64 = try e2eeService.serializeEncryptedMessage(encryptedMessage)
+        
+        // 4. 写真を暗号化してアップロード
+        let letterId = UUID().uuidString
+        var encryptedPhotoURLs: [String] = []
+        
+        for (index, photo) in photos.enumerated() {
+            let url = try await uploadEncryptedPhoto(
+                photo: photo,
+                letterId: letterId,
+                photoIndex: index,
+                recipientPublicKey: publicKey
+            )
+            encryptedPhotoURLs.append(url)
+        }
+        
+        // 5. Firestoreに保存（即座に配信済み）
+        let letterData: [String: Any] = [
+            "senderId": currentUser.uid,
+            "recipientId": currentUser.uid,  // 自分自身
+            "encryptedContent": encryptedContentBase64,
+            "encryptedPhotoURLs": encryptedPhotoURLs,
+            "deliveryCondition": DeliveryCondition.fixedDate.rawValue,
+            "deliveryDate": Timestamp(date: Date()),
+            "status": EncryptedLetter.LetterStatus.delivered.rawValue,  // 即座に配信済み
+            "deliveredAt": Timestamp(date: Date()),
+            "createdAt": Timestamp(date: Date())
+        ]
+        
+        try await db.collection("letters").document(letterId).setData(letterData)
+        
+        print("✅ 自分自身への手紙送信完了: \(letterId)")
+    }
 }
