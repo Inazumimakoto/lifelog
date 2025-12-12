@@ -397,3 +397,33 @@ final class SDLetter {
     }
 }
 
+// MARK: - SDSharedLetter (Letter from Others)
+@Model
+final class SDSharedLetter {
+    @Attribute(.unique) var id: String  // FirestoreのdocumentID
+    var senderId: String
+    var senderEmoji: String
+    var senderName: String
+    var content: String
+    var photoPaths: [String]  // ローカル保存された写真パス
+    var deliveredAt: Date
+    var openedAt: Date
+    
+    init(id: String,
+         senderId: String,
+         senderEmoji: String,
+         senderName: String,
+         content: String,
+         photoPaths: [String],
+         deliveredAt: Date,
+         openedAt: Date) {
+        self.id = id
+        self.senderId = senderId
+        self.senderEmoji = senderEmoji
+        self.senderName = senderName
+        self.content = content
+        self.photoPaths = photoPaths
+        self.deliveredAt = deliveredAt
+        self.openedAt = openedAt
+    }
+}

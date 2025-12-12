@@ -450,3 +450,33 @@ extension SDLetter {
     }
 }
 
+// MARK: - SharedLetter Mapping
+extension SharedLetter {
+    init(sd: SDSharedLetter) {
+        self.init(
+            id: sd.id,
+            senderId: sd.senderId,
+            senderEmoji: sd.senderEmoji,
+            senderName: sd.senderName,
+            content: sd.content,
+            photoPaths: sd.photoPaths,
+            deliveredAt: sd.deliveredAt,
+            openedAt: sd.openedAt
+        )
+    }
+}
+
+extension SDSharedLetter {
+    convenience init(domain: SharedLetter) {
+        self.init(
+            id: domain.id,
+            senderId: domain.senderId,
+            senderEmoji: domain.senderEmoji,
+            senderName: domain.senderName,
+            content: domain.content,
+            photoPaths: domain.photoPaths,
+            deliveredAt: domain.deliveredAt,
+            openedAt: domain.openedAt
+        )
+    }
+}

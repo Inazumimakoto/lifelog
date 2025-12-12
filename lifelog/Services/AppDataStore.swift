@@ -28,6 +28,7 @@ final class AppDataStore: ObservableObject {
     @Published private(set) var memoPad: MemoPad = MemoPad()
     @Published private(set) var externalCalendarEvents: [CalendarEvent] = []
     @Published private(set) var letters: [Letter] = []
+    @Published private(set) var sharedLetters: [SharedLetter] = []  // 他ユーザーからの手紙
     @Published private(set) var appState: AppState = AppState()
 
     // MARK: - Legacy Persistence Keys
@@ -89,6 +90,10 @@ final class AppDataStore: ObservableObject {
             // Letters
             let sdLetters = try modelContext.fetch(FetchDescriptor<SDLetter>())
             self.letters = sdLetters.map { Letter(sd: $0) }
+            
+            // SharedLetters (他ユーザーからの手紙)
+            let sdSharedLetters = try modelContext.fetch(FetchDescriptor<SDSharedLetter>(sortBy: [SortDescriptor(\.openedAt, order: .reverse)]))
+            self.sharedLetters = sdSharedLetters.map { SharedLetter(sd: $0) }
             
             // HealthSummaries (Cache)
             let sdHealth = try modelContext.fetch(FetchDescriptor<SDHealthSummary>(sortBy: [SortDescriptor(\.date, order: .reverse)]))
@@ -1018,6 +1023,45 @@ final class AppDataStore: ObservableObject {
                 print("手紙通知スケジュールエラー: \(error)")
             }
         }
+    }
+
+    // MARK: - Shared Letter (他ユーザーからの手紙)
+
+    func addSharedLetter(_ letter: SharedLetter) {
+        // 重複チェック
+        guard !sharedLetters.contains(where: { $0.id == letter.id }) else {
+            print("⚠️ 共有手紙は既に保存済み: \(letter.id)")
+            return
+        }
+        
+        sharedLetters.insert(letter, at: 0)  // 新しい順にソート
+        
+        let sdLetter = SDSharedLetter(domain: letter)
+        modelContext.insert(sdLetter)
+        try? modelContext.save()
+        
+        print("✅ 共有手紙をローカルに保存: \(letter.id)")
+    }
+
+    func deleteSharedLetter(_ letterID: String) {
+        sharedLetters.removeAll { $0.id == letterID }
+        
+        let descriptor = FetchDescriptor<SDSharedLetter>(predicate: #Predicate { $0.id == letterID })
+        if let existing = try? modelContext.fetch(descriptor).first {
+            modelContext.delete(existing)
+            try? modelContext.save()
+        }
+        
+        // 写真も削除
+        deleteSharedLetterPhotos(letterID: letterID)
+        
+        print("✅ 共有手紙を削除: \(letterID)")
+    }
+
+    private func deleteSharedLetterPhotos(letterID: String) {
+        guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
+        let letterDir = documentsDir.appendingPathComponent("SharedLetterPhotos/\(letterID)")
+        try? FileManager.default.removeItem(at: letterDir)
     }
 
     private static func loadValue<T: Decodable>(forKey key: String, defaultValue: T) -> T {

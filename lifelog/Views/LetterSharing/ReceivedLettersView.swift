@@ -10,11 +10,12 @@ import UIKit
 
 /// 受信した手紙一覧画面
 struct ReceivedLettersView: View {
-    @State private var letters: [LetterReceivingService.ReceivedLetter] = []
+    @EnvironmentObject private var store: AppDataStore
+    @State private var letters: [LetterReceivingService.ReceivedLetter] = []  // Firestoreからの未開封のみ
     @State private var isLoading = true
     @State private var selectedLetter: LetterReceivingService.ReceivedLetter?  // 未開封用
     @State private var showingLetterDetail = false  // 開封アニメーション用
-    @State private var selectedOpenedLetter: LetterReceivingService.ReceivedLetter?  // 開封済み用
+    @State private var selectedOpenedLetter: SharedLetter?  // 開封済み用（ローカルデータ）
     @State private var showingOpenedLetterDetail = false  // 開封済み詳細用
     
     var body: some View {
@@ -82,7 +83,6 @@ struct ReceivedLettersView: View {
     @ViewBuilder
     private var letterListView: some View {
         let unreadLetters = letters.filter { $0.status == "delivered" }
-        let readLetters = letters.filter { $0.status == "opened" }
         
         List {
             // 開封待ちセクション
@@ -113,7 +113,7 @@ struct ReceivedLettersView: View {
             
             // 開封済みセクション
             Section {
-                if readLetters.isEmpty {
+                if store.sharedLetters.isEmpty {
                     HStack {
                         Spacer()
                         Text("開封済みの手紙はありません")
@@ -123,11 +123,11 @@ struct ReceivedLettersView: View {
                     }
                     .padding(.vertical, 8)
                 } else {
-                    ForEach(readLetters) { letter in
+                    ForEach(store.sharedLetters) { letter in
                         Button(action: {
-                            selectedOpenedLetter = letter  // 開封済み用
+                            selectedOpenedLetter = letter  // 開封済み用（ローカル）
                         }) {
-                            readLetterRow(letter)
+                            localLetterRow(letter)
                         }
                         .buttonStyle(.plain)
                     }
@@ -181,7 +181,7 @@ struct ReceivedLettersView: View {
         .padding(.vertical, 8)
     }
     
-    private func readLetterRow(_ letter: LetterReceivingService.ReceivedLetter) -> some View {
+    private func localLetterRow(_ letter: SharedLetter) -> some View {
         HStack(spacing: 12) {
             Text(letter.senderEmoji)
                 .font(.title)
@@ -190,7 +190,7 @@ struct ReceivedLettersView: View {
                 Text(letter.senderName)
                     .font(.headline)
                 
-                Text("開封日: \(formatDate(letter.deliveredAt))")
+                Text("開封日: \(formatDate(letter.openedAt))")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -309,6 +309,7 @@ fileprivate struct SharedParticleView: View {
 
 struct SharedLetterOpeningView: View {
     let letter: LetterReceivingService.ReceivedLetter
+    @EnvironmentObject private var store: AppDataStore
     @Environment(\.dismiss) private var dismiss
     
     // 登場アニメーション用
@@ -1062,11 +1063,30 @@ struct SharedLetterOpeningView: View {
             do {
                 let decrypted = try await LetterReceivingService.shared.openLetter(letterId: letter.id)
                 
+                // ローカルに保存
+                let photoPaths = await savePhotosLocally(decrypted.photos, letterId: letter.id)
+                let sharedLetter = SharedLetter(
+                    id: letter.id,
+                    senderId: decrypted.senderId,
+                    senderEmoji: decrypted.senderEmoji,
+                    senderName: decrypted.senderName,
+                    content: decrypted.content,
+                    photoPaths: photoPaths,
+                    deliveredAt: decrypted.deliveredAt,
+                    openedAt: decrypted.openedAt ?? Date()
+                )
+                
                 await MainActor.run {
+                    store.addSharedLetter(sharedLetter)
                     decryptedLetter = decrypted
                     isDecrypting = false
                     HapticManager.success()
                 }
+                
+                // Firestoreから削除
+                try await LetterReceivingService.shared.deleteLetter(letterId: letter.id)
+                print("✅ Firestoreから手紙を削除: \(letter.id)")
+                
             } catch {
                 await MainActor.run {
                     isDecrypting = false
@@ -1075,66 +1095,53 @@ struct SharedLetterOpeningView: View {
             }
         }
     }
+    
+    private func savePhotosLocally(_ photos: [UIImage], letterId: String) async -> [String] {
+        guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return []
+        }
+        
+        let letterDir = documentsDir.appendingPathComponent("SharedLetterPhotos/\(letterId)")
+        try? FileManager.default.createDirectory(at: letterDir, withIntermediateDirectories: true)
+        
+        var paths: [String] = []
+        for (index, photo) in photos.enumerated() {
+            let filename = "photo_\(index).jpg"
+            let fileURL = letterDir.appendingPathComponent(filename)
+            if let data = photo.jpegData(compressionQuality: 0.8) {
+                try? data.write(to: fileURL)
+                // 相対パスを保存
+                paths.append("SharedLetterPhotos/\(letterId)/\(filename)")
+            }
+        }
+        
+        return paths
+    }
 }
 
-// MARK: - 開封済み手紙の表示画面
+// MARK: - 開封済み手紙の表示画面（ローカルデータ）
 
 struct SharedLetterContentView: View {
-    let letter: LetterReceivingService.ReceivedLetter
+    let letter: SharedLetter  // ローカル保存された手紙
     @Environment(\.dismiss) private var dismiss
     
-    @State private var isLoading = true
-    @State private var decryptedLetter: LetterReceivingService.DecryptedLetter?
-    @State private var errorMessage: String?
+    @State private var loadedImages: [UIImage] = []
     @State private var selectedPhotoIndex: Int = 0
     @State private var showFullscreenPhoto = false
     
     var body: some View {
-        Group {
-            if isLoading {
-                ProgressView("読み込み中...")
-            } else if let decrypted = decryptedLetter {
-                letterContentView(decrypted)
-            } else if let error = errorMessage {
-                VStack(spacing: 16) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .font(.largeTitle)
-                        .foregroundColor(.red)
-                    Text(error)
-                        .foregroundColor(.red)
-                }
-            }
-        }
-        .navigationTitle("手紙を読む")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("閉じる") {
-                    dismiss()
-                }
-            }
-        }
-        .task {
-            await loadLetter()
-        }
-        .fullScreenCover(isPresented: $showFullscreenPhoto) {
-            fullscreenPhotoViewer
-        }
-    }
-    
-    private func letterContentView(_ decrypted: LetterReceivingService.DecryptedLetter) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 // ヘッダー
                 VStack(spacing: 8) {
-                    Text(decrypted.senderEmoji)
+                    Text(letter.senderEmoji)
                         .font(.system(size: 50))
                     
-                    Text("\(decrypted.senderName)さんからの手紙")
+                    Text("\(letter.senderName)さんからの手紙")
                         .font(.headline)
                         .foregroundStyle(.secondary)
                     
-                    Text(decrypted.deliveredAt.jaFullDateString)
+                    Text(letter.openedAt.jaFullDateString)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -1144,12 +1151,12 @@ struct SharedLetterContentView: View {
                 Divider()
                 
                 // 本文
-                Text(decrypted.content)
+                Text(letter.content)
                     .font(.body)
                     .lineSpacing(6)
                 
                 // 写真カルーセル（写真がある場合のみ）
-                if !decrypted.photos.isEmpty {
+                if !loadedImages.isEmpty {
                     Divider()
                     
                     VStack(spacing: 12) {
@@ -1160,15 +1167,15 @@ struct SharedLetterContentView: View {
                             Text("添付写真")
                                 .font(.headline)
                             Spacer()
-                            Text("\(decrypted.photos.count)枚")
+                            Text("\(loadedImages.count)枚")
                                 .font(.caption)
                                 .foregroundColor(.gray)
                         }
                         
                         // カルーセル
                         TabView(selection: $selectedPhotoIndex) {
-                            ForEach(decrypted.photos.indices, id: \.self) { index in
-                                Image(uiImage: decrypted.photos[index])
+                            ForEach(loadedImages.indices, id: \.self) { index in
+                                Image(uiImage: loadedImages[index])
                                     .resizable()
                                     .scaledToFill()
                                     .frame(maxWidth: .infinity)
@@ -1190,6 +1197,35 @@ struct SharedLetterContentView: View {
             }
             .padding()
         }
+        .navigationTitle("手紙を読む")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("閉じる") {
+                    dismiss()
+                }
+            }
+        }
+        .task {
+            loadPhotos()
+        }
+        .fullScreenCover(isPresented: $showFullscreenPhoto) {
+            fullscreenPhotoViewer
+        }
+    }
+    
+    private func loadPhotos() {
+        guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
+            return
+        }
+        
+        for path in letter.photoPaths {
+            let fullPath = documentsDir.appendingPathComponent(path)
+            if let data = FileManager.default.contents(atPath: fullPath.path),
+               let image = UIImage(data: data) {
+                loadedImages.append(image)
+            }
+        }
     }
     
     // MARK: - フルスクリーン写真ビューア
@@ -1198,18 +1234,16 @@ struct SharedLetterContentView: View {
         ZStack {
             Color.black.ignoresSafeArea()
             
-            if let decrypted = decryptedLetter {
-                TabView(selection: $selectedPhotoIndex) {
-                    ForEach(decrypted.photos.indices, id: \.self) { index in
-                        Image(uiImage: decrypted.photos[index])
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .tag(index)
-                    }
+            TabView(selection: $selectedPhotoIndex) {
+                ForEach(loadedImages.indices, id: \.self) { index in
+                    Image(uiImage: loadedImages[index])
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .tag(index)
                 }
-                .tabViewStyle(.page(indexDisplayMode: .automatic))
             }
+            .tabViewStyle(.page(indexDisplayMode: .automatic))
             
             // 閉じるボタン
             VStack {
@@ -1227,23 +1261,13 @@ struct SharedLetterContentView: View {
                 Spacer()
                 
                 // ページ表示
-                if let decrypted = decryptedLetter {
-                    Text("\(selectedPhotoIndex + 1) / \(decrypted.photos.count)")
+                if !loadedImages.isEmpty {
+                    Text("\(selectedPhotoIndex + 1) / \(loadedImages.count)")
                         .font(.caption)
                         .foregroundColor(.white.opacity(0.8))
                         .padding(.bottom, 40)
                 }
             }
-        }
-    }
-    
-    private func loadLetter() async {
-        do {
-            decryptedLetter = try await LetterReceivingService.shared.openLetter(letterId: letter.id)
-            isLoading = false
-        } catch {
-            errorMessage = "手紙の読み込みに失敗しました"
-            isLoading = false
         }
     }
 }

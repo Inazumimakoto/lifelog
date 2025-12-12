@@ -752,3 +752,16 @@ struct Letter: Identifiable, Codable, Hashable {
     }
 }
 
+// MARK: - SharedLetter (Letter from Others)
+
+/// 他のユーザーから受け取った手紙（復号済み、ローカル保存）
+struct SharedLetter: Identifiable, Codable, Equatable {
+    var id: String  // FirestoreのdocumentID
+    var senderId: String
+    var senderEmoji: String
+    var senderName: String
+    var content: String
+    var photoPaths: [String]  // ローカル保存された写真パス
+    var deliveredAt: Date
+    var openedAt: Date
+}

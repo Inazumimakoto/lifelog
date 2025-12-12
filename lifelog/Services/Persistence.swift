@@ -27,7 +27,8 @@ struct PersistenceController {
             SDCalendarEvent.self,
             SDMemoPad.self,
             SDAppState.self,
-            SDLetter.self
+            SDLetter.self,
+            SDSharedLetter.self
         ])
         
         if inMemory {
