@@ -19,6 +19,7 @@ struct SettingsView: View {
     @State private var showHelp = false
     @State private var showLetterList = false
     @State private var showLetterSharing = false
+    @AppStorage("githubUsername") private var githubUsername: String = ""
     
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
@@ -185,6 +186,24 @@ struct SettingsView: View {
                     }
                 }
                 .foregroundStyle(.primary)
+            }
+            
+            // 開発者向け
+            Section {
+                HStack {
+                    Label("GitHubユーザー名", systemImage: "chevron.left.forwardslash.chevron.right")
+                    Spacer()
+                    TextField("username", text: $githubUsername)
+                        .textContentType(.username)
+                        .autocapitalization(.none)
+                        .autocorrectionDisabled()
+                        .multilineTextAlignment(.trailing)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("開発者向け 🧑‍💻")
+            } footer: {
+                Text("GitHubユーザー名を入力すると、習慣タブにコントリビューショングラフが表示されます")
             }
         }
         .navigationTitle("設定")

@@ -19,6 +19,8 @@ struct DailyData: Identifiable {
     // 習慣
     var totalHabits: Int = 0
     var completedHabits: Int = 0
+    // GitHub
+    var githubCommits: Int = 0
 }
 
 struct PromptGenerator {
@@ -32,7 +34,8 @@ struct PromptGenerator {
         includeSteps: Bool,
         includeMood: Bool,
         includeEvents: Bool = false,
-        includeHabits: Bool = false
+        includeHabits: Bool = false,
+        includeGitHub: Bool = false
     ) -> String {
         
         var prompt = ""
@@ -76,9 +79,13 @@ struct PromptGenerator {
             prompt += "・習慣達成率の推移と「モチベーション」「生活リズムの安定性」の関連を分析してください。\n"
         }
         
+        if includeGitHub {
+            prompt += "・GitHubコミット数と「集中力」「生産性」「先延ばし傾向」の関連を分析してください。\n"
+        }
+        
         // 4. データ本体
         prompt += "\n【分析対象データ】\n"
-        prompt += generateDataString(days: days, includeDiary: includeDiary, includeSleep: includeSleep, includeSteps: includeSteps, includeMood: includeMood, includeEvents: includeEvents, includeHabits: includeHabits)
+        prompt += generateDataString(days: days, includeDiary: includeDiary, includeSleep: includeSleep, includeSteps: includeSteps, includeMood: includeMood, includeEvents: includeEvents, includeHabits: includeHabits, includeGitHub: includeGitHub)
         
         return prompt
     }
@@ -91,7 +98,8 @@ struct PromptGenerator {
         includeSteps: Bool,
         includeMood: Bool,
         includeEvents: Bool,
-        includeHabits: Bool
+        includeHabits: Bool,
+        includeGitHub: Bool
     ) -> String {
         var result = ""
         let dateFormatter = DateFormatter()
@@ -166,6 +174,11 @@ struct PromptGenerator {
             if includeHabits && day.totalHabits > 0 {
                 let rate = day.totalHabits > 0 ? Int(Double(day.completedHabits) / Double(day.totalHabits) * 100) : 0
                 stats.append("✅ 習慣: \(day.completedHabits)/\(day.totalHabits) (\(rate)%)")
+            }
+            
+            // GitHubコミット
+            if includeGitHub && day.githubCommits > 0 {
+                stats.append("💻 GitHub: \(day.githubCommits)コミット")
             }
             
             if !stats.isEmpty {

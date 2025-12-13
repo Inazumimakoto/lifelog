@@ -22,6 +22,8 @@ struct HabitsCountdownView: View {
     @State private var showSettings = false
     @State private var showHabitReorder = false
     @State private var showAnniversaryReorder = false
+    @AppStorage("githubUsername") private var githubUsername: String = ""
+    @StateObject private var githubService = GitHubService.shared
 
     init(store: AppDataStore, resetTrigger: Int = 0) {
         self.store = store
@@ -35,10 +37,13 @@ struct HabitsCountdownView: View {
             VStack(spacing: 16) {
                 yearlyHeatmapSection
                 modePicker
-                if displayMode == .habits {
+                switch displayMode {
+                case .habits:
                     habitsSection
-                } else {
+                case .countdown:
                     anniversarySection
+                case .github:
+                    GitHubContributionsView()
                 }
             }
             .padding()
@@ -160,11 +165,27 @@ struct HabitsCountdownView: View {
 
     private var modePicker: some View {
         Picker("表示切替", selection: $displayMode) {
-            ForEach(DisplayMode.allCases) { mode in
-                Text(mode.rawValue).tag(mode)
+            Text("習慣").tag(DisplayMode.habits)
+            Text("カウントダウン").tag(DisplayMode.countdown)
+            if !githubUsername.isEmpty {
+                Text("GitHub").tag(DisplayMode.github)
             }
         }
         .pickerStyle(.segmented)
+        .onAppear {
+            if !githubUsername.isEmpty {
+                _Concurrency.Task {
+                    await githubService.fetchContributions(username: githubUsername)
+                }
+            }
+        }
+        .onChange(of: githubUsername) { _, newValue in
+            if !newValue.isEmpty {
+                _Concurrency.Task {
+                    await githubService.fetchContributions(username: newValue)
+                }
+            }
+        }
     }
 
     private var habitsSection: some View {
@@ -354,6 +375,7 @@ extension HabitsCountdownView {
     enum DisplayMode: String, CaseIterable, Identifiable {
         case habits = "習慣"
         case countdown = "カウントダウン"
+        case github = "GitHub"
 
         var id: String { rawValue }
     }
