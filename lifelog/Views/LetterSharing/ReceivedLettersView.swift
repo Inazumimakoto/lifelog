@@ -138,13 +138,6 @@ struct ReceivedLettersView: View {
                                 Label("削除", systemImage: "trash")
                             }
                         }
-                        .contextMenu {
-                            Button(role: .destructive) {
-                                deleteOpenedLetter(letter)
-                            } label: {
-                                Label("削除", systemImage: "trash")
-                            }
-                        }
                     }
                 }
             } header: {
@@ -1145,6 +1138,7 @@ struct SharedLetterOpeningView: View {
 struct SharedLetterContentView: View {
     let letter: SharedLetter  // ローカル保存された手紙
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: AppDataStore
     
     @State private var loadedImages: [UIImage] = []
     @State private var selectedPhotoIndex: Int = 0
@@ -1155,6 +1149,9 @@ struct SharedLetterContentView: View {
     @State private var showBlockConfirmation = false
     @State private var showBlockSuccessAfterReport = false
     @State private var isBlocking = false
+    
+    // 削除用
+    @State private var showDeleteConfirmation = false
     
     var body: some View {
         ScrollView {
@@ -1235,6 +1232,14 @@ struct SharedLetterContentView: View {
             ToolbarItem(placement: .primaryAction) {
                 Menu {
                     Button(role: .destructive) {
+                        showDeleteConfirmation = true
+                    } label: {
+                        Label("削除", systemImage: "trash")
+                    }
+                    
+                    Divider()
+                    
+                    Button(role: .destructive) {
                         showReportSheet = true
                     } label: {
                         Label("通報", systemImage: "exclamationmark.triangle")
@@ -1281,6 +1286,15 @@ struct SharedLetterContentView: View {
             }
         } message: {
             Text("通報を送信しました。このユーザーをブロックしますか？")
+        }
+        .alert("この手紙を削除しますか？", isPresented: $showDeleteConfirmation) {
+            Button("キャンセル", role: .cancel) { }
+            Button("削除", role: .destructive) {
+                store.deleteSharedLetter(letter.id)
+                dismiss()
+            }
+        } message: {
+            Text("削除した手紙は復元できません。")
         }
     }
     
