@@ -130,6 +130,21 @@ struct ReceivedLettersView: View {
                             localLetterRow(letter)
                         }
                         .buttonStyle(.plain)
+                        .contentShape(Rectangle())  // タップ領域を広げる
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                deleteOpenedLetter(letter)
+                            } label: {
+                                Label("削除", systemImage: "trash")
+                            }
+                        }
+                        .contextMenu {
+                            Button(role: .destructive) {
+                                deleteOpenedLetter(letter)
+                            } label: {
+                                Label("削除", systemImage: "trash")
+                            }
+                        }
                     }
                 }
             } header: {
@@ -218,6 +233,12 @@ struct ReceivedLettersView: View {
         formatter.locale = Locale(identifier: "ja_JP")
         formatter.dateFormat = "M月d日 H:mm"
         return formatter.string(from: date)
+    }
+    
+    private func deleteOpenedLetter(_ letter: SharedLetter) {
+        withAnimation {
+            store.deleteSharedLetter(letter.id)
+        }
     }
 }
 

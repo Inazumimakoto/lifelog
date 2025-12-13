@@ -22,6 +22,7 @@ class DeepLinkHandler: ObservableObject {
     @Published var showSignInFlow = false  // サインイン画面を表示
     @Published var showAddedSuccess = false  // 追加成功ダイアログ
     @Published var addedFriendName: String?  // 追加した友達の名前
+    @Published var addedFriendUserId: String?  // 追加した友達のユーザーID
     @Published var inviteLinkData: PairingService.InviteLink?
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -102,12 +103,17 @@ class DeepLinkHandler: ObservableObject {
         
         _Concurrency.Task {
             do {
+                let userId = inviteLinkData?.userId
+                let userName = inviteLinkData?.userName
+                
                 try await PairingService.shared.addFriendFromInvite(inviteLinkId: linkId)
                 
                 await MainActor.run {
                     isLoading = false
                     showInviteConfirmation = false
-                    addedFriendName = inviteLinkData?.userName
+                    addedFriendName = userName
+                    // ユーザーIDを保存（「一枚書いてみる」時に友達リストから取得する）
+                    addedFriendUserId = userId
                     pendingInviteLinkId = nil
                     inviteLinkData = nil
                     // 成功ダイアログを表示
@@ -139,6 +145,7 @@ class DeepLinkHandler: ObservableObject {
         showSignInFlow = false
         showAddedSuccess = false
         addedFriendName = nil
+        addedFriendUserId = nil
         inviteLinkData = nil
         errorMessage = nil
     }

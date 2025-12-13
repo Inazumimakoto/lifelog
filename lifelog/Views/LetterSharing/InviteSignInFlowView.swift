@@ -151,7 +151,7 @@ struct InviteSignInFlowView: View {
             } message: {
                 Text("この機能を嫌がらせや犯罪目的で利用することは固く禁止されています。\n\n違反が確認された場合、アカウント停止や法的措置を取る場合があります。")
             }
-            .fullScreenCover(isPresented: $showProfileSetup) {
+            .sheet(isPresented: $showProfileSetup) {
                 InviteProfileSetupView {
                     // プロフィール設定完了
                     handler.onSignInCompleted()

@@ -22,6 +22,9 @@ struct ContentView: View {
     /// 共有手紙用
     @State private var sharedLetterToOpen: LetterReceivingService.ReceivedLetter? = nil
     @State private var showSharedLetterOpening = false
+    
+    /// 招待後に手紙を書く画面を表示
+    @State private var showLetterSharingFromInvite = false
 
     var body: some View {
         TabView(selection: $selection) {
@@ -114,7 +117,7 @@ struct ContentView: View {
             InviteConfirmationView()
         }
         // 招待リンク用サインインフロー
-        .fullScreenCover(isPresented: $deepLinkHandler.showSignInFlow) {
+        .sheet(isPresented: $deepLinkHandler.showSignInFlow) {
             InviteSignInFlowView()
         }
         // 招待リンクのエラーアラート
@@ -130,12 +133,29 @@ struct ContentView: View {
         }
         // 友達追加成功のガイドアラート
         .alert("友達を追加しました！", isPresented: $deepLinkHandler.showAddedSuccess) {
-            Button("OK") {
+            Button("手紙を書く画面へ") {
+                deepLinkHandler.showAddedSuccess = false
+                showLetterSharingFromInvite = true
+            }
+            Button("また今度", role: .cancel) {
                 deepLinkHandler.showAddedSuccess = false
             }
         } message: {
             let friendName = deepLinkHandler.addedFriendName ?? "友達"
-            Text("\(friendName)さんと友達になりました！\n\n手紙を送るには:\n設定 → ひみつの機能 → 大切な人への手紙")
+            Text("\(friendName)さんと友達になりました！\n\n設定 → ひみつの機能 → 大切な人への手紙\nからいつでも手紙が書けます")
+        }
+        // 招待後の手紙画面
+        .sheet(isPresented: $showLetterSharingFromInvite) {
+            NavigationStack {
+                LetterSharingView()
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("閉じる") {
+                                showLetterSharingFromInvite = false
+                            }
+                        }
+                    }
+            }
         }
     }
     
