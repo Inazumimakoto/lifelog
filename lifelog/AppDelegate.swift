@@ -15,24 +15,34 @@ class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNUserNot
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
         
+        print("🚀🚀🚀 AppDelegate didFinishLaunchingWithOptions 開始 🚀🚀🚀")
+        
         // Firebase初期化
         FirebaseApp.configure()
+        print("✅ Firebase初期化完了")
         
         // Messagingデリゲート設定
         Messaging.messaging().delegate = self
+        print("✅ Messagingデリゲート設定完了")
         
         // 通知デリゲート設定
         UNUserNotificationCenter.current().delegate = self
+        print("✅ 通知デリゲート設定完了")
         
         // 通知許可リクエスト
         let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
         UNUserNotificationCenter.current().requestAuthorization(
             options: authOptions,
-            completionHandler: { _, _ in }
+            completionHandler: { granted, error in
+                print("📣 通知許可結果: granted=\(granted), error=\(String(describing: error))")
+            }
         )
         
+        print("📱 registerForRemoteNotifications を呼び出します...")
         application.registerForRemoteNotifications()
+        print("📱 registerForRemoteNotifications 呼び出し完了")
         
+        print("🚀🚀🚀 AppDelegate didFinishLaunchingWithOptions 終了 🚀🚀🚀")
         return true
     }
     
@@ -47,7 +57,9 @@ class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNUserNot
     
     func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        print("❌ リモート通知の登録に失敗: \(error.localizedDescription)")
+        print("❌❌❌ リモート通知の登録に失敗 ❌❌❌")
+        print("エラー詳細: \(error)")
+        print("エラーの説明: \(error.localizedDescription)")
     }
     
     // MARK: - MessagingDelegate

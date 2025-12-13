@@ -137,14 +137,18 @@ export const checkLastLoginDelivery = onSchedule("every 60 minutes", async () =>
       // 警告日（配信2日前）
       const warningDays = lastLoginDays - 2;
 
+      // 前回の警告送信日時（ユーザーがログインしたら無効化）
+      const warningSentAt = data.warningSentAt?.toDate();
+      const shouldSendWarning = !warningSentAt || warningSentAt < lastLoginAt;
+
       if (daysSinceLogin >= lastLoginDays) {
         // 配信日数に達した → 配信
         await deliverLetter(doc.id, data);
         logger.info(`最終ログイン配信実行: ${doc.id} (${daysSinceLogin}日経過)`);
-      } else if (daysSinceLogin >= warningDays && !data.warningSent) {
-        // 警告期間に入った → 通知を送る
+      } else if (daysSinceLogin >= warningDays && shouldSendWarning) {
+        // 警告期間に入った → 通知を送る（前回ログイン以降なら再送可能）
         await sendDeliveryWarning(senderId, doc.id, lastLoginDays - daysSinceLogin);
-        await doc.ref.update({ warningSent: true });
+        await doc.ref.update({ warningSentAt: Timestamp.now() });
         logger.info(`最終ログイン警告送信: ${doc.id} (残り${lastLoginDays - daysSinceLogin}日)`);
       }
     }
