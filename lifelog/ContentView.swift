@@ -10,6 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var store: AppDataStore
     @EnvironmentObject private var deepLinkManager: DeepLinkManager
+    @ObservedObject private var deepLinkHandler = DeepLinkHandler.shared
     @State private var selection: Int = 0
     @State private var lastSelection: Int = 0
     @State private var calendarResetTrigger: Int = 0
@@ -107,6 +108,21 @@ struct ContentView: View {
             if newLetter != nil {
                 showSharedLetterOpening = true
             }
+        }
+        // 招待リンクの確認シート
+        .sheet(isPresented: $deepLinkHandler.showInviteConfirmation) {
+            InviteConfirmationView()
+        }
+        // 招待リンクのエラーアラート
+        .alert("招待リンク", isPresented: Binding(
+            get: { deepLinkHandler.errorMessage != nil },
+            set: { if !$0 { deepLinkHandler.errorMessage = nil } }
+        )) {
+            Button("OK") {
+                deepLinkHandler.clear()
+            }
+        } message: {
+            Text(deepLinkHandler.errorMessage ?? "")
         }
     }
     

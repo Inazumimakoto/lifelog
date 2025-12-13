@@ -134,6 +134,10 @@ struct lifelogApp: App {
                     }
                 }
             }
+            // Universal Links (招待リンク) のハンドリング
+            .onOpenURL { url in
+                DeepLinkHandler.shared.handleURL(url)
+            }
         }
     }
 }

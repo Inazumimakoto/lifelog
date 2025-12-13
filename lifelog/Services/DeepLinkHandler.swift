@@ -51,6 +51,12 @@ class DeepLinkHandler: ObservableObject {
     
     /// 招待リンクデータを取得
     private func fetchInviteLinkData(linkId: String) {
+        // ログインチェック
+        guard AuthService.shared.currentUser != nil else {
+            errorMessage = "招待を受け取るにはサインインが必要です\n設定 → ひみつの機能 → 大切な人への手紙"
+            return
+        }
+        
         isLoading = true
         errorMessage = nil
         
