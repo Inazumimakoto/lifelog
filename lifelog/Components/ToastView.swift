@@ -7,6 +7,7 @@
 
 import SwiftUI
 import Combine
+import UIKit
 
 /// トースト通知を表示するためのビュー
 struct ToastView: View {
@@ -31,12 +32,15 @@ struct ToastView: View {
     }
 }
 
-/// トースト表示を管理するマネージャー
+/// トースト表示を管理するマネージャー（UIWindowレベルで表示）
 @MainActor
 final class ToastManager: ObservableObject {
     static let shared = ToastManager()
     
     @Published var currentToast: ToastData?
+    
+    private var toastWindow: UIWindow?
+    private var hostingController: UIHostingController<AnyView>?
     
     struct ToastData: Identifiable, Equatable {
         let id = UUID()
@@ -47,38 +51,91 @@ final class ToastManager: ObservableObject {
     private init() {}
     
     func show(emoji: String, message: String, duration: TimeInterval = 2.5) {
-        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) {
-            currentToast = ToastData(emoji: emoji, message: message)
-        }
+        // 既存のトーストがあれば即座に削除
+        dismissToastWindow()
+        
+        currentToast = ToastData(emoji: emoji, message: message)
+        showToastWindow(emoji: emoji, message: message)
         
         _Concurrency.Task {
             try? await _Concurrency.Task.sleep(for: .seconds(duration))
-            withAnimation(.easeOut(duration: 0.3)) {
+            await MainActor.run {
                 if self.currentToast?.message == message {
+                    self.dismissToastWindow()
                     self.currentToast = nil
                 }
             }
         }
     }
+    
+    private func showToastWindow(emoji: String, message: String) {
+        guard let windowScene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState == .foregroundActive }) else {
+            return
+        }
+        
+        let toastView = ToastView(message: message, emoji: emoji)
+            .padding(.top, 60)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .transition(.asymmetric(
+                insertion: .move(edge: .top).combined(with: .opacity),
+                removal: .opacity
+            ))
+        
+        let hostingController = UIHostingController(rootView: AnyView(toastView))
+        hostingController.view.backgroundColor = .clear
+        
+        let window = PassthroughWindow(windowScene: windowScene)
+        window.rootViewController = hostingController
+        window.windowLevel = .alert + 1  // シートより上に表示
+        window.isHidden = false
+        
+        self.toastWindow = window
+        self.hostingController = hostingController
+        
+        // アニメーション
+        hostingController.view.alpha = 0
+        hostingController.view.transform = CGAffineTransform(translationX: 0, y: -50)
+        
+        UIView.animate(withDuration: 0.4, delay: 0, usingSpringWithDamping: 0.8, initialSpringVelocity: 0) {
+            hostingController.view.alpha = 1
+            hostingController.view.transform = .identity
+        }
+    }
+    
+    private func dismissToastWindow() {
+        guard let window = toastWindow, let hosting = hostingController else { return }
+        
+        UIView.animate(withDuration: 0.3, animations: {
+            hosting.view.alpha = 0
+        }, completion: { _ in
+            window.isHidden = true
+            self.toastWindow = nil
+            self.hostingController = nil
+        })
+    }
 }
 
-/// トーストを画面に表示するビューモディファイア
+/// タッチイベントを透過するWindow（トースト以外のタップを下に流す）
+private class PassthroughWindow: UIWindow {
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard let hitView = super.hitTest(point, with: event) else { return nil }
+        // rootViewControllerのviewか、その子ビューでなければnilを返す（タップを透過）
+        if hitView == rootViewController?.view {
+            return nil
+        }
+        return hitView
+    }
+}
+
+/// トーストを画面に表示するビューモディファイア（後方互換性のため残す）
 struct ToastModifier: ViewModifier {
     @ObservedObject var toastManager = ToastManager.shared
     
     func body(content: Content) -> some View {
+        // UIWindowで表示するため、ここでは何もしない
         content
-            .overlay(alignment: .top) {
-                if let toast = toastManager.currentToast {
-                    ToastView(message: toast.message, emoji: toast.emoji)
-                        .padding(.top, 60)
-                        .transition(.asymmetric(
-                            insertion: .move(edge: .top).combined(with: .opacity),
-                            removal: .opacity
-                        ))
-                        .zIndex(999)
-                }
-            }
     }
 }
 
