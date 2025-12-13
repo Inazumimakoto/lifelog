@@ -20,6 +20,8 @@ class DeepLinkHandler: ObservableObject {
     @Published var pendingInviteLinkId: String?
     @Published var showInviteConfirmation = false
     @Published var showSignInFlow = false  // サインイン画面を表示
+    @Published var showAddedSuccess = false  // 追加成功ダイアログ
+    @Published var addedFriendName: String?  // 追加した友達の名前
     @Published var inviteLinkData: PairingService.InviteLink?
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -55,7 +57,8 @@ class DeepLinkHandler: ObservableObject {
     private func fetchInviteLinkData(linkId: String) {
         // ログインチェック（Firebase Authを直接チェック - 非同期ロード待ち問題を回避）
         guard Auth.auth().currentUser != nil else {
-            errorMessage = "招待を受け取るにはサインインが必要です\n設定 → ひみつの機能 → 大切な人への手紙"
+            // 未ログイン: サインイン画面を表示（招待IDは保持したまま）
+            showSignInFlow = true
             return
         }
         
@@ -104,8 +107,11 @@ class DeepLinkHandler: ObservableObject {
                 await MainActor.run {
                     isLoading = false
                     showInviteConfirmation = false
+                    addedFriendName = inviteLinkData?.userName
                     pendingInviteLinkId = nil
                     inviteLinkData = nil
+                    // 成功ダイアログを表示
+                    showAddedSuccess = true
                 }
             } catch {
                 await MainActor.run {
@@ -116,10 +122,23 @@ class DeepLinkHandler: ObservableObject {
         }
     }
     
+    /// サインイン完了後に呼び出し（招待処理を続行）
+    func onSignInCompleted() {
+        showSignInFlow = false
+        
+        // 保留中の招待リンクがあれば処理を再開
+        if let linkId = pendingInviteLinkId {
+            fetchInviteLinkData(linkId: linkId)
+        }
+    }
+    
     /// クリア
     func clear() {
         pendingInviteLinkId = nil
         showInviteConfirmation = false
+        showSignInFlow = false
+        showAddedSuccess = false
+        addedFriendName = nil
         inviteLinkData = nil
         errorMessage = nil
     }

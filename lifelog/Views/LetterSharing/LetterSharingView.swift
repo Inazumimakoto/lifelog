@@ -23,8 +23,8 @@ struct LetterSharingView: View {
     @State private var showingShareSheet = false
     @State private var inviteURL: URL?
     @State private var isGeneratingInvite = false
-    @State private var showingLetterEditor = false
     @State private var preselectedFriend: PairingService.Friend?
+    @State private var showingLetterEditorNoPreselect = false
     
     var body: some View {
         NavigationStack {
@@ -151,8 +151,7 @@ struct LetterSharingView: View {
                     
                     // 手紙を書く
                     Button(action: {
-                        preselectedFriend = nil
-                        showingLetterEditor = true
+                        showingLetterEditorNoPreselect = true
                     }) {
                         actionButton(
                             icon: "square.and.pencil",
@@ -207,8 +206,11 @@ struct LetterSharingView: View {
         .sheet(isPresented: $showingRequests) {
             FriendRequestsView()
         }
-        .sheet(isPresented: $showingLetterEditor) {
-            SharedLetterEditorView(preselectedFriend: preselectedFriend)
+        .sheet(item: $preselectedFriend) { friend in
+            SharedLetterEditorView(preselectedFriend: friend)
+        }
+        .sheet(isPresented: $showingLetterEditorNoPreselect) {
+            SharedLetterEditorView()
         }
         .sheet(isPresented: $deepLinkHandler.showInviteConfirmation) {
             InviteConfirmationView()
@@ -409,7 +411,6 @@ struct LetterSharingView: View {
             // 手紙を書くボタン
             Button(action: {
                 preselectedFriend = friend
-                showingLetterEditor = true
             }) {
                 Image(systemName: "square.and.pencil")
                     .foregroundColor(.purple)

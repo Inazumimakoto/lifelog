@@ -113,6 +113,10 @@ struct ContentView: View {
         .sheet(isPresented: $deepLinkHandler.showInviteConfirmation) {
             InviteConfirmationView()
         }
+        // 招待リンク用サインインフロー
+        .fullScreenCover(isPresented: $deepLinkHandler.showSignInFlow) {
+            InviteSignInFlowView()
+        }
         // 招待リンクのエラーアラート
         .alert("招待リンク", isPresented: Binding(
             get: { deepLinkHandler.errorMessage != nil },
@@ -123,6 +127,15 @@ struct ContentView: View {
             }
         } message: {
             Text(deepLinkHandler.errorMessage ?? "")
+        }
+        // 友達追加成功のガイドアラート
+        .alert("友達を追加しました！", isPresented: $deepLinkHandler.showAddedSuccess) {
+            Button("OK") {
+                deepLinkHandler.showAddedSuccess = false
+            }
+        } message: {
+            let friendName = deepLinkHandler.addedFriendName ?? "友達"
+            Text("\(friendName)さんと友達になりました！\n\n手紙を送るには:\n設定 → ひみつの機能 → 大切な人への手紙")
         }
     }
     
