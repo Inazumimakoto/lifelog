@@ -12,12 +12,14 @@ import { setGlobalOptions } from "firebase-functions/v2";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
 import * as logger from "firebase-functions/logger";
-import { initializeApp } from "firebase-admin/app";
+import { initializeApp, applicationDefault } from "firebase-admin/app";
 import { getFirestore, Timestamp, FieldValue } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 
 // Initialize Firebase Admin
-initializeApp();
+initializeApp({
+  credential: applicationDefault(),
+});
 
 const db = getFirestore();
 
@@ -269,7 +271,7 @@ async function sendPushNotification(userId: string, letterId: string) {
     };
 
     await getMessaging().send(message);
-    logger.info(`プッシュ通知送信完了: ${userId}`);
+    logger.info(`プッシュ通知を送信しました: ${userId}`);
   } catch (error) {
     logger.error(`プッシュ通知送信エラー: ${userId}`, error);
   }
@@ -309,7 +311,7 @@ async function sendDeliveryWarning(userId: string, letterId: string, daysRemaini
     };
 
     await getMessaging().send(message);
-    logger.info(`警告通知送信完了: ${userId}`);
+    logger.info(`警告通知を送信しました: ${userId}`);
   } catch (error) {
     logger.error(`警告通知送信エラー: ${userId}`, error);
   }

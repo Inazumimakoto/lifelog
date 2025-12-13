@@ -40,6 +40,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNUserNot
     
     func application(_ application: UIApplication,
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
+        print("✅ APNsトークン取得成功: \(deviceToken.map { String(format: "%02.2hhx", $0) }.joined())")
         // APNsトークンをFirebase Messagingに設定
         Messaging.messaging().apnsToken = deviceToken
     }
