@@ -45,7 +45,67 @@ class GitHubService: ObservableObject {
     
     private init() {}
     
+    // MARK: - Keychain for PAT
+    
+    private let keychainService = "com.lifelog.github"
+    private let keychainAccount = "pat"
+    
+    /// PATをKeychainに保存
+    func savePAT(_ token: String) {
+        let data = token.data(using: .utf8)!
+        
+        // 既存のアイテムを削除
+        let deleteQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: keychainAccount
+        ]
+        SecItemDelete(deleteQuery as CFDictionary)
+        
+        // 新しいアイテムを追加
+        let addQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: keychainAccount,
+            kSecValueData as String: data
+        ]
+        SecItemAdd(addQuery as CFDictionary, nil)
+    }
+    
+    /// PATをKeychainから取得
+    func getPAT() -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: keychainAccount,
+            kSecReturnData as String: true
+        ]
+        
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        
+        guard status == errSecSuccess,
+              let data = result as? Data,
+              let token = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        return token
+    }
+    
+    /// PATを削除
+    func deletePAT() {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: keychainService,
+            kSecAttrAccount as String: keychainAccount
+        ]
+        SecItemDelete(query as CFDictionary)
+    }
+    
+    // MARK: - Fetch Contributions
+    
     /// GitHubユーザー名からコントリビューションを取得
+    /// PATがあればGraphQL API、なければスクレイピング
     func fetchContributions(username: String) async {
         guard !username.isEmpty else {
             contributions = []
@@ -56,10 +116,115 @@ class GitHubService: ObservableObject {
         isLoading = true
         errorMessage = nil
         
+        // PATがあればGraphQL APIを使用
+        if let pat = getPAT(), !pat.isEmpty {
+            await fetchWithGraphQL(username: username, pat: pat)
+        } else {
+            await fetchWithScraping(username: username)
+        }
+        
+        isLoading = false
+    }
+    
+    // MARK: - GraphQL API
+    
+    /// GraphQL APIで正確なコントリビューションデータを取得
+    private func fetchWithGraphQL(username: String, pat: String) async {
+        let query = """
+        query {
+          user(login: "\(username)") {
+            contributionsCollection {
+              contributionCalendar {
+                totalContributions
+                weeks {
+                  contributionDays {
+                    date
+                    contributionCount
+                  }
+                }
+              }
+            }
+          }
+        }
+        """
+        
+        guard let url = URL(string: "https://api.github.com/graphql") else {
+            errorMessage = "API URLエラー"
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(pat)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        
+        let body = ["query": query]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            
+            guard let httpResponse = response as? HTTPURLResponse else {
+                errorMessage = "レスポンスエラー"
+                return
+            }
+            
+            if httpResponse.statusCode == 401 {
+                errorMessage = "認証エラー: PATが無効です"
+                return
+            }
+            
+            guard httpResponse.statusCode == 200 else {
+                errorMessage = "APIエラー: \(httpResponse.statusCode)"
+                return
+            }
+            
+            parseGraphQLResponse(data)
+        } catch {
+            errorMessage = "通信エラー: \(error.localizedDescription)"
+        }
+    }
+    
+    /// GraphQL レスポンスをパース
+    private func parseGraphQLResponse(_ data: Data) {
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let dataObj = json["data"] as? [String: Any],
+              let user = dataObj["user"] as? [String: Any],
+              let collection = user["contributionsCollection"] as? [String: Any],
+              let calendar = collection["contributionCalendar"] as? [String: Any],
+              let total = calendar["totalContributions"] as? Int,
+              let weeks = calendar["weeks"] as? [[String: Any]] else {
+            errorMessage = "レスポンス解析エラー"
+            return
+        }
+        
+        var parsedContributions: [GitHubContribution] = []
+        
+        for week in weeks {
+            guard let days = week["contributionDays"] as? [[String: Any]] else { continue }
+            
+            for day in days {
+                guard let dateString = day["date"] as? String,
+                      let count = day["contributionCount"] as? Int,
+                      let date = dateFormatter.date(from: dateString) else { continue }
+                
+                parsedContributions.append(GitHubContribution(date: date, count: count))
+            }
+        }
+        
+        contributions = parsedContributions.sorted { $0.date < $1.date }
+        totalContributions = total
+        
+        print("🟢 GitHub GraphQL API: \(contributions.count)日分, 合計\(totalContributions)コミット")
+    }
+    
+    // MARK: - Scraping (Fallback)
+    
+    /// スクレイピングでコントリビューションデータを取得（PAT がない場合）
+    private func fetchWithScraping(username: String) async {
         let urlString = "https://github.com/users/\(username)/contributions"
         guard let url = URL(string: urlString) else {
             errorMessage = "無効なユーザー名です"
-            isLoading = false
             return
         }
         
@@ -69,21 +234,17 @@ class GitHubService: ObservableObject {
             guard let httpResponse = response as? HTTPURLResponse,
                   httpResponse.statusCode == 200 else {
                 errorMessage = "ユーザーが見つかりません"
-                isLoading = false
                 return
             }
             
             guard let html = String(data: data, encoding: .utf8) else {
                 errorMessage = "データの読み込みに失敗しました"
-                isLoading = false
                 return
             }
             
             parseContributions(from: html)
-            isLoading = false
         } catch {
             errorMessage = "通信エラー: \(error.localizedDescription)"
-            isLoading = false
         }
     }
     

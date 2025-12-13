@@ -20,6 +20,9 @@ struct SettingsView: View {
     @State private var showLetterList = false
     @State private var showLetterSharing = false
     @AppStorage("githubUsername") private var githubUsername: String = ""
+    @State private var githubPAT: String = ""
+    @State private var showPATHelp = false
+    @StateObject private var githubService = GitHubService.shared
     
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
@@ -200,10 +203,44 @@ struct SettingsView: View {
                         .multilineTextAlignment(.trailing)
                         .foregroundStyle(.secondary)
                 }
+                
+                HStack {
+                    Label("Personal Access Token", systemImage: "key.fill")
+                    
+                    Button {
+                        showPATHelp = true
+                    } label: {
+                        Image(systemName: "questionmark.circle")
+                            .foregroundStyle(.blue)
+                    }
+                    .buttonStyle(.plain)
+                    
+                    Spacer()
+                    
+                    SecureField("未設定", text: $githubPAT)
+                        .autocapitalization(.none)
+                        .autocorrectionDisabled()
+                        .multilineTextAlignment(.trailing)
+                        .foregroundStyle(.secondary)
+                        .onChange(of: githubPAT) { _, newValue in
+                            if !newValue.isEmpty {
+                                githubService.savePAT(newValue)
+                            }
+                        }
+                }
+                
+                if githubService.getPAT() != nil {
+                    Button(role: .destructive) {
+                        githubService.deletePAT()
+                        githubPAT = ""
+                    } label: {
+                        Label("PATを削除", systemImage: "trash")
+                    }
+                }
             } header: {
                 Text("開発者向け 🧑‍💻")
             } footer: {
-                Text("GitHubユーザー名を入力すると、習慣タブにコントリビューショングラフが表示されます")
+                Text("PATを設定すると正確なコントリビューション数が取得できます")
             }
         }
         .navigationTitle("設定")
@@ -226,6 +263,24 @@ struct SettingsView: View {
             Button("OK") { }
         } message: {
             Text("メールアプリでアカウントを設定するか、inazumimakoto@gmail.com まで直接ご連絡ください。")
+        }
+        .alert("GitHub Personal Access Token", isPresented: $showPATHelp) {
+            Button("閉じる") { }
+            Button("GitHubを開く") {
+                if let url = URL(string: "https://github.com/settings/tokens/new?description=lifelog&scopes=read:user") {
+                    UIApplication.shared.open(url)
+                }
+            }
+        } message: {
+            Text("""
+            1. GitHubにログイン
+            2. Settings → Developer settings → Personal access tokens → Tokens (classic)
+            3. Generate new token (classic)
+            4. Expiration: 任意
+            5. Scope: read:user にチェック
+            6. 生成されたトークンをコピー
+            7. このアプリに貼り付け
+            """)
         }
         .sheet(isPresented: $showCalendarSettings) {
             NavigationStack {
