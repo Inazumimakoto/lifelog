@@ -553,6 +553,9 @@ final class AppDataStore: ObservableObject {
                 HapticManager.streak()
                 // 3日以上連続達成でポジティブアクションとして記録
                 ReviewRequestManager.shared.registerPositiveAction()
+                
+                // ストリークマイルストーン達成時にトースト表示
+                showStreakMilestoneToast(streak: streakAfter)
             } else {
                 HapticManager.success()
             }
@@ -561,6 +564,32 @@ final class AppDataStore: ObservableObject {
             checkAllHabitsComplete(on: date)
         } else {
             HapticManager.light()
+        }
+    }
+    
+    /// ストリークマイルストーン達成時にトーストを表示
+    private func showStreakMilestoneToast(streak: Int) {
+        let milestones: [(days: Int, emoji: String, message: String, nextLabel: String?)] = [
+            (365, "🌟", "1年達成！おめでとう！", nil),
+            (200, "🎖️", "200日連続！レジェンド！", "次は365日！"),
+            (100, "👑", "100日突破！", "次は200日！"),
+            (50, "🏆", "50日連続達成！", "次は100日！"),
+            (30, "🔥", "1ヶ月連続達成！", "次は50日！"),
+            (21, "🔥", "3週間連続達成！", "次は30日！"),
+            (14, "🔥", "2週間連続達成！", "次は21日！"),
+            (7, "✨", "1週間連続達成！", "次は14日！"),
+            (3, "💪", "3日連続達成！", "次は7日！")
+        ]
+        
+        for milestone in milestones {
+            if streak == milestone.days {
+                var fullMessage = milestone.message
+                if let next = milestone.nextLabel {
+                    fullMessage += "\n\(next)"
+                }
+                ToastManager.shared.show(emoji: milestone.emoji, message: fullMessage)
+                break
+            }
         }
     }
     
