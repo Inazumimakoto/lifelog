@@ -27,6 +27,12 @@
             "**/.*",
             "**/node_modules/**"
         ],
+        "rewrites": [
+            {
+                "source": "/invite/**",
+                "destination": "/index.html"
+            }
+        ],
         "headers": [
             {
                 "source": "/.well-known/apple-app-site-association",
