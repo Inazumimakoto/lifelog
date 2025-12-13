@@ -665,6 +665,7 @@ struct HabitDaySummarySheet: View {
             Spacer()
         }
         .padding()
+        .toast()
     }
 }
 
