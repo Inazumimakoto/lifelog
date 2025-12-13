@@ -254,6 +254,13 @@ async function sendPushNotification(userId: string, letterId: string) {
     const senderEmoji = senderData?.emoji || "💌";
 
     // プッシュ通知を送信
+    // 未開封手紙数を取得してバッジに設定
+    const unreadLetters = await db.collection("letters")
+      .where("recipientId", "==", userId)
+      .where("status", "==", "delivered")
+      .get();
+    const badgeCount = unreadLetters.size;
+
     const message = {
       token: fcmToken,
       notification: {
@@ -268,7 +275,7 @@ async function sendPushNotification(userId: string, letterId: string) {
         payload: {
           aps: {
             sound: "default",
-            badge: 1,
+            badge: badgeCount,
           },
         },
       },

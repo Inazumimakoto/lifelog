@@ -192,6 +192,9 @@ class LetterReceivingService {
             "openedAt": FieldValue.serverTimestamp()
         ])
         
+        // アプリアイコンのバッジを更新
+        await updateBadgeCount()
+        
         let deliveredAt = (data["deliveredAt"] as? Timestamp)?.dateValue() ?? Date()
         
         return DecryptedLetter(
@@ -204,6 +207,17 @@ class LetterReceivingService {
             deliveredAt: deliveredAt,
             openedAt: Date()
         )
+    }
+    
+    /// アプリアイコンのバッジカウントを更新
+    @MainActor
+    private func updateBadgeCount() async {
+        do {
+            let unreadCount = try await getUnreadCount()
+            try await UNUserNotificationCenter.current().setBadgeCount(unreadCount)
+        } catch {
+            print("バッジ更新エラー: \(error.localizedDescription)")
+        }
     }
     
     // MARK: - Download and Decrypt Photo
