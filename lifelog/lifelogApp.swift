@@ -53,6 +53,11 @@ struct lifelogApp: App {
                     if appLockService.isAppLockEnabled && !appLockService.isUnlocked {
                         appLockService.authenticate()
                     }
+                    
+                    // 最終ログイン日時を更新（手紙の生存確認用）
+                    _Concurrency.Task {
+                        await AuthService.shared.updateLastLoginAt()
+                    }
                 }
             }
             // Universal Links (招待リンク) のハンドリング
