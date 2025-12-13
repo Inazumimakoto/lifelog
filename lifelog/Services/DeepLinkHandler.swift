@@ -8,6 +8,7 @@
 import Foundation
 import Combine
 import SwiftUI
+import FirebaseAuth
 
 /// Deep Link ハンドラー
 class DeepLinkHandler: ObservableObject {
@@ -18,6 +19,7 @@ class DeepLinkHandler: ObservableObject {
     
     @Published var pendingInviteLinkId: String?
     @Published var showInviteConfirmation = false
+    @Published var showSignInFlow = false  // サインイン画面を表示
     @Published var inviteLinkData: PairingService.InviteLink?
     @Published var isLoading = false
     @Published var errorMessage: String?
@@ -51,8 +53,8 @@ class DeepLinkHandler: ObservableObject {
     
     /// 招待リンクデータを取得
     private func fetchInviteLinkData(linkId: String) {
-        // ログインチェック
-        guard AuthService.shared.currentUser != nil else {
+        // ログインチェック（Firebase Authを直接チェック - 非同期ロード待ち問題を回避）
+        guard Auth.auth().currentUser != nil else {
             errorMessage = "招待を受け取るにはサインインが必要です\n設定 → ひみつの機能 → 大切な人への手紙"
             return
         }
