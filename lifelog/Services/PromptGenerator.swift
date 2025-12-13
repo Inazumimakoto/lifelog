@@ -177,7 +177,7 @@ struct PromptGenerator {
             }
             
             // GitHubコミット
-            if includeGitHub && day.githubCommits > 0 {
+            if includeGitHub {
                 stats.append("💻 GitHub: \(day.githubCommits)コミット")
             }
             

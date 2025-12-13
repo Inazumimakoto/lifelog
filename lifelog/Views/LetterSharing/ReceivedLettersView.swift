@@ -215,6 +215,10 @@ struct ReceivedLettersView: View {
         isLoading = true
         do {
             letters = try await LetterReceivingService.shared.getReceivedLetters()
+            
+            // バッジを未開封数に更新
+            let unreadCount = letters.filter { $0.status == "delivered" }.count
+            try? await UNUserNotificationCenter.current().setBadgeCount(unreadCount)
         } catch {
             print("手紙取得エラー: \(error.localizedDescription)")
         }

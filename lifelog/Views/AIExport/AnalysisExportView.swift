@@ -26,6 +26,15 @@ struct AnalysisExportView: View {
     @State private var includeMood: Bool = true
     @State private var includeEvents: Bool = true
     @State private var includeHabits: Bool = true
+    @State private var includeGitHub: Bool = false
+    
+    // GitHub設定
+    @AppStorage("githubUsername") private var githubUsername: String = ""
+    @StateObject private var githubService = GitHubService.shared
+    
+    private var isGitHubEnabled: Bool {
+        !githubUsername.isEmpty
+    }
     
     // AIアプリ選択シート用
     @State private var showAIAppSelectionSheet = false
@@ -52,6 +61,13 @@ struct AnalysisExportView: View {
             let habitRecordsForDay = store.habitRecords.filter { calendar.isDate($0.date, inSameDayAs: currentDate) }
             let totalHabits = store.habits.count
             let completedHabits = habitRecordsForDay.filter { $0.isCompleted }.count
+            // GitHubコミット数を取得
+            var githubCommits = 0
+            if includeGitHub {
+                githubCommits = githubService.contributions
+                    .first { calendar.isDate($0.date, inSameDayAs: currentDate) }?.count ?? 0
+            }
+            
             days.append(DailyData(
                 date: currentDate,
                 diary: diary,
@@ -60,7 +76,8 @@ struct AnalysisExportView: View {
                 taskCount: dayTasks.count,
                 completedTasks: dayTasks.filter { $0.isCompleted }.count,
                 totalHabits: totalHabits,
-                completedHabits: completedHabits
+                completedHabits: completedHabits,
+                githubCommits: githubCommits
             ))
             currentDate = calendar.date(byAdding: .day, value: 1, to: currentDate) ?? currentDate.addingTimeInterval(86400)
         }
@@ -78,7 +95,8 @@ struct AnalysisExportView: View {
             includeSteps: includeSteps,
             includeMood: includeMood,
             includeEvents: includeEvents,
-            includeHabits: includeHabits
+            includeHabits: includeHabits,
+            includeGitHub: includeGitHub
         )
     }
     
@@ -133,6 +151,11 @@ struct AnalysisExportView: View {
                     Toggle("👣 歩数", isOn: $includeSteps)
                     Toggle("📅 予定・タスク数", isOn: $includeEvents)
                     Toggle("✅ 習慣達成率", isOn: $includeHabits)
+                    
+                    // GitHubが有効な場合のみ表示
+                    if isGitHubEnabled {
+                        Toggle("💻 GitHubコミット", isOn: $includeGitHub)
+                    }
                 }
                 
                 // 4. アクション & 注意書き
@@ -189,6 +212,13 @@ struct AnalysisExportView: View {
             let calendar = Calendar.current
             let components = calendar.dateComponents([.year, .month], from: Date())
             startDate = calendar.date(from: components) ?? Date()
+            
+            // GitHubデータをフェッチ
+            if isGitHubEnabled {
+                _Concurrency.Task {
+                    await githubService.fetchContributions(username: githubUsername)
+                }
+            }
         }
         // 鬼コーチ選択時に、日記をデフォルトOFFにする
         .onChange(of: selectedPersona) { _, newPersona in
