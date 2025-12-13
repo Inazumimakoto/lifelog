@@ -117,13 +117,14 @@ struct GitHubContributionsView: View {
     }
     
     private func colorForLevel(_ level: Int) -> Color {
+        // GitHub dark mode colors: Less = darker, More = brighter
         switch level {
-        case 0: return Color(.systemGray6)
-        case 1: return Color(red: 0.6, green: 0.85, blue: 0.6)
-        case 2: return Color(red: 0.4, green: 0.75, blue: 0.4)
-        case 3: return Color(red: 0.2, green: 0.65, blue: 0.2)
-        case 4: return Color(red: 0.1, green: 0.5, blue: 0.1)
-        default: return Color(.systemGray6)
+        case 0: return Color(red: 0.1, green: 0.12, blue: 0.14) // 暗いグレー
+        case 1: return Color(red: 0.0, green: 0.27, blue: 0.13) // 暗い緑
+        case 2: return Color(red: 0.0, green: 0.43, blue: 0.18) // やや緑
+        case 3: return Color(red: 0.15, green: 0.64, blue: 0.25) // 明るめの緑
+        case 4: return Color(red: 0.22, green: 0.79, blue: 0.33) // 明るい緑
+        default: return Color(red: 0.1, green: 0.12, blue: 0.14)
         }
     }
     
