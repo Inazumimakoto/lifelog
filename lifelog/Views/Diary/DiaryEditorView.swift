@@ -27,8 +27,7 @@ struct DiaryEditorView: View {
     
     // AI採点機能
     @State private var showAIAppSelectionSheet = false
-    @State private var showPromptEditor = false
-    @AppStorage("diaryScorePrompt") private var customPrompt: String = DiaryScorePrompt.defaultPrompt
+    @State private var selectedScoreMode: DiaryScoreMode = .strict
 
     init(store: AppDataStore, date: Date) {
         _viewModel = StateObject(wrappedValue: DiaryViewModel(store: store, date: date))
@@ -127,9 +126,6 @@ struct DiaryEditorView: View {
         .sheet(isPresented: $showAIAppSelectionSheet) {
             AIAppSelectionSheet()
         }
-        .sheet(isPresented: $showPromptEditor) {
-            DiaryPromptEditorView(prompt: $customPrompt)
-        }
     }
 
     private var textBinding: Binding<String> {
@@ -191,36 +187,33 @@ struct DiaryEditorView: View {
     
     private var aiScoreSection: some View {
         Section {
-            HStack {
-                Button {
-                    copyForAIScoring()
-                } label: {
-                    HStack {
-                        Image(systemName: "sparkles")
-                        Text("AIに採点してもらう")
-                    }
+            // モード選択
+            Picker("モード", selection: $selectedScoreMode) {
+                ForEach(DiaryScoreMode.allCases) { mode in
+                    Text(mode.rawValue).tag(mode)
                 }
-                .disabled(viewModel.entry.text.isEmpty)
-                
-                Spacer()
-                
-                Button {
-                    showPromptEditor = true
-                } label: {
-                    Image(systemName: "gearshape")
-                        .foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
             }
+            .pickerStyle(.menu)
+            
+            Button {
+                copyForAIScoring()
+            } label: {
+                HStack {
+                    Image(systemName: "sparkles")
+                    Text("AIに採点してもらう")
+                }
+            }
+            .disabled(viewModel.entry.text.isEmpty)
         } footer: {
-            Text("プロンプト + 日記をコピーしてAIアプリへ")
+            Text(selectedScoreMode.description)
                 .font(.caption)
         }
     }
     
     private func copyForAIScoring() {
-        // プロンプト + 日記本文をクリップボードにコピー
-        let fullText = DiaryScorePrompt.build(prompt: customPrompt, diaryText: viewModel.entry.text)
+        // 選択したモードのプロンプト + 日記本文をクリップボードにコピー
+        let prompt = DiaryScorePrompt.prompt(for: selectedScoreMode)
+        let fullText = DiaryScorePrompt.build(prompt: prompt, diaryText: viewModel.entry.text)
         UIPasteboard.general.string = fullText
         HapticManager.success()
         showAIAppSelectionSheet = true
