@@ -52,7 +52,7 @@ struct ScheduleProvider: TimelineProvider {
             }
             return tasks.map { $0.title }
         } catch {
-            print("Widget Fetch Error: \(error)")
+            // Error during fetch - return empty
             return []
         }
     }

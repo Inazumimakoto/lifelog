@@ -13,10 +13,16 @@ import Combine
 final class DiaryViewModel: ObservableObject {
 
     static let maxPhotos: Int = 10
+    
+    /// テキスト入力のデバウンス時間（秒）
+    private static let textDebounceInterval: TimeInterval = 0.5
 
     @Published private(set) var entry: DiaryEntry
 
     private(set) var store: AppDataStore
+    
+    /// テキスト保存用のデバウンスタスク
+    private var textPersistTask: _Concurrency.Task<Void, Never>?
 
     init(store: AppDataStore, date: Date) {
         self.store = store
@@ -36,6 +42,9 @@ final class DiaryViewModel: ObservableObject {
     
     /// 別の日付のエントリを読み込む
     func loadEntry(for date: Date) {
+        // 前のエントリの保存を確実に完了させる
+        flushPendingTextSave()
+        
         let existingEntry = store.entry(for: date)
         var normalized = existingEntry ?? DiaryEntry(date: date, text: "")
         normalized.mood = normalized.mood ?? .neutral
@@ -46,17 +55,18 @@ final class DiaryViewModel: ObservableObject {
 
     func update(text: String) {
         entry.text = text
-        persist()
+        // テキスト入力はデバウンスで遅延保存
+        debouncedPersistText()
     }
 
     func update(mood: MoodLevel?) {
         entry.mood = mood
-        persist()
+        persist()  // 即時保存（UIの選択なので遅延不要）
     }
 
     func update(condition: Int?) {
         entry.conditionScore = condition
-        persist()
+        persist()  // 即時保存（UIの選択なので遅延不要）
     }
 
     func update(locationName: String?, coordinate: CLLocationCoordinate2D?) {
@@ -103,6 +113,36 @@ final class DiaryViewModel: ObservableObject {
         let kept = original.filter { PhotoStorage.fileExists(for: $0) }
         guard kept.count != original.count else { return }
         entry.photoPaths = kept
+        persist()
+    }
+    
+    // MARK: - Debounce Methods
+    
+    /// テキスト保存をデバウンスで遅延実行
+    private func debouncedPersistText() {
+        // 既存のタスクをキャンセル
+        textPersistTask?.cancel()
+        
+        // 新しいタスクを開始
+        textPersistTask = _Concurrency.Task { [weak self] in
+            do {
+                // 指定時間待機
+                try await _Concurrency.Task.sleep(nanoseconds: UInt64(Self.textDebounceInterval * 1_000_000_000))
+                
+                // キャンセルされていなければ保存
+                guard !_Concurrency.Task.isCancelled else { return }
+                await self?.persist()
+            } catch {
+                // Task.sleep がキャンセルされた場合（正常動作）
+            }
+        }
+    }
+    
+    /// 保留中のテキスト保存を即座に実行（画面を閉じる前に呼び出す）
+    func flushPendingTextSave() {
+        textPersistTask?.cancel()
+        textPersistTask = nil
+        // 現在のエントリを即座に保存
         persist()
     }
 

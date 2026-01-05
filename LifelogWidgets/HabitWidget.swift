@@ -86,7 +86,7 @@ struct HabitProvider: TimelineProvider {
             
             return results
         } catch {
-            print("Widget Fetch Error: \(error)")
+            // Error during fetch - return empty
             return []
         }
     }

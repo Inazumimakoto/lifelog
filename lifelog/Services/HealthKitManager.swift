@@ -101,31 +101,45 @@ class HealthKitManager {
                 for sample in samples {
                     guard self.isAsleepSample(sample) else { continue }
                     let stageType = self.sleepStageType(for: sample)
-                    var segmentStart = sample.startDate
+                    let sampleStart = sample.startDate
                     let sampleEnd = sample.endDate
-
-                    while segmentStart < sampleEnd {
-                        let dayStart = calendar.startOfDay(for: segmentStart)
-                        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { break }
-                        let clippedStart = max(segmentStart, dayStart)
-                        let clippedEnd = min(sampleEnd, dayEnd)
-                        let hours = clippedEnd.timeIntervalSince(clippedStart) / 3600
-
-                        var aggregate = sleepDataByDay[dayStart] ?? SleepAggregate(start: clippedStart,
-                                                                                   end: clippedEnd,
-                                                                                   duration: 0,
-                                                                                   stages: [])
-                        aggregate.start = min(aggregate.start, clippedStart)
-                        aggregate.end = max(aggregate.end, clippedEnd)
-                        aggregate.duration += hours
-                        if let stageType {
-                            aggregate.stages.append(SleepStage(start: clippedStart,
-                                                               end: clippedEnd,
-                                                               stage: stageType))
+                    
+                    // 起床日（endDateの日付）を基準にする
+                    let wakeUpDay = calendar.startOfDay(for: sampleEnd)
+                    
+                    // サンプル全体の時間を計算（日付を跨ぐ場合も含む）
+                    let hours = sampleEnd.timeIntervalSince(sampleStart) / 3600
+                    
+                    if var existing = sleepDataByDay[wakeUpDay] {
+                        // 既存のデータがある場合、同じ睡眠セッションかチェック
+                        // 連続した睡眠（2時間以内のギャップ）のみマージ
+                        let gap = abs(existing.end.timeIntervalSince(sampleStart))
+                        let reverseGap = abs(sampleEnd.timeIntervalSince(existing.start))
+                        let isSameSession = min(gap, reverseGap) < 7200 // 2時間以内
+                        
+                        if isSameSession {
+                            existing.start = min(existing.start, sampleStart)
+                            existing.end = max(existing.end, sampleEnd)
+                            existing.duration += hours
+                            if let stageType {
+                                existing.stages.append(SleepStage(start: sampleStart, end: sampleEnd, stage: stageType))
+                            }
+                            sleepDataByDay[wakeUpDay] = existing
                         }
-                        sleepDataByDay[dayStart] = aggregate
-
-                        segmentStart = clippedEnd
+                        // 別のセッション（例：昼寝と夜の睡眠）は最新の夜の睡眠を優先
+                        // → 既存データを維持（より早い時刻のサンプルを無視）
+                    } else {
+                        // 新規作成
+                        var aggregate = SleepAggregate(
+                            start: sampleStart,
+                            end: sampleEnd,
+                            duration: hours,
+                            stages: []
+                        )
+                        if let stageType {
+                            aggregate.stages.append(SleepStage(start: sampleStart, end: sampleEnd, stage: stageType))
+                        }
+                        sleepDataByDay[wakeUpDay] = aggregate
                     }
                 }
                 continuation.resume(returning: sleepDataByDay)
