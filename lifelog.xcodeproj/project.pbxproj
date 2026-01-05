@@ -225,10 +225,10 @@
 				};
 			};
 			buildConfigurationList = 0E6196E12EC5A3A000A0734C /* Build configuration list for PBXProject "lifelog" */;
-			developmentRegion = en;
+			developmentRegion = ja;
 			hasScannedForEncodings = 0;
 			knownRegions = (
-				en,
+				ja,
 				Base,
 			);
 			mainGroup = 0E6196DD2EC5A3A000A0734C;
