@@ -199,8 +199,10 @@ struct DiaryEditorView: View {
                 copyForAIScoring()
             } label: {
                 HStack {
+                    Spacer()
                     Image(systemName: "sparkles")
                     Text("AIに採点してもらう")
+                    Spacer()
                 }
             }
             .disabled(viewModel.entry.text.isEmpty)
