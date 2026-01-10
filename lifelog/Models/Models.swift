@@ -191,6 +191,7 @@ struct Task: Identifiable, Codable, Hashable {
     var priority: TaskPriority
     var isCompleted: Bool
     var reminderDate: Date?
+    var completedAt: Date?
 
     init(id: UUID = UUID(),
          title: String,
@@ -199,7 +200,8 @@ struct Task: Identifiable, Codable, Hashable {
          endDate: Date? = nil,
          priority: TaskPriority = .medium,
          isCompleted: Bool = false,
-         reminderDate: Date? = nil) {
+         reminderDate: Date? = nil,
+         completedAt: Date? = nil) {
         self.id = id
         self.title = title
         self.detail = detail
@@ -208,6 +210,7 @@ struct Task: Identifiable, Codable, Hashable {
         self.priority = priority
         self.isCompleted = isCompleted
         self.reminderDate = reminderDate
+        self.completedAt = completedAt
     }
 }
 

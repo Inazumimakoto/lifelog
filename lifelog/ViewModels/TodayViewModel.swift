@@ -67,7 +67,13 @@ final class TodayViewModel: ObservableObject {
                 .filter { self.isTask($0, scheduledOn: self.date) }
                 .sorted(by: self.sortTasks)
             self.tasksDueToday = todaysTasks.filter { !$0.isCompleted }
-            self.completedTasksToday = todaysTasks.filter(\.isCompleted)
+            // 完了済みタスク: 今日完了したもののみ表示 (completedAtがnilの場合はendDateをフォールバック)
+            let today = Calendar.current.startOfDay(for: self.date)
+            self.completedTasksToday = self.store.tasks.filter { task in
+                guard task.isCompleted else { return false }
+                let completionDate = task.completedAt ?? task.endDate ?? Date()
+                return Calendar.current.startOfDay(for: completionDate) == today
+            }.sorted(by: self.sortTasks)
 
             self.habitStatuses = self.store.habits
                 .filter { $0.schedule.isActive(on: self.date) }

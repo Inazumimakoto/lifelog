@@ -254,10 +254,10 @@ final class JournalViewModel: ObservableObject {
     }
 
     private func isTask(_ task: Task, on date: Date, calendar: Calendar) -> Bool {
-        let start = calendar.startOfDay(for: task.startDate ?? task.endDate ?? date)
+        // カレンダーでは終了日（締切）のみに表示
         let end = calendar.startOfDay(for: task.endDate ?? task.startDate ?? date)
         let target = calendar.startOfDay(for: date)
-        return start...end ~= target
+        return end == target
     }
 
     private func mapExternalEvents(from ekEvents: [EKEvent]) -> [CalendarEvent] {

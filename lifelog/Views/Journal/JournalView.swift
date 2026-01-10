@@ -29,7 +29,7 @@ struct JournalView: View {
     private let store: AppDataStore
     @StateObject private var viewModel: JournalViewModel
     private let monthPagerHeight: CGFloat = 700
-    private let monthPagerRadius = 6
+    private let monthPagerRadius = 3
     @State private var monthPagerAnchors: [Date] = []
     @State private var monthPagerSelection: Int = 0
     @State private var isSyncingMonthPager = false
@@ -51,7 +51,7 @@ struct JournalView: View {
     @State private var newItemDate: Date?
     @State private var diaryEditorDate: Date?
     @State private var isProgrammaticWeekPagerChange = false
-    private let detailPagerRadius = 14
+    private let detailPagerRadius = 7
     @State private var detailPagerAnchors: [Date] = []
     @State private var detailPagerSelection: Int = 0
     @State private var isSyncingDetailPager = false

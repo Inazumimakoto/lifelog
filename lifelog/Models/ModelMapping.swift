@@ -18,7 +18,8 @@ extension Task {
             endDate: sd.endDate,
             priority: sd.priority,
             isCompleted: sd.isCompleted,
-            reminderDate: sd.reminderDate
+            reminderDate: sd.reminderDate,
+            completedAt: sd.completedAt
         )
     }
 }
@@ -33,7 +34,8 @@ extension SDTask {
             endDate: domain.endDate,
             priority: domain.priority,
             isCompleted: domain.isCompleted,
-            reminderDate: domain.reminderDate
+            reminderDate: domain.reminderDate,
+            completedAt: domain.completedAt
         )
     }
     
@@ -45,6 +47,7 @@ extension SDTask {
         self.priority = domain.priority
         self.isCompleted = domain.isCompleted
         self.reminderDate = domain.reminderDate
+        self.completedAt = domain.completedAt
     }
 }
 

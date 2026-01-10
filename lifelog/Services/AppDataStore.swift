@@ -435,11 +435,14 @@ final class AppDataStore: ObservableObject {
     func toggleTaskCompletion(_ taskID: UUID) {
         guard let index = tasks.firstIndex(where: { $0.id == taskID }) else { return }
         tasks[index].isCompleted.toggle()
+        // Set completedAt when completed, clear when uncompleted
+        tasks[index].completedAt = tasks[index].isCompleted ? Date() : nil
         persistTasks()
         
         let descriptor = FetchDescriptor<SDTask>(predicate: #Predicate { $0.id == taskID })
         if let existing = try? modelContext.fetch(descriptor).first {
              existing.isCompleted = tasks[index].isCompleted
+             existing.completedAt = tasks[index].completedAt
              try? modelContext.save()
         }
     }
