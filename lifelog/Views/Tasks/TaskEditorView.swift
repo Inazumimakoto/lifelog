@@ -42,8 +42,8 @@ struct TaskEditorView: View {
         _startDate = State(initialValue: base)
         _endDate = State(initialValue: max(base, end))
         _priority = State(initialValue: task?.priority ?? .medium)
-        // 既存タスクで両方nilなら「いつか」タスク
-        _isSomeday = State(initialValue: task?.startDate == nil && task?.endDate == nil)
+        // 既存タスクで両方nilなら「いつか」タスク（新規は常にfalse）
+        _isSomeday = State(initialValue: task != nil && task?.startDate == nil && task?.endDate == nil)
         
         // 優先度別通知設定を読み込み（新規作成時のみ適用）
         let initialPriority = task?.priority ?? .medium
