@@ -25,6 +25,7 @@ struct TaskEditorView: View {
     @State private var priority: TaskPriority
     @State private var hasReminder: Bool
     @State private var reminderDate: Date
+    @State private var isSomeday: Bool
 
     init(task: Task? = nil,
          defaultDate: Date? = nil,
@@ -41,6 +42,8 @@ struct TaskEditorView: View {
         _startDate = State(initialValue: base)
         _endDate = State(initialValue: max(base, end))
         _priority = State(initialValue: task?.priority ?? .medium)
+        // 既存タスクで両方nilなら「いつか」タスク
+        _isSomeday = State(initialValue: task?.startDate == nil && task?.endDate == nil)
         
         // 優先度別通知設定を読み込み（新規作成時のみ適用）
         let initialPriority = task?.priority ?? .medium
@@ -78,25 +81,42 @@ struct TaskEditorView: View {
             Section("タスク内容") {
                 TextField("タイトルを入力", text: $title)
                 TextField("詳細メモ（任意）", text: $detail, axis: .vertical)
-                DatePicker("開始日", selection: $startDate, displayedComponents: [.date])
-                    .onChange(of: startDate) { newValue in
-                        startDate = calendar.startOfDay(for: newValue)
-                        if endDate < startDate {
-                            endDate = startDate
+                
+                Picker("期限", selection: $isSomeday) {
+                    Text("日付指定").tag(false)
+                    Text("いつか").tag(true)
+                }
+                .pickerStyle(.segmented)
+                
+                if !isSomeday {
+                    DatePicker("開始日", selection: $startDate, displayedComponents: [.date])
+                        .onChange(of: startDate) { newValue in
+                            startDate = calendar.startOfDay(for: newValue)
+                            if endDate < startDate {
+                                endDate = startDate
+                            }
                         }
-                    }
-                DatePicker("終了日", selection: $endDate, in: startDate..., displayedComponents: [.date])
-                    .onChange(of: endDate) { newValue in
-                        endDate = max(calendar.startOfDay(for: newValue), startDate)
-                    }
+                    DatePicker("終了日", selection: $endDate, in: startDate..., displayedComponents: [.date])
+                        .onChange(of: endDate) { newValue in
+                            endDate = max(calendar.startOfDay(for: newValue), startDate)
+                        }
+                }
+                
                 Picker("優先度", selection: $priority) {
                     ForEach(TaskPriority.allCases) { level in
                         Text(level.label).tag(level)
                     }
                 }
-                Text("開始日と終了日が同じ場合は単日タスクとして扱われます。複数日にまたがる場合は期間全体に表示されます。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                
+                if isSomeday {
+                    Text("「いつか」タスクはカレンダーやホームには表示されず、タスク一覧でのみ確認できます。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("開始日と終了日が同じ場合は単日タスクとして扱われます。複数日にまたがる場合は期間全体に表示されます。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
             
             Section("通知") {
@@ -127,11 +147,12 @@ struct TaskEditorView: View {
                     let task = Task(id: originalTask?.id ?? UUID(),
                                     title: title,
                                     detail: detail,
-                                    startDate: calendar.startOfDay(for: startDate),
-                                    endDate: calendar.startOfDay(for: endDate),
+                                    startDate: isSomeday ? nil : calendar.startOfDay(for: startDate),
+                                    endDate: isSomeday ? nil : calendar.startOfDay(for: endDate),
                                     priority: priority,
                                     isCompleted: originalTask?.isCompleted ?? false,
-                                    reminderDate: hasReminder ? reminderDate : nil)
+                                    reminderDate: hasReminder ? reminderDate : nil,
+                                    completedAt: originalTask?.completedAt)
                     onSave(task)
                     dismiss()
                 }

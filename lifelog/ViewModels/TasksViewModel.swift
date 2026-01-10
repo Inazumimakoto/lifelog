@@ -15,6 +15,7 @@ final class TasksViewModel: ObservableObject {
     enum TaskSection: String, CaseIterable, Identifiable {
         case upcoming = "今後のタスク"
         case overdue = "期限切れ"
+        case someday = "いつかやる"
         case completed = "完了済み"
 
         var id: String { rawValue }
@@ -56,7 +57,8 @@ final class TasksViewModel: ObservableObject {
         case .upcoming:
             return tasks.filter { task in
                 guard !task.isCompleted else { return false }
-                guard let displayDate = displayDate(for: task) else { return true } // No date = Upcoming
+                // 日付なし（いつか）タスクは除外
+                guard let displayDate = displayDate(for: task) else { return false }
                 return calendar.startOfDay(for: displayDate) >= todayStart
             }
             .sorted(by: sortTasks)
@@ -65,6 +67,13 @@ final class TasksViewModel: ObservableObject {
                 guard !task.isCompleted else { return false }
                 guard let displayDate = displayDate(for: task) else { return false }
                 return calendar.startOfDay(for: displayDate) < todayStart
+            }
+            .sorted(by: sortTasks)
+        case .someday:
+            // startDateとendDateが両方nilのタスク
+            return tasks.filter { task in
+                guard !task.isCompleted else { return false }
+                return task.startDate == nil && task.endDate == nil
             }
             .sorted(by: sortTasks)
         case .completed:
