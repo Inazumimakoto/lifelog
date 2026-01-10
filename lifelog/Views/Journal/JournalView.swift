@@ -1084,7 +1084,8 @@ struct JournalView: View {
 
     private func calendarSnapshot(for date: Date) -> CalendarDetailSnapshot {
         let events = store.events(on: date)
-        let sortedTasks = viewModel.tasks(on: date).sorted(by: calendarTaskSort)
+        // 詳細シートでは開始〜終了日の範囲内のタスクを表示
+        let sortedTasks = viewModel.tasksInRange(on: date).sorted(by: calendarTaskSort)
         let pendingTasks = sortedTasks.filter { $0.isCompleted == false }
         let completedTasks = sortedTasks.filter(\.isCompleted)
         let statuses = store.habits

@@ -152,6 +152,17 @@ final class JournalViewModel: ObservableObject {
         let calendar = Calendar.current
         return store.tasks.filter { isTask($0, on: date, calendar: calendar) }
     }
+    
+    /// 開始日〜終了日の範囲内にあるタスクを取得（詳細シート用）
+    func tasksInRange(on date: Date) -> [Task] {
+        let calendar = Calendar.current
+        return store.tasks.filter { task in
+            let start = calendar.startOfDay(for: task.startDate ?? task.endDate ?? date)
+            let end = calendar.startOfDay(for: task.endDate ?? task.startDate ?? date)
+            let target = calendar.startOfDay(for: date)
+            return start...end ~= target
+        }
+    }
 
     func habits(on date: Date) -> [HabitRecord] {
         store.habitRecords.filter { $0.date.startOfDay == date.startOfDay }
