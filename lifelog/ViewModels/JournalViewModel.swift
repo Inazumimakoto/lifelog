@@ -157,8 +157,10 @@ final class JournalViewModel: ObservableObject {
     func tasksInRange(on date: Date) -> [Task] {
         let calendar = Calendar.current
         return store.tasks.filter { task in
-            let start = calendar.startOfDay(for: task.startDate ?? task.endDate ?? date)
-            let end = calendar.startOfDay(for: task.endDate ?? task.startDate ?? date)
+            // 「いつか」タスク（日付なし）は表示しない
+            guard task.startDate != nil || task.endDate != nil else { return false }
+            let start = calendar.startOfDay(for: task.startDate ?? task.endDate!)
+            let end = calendar.startOfDay(for: task.endDate ?? task.startDate!)
             let target = calendar.startOfDay(for: date)
             return start...end ~= target
         }
@@ -265,8 +267,10 @@ final class JournalViewModel: ObservableObject {
     }
 
     private func isTask(_ task: Task, on date: Date, calendar: Calendar) -> Bool {
+        // 「いつか」タスク（日付なし）はカレンダーに表示しない
+        guard let endDate = task.endDate ?? task.startDate else { return false }
         // カレンダーでは終了日（締切）のみに表示
-        let end = calendar.startOfDay(for: task.endDate ?? task.startDate ?? date)
+        let end = calendar.startOfDay(for: endDate)
         let target = calendar.startOfDay(for: date)
         return end == target
     }
