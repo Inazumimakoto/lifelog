@@ -1099,7 +1099,10 @@ struct JournalView: View {
                                         includeAddButtons: includeAddButtons,
                                         showHeader: showHeader,
                                         onToggleTask: { toggleTask($0) },
-                                        onToggleHabit: { toggleHabit($0, on: snapshot.date) })
+                                        onToggleHabit: { toggleHabit($0, on: snapshot.date) },
+                                        onShowDiaryEditor: {
+                                            diaryEditorDate = snapshot.date
+                                        })
                 )
                 : AnyView(reviewDetailCard(for: anchor))
                 content.tag(index)
@@ -1428,13 +1431,13 @@ private struct CalendarDetailPanel: View {
     var showHeader: Bool = false
     var onToggleTask: (Task) -> Void
     var onToggleHabit: (Habit) -> Void
+    var onShowDiaryEditor: (() -> Void)?
     
     // シート管理用State
     @State private var editingTask: Task?
     @State private var editingEvent: CalendarEvent?
     @State private var showAddTask = false
     @State private var showAddEvent = false
-    @State private var showDiaryEditor = false
 
     private var hasDiaryEntry: Bool {
         if let entry = snapshot.diaryEntry {
@@ -1598,7 +1601,7 @@ private struct CalendarDetailPanel: View {
                             placeholder("まだ日記は追加されていません")
                         }
                         Button {
-                            showDiaryEditor = true
+                            onShowDiaryEditor?()
                         } label: {
                             Label(hasDiaryEntry ? "日記を編集" : "日記を追加",
                                   systemImage: "square.and.pencil")
@@ -1637,11 +1640,6 @@ private struct CalendarDetailPanel: View {
                 CalendarEventEditorView(defaultDate: snapshot.date) { event in
                     store.addCalendarEvent(event)
                 }
-            }
-        }
-        .fullScreenCover(isPresented: $showDiaryEditor) {
-            NavigationStack {
-                DiaryEditorView(store: store, date: snapshot.date)
             }
         }
     }
