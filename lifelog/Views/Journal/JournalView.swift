@@ -1639,7 +1639,7 @@ private struct CalendarDetailPanel: View {
                 }
             }
         }
-        .sheet(isPresented: $showDiaryEditor) {
+        .fullScreenCover(isPresented: $showDiaryEditor) {
             NavigationStack {
                 DiaryEditorView(store: store, date: snapshot.date)
             }
