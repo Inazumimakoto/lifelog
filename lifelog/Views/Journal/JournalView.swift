@@ -1642,6 +1642,7 @@ private struct CalendarDetailPanel: View {
         .sheet(isPresented: $showDiaryEditor) {
             NavigationStack {
                 DiaryEditorView(store: store, date: snapshot.date)
+                    .id(snapshot.date)
             }
         }
     }
