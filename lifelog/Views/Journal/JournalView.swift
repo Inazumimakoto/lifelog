@@ -1101,7 +1101,12 @@ struct JournalView: View {
                                         onToggleTask: { toggleTask($0) },
                                         onToggleHabit: { toggleHabit($0, on: snapshot.date) },
                                         onShowDiaryEditor: {
-                                            diaryEditorDate = snapshot.date
+                                            // 詳細シートを閉じてから日記シートを開く
+                                            let targetDate = snapshot.date
+                                            showingDetailPanel = false
+                                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+                                                diaryEditorDate = targetDate
+                                            }
                                         })
                 )
                 : AnyView(reviewDetailCard(for: anchor))
