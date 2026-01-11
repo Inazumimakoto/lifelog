@@ -2077,6 +2077,7 @@ private struct ReviewDetailPanel: View {
         .sheet(isPresented: $showDiaryEditor) {
             NavigationStack {
                 DiaryEditorView(store: store, date: date)
+                    .id(date)
             }
         }
         .fullScreenCover(isPresented: $showPhotoViewer) {
