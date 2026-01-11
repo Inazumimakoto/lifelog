@@ -344,43 +344,8 @@ struct JournalView: View {
         .sheet(isPresented: $showingDetailPanel) {
             NavigationStack {
                 let snapshot = calendarSnapshot(for: viewModel.selectedDate)
-                let pager = detailPager(includeAddButtons: true, minHeight: 640)
+                let pager = detailPager(includeAddButtons: true, showHeader: true, minHeight: 640)
                 VStack(spacing: 0) {
-                    // Header: TodayView-style layout
-                    HStack(alignment: .lastTextBaseline) {
-                        // 日付: 2行表示
-                        VStack(alignment: .leading, spacing: 0) {
-                            Text(viewModel.selectedDate.yearString)
-                                .font(.headline)
-                                .foregroundStyle(.secondary)
-                            Text(viewModel.selectedDate.monthDayWeekdayString)
-                                .font(.largeTitle.bold())
-                        }
-                        
-                        Spacer()
-                        
-                        // 天気（右側）- TodayViewと同じ構造
-                        if let summary = snapshot.healthSummary,
-                           let condition = summary.weatherCondition {
-                            VStack(alignment: .trailing, spacing: 0) {
-                                Text(condition)
-                                    .font(.headline)
-                                HStack(alignment: .lastTextBaseline, spacing: 8) {
-                                    if let high = summary.highTemperature, let low = summary.lowTemperature {
-                                        Text(String(format: "%.0f°C", (high + low) / 2))
-                                            .font(.largeTitle.bold())
-                                        Text(String(format: "%.0f/%.0f", high, low))
-                                            .font(.headline)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 16)
-                    .padding(.bottom, 8)
-                    
                     pager
                         .padding(.horizontal, 16)
                     Spacer(minLength: 0)
@@ -1123,7 +1088,7 @@ struct JournalView: View {
         task.startDate ?? task.endDate
     }
 
-    private func detailPager(includeAddButtons: Bool, minHeight: CGFloat = 520) -> some View {
+    private func detailPager(includeAddButtons: Bool, showHeader: Bool = false, minHeight: CGFloat = 520) -> some View {
         TabView(selection: $detailPagerSelection) {
             ForEach(Array(detailPagerAnchors.enumerated()), id: \.offset) { index, anchor in
                 let snapshot = calendarSnapshot(for: anchor)
@@ -1132,6 +1097,7 @@ struct JournalView: View {
                     CalendarDetailPanel(snapshot: snapshot,
                                         store: store,
                                         includeAddButtons: includeAddButtons,
+                                        showHeader: showHeader,
                                         onToggleTask: { toggleTask($0) },
                                         onToggleHabit: { toggleHabit($0, on: snapshot.date) })
                 )
@@ -1459,6 +1425,7 @@ private struct CalendarDetailPanel: View {
     let snapshot: CalendarDetailSnapshot
     let store: AppDataStore
     var includeAddButtons: Bool
+    var showHeader: Bool = false
     var onToggleTask: (Task) -> Void
     var onToggleHabit: (Habit) -> Void
     
@@ -1479,6 +1446,11 @@ private struct CalendarDetailPanel: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                
+                // ヘッダー（シート用）
+                if showHeader {
+                    dateHeader
+                }
 
                 summaryRow
                 OverviewSection(icon: "calendar",
@@ -1676,6 +1648,38 @@ private struct CalendarDetailPanel: View {
 
 
 
+    private var dateHeader: some View {
+        HStack(alignment: .lastTextBaseline) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(snapshot.date.yearString)
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                Text(snapshot.date.monthDayWeekdayString)
+                    .font(.largeTitle.bold())
+            }
+            
+            Spacer()
+            
+            // 天気（右側）
+            if let summary = snapshot.healthSummary,
+               let condition = summary.weatherCondition {
+                VStack(alignment: .trailing, spacing: 0) {
+                    Text(condition)
+                        .font(.headline)
+                    HStack(alignment: .lastTextBaseline, spacing: 8) {
+                        if let high = summary.highTemperature, let low = summary.lowTemperature {
+                            Text(String(format: "%.0f°C", (high + low) / 2))
+                                .font(.largeTitle.bold())
+                            Text(String(format: "%.0f/%.0f", high, low))
+                                .font(.headline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     private var summaryRow: some View {
         HStack(spacing: 12) {
             SummaryChip(icon: "calendar", label: "予定", value: snapshot.events.count, color: .blue)
