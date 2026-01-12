@@ -2,8 +2,29 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
+    match /letters/{letterId}/{fileName} {
+      // 読み込み: Firestoreの手紙データの送信者か受信者ならOK
+      // allow read: if request.auth != null; // 一旦デバッグのため緩める場合はこちら
+      allow read: if request.auth != null && (
+        firestore.exists(/databases/(default)/documents/letters/$(letterId)) && (
+          firestore.get(/databases/(default)/documents/letters/$(letterId)).data.senderId == request.auth.uid ||
+          firestore.get(/databases/(default)/documents/letters/$(letterId)).data.recipientId == request.auth.uid
+        )
+      );
+
+      // 削除: 送信者のみOK
+      allow delete: if request.auth != null && 
+        firestore.exists(/databases/(default)/documents/letters/$(letterId)) && 
+        firestore.get(/databases/(default)/documents/letters/$(letterId)).data.senderId == request.auth.uid;
+
+      // 作成: 認証済みならOK (UUIDファイル名なので上書きリスクは低い)
+      allow create: if request.auth != null;
+    }
+
+    // デフォルト: 認証済みなら許可（他のパス用）
+    // 必要に応じて制限を追加してください
     match /{allPaths=**} {
-      allow read, write: if request.auth != null;
+       allow read, write: if request.auth != null;
     }
   }
 }
