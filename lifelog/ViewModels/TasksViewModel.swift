@@ -136,7 +136,7 @@ final class TasksViewModel: ObservableObject {
     }
 
     private func displayDate(for task: Task) -> Date? {
-        task.startDate ?? task.endDate
+        task.endDate ?? task.startDate
     }
 
     private func sortTasks(_ lhs: Task, _ rhs: Task) -> Bool {
