@@ -65,6 +65,7 @@ struct JournalView: View {
     @State private var showTaskManager = false
     @State private var showEventManager = false
     @State private var showMemoEditor = false
+    @AppStorage("showMoodOnReviewCalendar") private var showMoodOnReviewCalendar = true
     @State private var calendarMode: CalendarMode = .schedule
     @State private var selectedReviewDate: Date? = Date().startOfDay
     @State private var reviewPhotoIndex: Int = 0
@@ -129,6 +130,16 @@ struct JournalView: View {
                     }
                 } label: {
                     Image(systemName: "list.bullet")
+                }
+                
+                // 振り返りモード時のみ気分表示トグルを表示
+                if calendarMode == .review {
+                    Button {
+                        showMoodOnReviewCalendar.toggle()
+                    } label: {
+                        Image(systemName: "face.smiling")
+                            .foregroundColor(showMoodOnReviewCalendar ? Color.accentColor : Color.secondary)
+                    }
                 }
                 
                 Button {
@@ -850,6 +861,7 @@ struct JournalView: View {
                 let isSelected = selectedReviewDate?.isSameDay(as: day.date) ?? false
                 let favoriteImage: Image? = day.diary?.favoritePhotoPath.flatMap { PhotoStorage.loadImage(at: $0) }
                 let moodEmoji = day.diary?.mood?.emoji
+                let shouldShowMood = showMoodOnReviewCalendar && moodEmoji != nil
                 let dateForSelection = day.date
                 let hasPhoto = favoriteImage != nil
                 
@@ -877,8 +889,8 @@ struct JournalView: View {
                             )
                             .frame(maxWidth: .infinity, alignment: .topLeading)
                         
-                        if let moodEmoji {
-                            Text(moodEmoji)
+                        if shouldShowMood {
+                            Text(moodEmoji!)
                                 .font(.caption2)
                                 .padding(2)
                                 .background(
