@@ -151,6 +151,20 @@ struct SettingsView: View {
                     }
                 }
                 .foregroundStyle(.primary)
+                
+                Link(destination: URL(string: "https://github.com/Inazumimakoto/lifelog")!) {
+                    HStack {
+                        Label("ソースコード", systemImage: "chevron.left.forwardslash.chevron.right")
+                        Spacer()
+                        Text("MIT License")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "arrow.up.right")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary)
             } header: {
                 Text("外部リンク")
             } footer: {
