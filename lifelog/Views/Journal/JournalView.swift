@@ -34,7 +34,7 @@ struct JournalView: View {
     @State private var monthPagerSelection: Int = 0
     @State private var isSyncingMonthPager = false
     private let weekPagerHeight: CGFloat = 780
-    private let weekPagerRadius = 52
+    private let weekPagerRadius = 8
     @State private var weekPagerAnchors: [Date] = []
     @State private var weekPagerSelection: Int = 0
     @State private var isSyncingWeekPager = false
