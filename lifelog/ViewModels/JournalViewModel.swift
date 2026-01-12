@@ -77,13 +77,15 @@ final class JournalViewModel: ObservableObject {
             .combineLatest(store.$externalCalendarEvents)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
+                // データ変更時のみキャッシュをクリア
+                self?.monthCache.removeAll()
                 self?.rebuild()
             }
             .store(in: &cancellables)
     }
 
     private func rebuild(keepingSelection: Bool = false) {
-        monthCache.removeAll()
+        // キャッシュはデータ変更時のみクリア（ページ切替時は保持）
         monthTitle = DateFormatter.monthAndYear.string(from: monthAnchor)
         let calendarDays = calendarDays(for: monthAnchor)
         days = calendarDays

@@ -30,6 +30,9 @@ final class AppDataStore: ObservableObject {
     @Published private(set) var letters: [Letter] = []
     @Published private(set) var sharedLetters: [SharedLetter] = []  // 他ユーザーからの手紙
     @Published private(set) var appState: AppState = AppState()
+    
+    // MARK: - Cache
+    private var eventsCache: [Date: [CalendarEvent]] = [:]
 
     // MARK: - Legacy Persistence Keys
     private static let tasksDefaultsKey = "Tasks_Storage_V1"
@@ -261,21 +264,33 @@ final class AppDataStore: ObservableObject {
     func events(on date: Date) -> [CalendarEvent] {
         let calendar = Calendar.current
         let dayStart = calendar.startOfDay(for: date)
+        
+        // キャッシュチェック
+        if let cached = eventsCache[dayStart] {
+            return cached
+        }
+        
         guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return [] }
-        return (calendarEvents + externalCalendarEvents)
+        let result = (calendarEvents + externalCalendarEvents)
             .filter { event in
                 event.startDate < dayEnd && event.endDate > dayStart
             }
             .sorted(by: { $0.startDate < $1.startDate })
+        
+        // キャッシュに保存
+        eventsCache[dayStart] = result
+        return result
     }
 
     func addCalendarEvent(_ event: CalendarEvent) {
+        eventsCache.removeAll()
         calendarEvents.append(event)
         persistCalendarEvents()
         scheduleEventNotification(event)
     }
 
     func updateCalendarEvent(_ event: CalendarEvent) {
+        eventsCache.removeAll()
         guard let index = calendarEvents.firstIndex(where: { $0.id == event.id }) else { return }
         calendarEvents[index] = event
         persistCalendarEvents()
@@ -283,12 +298,14 @@ final class AppDataStore: ObservableObject {
     }
 
     func deleteCalendarEvent(_ eventID: UUID) {
+        eventsCache.removeAll()
         calendarEvents.removeAll { $0.id == eventID }
         persistCalendarEvents()
         NotificationService.shared.cancelEventReminder(eventId: eventID)
     }
 
     func updateExternalCalendarEvents(_ events: [CalendarEvent]) {
+        eventsCache.removeAll()
         externalCalendarEvents = events
     }
 
