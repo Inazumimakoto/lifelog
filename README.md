@@ -76,6 +76,7 @@
   <img src="https://img.shields.io/badge/EventKit-5856D6?style=for-the-badge&logo=apple&logoColor=white" alt="EventKit"/>
   <img src="https://img.shields.io/badge/WidgetKit-007AFF?style=for-the-badge&logo=apple&logoColor=white" alt="WidgetKit"/>
   <img src="https://img.shields.io/badge/MVVM-000000?style=for-the-badge&logo=swift&logoColor=white" alt="MVVM"/>
+  <img src="https://img.shields.io/badge/E2EE-Secured-success?style=for-the-badge&logo=lock&logoColor=white" alt="E2EE"/>
 </p>
 
 ---
