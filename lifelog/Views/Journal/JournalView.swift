@@ -137,14 +137,8 @@ struct JournalView: View {
                     Button {
                         showMoodOnReviewCalendar.toggle()
                     } label: {
-                        ZStack {
-                            Image(systemName: "face.smiling")
-                            if !showMoodOnReviewCalendar {
-                                Image(systemName: "line.diagonal")
-                                    .font(.caption)
-                            }
-                        }
-                        .foregroundStyle(.primary)
+                        Image(systemName: showMoodOnReviewCalendar ? "face.smiling" : "face.dashed")
+                            .foregroundStyle(.primary)
                     }
                 }
                 
