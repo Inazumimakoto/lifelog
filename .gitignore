@@ -4,6 +4,8 @@
 # Xcode
 DerivedData/
 *.xcuserdata/
+xcuserdata/
+*.xcuserdatad/
 *.xcuserstate
 *.xcscmblueprint
 
@@ -12,6 +14,7 @@ DerivedData/
 
 # Logs
 build.log
+build_log*.txt
 *.log
 
 # App assets generated at runtime
