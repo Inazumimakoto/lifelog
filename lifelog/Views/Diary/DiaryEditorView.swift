@@ -126,6 +126,9 @@ struct DiaryEditorView: View {
         .sheet(isPresented: $showAIAppSelectionSheet) {
             AIAppSelectionSheet()
         }
+        .sheet(isPresented: $showDevPCSheet) {
+            DevPCResponseView(prompt: devPCPrompt)
+        }
     }
 
     private var textBinding: Binding<String> {
@@ -206,10 +209,52 @@ struct DiaryEditorView: View {
                 }
             }
             .disabled(viewModel.entry.text.isEmpty)
+            
+            // 開発者のPCに聞くボタン
+            if DevPCLLMService.shared.isAvailable {
+                Button {
+                    askDevPC()
+                } label: {
+                    HStack {
+                        Spacer()
+                        Image(systemName: "desktopcomputer")
+                        Text("おお！ペースト！めんどくさい！開発者のPC！働け！")
+                        Spacer()
+                        if DevPCLLMService.shared.remainingUsesThisWeek < LLMConfig.weeklyLimit {
+                            Text("残\(DevPCLLMService.shared.remainingUsesThisWeek)回")
+                                .font(.caption)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(
+                                    DevPCLLMService.shared.canUseThisWeek ? Color.green.opacity(0.2) : Color.red.opacity(0.2),
+                                    in: Capsule()
+                                )
+                        }
+                    }
+                }
+                .disabled(!DevPCLLMService.shared.canUseThisWeek || viewModel.entry.text.isEmpty)
+            }
         } footer: {
-            Text(selectedScoreMode.description)
-                .font(.caption)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(selectedScoreMode.description)
+                if DevPCLLMService.shared.isAvailable {
+                    Text("⚡ 開発者のPCで直接分析！使い捨て！贅沢！")
+                        .foregroundStyle(.purple)
+                }
+            }
+            .font(.caption)
         }
+    }
+    
+    // 開発者PCシート
+    @State private var showDevPCSheet = false
+    @State private var devPCPrompt = ""
+    
+    private func askDevPC() {
+        let prompt = DiaryScorePrompt.prompt(for: selectedScoreMode)
+        devPCPrompt = DiaryScorePrompt.build(prompt: prompt, diaryText: viewModel.entry.text)
+        HapticManager.light()
+        showDevPCSheet = true
     }
     
     private func copyForAIScoring() {

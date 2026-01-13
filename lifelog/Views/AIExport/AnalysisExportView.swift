@@ -158,7 +158,6 @@ struct AnalysisExportView: View {
                     }
                 }
                 
-                // 4. アクション & 注意書き
                 Section {
                     Button {
                         copyToClipboard()
@@ -183,6 +182,30 @@ struct AnalysisExportView: View {
                     ) {
                         Label("ファイルとして書き出し", systemImage: "square.and.arrow.up")
                     }
+                    
+                    // 開発者のPCに聞くボタン
+                    if DevPCLLMService.shared.isAvailable {
+                        Button {
+                            askDevPC()
+                        } label: {
+                            HStack {
+                                Image(systemName: "desktopcomputer")
+                                Text("おお！ペースト！めんどくさい！開発者のPC！働け！")
+                                Spacer()
+                                if DevPCLLMService.shared.remainingUsesThisWeek < LLMConfig.weeklyLimit {
+                                    Text("残\(DevPCLLMService.shared.remainingUsesThisWeek)回")
+                                        .font(.caption)
+                                        .padding(.horizontal, 6)
+                                        .padding(.vertical, 2)
+                                        .background(
+                                            DevPCLLMService.shared.canUseThisWeek ? Color.green.opacity(0.2) : Color.red.opacity(0.2),
+                                            in: Capsule()
+                                        )
+                                }
+                            }
+                        }
+                        .disabled(!DevPCLLMService.shared.canUseThisWeek)
+                    }
                 } footer: {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("⚠️ プライバシー保護のため、ChatGPT等のAIで使用する際は「一時チャット（履歴OFF）」または「新しいチャット」での利用を推奨します。")
@@ -190,6 +213,11 @@ struct AnalysisExportView: View {
                         Text("📋 クリップボード警告: 期間が長いと、コピーに時間がかかったり、アプリの動作が重くなる場合があります。")
                         
                         Text("🧠 AI容量警告: 文章が極端に長くなると、AIが最初の方の内容を忘れてしまったり、読み込めないことがあります。まずは1〜2か月分くらいから試すのがおすすめです。")
+                        
+                        if DevPCLLMService.shared.isAvailable {
+                            Text("⚡ 開発者のPCで直接分析！使い捨て！贅沢！")
+                                .foregroundStyle(.purple)
+                        }
                     }
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -205,6 +233,9 @@ struct AnalysisExportView: View {
             }
             .sheet(isPresented: $showAIAppSelectionSheet) {
                 AIAppSelectionSheet()
+            }
+            .sheet(isPresented: $showDevPCSheet) {
+                DevPCResponseView(prompt: devPCPrompt)
             }
         }
         // 初期化時の期間設定（今月の1日から今日まで）
@@ -228,6 +259,10 @@ struct AnalysisExportView: View {
         }
     }
     
+    // MARK: - State for Dev PC
+    @State private var showDevPCSheet = false
+    @State private var devPCPrompt = ""
+    
     // MARK: - Actions
     
     private func copyToClipboard() {
@@ -236,4 +271,11 @@ struct AnalysisExportView: View {
         generator.notificationOccurred(.success)
         showAIAppSelectionSheet = true
     }
+    
+    private func askDevPC() {
+        devPCPrompt = generatedText
+        HapticManager.light()
+        showDevPCSheet = true
+    }
 }
+

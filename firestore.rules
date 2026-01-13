@@ -61,5 +61,13 @@ service cloud.firestore {
       allow create: if request.auth != null;
       allow read: if false; // 運営のみ
     }
+    
+    // 統計: グローバルカウンター（開発者PC LLM使用回数）
+    match /stats/{docId} {
+      // 読み込み: 誰でもOK（カウンター表示用）
+      allow read: if true;
+      // 書き込み: 認証済みユーザーのみ（incrementに使う）
+      allow write: if request.auth != null;
+    }
   }
 }
