@@ -242,3 +242,72 @@ private func debouncedPersistText() {
 ## 修正日
 
 2026-01-05
+
+---
+
+# DevPCシートが表示されない（または一瞬で閉じる）バグ
+
+## 問題
+
+「開発者のPCに聞く」ボタンを押しても、シートが一瞬表示されてすぐ消える、または全く表示されない。
+
+## 原因
+
+`sheet(isPresented:)` のトリガーとなる State 変数と、そのシート内で使用するデータのための State 変数を同時に更新していた。
+
+```swift
+// ❌ 問題のあるコード
+func askDevPC() {
+    devPCPrompt = generatedText  // ① データを設定
+    showDevPCSheet = true        // ② 表示フラグをON
+}
+
+// ...
+
+.sheet(isPresented: $showDevPCSheet) {
+    DevPCResponseView(prompt: devPCPrompt)
+}
+```
+
+SwiftUIのState更新は非同期であり、`showDevPCSheet = true` が処理される時点で、`devPCPrompt` の更新がまだ反映されていない（または空として扱われる）場合があった。
+特に `DevPCResponseView` 側で `prompt` が空の場合の挙動や、Viewの再描画タイミングと重なってシートが正しく維持されなかった。
+
+## 解決策
+
+**`.onChange(of:)` を使用して、データが確実に設定されてから表示フラグをONにするパターン（fullScreenCoverのバグと同様）を適用。**
+
+```swift
+// ✅ 修正後のコード
+func askDevPC() {
+    devPCPrompt = generatedText
+    // showDevPCSheet = true はここでは設定しない！
+}
+
+// ...
+
+.sheet(isPresented: $showDevPCSheet, onDismiss: {
+    devPCPrompt = ""  // 閉じる時にリセット
+}) {
+    Group {
+        if !devPCPrompt.isEmpty {
+            DevPCResponseView(prompt: devPCPrompt)
+        } else {
+            Color.clear // フォールバック
+        }
+    }
+}
+.onChange(of: devPCPrompt) { _, newValue in
+    if !newValue.isEmpty {
+        showDevPCSheet = true  // データ設定を検知して表示
+    }
+}
+```
+
+## 影響を受けた機能
+
+- **日記編集画面** (`DiaryEditorView` → `DevPCResponseView`)
+- **分析データ書き出し画面** (`AnalysisExportView` → `DevPCResponseView`)
+
+## 修正日
+
+2026-01-14

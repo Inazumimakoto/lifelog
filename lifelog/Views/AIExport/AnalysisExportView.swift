@@ -234,8 +234,19 @@ struct AnalysisExportView: View {
             .sheet(isPresented: $showAIAppSelectionSheet) {
                 AIAppSelectionSheet()
             }
-            .sheet(isPresented: $showDevPCSheet) {
-                DevPCResponseView(prompt: devPCPrompt)
+            .sheet(isPresented: $showAIAppSelectionSheet) {
+                AIAppSelectionSheet()
+            }
+            .sheet(isPresented: $showDevPCSheet, onDismiss: {
+                devPCPrompt = ""  // リセット
+            }) {
+                Group {
+                    if !devPCPrompt.isEmpty {
+                        DevPCResponseView(prompt: devPCPrompt)
+                    } else {
+                        Color.clear
+                    }
+                }
             }
         }
         // 初期化時の期間設定（今月の1日から今日まで）
@@ -249,6 +260,12 @@ struct AnalysisExportView: View {
                 _Concurrency.Task {
                     await githubService.fetchContributions(username: githubUsername)
                 }
+            }
+        }
+        // 開発者PCへの質問プロンプト監視
+        .onChange(of: devPCPrompt) { _, newValue in
+            if !newValue.isEmpty {
+                showDevPCSheet = true
             }
         }
         // 鬼コーチ選択時に、日記をデフォルトOFFにする
@@ -275,7 +292,7 @@ struct AnalysisExportView: View {
     private func askDevPC() {
         devPCPrompt = generatedText
         HapticManager.light()
-        showDevPCSheet = true
+        // showDevPCSheet は onChange で設定される
     }
 }
 

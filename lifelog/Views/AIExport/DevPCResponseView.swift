@@ -31,8 +31,8 @@ struct DevPCResponseView: View {
                     // ステータスヘッダー
                     statusHeader
                     
-                    // 思考過程（<think>タグの内容）
-                    if !service.thinkingText.isEmpty {
+                    // 思考過程（<think>タグの内容）- 常に表示
+                    if !service.thinkingText.isEmpty || (service.isLoading && service.responseText.isEmpty) {
                         thinkingSection
                     }
                     
@@ -125,6 +125,11 @@ struct DevPCResponseView: View {
                         .foregroundStyle(.purple)
                     Text("思考過程")
                         .font(.subheadline.bold())
+                    if service.isLoading && service.responseText.isEmpty {
+                        ProgressView()
+                            .scaleEffect(0.6)
+                            .padding(.leading, 4)
+                    }
                     Spacer()
                     Image(systemName: showThinking ? "chevron.up" : "chevron.down")
                         .font(.caption)
@@ -132,13 +137,24 @@ struct DevPCResponseView: View {
                 .foregroundStyle(.primary)
             }
             
-            if showThinking {
-                Text(service.thinkingText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+            if showThinking || service.isLoading {
+                ScrollViewReader { proxy in
+                    ScrollView {
+                        Text(service.thinkingText.isEmpty ? "考え中..." : service.thinkingText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(12)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .id("thinkingText")
+                    }
+                    .frame(maxHeight: 200)
                     .background(Color.purple.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                    .onChange(of: service.thinkingText) { _, _ in
+                        withAnimation {
+                            proxy.scrollTo("thinkingText", anchor: .bottom)
+                        }
+                    }
+                }
             }
         }
     }

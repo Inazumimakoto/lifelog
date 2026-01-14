@@ -126,8 +126,21 @@ struct DiaryEditorView: View {
         .sheet(isPresented: $showAIAppSelectionSheet) {
             AIAppSelectionSheet()
         }
-        .sheet(isPresented: $showDevPCSheet) {
-            DevPCResponseView(prompt: devPCPrompt)
+        .sheet(isPresented: $showDevPCSheet, onDismiss: {
+            devPCPrompt = ""  // リセット
+        }) {
+            Group {
+                if !devPCPrompt.isEmpty {
+                    DevPCResponseView(prompt: devPCPrompt)
+                } else {
+                    Color.clear
+                }
+            }
+        }
+        .onChange(of: devPCPrompt) { _, newValue in
+            if !newValue.isEmpty {
+                showDevPCSheet = true
+            }
         }
     }
 
@@ -254,7 +267,7 @@ struct DiaryEditorView: View {
         let prompt = DiaryScorePrompt.prompt(for: selectedScoreMode)
         devPCPrompt = DiaryScorePrompt.build(prompt: prompt, diaryText: viewModel.entry.text)
         HapticManager.light()
-        showDevPCSheet = true
+        // showDevPCSheet は onChange で設定される
     }
     
     private func copyForAIScoring() {

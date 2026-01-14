@@ -198,44 +198,57 @@ class DevPCLLMService: ObservableObject {
             
             var isInsideThinkTag = false
             var currentThinkContent = ""
+
             
             for try await line in bytes.lines {
                 if _Concurrency.Task.isCancelled { break }
                 
                 guard let data = line.data(using: .utf8),
-                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                      let responseText = json["response"] as? String else {
+                      let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
                     continue
                 }
                 
-                // <think>タグの処理
-                var text = responseText
-                
-                // <think>タグの開始を検出
-                if text.contains("<think>") {
-                    isInsideThinkTag = true
-                    text = text.replacingOccurrences(of: "<think>", with: "")
+                // DeepSeek-R1形式: "thinking" フィールドに思考過程が入る
+                // 差分が送られてくるので、単純に追加する
+                if let thinkingContent = json["thinking"] as? String, !thinkingContent.isEmpty {
+                    thinkingText += thinkingContent
                 }
                 
-                // </think>タグの終了を検出
-                if text.contains("</think>") {
-                    isInsideThinkTag = false
-                    let parts = text.components(separatedBy: "</think>")
-                    if parts.count > 0 {
-                        currentThinkContent += parts[0]
-                        thinkingText = currentThinkContent
+                // 通常の回答
+                if let responseContent = json["response"] as? String {
+                    // <think>タグの処理（他のモデル用のフォールバック）
+                    var text = responseContent
+                    
+                    // <think>タグの開始を検出
+                    if text.contains("<think>") {
+                        isInsideThinkTag = true
+                        text = text.replacingOccurrences(of: "<think>", with: "")
                     }
-                    if parts.count > 1 {
-                        self.responseText += parts[1]
+                    
+                    // </think>タグの終了を検出
+                    if text.contains("</think>") {
+                        isInsideThinkTag = false
+                        let parts = text.components(separatedBy: "</think>")
+                        if parts.count > 0 {
+                            currentThinkContent += parts[0]
+                            if thinkingText.isEmpty {
+                                thinkingText = currentThinkContent
+                            }
+                        }
+                        if parts.count > 1 {
+                            self.responseText += parts[1]
+                        }
+                        continue
                     }
-                    continue
-                }
-                
-                if isInsideThinkTag {
-                    currentThinkContent += text
-                    thinkingText = currentThinkContent
-                } else {
-                    self.responseText += text
+                    
+                    if isInsideThinkTag {
+                        currentThinkContent += text
+                        if thinkingText.isEmpty || !currentThinkContent.isEmpty {
+                            thinkingText = currentThinkContent
+                        }
+                    } else {
+                        self.responseText += text
+                    }
                 }
                 
                 // 完了チェック
