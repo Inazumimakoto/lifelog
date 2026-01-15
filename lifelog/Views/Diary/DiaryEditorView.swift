@@ -28,6 +28,7 @@ struct DiaryEditorView: View {
     // AI採点機能
     @State private var showAIAppSelectionSheet = false
     @State private var selectedScoreMode: DiaryScoreMode = .strict
+    @State private var selectedAIProvider: AIProvider = .chatgpt
 
     init(store: AppDataStore, date: Date) {
         _viewModel = StateObject(wrappedValue: DiaryViewModel(store: store, date: date))
@@ -211,51 +212,60 @@ struct DiaryEditorView: View {
             }
             .pickerStyle(.menu)
             
+            // AI選択（Segmented）
+            if DevPCLLMService.shared.isAvailable {
+                Picker("AI", selection: $selectedAIProvider) {
+                    ForEach(AIProvider.allCases) { provider in
+                        Text(provider.rawValue).tag(provider)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+            
+            // 統一アクションボタン
             Button {
-                copyForAIScoring()
+                executeAIAnalysis()
             } label: {
                 HStack {
                     Spacer()
-                    Image(systemName: "sparkles")
-                    Text("AIに採点してもらう")
+                    Image(systemName: selectedAIProvider.icon)
+                    if selectedAIProvider == .devpc {
+                        Text("直接分析")
+                    } else {
+                        Text("AIに採点してもらう")
+                    }
                     Spacer()
-                }
-            }
-            .disabled(viewModel.entry.text.isEmpty)
-            
-            // 開発者のPCに聞くボタン
-            if DevPCLLMService.shared.isAvailable {
-                Button {
-                    askDevPC()
-                } label: {
-                    HStack {
-                        Spacer()
-                        Image(systemName: "desktopcomputer")
-                        Text("おお！ペースト！めんどくさい！開発者のPC！働け！")
-                        Spacer()
-                        if DevPCLLMService.shared.remainingUsesThisWeek < LLMConfig.weeklyLimit {
-                            Text("残\(DevPCLLMService.shared.remainingUsesThisWeek)回")
-                                .font(.caption)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
-                                .background(
-                                    DevPCLLMService.shared.canUseThisWeek ? Color.green.opacity(0.2) : Color.red.opacity(0.2),
-                                    in: Capsule()
-                                )
-                        }
+                    if selectedAIProvider == .devpc {
+                        Text("残\(DevPCLLMService.shared.remainingUsesThisWeek)回")
+                            .font(.caption)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(
+                                DevPCLLMService.shared.canUseThisWeek ? Color.green.opacity(0.2) : Color.red.opacity(0.2),
+                                in: Capsule()
+                            )
                     }
                 }
-                .disabled(!DevPCLLMService.shared.canUseThisWeek || viewModel.entry.text.isEmpty)
             }
+            .disabled(viewModel.entry.text.isEmpty || (selectedAIProvider == .devpc && !DevPCLLMService.shared.canUseThisWeek))
         } footer: {
             VStack(alignment: .leading, spacing: 4) {
                 Text(selectedScoreMode.description)
-                if DevPCLLMService.shared.isAvailable {
-                    Text("⚡ 開発者のPCで直接分析！使い捨て！贅沢！")
-                        .foregroundStyle(.purple)
+                if selectedAIProvider == .devpc {
+                    Text("データはどこにも保存されません")
+                    Text("ソースコードはGitHubで公開中")
                 }
             }
             .font(.caption)
+        }
+    }
+    
+    private func executeAIAnalysis() {
+        switch selectedAIProvider {
+        case .chatgpt:
+            copyForAIScoring()
+        case .devpc:
+            askDevPC()
         }
     }
     

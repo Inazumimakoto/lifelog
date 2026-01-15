@@ -24,6 +24,21 @@ enum DiaryScoreMode: String, CaseIterable, Identifiable {
     }
 }
 
+/// AI分析の実行先
+enum AIProvider: String, CaseIterable, Identifiable {
+    case chatgpt = "コピー"
+    case devpc = "直接分析"
+    
+    var id: String { rawValue }
+    
+    var icon: String {
+        switch self {
+        case .chatgpt: return "sparkles"
+        case .devpc: return "desktopcomputer"
+        }
+    }
+}
+
 /// 日記AI採点用のプロンプト管理
 enum DiaryScorePrompt {
     

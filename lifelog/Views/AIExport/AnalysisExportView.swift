@@ -38,6 +38,7 @@ struct AnalysisExportView: View {
     
     // AIアプリ選択シート用
     @State private var showAIAppSelectionSheet = false
+    @State private var selectedAIProvider: AIProvider = .chatgpt
     
     // 期間内のデータをフィルタリング
     private var targetDays: [DailyData] {
@@ -182,30 +183,6 @@ struct AnalysisExportView: View {
                     ) {
                         Label("ファイルとして書き出し", systemImage: "square.and.arrow.up")
                     }
-                    
-                    // 開発者のPCに聞くボタン
-                    if DevPCLLMService.shared.isAvailable {
-                        Button {
-                            askDevPC()
-                        } label: {
-                            HStack {
-                                Image(systemName: "desktopcomputer")
-                                Text("おお！ペースト！めんどくさい！開発者のPC！働け！")
-                                Spacer()
-                                if DevPCLLMService.shared.remainingUsesThisWeek < LLMConfig.weeklyLimit {
-                                    Text("残\(DevPCLLMService.shared.remainingUsesThisWeek)回")
-                                        .font(.caption)
-                                        .padding(.horizontal, 6)
-                                        .padding(.vertical, 2)
-                                        .background(
-                                            DevPCLLMService.shared.canUseThisWeek ? Color.green.opacity(0.2) : Color.red.opacity(0.2),
-                                            in: Capsule()
-                                        )
-                                }
-                            }
-                        }
-                        .disabled(!DevPCLLMService.shared.canUseThisWeek)
-                    }
                 } footer: {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("⚠️ プライバシー保護のため、ChatGPT等のAIで使用する際は「一時チャット（履歴OFF）」または「新しいチャット」での利用を推奨します。")
@@ -213,15 +190,42 @@ struct AnalysisExportView: View {
                         Text("📋 クリップボード警告: 期間が長いと、コピーに時間がかかったり、アプリの動作が重くなる場合があります。")
                         
                         Text("🧠 AI容量警告: 文章が極端に長くなると、AIが最初の方の内容を忘れてしまったり、読み込めないことがあります。まずは1〜2か月分くらいから試すのがおすすめです。")
-                        
-                        if DevPCLLMService.shared.isAvailable {
-                            Text("⚡ 開発者のPCで直接分析！使い捨て！贅沢！")
-                                .foregroundStyle(.purple)
-                        }
                     }
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .padding(.top, 8)
+                }
+                
+                // 開発者のPC セクション
+                if DevPCLLMService.shared.isAvailable {
+                    Section {
+                        Button {
+                            askDevPC()
+                        } label: {
+                            HStack {
+                                Image(systemName: "desktopcomputer")
+                                Text("直接分析")
+                                Spacer()
+                                Text("残\(DevPCLLMService.shared.remainingUsesThisWeek)回")
+                                    .font(.caption)
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 2)
+                                    .background(
+                                        DevPCLLMService.shared.canUseThisWeek ? Color.green.opacity(0.2) : Color.red.opacity(0.2),
+                                        in: Capsule()
+                                    )
+                            }
+                        }
+                        .disabled(!DevPCLLMService.shared.canUseThisWeek)
+                    } header: {
+                        Text("直接分析")
+                    } footer: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("データはどこにも保存されません")
+                            Text("ソースコードはGitHubで公開中")
+                        }
+                        .font(.caption)
+                    }
                 }
             }
             .navigationTitle("AI分析用データ書き出し")
