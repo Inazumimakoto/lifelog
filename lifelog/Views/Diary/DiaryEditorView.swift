@@ -254,6 +254,7 @@ struct DiaryEditorView: View {
                 if selectedAIProvider == .devpc {
                     Text("データはどこにも保存されません")
                     Text("ソースコードはGitHubで公開中")
+                    Text("週\(LLMConfig.weeklyLimit)回まで（毎週日曜リセット）")
                 }
             }
             .font(.caption)
