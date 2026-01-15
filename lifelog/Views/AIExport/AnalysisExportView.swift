@@ -239,10 +239,8 @@ struct AnalysisExportView: View {
             .sheet(isPresented: $showAIAppSelectionSheet) {
                 AIAppSelectionSheet()
             }
-            .sheet(isPresented: $showAIAppSelectionSheet) {
-                AIAppSelectionSheet()
-            }
             .sheet(isPresented: $showDevPCSheet, onDismiss: {
+                DevPCLLMService.shared.cancel()  // キャンセル処理
                 devPCPrompt = ""  // リセット
             }) {
                 Group {

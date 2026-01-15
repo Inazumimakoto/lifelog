@@ -21,10 +21,7 @@ service firebase.storage {
       allow create: if request.auth != null;
     }
 
-    // デフォルト: 認証済みなら許可（他のパス用）
-    // 必要に応じて制限を追加してください
-    match /{allPaths=**} {
-       allow read, write: if request.auth != null;
-    }
+    // NOTE: catch-all ルールは letters の制限を無効化するため削除
+    // 他のストレージパスが必要になった場合は明示的に追加してください
   }
 }

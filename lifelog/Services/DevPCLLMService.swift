@@ -127,7 +127,7 @@ class DevPCLLMService: ObservableObject {
     /// LLMにプロンプトを送信（ストリーミング）
     func ask(prompt: String) async {
         guard canUseThisWeek else {
-            errorMessage = "週3回！限界！また来週！"
+            errorMessage = "週\(LLMConfig.weeklyLimit)回！限界！また来週！"
             return
         }
         
@@ -255,9 +255,11 @@ class DevPCLLMService: ObservableObject {
                 }
             }
             
-            // 成功時のみ使用回数をカウント
-            incrementUsage()
-            await incrementGlobalUsage()
+            // 成功時のみ使用回数をカウント（キャンセルされてない場合）
+            if !_Concurrency.Task.isCancelled {
+                incrementUsage()
+                await incrementGlobalUsage()
+            }
             
             isLoading = false
             

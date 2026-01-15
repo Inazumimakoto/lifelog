@@ -128,6 +128,7 @@ struct DiaryEditorView: View {
             AIAppSelectionSheet()
         }
         .sheet(isPresented: $showDevPCSheet, onDismiss: {
+            DevPCLLMService.shared.cancel()  // キャンセル処理
             devPCPrompt = ""  // リセット
         }) {
             Group {
