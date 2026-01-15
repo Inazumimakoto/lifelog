@@ -142,9 +142,7 @@ class DevPCLLMService: ObservableObject {
         thinkingText = ""
         errorMessage = nil
         
-        // 使用回数をインクリメント
-        incrementUsage()
-        await incrementGlobalUsage()
+        // 使用回数は成功時のみカウント（performStreamingRequest内で）
         
         // ストリーミングリクエスト
         streamTask = _Concurrency.Task {
@@ -256,6 +254,10 @@ class DevPCLLMService: ObservableObject {
                     break
                 }
             }
+            
+            // 成功時のみ使用回数をカウント
+            incrementUsage()
+            await incrementGlobalUsage()
             
             isLoading = false
             
