@@ -653,11 +653,15 @@ struct JournalView: View {
                     Text("\(Calendar.current.component(.day, from: day.date))")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
+                        .padding(.horizontal, 4)  // Date gets its own padding
                     
                     // Items below the date
                     ForEach(visible) { item in
                         if item.kind == .event {
                             eventBarView(item: item, date: day.date)
+                                // Multi-day events: no padding (extend to edge)
+                                // Single-day events: add padding
+                                .padding(.horizontal, item.isMultiDayEvent ? 0 : 4)
                         } else {
                             Text(previewLabel(for: item))
                                 .font(.system(size: 9, weight: .medium))
@@ -667,21 +671,27 @@ struct JournalView: View {
                                 .padding(.vertical, 2)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(item.color.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
+                                .padding(.horizontal, 4)  // Task items get padding
                         }
                     }
                     if overflow > 0 {
                         Text("+\(overflow)")
                             .font(.system(size: 9))
                             .foregroundStyle(.secondary)
+                            .padding(.horizontal, 4)  // Overflow text gets padding
                     }
                     
                     Spacer(minLength: 0)
                 }
                 .padding(.top, 4)
-                .padding(.horizontal, 4)
+                // Remove .padding(.horizontal, 4) from VStack
                 .frame(maxWidth: .infinity, alignment: .topLeading)
                 .frame(height: 88)
-                .clipped()
+                .frame(height: 88)
+                // Use a mask that allows horizontal overflow (for connected bars) 
+                // but clips vertical overflow (to keep fixed height).
+                // Padding -20 extends the mask horizontally by 20pt on each side.
+                .mask(Rectangle().padding(.horizontal, -20))
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(day.isToday ? Color.accentColor.opacity(0.12) : Color.clear)
@@ -835,11 +845,15 @@ struct JournalView: View {
                     // Date fixed in top-left
                     Text("\(Calendar.current.component(.day, from: date))")
                         .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 4)  // Date gets its own padding
                     
                     // Items below the date
                     ForEach(visible) { item in
                         if item.kind == .event {
                             eventBarView(item: item, date: date)
+                                // Multi-day events: no padding (extend to edge)
+                                // Single-day events: add padding
+                                .padding(.horizontal, item.isMultiDayEvent ? 0 : 4)
                         } else {
                             Text(previewLabel(for: item))
                                 .font(.system(size: 9, weight: .medium))
@@ -849,21 +863,24 @@ struct JournalView: View {
                                 .padding(.vertical, 2)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(item.color.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
+                                .padding(.horizontal, 4)  // Task items get padding
                         }
                     }
                     if overflow > 0 {
                         Text("+\(overflow)")
                             .font(.system(size: 9))
                             .foregroundStyle(.secondary)
+                            .padding(.horizontal, 4)  // Overflow text gets padding
                     }
                     
                     Spacer(minLength: 0)
                 }
                 .padding(.top, 4)
-                .padding(.horizontal, 4)
+                // Remove .padding(.horizontal, 4) from VStack
                 .frame(maxWidth: .infinity, alignment: .topLeading)
                 .frame(height: 88)
-                .clipped()
+                // Mask allowing horizontal overflow to connect bars
+                .mask(Rectangle().padding(.horizontal, -20))
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(date.isSameDay(as: Date()) ? Color.accentColor.opacity(0.12) : Color.clear)
@@ -1425,9 +1442,10 @@ struct JournalView: View {
         let leftRadius: CGFloat = (position == .start || position == .none) ? 4 : 0
         let rightRadius: CGFloat = (position == .end || position == .none) ? 4 : 0
         
-        // Determine horizontal padding - no padding on connected edges
-        let leadingPadding: CGFloat = (position == .start || position == .none) ? 0 : -4
-        let trailingPadding: CGFloat = (position == .end || position == .none) ? 0 : -4
+        // Horizontal extension to bridge grid spacing
+        // Adjusted to -2.5 (slight overlap) to avoid visible darkening from opacity stacking
+        let leadingPadding: CGFloat = (position == .start || position == .none) ? 0 : -2.5
+        let trailingPadding: CGFloat = (position == .end || position == .none) ? 0 : -2.5
         
         HStack(spacing: 0) {
             if showTitle {
