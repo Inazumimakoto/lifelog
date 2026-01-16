@@ -1443,9 +1443,9 @@ struct JournalView: View {
         let rightRadius: CGFloat = (position == .end || position == .none) ? 4 : 0
         
         // Horizontal extension to bridge grid spacing
-        // Adjusted to -2.5 (slight overlap) to avoid visible darkening from opacity stacking
-        let leadingPadding: CGFloat = (position == .start || position == .none) ? 0 : -2.5
-        let trailingPadding: CGFloat = (position == .end || position == .none) ? 0 : -2.5
+        // Adjusted to -2 (exact match for 4px gap) to avoid any overlap
+        let leadingPadding: CGFloat = (position == .start || position == .none) ? 0 : -2
+        let trailingPadding: CGFloat = (position == .end || position == .none) ? 0 : -2
         
         HStack(spacing: 0) {
             if showTitle {
