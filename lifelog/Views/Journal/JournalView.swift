@@ -12,6 +12,13 @@ enum CalendarMode: Equatable {
     case review
 }
 
+private enum MultiDayPosition {
+    case none      // Single-day or non-multi-day
+    case start     // First day of multi-day event
+    case middle    // Middle day of multi-day event
+    case end       // Last day of multi-day event
+}
+
 private struct DayPreviewItem: Identifiable {
     enum Kind {
         case event
@@ -22,7 +29,33 @@ private struct DayPreviewItem: Identifiable {
     let color: Color
     let timeText: String?
     let kind: Kind
+    
+    // Multi-day event info (nil for tasks or when not needed)
+    let eventStartDate: Date?
+    let eventEndDate: Date?
+    
+    var isMultiDayEvent: Bool {
+        guard kind == .event, let start = eventStartDate, let end = eventEndDate else { return false }
+        let calendar = Calendar.current
+        let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: end) ?? end
+        return !calendar.isDate(start, inSameDayAs: adjustedEnd)
+    }
+    
+    func multiDayPosition(on date: Date) -> MultiDayPosition {
+        guard isMultiDayEvent, let start = eventStartDate, let end = eventEndDate else {
+            return .none
+        }
+        let calendar = Calendar.current
+        let isStart = calendar.isDate(date, inSameDayAs: start)
+        let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: end) ?? end
+        let isEnd = calendar.isDate(date, inSameDayAs: adjustedEnd)
+        
+        if isStart { return .start }
+        if isEnd { return .end }
+        return .middle
+    }
 }
+
 
 struct JournalView: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -623,14 +656,18 @@ struct JournalView: View {
                     
                     // Items below the date
                     ForEach(visible) { item in
-                        Text(previewLabel(for: item))
-                            .font(.system(size: 9, weight: .medium))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(item.color.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
+                        if item.kind == .event {
+                            eventBarView(item: item, date: day.date)
+                        } else {
+                            Text(previewLabel(for: item))
+                                .font(.system(size: 9, weight: .medium))
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(item.color.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
+                        }
                     }
                     if overflow > 0 {
                         Text("+\(overflow)")
@@ -801,14 +838,18 @@ struct JournalView: View {
                     
                     // Items below the date
                     ForEach(visible) { item in
-                        Text(previewLabel(for: item))
-                            .font(.system(size: 9, weight: .medium))
-                            .lineLimit(1)
-                            .truncationMode(.tail)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .background(item.color.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
+                        if item.kind == .event {
+                            eventBarView(item: item, date: date)
+                        } else {
+                            Text(previewLabel(for: item))
+                                .font(.system(size: 9, weight: .medium))
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                                .padding(.horizontal, 4)
+                                .padding(.vertical, 2)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .background(item.color.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
+                        }
                     }
                     if overflow > 0 {
                         Text("+\(overflow)")
@@ -1320,6 +1361,13 @@ struct JournalView: View {
     private func dayPreviewItems(for date: Date) -> [DayPreviewItem] {
 
         let events = store.events(on: date).sorted { lhs, rhs in
+            // Multi-day events first
+            let lhsMulti = isMultiDayEvent(lhs)
+            let rhsMulti = isMultiDayEvent(rhs)
+            if lhsMulti != rhsMulti {
+                return lhsMulti && !rhsMulti
+            }
+            // Then all-day events
             if lhs.isAllDay != rhs.isAllDay {
                 return lhs.isAllDay && rhs.isAllDay == false
             }
@@ -1332,17 +1380,28 @@ struct JournalView: View {
                            title: $0.title,
                            color: CategoryPalette.color(for: $0.calendarName),
                            timeText: previewTimeLabel(for: $0),
-                           kind: .event)
+                           kind: .event,
+                           eventStartDate: $0.startDate,
+                           eventEndDate: $0.endDate)
         }
         let taskItems: [DayPreviewItem] = tasks.map {
             DayPreviewItem(id: $0.id.uuidString,
                            title: $0.title,
                            color: $0.priority.color,
                            timeText: taskTimeLabel(for: $0, on: date),
-                           kind: .task)
+                           kind: .task,
+                           eventStartDate: nil,
+                           eventEndDate: nil)
         }
         return eventItems + taskItems
     }
+    
+    private func isMultiDayEvent(_ event: CalendarEvent) -> Bool {
+        let calendar = Calendar.current
+        let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: event.endDate) ?? event.endDate
+        return !calendar.isDate(event.startDate, inSameDayAs: adjustedEnd)
+    }
+
 
     private func previewDisplay(_ items: [DayPreviewItem], limit: Int) -> ([DayPreviewItem], Int) {
         guard items.count > limit else { return (items, 0) }
@@ -1355,6 +1414,49 @@ struct JournalView: View {
     private func previewLabel(for item: DayPreviewItem) -> String {
         item.title
     }
+    
+    @ViewBuilder
+    private func eventBarView(item: DayPreviewItem, date: Date) -> some View {
+        let position = item.multiDayPosition(on: date)
+        let showTitle = position == .start || position == .none
+        let isMultiDay = item.isMultiDayEvent
+        
+        // Determine corner radii based on position
+        let leftRadius: CGFloat = (position == .start || position == .none) ? 4 : 0
+        let rightRadius: CGFloat = (position == .end || position == .none) ? 4 : 0
+        
+        // Determine horizontal padding - no padding on connected edges
+        let leadingPadding: CGFloat = (position == .start || position == .none) ? 0 : -4
+        let trailingPadding: CGFloat = (position == .end || position == .none) ? 0 : -4
+        
+        HStack(spacing: 0) {
+            if showTitle {
+                Text(item.title)
+                    .font(.system(size: 9, weight: .medium))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+            } else {
+                // Empty spacer to maintain height for middle/end segments
+                Text(" ")
+                    .font(.system(size: 9, weight: .medium))
+            }
+        }
+        .padding(.horizontal, showTitle ? 4 : 2)
+        .padding(.vertical, 2)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            UnevenRoundedRectangle(
+                topLeadingRadius: leftRadius,
+                bottomLeadingRadius: leftRadius,
+                bottomTrailingRadius: rightRadius,
+                topTrailingRadius: rightRadius
+            )
+            .fill(item.color.opacity(0.2))
+        )
+        .padding(.leading, leadingPadding)
+        .padding(.trailing, trailingPadding)
+    }
+
 
     private func previewTimeLabel(for event: CalendarEvent) -> String? { nil }
 
