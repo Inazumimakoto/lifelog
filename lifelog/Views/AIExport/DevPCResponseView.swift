@@ -169,12 +169,25 @@ struct DevPCResponseView: View {
                 Spacer()
             }
             
-            Text(service.responseText)
+            Text(formattedResponseText)
                 .font(.body)
                 .textSelection(.enabled)
                 .padding(12)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+        }
+    }
+    
+    /// レスポンステキストをMarkdownとしてパースしてAttributedStringに変換
+    private var formattedResponseText: AttributedString {
+        do {
+            return try AttributedString(
+                markdown: service.responseText,
+                options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+            )
+        } catch {
+            // パース失敗時はプレーンテキストとして表示
+            return AttributedString(service.responseText)
         }
     }
     

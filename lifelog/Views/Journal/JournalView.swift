@@ -1860,8 +1860,9 @@ private struct CalendarDetailPanel: View {
         if event.reminderMinutes != nil || event.reminderDate != nil {
             return true
         }
-        // カテゴリの通知設定
-        if let setting = NotificationSettingsManager.shared.getSetting(for: event.calendarName),
+        // カテゴリの通知設定（親トグルがオンの場合のみ）
+        if NotificationSettingsManager.shared.isEventCategoryNotificationEnabled,
+           let setting = NotificationSettingsManager.shared.getSetting(for: event.calendarName),
            setting.enabled {
             return true
         }

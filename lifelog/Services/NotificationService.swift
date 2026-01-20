@@ -185,6 +185,28 @@ class NotificationService {
         center.removePendingNotificationRequests(withIdentifiers: [identifier])
     }
     
+    /// 記念日の通知をスケジュール（日時指定）
+    func scheduleAnniversaryReminderAtDate(anniversaryId: UUID, title: String, reminderDate: Date) {
+        guard reminderDate > Date() else { return }
+        
+        let content = UNMutableNotificationContent()
+        content.title = "記念日のリマインダー"
+        content.body = title
+        content.sound = .default
+        
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: reminderDate)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        
+        let identifier = "\(NotificationType.anniversary.rawValue)-\(anniversaryId.uuidString)"
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+        
+        center.add(request) { error in
+            if let error = error {
+                print("記念日通知スケジュールエラー: \(error)")
+            }
+        }
+    }
+    
     // MARK: - 日記リマインダー
     
     private let diaryReminderIdentifier = "diary-daily-reminder"

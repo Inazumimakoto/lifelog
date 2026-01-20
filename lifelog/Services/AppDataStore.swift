@@ -1240,8 +1240,8 @@ final class AppDataStore: ObservableObject {
             )
         } else if let reminderDate = anniversary.reminderDate {
             // 絶対日時指定
-            NotificationService.shared.scheduleTaskReminder(
-                taskId: anniversary.id,
+            NotificationService.shared.scheduleAnniversaryReminderAtDate(
+                anniversaryId: anniversary.id,
                 title: anniversary.title,
                 reminderDate: reminderDate
             )
