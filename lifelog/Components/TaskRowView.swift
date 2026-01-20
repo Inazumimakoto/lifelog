@@ -67,6 +67,7 @@ struct TaskRowView: View {
                     }
                 }
             }
+            .contentShape(Rectangle())  // タップ領域を横幅全体に拡張
         }
         .buttonStyle(.plain)
         .animation(.spring(response: 0.35, dampingFraction: 0.8), value: task.isCompleted)
