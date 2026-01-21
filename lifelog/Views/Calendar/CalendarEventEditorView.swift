@@ -9,6 +9,7 @@ import SwiftUI
 
 struct CalendarEventEditorView: View {
     @Environment(\.dismiss) private var dismiss
+    @StateObject private var formState = CalendarEventEditorFormState()
     @State private var isShowingCategorySelection = false
     @State private var showDeleteConfirmation = false
 
@@ -16,16 +17,7 @@ struct CalendarEventEditorView: View {
     var onDelete: (() -> Void)?
 
     private let originalEvent: CalendarEvent?
-
-    @State private var title: String
-    @State private var category: String
-    @State private var startDate: Date
-    @State private var endDate: Date
-    @State private var isAllDay: Bool
-    @State private var hasReminder: Bool
-    @State private var useRelativeReminder: Bool
-    @State private var reminderMinutes: Int
-    @State private var reminderDate: Date
+    private let defaultDate: Date
 
     init(defaultDate: Date = Date(),
          event: CalendarEvent? = nil,
@@ -34,124 +26,72 @@ struct CalendarEventEditorView: View {
         self.onSave = onSave
         self.onDelete = onDelete
         self.originalEvent = event
-        let calendar = Calendar.current
-        let initialStart = event?.startDate ?? calendar.date(bySettingHour: 9, minute: 0, second: 0, of: defaultDate) ?? defaultDate
-        let initialEnd = event?.endDate ?? initialStart.addingTimeInterval(3600)
-        let allDayEndForState: Date = {
-            guard let event, event.isAllDay else { return initialEnd }
-            return calendar.date(byAdding: .day, value: -1, to: event.endDate) ?? event.endDate
-        }()
-        _title = State(initialValue: event?.title ?? "")
-        _category = State(initialValue: event?.calendarName ?? CategoryPalette.defaultCategoryName)
-        _startDate = State(initialValue: event?.isAllDay == true ? calendar.startOfDay(for: initialStart) : initialStart)
-        _endDate = State(initialValue: event?.isAllDay == true ? calendar.startOfDay(for: allDayEndForState) : initialEnd)
-        _isAllDay = State(initialValue: event?.isAllDay ?? false)
-        
-        // カテゴリ別通知設定を読み込み（新規作成時のみ適用）
-        let initialCategory = event?.calendarName ?? CategoryPalette.defaultCategoryName
-        let categoryEnabled = UserDefaults.standard.bool(forKey: "eventCategoryNotificationEnabled")
-        let categorySetting = NotificationSettingsManager.shared.getSetting(for: initialCategory)
-        
-        let hasReminderValue: Bool
-        let defaultMinutes: Int
-        let useRelative: Bool
-        var defaultReminderDate: Date
-        
-        if event != nil {
-            hasReminderValue = event?.reminderMinutes != nil || event?.reminderDate != nil
-            defaultMinutes = event?.reminderMinutes ?? 30
-            useRelative = event?.reminderDate == nil
-            defaultReminderDate = event?.reminderDate ?? initialStart.addingTimeInterval(-Double(defaultMinutes * 60))
-        } else if categoryEnabled, let setting = categorySetting, setting.enabled {
-            hasReminderValue = true
-            if setting.useRelativeTime {
-                defaultMinutes = setting.minutesBefore
-                useRelative = true
-                defaultReminderDate = initialStart.addingTimeInterval(-Double(defaultMinutes * 60))
-            } else {
-                defaultMinutes = 30
-                useRelative = false
-                // 開始日の指定時刻に通知
-                let cal = Calendar.current
-                defaultReminderDate = cal.date(bySettingHour: setting.hour, minute: setting.minute, second: 0, of: initialStart) ?? initialStart
-            }
-        } else {
-            hasReminderValue = false
-            defaultMinutes = 30
-            useRelative = true
-            defaultReminderDate = initialStart.addingTimeInterval(-Double(defaultMinutes * 60))
-        }
-        
-        _hasReminder = State(initialValue: hasReminderValue)
-        _useRelativeReminder = State(initialValue: useRelative)
-        _reminderMinutes = State(initialValue: defaultMinutes)
-        _reminderDate = State(initialValue: defaultReminderDate)
+        self.defaultDate = defaultDate
     }
 
     var body: some View {
         Form {
             Section("予定") {
-                TextField("タイトル", text: $title)
+                TextField("タイトル", text: $formState.title)
                 Button(action: { isShowingCategorySelection = true }) {
                     HStack {
                         Text("カテゴリ")
                         Spacer()
                         Circle()
-                            .fill(CategoryPalette.color(for: category))
+                            .fill(CategoryPalette.color(for: formState.category))
                             .frame(width: 10, height: 10)
-                        Text(category)
+                        Text(formState.category)
                             .foregroundStyle(.secondary)
                     }
                 }
                 .foregroundColor(.primary)
             }
             Section("時間") {
-                Toggle("終日", isOn: $isAllDay)
-                DatePicker("開始", selection: $startDate, displayedComponents: isAllDay ? [.date] : [.date, .hourAndMinute])
-                    .onChange(of: startDate) { _, newValue in
-                        if endDate < newValue {
-                            endDate = newValue
+                Toggle("終日", isOn: $formState.isAllDay)
+                DatePicker("開始", selection: $formState.startDate, displayedComponents: formState.isAllDay ? [.date] : [.date, .hourAndMinute])
+                    .onChange(of: formState.startDate) { _, newValue in
+                        if formState.endDate < newValue {
+                            formState.endDate = newValue
                         }
-                        if isAllDay {
-                            startDate = Calendar.current.startOfDay(for: newValue)
+                        if formState.isAllDay {
+                            formState.startDate = Calendar.current.startOfDay(for: newValue)
                         }
-                        // 開始前モードの場合のみ、reminderDateを連動更新（開始時刻 - reminderMinutes）
-                        if useRelativeReminder {
-                            reminderDate = newValue.addingTimeInterval(-Double(reminderMinutes * 60))
+                        // 開始前モードの場合のみ、reminderDateを連動更新
+                        if formState.useRelativeReminder {
+                            formState.reminderDate = newValue.addingTimeInterval(-Double(formState.reminderMinutes * 60))
                         }
                     }
-                DatePicker("終了", selection: $endDate, in: startDate..., displayedComponents: isAllDay ? [.date] : [.date, .hourAndMinute])
-                    .onChange(of: endDate) { _, newValue in
-                        endDate = max(newValue, startDate)
-                        if isAllDay {
-                            endDate = Calendar.current.startOfDay(for: endDate)
+                DatePicker("終了", selection: $formState.endDate, in: formState.startDate..., displayedComponents: formState.isAllDay ? [.date] : [.date, .hourAndMinute])
+                    .onChange(of: formState.endDate) { _, newValue in
+                        formState.endDate = max(newValue, formState.startDate)
+                        if formState.isAllDay {
+                            formState.endDate = Calendar.current.startOfDay(for: formState.endDate)
                         }
                     }
             }
             
             Section("通知") {
-                Toggle("リマインダー", isOn: $hasReminder)
-                if hasReminder {
-                    Picker("通知方法", selection: $useRelativeReminder) {
+                Toggle("リマインダー", isOn: $formState.hasReminder)
+                if formState.hasReminder {
+                    Picker("通知方法", selection: $formState.useRelativeReminder) {
                         Text("開始前").tag(true)
                         Text("日時指定").tag(false)
                     }
                     .pickerStyle(.segmented)
                     
-                    if useRelativeReminder {
-                        Picker("タイミング", selection: $reminderMinutes) {
+                    if formState.useRelativeReminder {
+                        Picker("タイミング", selection: $formState.reminderMinutes) {
                             Text("5分前").tag(5)
                             Text("15分前").tag(15)
                             Text("30分前").tag(30)
                             Text("1時間前").tag(60)
                             Text("1日前").tag(1440)
                         }
-                        .onChange(of: reminderMinutes) { _, newValue in
-                            // 開始前設定変更時も日時指定を更新
-                            reminderDate = startDate.addingTimeInterval(-Double(newValue * 60))
+                        .onChange(of: formState.reminderMinutes) { _, newValue in
+                            formState.reminderDate = formState.startDate.addingTimeInterval(-Double(newValue * 60))
                         }
                     } else {
-                        DatePicker("通知日時", selection: $reminderDate, displayedComponents: [.date, .hourAndMinute])
+                        DatePicker("通知日時", selection: $formState.reminderDate, displayedComponents: [.date, .hourAndMinute])
                     }
                 }
             }
@@ -175,68 +115,75 @@ struct CalendarEventEditorView: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("保存") {
                     let calendar = Calendar.current
-                    let normalizedStart = isAllDay ? calendar.startOfDay(for: startDate) : startDate
+                    let normalizedStart = formState.isAllDay ? calendar.startOfDay(for: formState.startDate) : formState.startDate
                     let normalizedEnd: Date = {
-                        if isAllDay {
-                            let endDay = calendar.startOfDay(for: endDate)
+                        if formState.isAllDay {
+                            let endDay = calendar.startOfDay(for: formState.endDate)
                             return calendar.date(byAdding: .day, value: 1, to: max(endDay, normalizedStart)) ?? normalizedStart.addingTimeInterval(86_400)
                         } else {
-                            return max(endDate, normalizedStart.addingTimeInterval(900))
+                            return max(formState.endDate, normalizedStart.addingTimeInterval(900))
                         }
                     }()
                     let event = CalendarEvent(id: originalEvent?.id ?? UUID(),
-                                              title: title.isEmpty ? "予定" : title,
+                                              title: formState.title.isEmpty ? "予定" : formState.title,
                                               startDate: normalizedStart,
                                               endDate: normalizedEnd,
-                                              calendarName: category,
-                                              isAllDay: isAllDay,
-                                              reminderMinutes: hasReminder && useRelativeReminder ? reminderMinutes : nil,
-                                              reminderDate: hasReminder && !useRelativeReminder ? reminderDate : nil)
+                                              calendarName: formState.category,
+                                              isAllDay: formState.isAllDay,
+                                              reminderMinutes: formState.hasReminder && formState.useRelativeReminder ? formState.reminderMinutes : nil,
+                                              reminderDate: formState.hasReminder && !formState.useRelativeReminder ? formState.reminderDate : nil)
                     onSave(event)
+                    formState.reset()
                     dismiss()
                 }
-                .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(formState.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             ToolbarItem(placement: .cancellationAction) {
-                Button("キャンセル", role: .cancel) { dismiss() }
+                Button("キャンセル", role: .cancel) {
+                    formState.reset()
+                    dismiss()
+                }
             }
         }
-        .onChange(of: isAllDay) { _, newValue in
+        .onAppear {
+            formState.configure(event: originalEvent, defaultDate: defaultDate)
+        }
+        .onChange(of: formState.isAllDay) { _, newValue in
             if newValue {
                 let calendar = Calendar.current
-                startDate = calendar.startOfDay(for: startDate)
-                endDate = calendar.startOfDay(for: max(endDate, startDate))
+                formState.startDate = calendar.startOfDay(for: formState.startDate)
+                formState.endDate = calendar.startOfDay(for: max(formState.endDate, formState.startDate))
             }
         }
-        .onChange(of: category) { _, newCategory in
+        .onChange(of: formState.category) { _, newCategory in
             // 新規作成時のみカテゴリ変更で通知設定を連動
             guard originalEvent == nil else { return }
             let categoryEnabled = UserDefaults.standard.bool(forKey: "eventCategoryNotificationEnabled")
             guard categoryEnabled else { return }
             
             if let setting = NotificationSettingsManager.shared.getSetting(for: newCategory) {
-                hasReminder = setting.enabled
+                formState.hasReminder = setting.enabled
                 if setting.enabled {
-                    useRelativeReminder = setting.useRelativeTime
+                    formState.useRelativeReminder = setting.useRelativeTime
                     if setting.useRelativeTime {
-                        reminderMinutes = setting.minutesBefore
-                        reminderDate = startDate.addingTimeInterval(-Double(setting.minutesBefore * 60))
+                        formState.reminderMinutes = setting.minutesBefore
+                        formState.reminderDate = formState.startDate.addingTimeInterval(-Double(setting.minutesBefore * 60))
                     } else {
-                        // 時刻指定: 開始日の指定時刻に通知
                         let cal = Calendar.current
-                        reminderDate = cal.date(bySettingHour: setting.hour, minute: setting.minute, second: 0, of: startDate) ?? startDate
+                        formState.reminderDate = cal.date(bySettingHour: setting.hour, minute: setting.minute, second: 0, of: formState.startDate) ?? formState.startDate
                     }
                 }
             } else {
-                hasReminder = false
+                formState.hasReminder = false
             }
         }
         .sheet(isPresented: $isShowingCategorySelection) {
-            CategorySelectionView(selectedCategory: $category)
+            CategorySelectionView(selectedCategory: $formState.category)
         }
         .confirmationDialog("この予定を削除しますか？", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("削除", role: .destructive) {
                 onDelete?()
+                formState.reset()
                 dismiss()
             }
             Button("キャンセル", role: .cancel) { }
