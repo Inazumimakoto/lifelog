@@ -143,45 +143,7 @@ struct JournalView: View {
                                  initialIndex: reviewPhotoViewerIndex)
         }
         .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Button {
-                    showMemoEditor = true
-                } label: {
-                    Image(systemName: "note.text")
-                }
-                
-                Menu {
-                    Button {
-                        showEventManager = true
-                    } label: {
-                        Label("予定リスト", systemImage: "calendar")
-                    }
-                    Button {
-                        showTaskManager = true
-                    } label: {
-                        Label("タスクリスト", systemImage: "checklist")
-                    }
-                } label: {
-                    Image(systemName: "list.bullet")
-                }
-                
-                // 振り返りモード時のみ気分表示トグルを表示
-                if calendarMode == .review {
-                    Button {
-                        showMoodOnReviewCalendar.toggle()
-                    } label: {
-                        Image(systemName: showMoodOnReviewCalendar ? "face.smiling" : "face.dashed")
-                            .foregroundStyle(.primary)
-                    }
-                }
-                
-                Button {
-                    showSettings = true
-                } label: {
-                    Image(systemName: "gearshape")
-                        .foregroundStyle(.primary)
-                }
-            }
+            journalToolbar
         }
         .sheet(isPresented: $showTaskEditor) {
             NavigationStack {
@@ -300,6 +262,9 @@ struct JournalView: View {
         .onChange(of: viewModel.monthAnchor) { _, newAnchor in
             guard viewModel.displayMode == .month else { return }
             ensureMonthPagerIncludes(date: newAnchor)
+            _Concurrency.Task {
+                await viewModel.syncExternalCalendarsIfNeeded(anchorDate: newAnchor)
+            }
         }
         .onChange(of: calendarMode) { _, newMode in
             if newMode == .review {
@@ -1490,6 +1455,59 @@ struct JournalView: View {
     private func setWeekPagerSelection(_ index: Int) {
         isProgrammaticWeekPagerChange = true
         weekPagerSelection = index
+    }
+
+    private func refreshExternalCalendars() {
+        _Concurrency.Task {
+            await viewModel.syncExternalCalendarsIfNeeded(force: true, anchorDate: viewModel.monthAnchor)
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var journalToolbar: some ToolbarContent {
+        ToolbarItemGroup(placement: .topBarTrailing) {
+            Button {
+                showMemoEditor = true
+            } label: {
+                Image(systemName: "note.text")
+            }
+
+            Button(action: refreshExternalCalendars) {
+                Image(systemName: "arrow.clockwise")
+            }
+
+            Menu {
+                Button {
+                    showEventManager = true
+                } label: {
+                    Label("予定リスト", systemImage: "calendar")
+                }
+                Button {
+                    showTaskManager = true
+                } label: {
+                    Label("タスクリスト", systemImage: "checklist")
+                }
+            } label: {
+                Image(systemName: "list.bullet")
+            }
+
+            // 振り返りモード時のみ気分表示トグルを表示
+            if calendarMode == .review {
+                Button {
+                    showMoodOnReviewCalendar.toggle()
+                } label: {
+                    Image(systemName: showMoodOnReviewCalendar ? "face.smiling" : "face.dashed")
+                        .foregroundStyle(.primary)
+                }
+            }
+
+            Button {
+                showSettings = true
+            } label: {
+                Image(systemName: "gearshape")
+                    .foregroundStyle(.primary)
+            }
+        }
     }
 }
 

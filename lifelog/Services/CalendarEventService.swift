@@ -11,7 +11,6 @@ import EventKit
 @MainActor
 final class CalendarEventService {
     private let eventStore = EKEventStore()
-    private(set) var hasLoadedExternalEventsThisRun = false
 
     func requestAccessIfNeeded() async -> Bool {
         let status = EKEventStore.authorizationStatus(for: .event)
@@ -29,21 +28,10 @@ final class CalendarEventService {
         }
     }
 
-    func fetchEventsForCurrentAndNextMonth() async throws -> [EKEvent] {
+    func fetchEvents(from startDate: Date, to endDate: Date) async throws -> [EKEvent] {
         let status = EKEventStore.authorizationStatus(for: .event)
         guard status == .authorized else { return [] }
-
-        let calendar = Calendar.current
-        let now = Date()
-        let components = calendar.dateComponents([.year, .month], from: now)
-        guard let startOfMonth = calendar.date(from: components),
-              let startOfNextMonth = calendar.date(byAdding: .month, value: 1, to: startOfMonth),
-              let endOfNextMonth = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: startOfNextMonth) else {
-            return []
-        }
-
-        let startDate = startOfMonth
-        let endDate = calendar.date(bySettingHour: 23, minute: 59, second: 59, of: endOfNextMonth) ?? endOfNextMonth
+        guard startDate <= endDate else { return [] }
 
         let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate, calendars: nil)
         let events = eventStore.events(matching: predicate)
@@ -59,7 +47,4 @@ final class CalendarEventService {
         store.updateCalendarLinks(with: calendars)
     }
 
-    func markExternalEventsLoaded() {
-        hasLoadedExternalEventsThisRun = true
-    }
 }

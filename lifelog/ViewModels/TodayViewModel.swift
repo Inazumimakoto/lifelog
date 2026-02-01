@@ -39,6 +39,9 @@ final class TodayViewModel: ObservableObject {
     private let calendarService: CalendarEventService
     private var cancellables = Set<AnyCancellable>()
     private var pendingAnimation: Animation?
+    private let externalCalendarPastMonths = 6
+    private let externalCalendarFutureMonths = 18
+    private let externalCalendarPrefetchThresholdMonths = 2
 
     init(store: AppDataStore, date: Date = Date(), calendarService: CalendarEventService? = nil) {
         self.store = store
@@ -131,13 +134,29 @@ final class TodayViewModel: ObservableObject {
         store.deleteCalendarEvent(event.id)
     }
 
-    func syncExternalCalendarsIfNeeded() async {
-        let needsFirstLoadThisRun = calendarService.hasLoadedExternalEventsThisRun == false || store.externalCalendarEvents.isEmpty
-        let today = Calendar.current.startOfDay(for: Date())
-        if needsFirstLoadThisRun == false,
-           let last = store.lastCalendarSyncDate,
-           Calendar.current.isDate(last, inSameDayAs: today) {
-            return
+    func syncExternalCalendarsIfNeeded(force: Bool = false, anchorDate: Date? = nil) async {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let anchor = anchorDate ?? date
+        let desiredRange = externalCalendarRange(for: anchor, calendar: calendar)
+
+        if force == false {
+            if let storedRange = store.currentExternalCalendarRange() {
+                let anchorMonth = monthStart(for: anchor, calendar: calendar)
+                let rangeStart = monthStart(for: storedRange.start, calendar: calendar)
+                let rangeEnd = monthStart(for: storedRange.end, calendar: calendar)
+                let thresholdStart = calendar.date(byAdding: .month, value: externalCalendarPrefetchThresholdMonths, to: rangeStart) ?? rangeStart
+                let thresholdEnd = calendar.date(byAdding: .month, value: -externalCalendarPrefetchThresholdMonths, to: rangeEnd) ?? rangeEnd
+                let withinStableWindow = anchorMonth >= thresholdStart && anchorMonth <= thresholdEnd
+                if withinStableWindow,
+                   let last = store.lastCalendarSyncDate,
+                   calendar.isDate(last, inSameDayAs: today) {
+                    return
+                }
+            } else if let last = store.lastCalendarSyncDate,
+                      calendar.isDate(last, inSameDayAs: today) {
+                return
+            }
         }
 
         let granted = await calendarService.requestAccessIfNeeded()
@@ -150,18 +169,29 @@ final class TodayViewModel: ObservableObject {
 
         do {
             calendarService.refreshCalendarLinks(store: store)
-            let ekEvents = try await calendarService.fetchEventsForCurrentAndNextMonth()
+            let ekEvents = try await calendarService.fetchEvents(from: desiredRange.start, to: desiredRange.end)
             let external = mapExternalEvents(from: ekEvents)
             await MainActor.run {
                 self.calendarAccessDenied = false
-                self.store.updateExternalCalendarEvents(external)
+                self.store.updateExternalCalendarEvents(external, range: desiredRange)
                 self.store.updateLastCalendarSync(date: Date())
-                self.calendarService.markExternalEventsLoaded()
                 self.refreshAll()
             }
         } catch {
             // Ignore errors for now; keep existing events
         }
+    }
+
+    private func monthStart(for date: Date, calendar: Calendar) -> Date {
+        calendar.date(from: calendar.dateComponents([.year, .month], from: date)) ?? date
+    }
+
+    private func externalCalendarRange(for anchor: Date, calendar: Calendar) -> ExternalCalendarRange {
+        let anchorMonth = monthStart(for: anchor, calendar: calendar)
+        let start = calendar.date(byAdding: .month, value: -externalCalendarPastMonths, to: anchorMonth) ?? anchorMonth
+        let endMonthStart = calendar.date(byAdding: .month, value: externalCalendarFutureMonths + 1, to: anchorMonth) ?? anchorMonth
+        let end = calendar.date(byAdding: .second, value: -1, to: endMonthStart) ?? endMonthStart
+        return ExternalCalendarRange(start: start, end: end)
     }
 
     private func buildTimelineItems() -> [JournalViewModel.TimelineItem] {

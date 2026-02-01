@@ -33,6 +33,7 @@ final class AppDataStore: ObservableObject {
     
     // MARK: - Cache
     private var eventsCache: [Date: [CalendarEvent]] = [:]
+    private var externalCalendarRange: ExternalCalendarRange? = nil
 
     // MARK: - Legacy Persistence Keys
     private static let tasksDefaultsKey = "Tasks_Storage_V1"
@@ -41,6 +42,8 @@ final class AppDataStore: ObservableObject {
     private static let habitRecordsDefaultsKey = "HabitRecords_Storage_V1"
     private static let anniversariesDefaultsKey = "Anniversaries_Storage_V1"
     private static let calendarEventsDefaultsKey = "CalendarEvents_Storage_V1"
+    private static let externalCalendarEventsDefaultsKey = "ExternalCalendarEvents_Storage_V1"
+    private static let externalCalendarRangeDefaultsKey = "ExternalCalendarRange_Storage_V1"
     private static let memoPadDefaultsKey = "MemoPad_Storage_V1"
     private static let appStateDefaultsKey = "AppState_Storage_V1"
     private static let healthSummariesDefaultsKey = "HealthSummaries_Storage_V1"
@@ -134,6 +137,10 @@ final class AppDataStore: ObservableObject {
         } catch {
             print("Failed to fetch initial data from SwiftData: \(error)")
         }
+
+        self.externalCalendarEvents = Self.loadValue(forKey: Self.externalCalendarEventsDefaultsKey, defaultValue: [])
+        let storedRange: ExternalCalendarRange? = Self.loadValue(forKey: Self.externalCalendarRangeDefaultsKey, defaultValue: nil)
+        self.externalCalendarRange = storedRange
 
         #if DEBUG
         seedSampleDataIfNeeded()
@@ -304,9 +311,18 @@ final class AppDataStore: ObservableObject {
         NotificationService.shared.cancelEventReminder(eventId: eventID)
     }
 
-    func updateExternalCalendarEvents(_ events: [CalendarEvent]) {
+    func updateExternalCalendarEvents(_ events: [CalendarEvent], range: ExternalCalendarRange? = nil) {
         eventsCache.removeAll()
         externalCalendarEvents = events
+        if let range {
+            externalCalendarRange = range
+            persistExternalCalendarRange()
+        }
+        persistExternalCalendarEvents()
+    }
+
+    func currentExternalCalendarRange() -> ExternalCalendarRange? {
+        externalCalendarRange
     }
 
     var lastCalendarSyncDate: Date? {
@@ -1166,27 +1182,35 @@ final class AppDataStore: ObservableObject {
         // Full Sync to SwiftData
         let descriptor = FetchDescriptor<SDCalendarEvent>()
         if let existingItems = try? modelContext.fetch(descriptor) {
-             let existingMap = Dictionary(uniqueKeysWithValues: existingItems.map { ($0.id, $0) })
-             var validIDs: Set<UUID> = []
-             
-             for event in calendarEvents {
-                 validIDs.insert(event.id)
-                 if let existing = existingMap[event.id] {
-                     existing.update(from: event)
-                 } else {
-                     let newEvent = SDCalendarEvent(domain: event)
-                     modelContext.insert(newEvent)
-                 }
-             }
-             
-             // Delete removed
-             for existing in existingItems {
-                 if !validIDs.contains(existing.id) {
-                     modelContext.delete(existing)
-                 }
-             }
-             try? modelContext.save()
+            let existingMap = Dictionary(uniqueKeysWithValues: existingItems.map { ($0.id, $0) })
+            var validIDs: Set<UUID> = []
+
+            for event in calendarEvents {
+                validIDs.insert(event.id)
+                if let existing = existingMap[event.id] {
+                    existing.update(from: event)
+                } else {
+                    let newEvent = SDCalendarEvent(domain: event)
+                    modelContext.insert(newEvent)
+                }
+            }
+
+            // Delete removed
+            for existing in existingItems {
+                if !validIDs.contains(existing.id) {
+                    modelContext.delete(existing)
+                }
+            }
+            try? modelContext.save()
         }
+    }
+
+    private func persistExternalCalendarEvents() {
+        persist(externalCalendarEvents, forKey: Self.externalCalendarEventsDefaultsKey)
+    }
+
+    private func persistExternalCalendarRange() {
+        persist(externalCalendarRange, forKey: Self.externalCalendarRangeDefaultsKey)
     }
 
     private func scheduleEventNotification(_ event: CalendarEvent) {
