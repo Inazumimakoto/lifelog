@@ -339,37 +339,66 @@ final class JournalViewModel: ObservableObject {
         let totalDays = range.count
         let totalCells = leadingDays + totalDays
         let targetCells = ((totalCells + 6) / 7) * 7
+        let gridStart = calendar.date(byAdding: .day, value: -leadingDays, to: firstDay) ?? firstDay
+        let gridEnd = calendar.date(byAdding: .day, value: targetCells - leadingDays - 1, to: firstDay) ?? firstDay
+        let gridEndNext = calendar.date(byAdding: .day, value: 1, to: gridEnd) ?? gridEnd
 
-        for offset in -leadingDays..<totalDays {
-            guard let date = calendar.date(byAdding: .day, value: offset, to: firstDay) else { continue }
+        var eventsByDay: [Date: [CalendarEvent]] = [:]
+        let allEvents = store.calendarEvents + store.externalCalendarEvents
+        if gridStart <= gridEnd {
+            for event in allEvents where event.startDate < gridEndNext && event.endDate > gridStart {
+                let eventStartDay = calendar.startOfDay(for: event.startDate)
+                let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: event.endDate) ?? event.endDate
+                let eventEndDay = calendar.startOfDay(for: adjustedEnd)
+                var day = max(eventStartDay, gridStart)
+                let lastDay = min(eventEndDay, gridEnd)
+                while day <= lastDay {
+                    eventsByDay[day, default: []].append(event)
+                    guard let nextDay = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+                    day = nextDay
+                }
+            }
+        }
+
+        var tasksByDay: [Date: [Task]] = [:]
+        for task in store.tasks {
+            guard let endDate = task.endDate ?? task.startDate else { continue }
+            let day = calendar.startOfDay(for: endDate)
+            if day >= gridStart && day <= gridEnd {
+                tasksByDay[day, default: []].append(task)
+            }
+        }
+
+        var habitsByDay: [Date: [HabitRecord]] = [:]
+        for record in store.habitRecords {
+            let day = calendar.startOfDay(for: record.date)
+            if day >= gridStart && day <= gridEnd {
+                habitsByDay[day, default: []].append(record)
+            }
+        }
+
+        var diaryByDay: [Date: DiaryEntry] = [:]
+        for entry in store.diaryEntries {
+            let day = calendar.startOfDay(for: entry.date)
+            if day >= gridStart && day <= gridEnd {
+                diaryByDay[day] = entry
+            }
+        }
+
+        for offset in 0..<targetCells {
+            guard let date = calendar.date(byAdding: .day, value: offset - leadingDays, to: firstDay) else { continue }
+            let dayStart = calendar.startOfDay(for: date)
             let isWithinMonth = calendar.isDate(date, equalTo: anchor, toGranularity: .month)
-            let events = store.events(on: date)
-            let tasks = store.tasks.filter { isTask($0, on: date, calendar: calendar) }
-            let records = store.habitRecords.filter { $0.date.startOfDay == date.startOfDay }
-            let diary = store.diaryEntries.first { $0.date.startOfDay == date.startOfDay }
+            let events = eventsByDay[dayStart] ?? []
+            let tasks = tasksByDay[dayStart] ?? []
+            let records = habitsByDay[dayStart] ?? []
+            let diary = diaryByDay[dayStart]
             tempDays.append(.init(date: date,
                                   isWithinDisplayedMonth: isWithinMonth,
                                   tasks: tasks,
                                   events: events,
                                   habits: records,
                                   diary: diary))
-        }
-
-        let trailingDays = max(0, targetCells - (leadingDays + totalDays))
-        if trailingDays > 0 {
-            for offset in totalDays..<(totalDays + trailingDays) {
-                guard let date = calendar.date(byAdding: .day, value: offset, to: firstDay) else { continue }
-                let events = store.events(on: date)
-                let tasks = store.tasks.filter { isTask($0, on: date, calendar: calendar) }
-                let records = store.habitRecords.filter { $0.date.startOfDay == date.startOfDay }
-                let diary = store.diaryEntries.first { $0.date.startOfDay == date.startOfDay }
-                tempDays.append(.init(date: date,
-                                      isWithinDisplayedMonth: false,
-                                      tasks: tasks,
-                                      events: events,
-                                      habits: records,
-                                      diary: diary))
-            }
         }
 
         monthCache[monthStart] = tempDays

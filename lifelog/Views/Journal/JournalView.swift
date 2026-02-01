@@ -627,7 +627,7 @@ struct JournalView: View {
         let itemLimit = 4
         return LazyVGrid(columns: columns, spacing: 4) {
             ForEach(days) { day in
-                let previews = dayPreviewItems(for: day.date)
+                let previews = dayPreviewItems(events: day.events, tasks: day.tasks, on: day.date)
                 let (visible, overflow) = previewDisplay(previews, limit: itemLimit)
                 VStack(alignment: .leading, spacing: 2) {
                     // Date fixed in top-left
@@ -1357,8 +1357,13 @@ struct JournalView: View {
     }
 
     private func dayPreviewItems(for date: Date) -> [DayPreviewItem] {
+        dayPreviewItems(events: store.events(on: date),
+                        tasks: viewModel.tasks(on: date),
+                        on: date)
+    }
 
-        let events = store.events(on: date).sorted { lhs, rhs in
+    private func dayPreviewItems(events: [CalendarEvent], tasks: [Task], on date: Date) -> [DayPreviewItem] {
+        let sortedEvents = events.sorted { lhs, rhs in
             // Multi-day events first
             let lhsMulti = isMultiDayEvent(lhs)
             let rhsMulti = isMultiDayEvent(rhs)
@@ -1371,9 +1376,9 @@ struct JournalView: View {
             }
             return lhs.startDate < rhs.startDate
         }
-        let tasks = viewModel.tasks(on: date).sorted(by: calendarTaskSort)
+        let sortedTasks = tasks.sorted(by: calendarTaskSort)
 
-        let eventItems: [DayPreviewItem] = events.map {
+        let eventItems: [DayPreviewItem] = sortedEvents.map {
             DayPreviewItem(id: $0.id.uuidString,
                            title: $0.title,
                            color: CategoryPalette.color(for: $0.calendarName),
@@ -1382,7 +1387,7 @@ struct JournalView: View {
                            eventStartDate: $0.startDate,
                            eventEndDate: $0.endDate)
         }
-        let taskItems: [DayPreviewItem] = tasks.map {
+        let taskItems: [DayPreviewItem] = sortedTasks.map {
             DayPreviewItem(id: $0.id.uuidString,
                            title: $0.title,
                            color: $0.priority.color,
