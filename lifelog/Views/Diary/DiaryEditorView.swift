@@ -12,11 +12,13 @@ import _Concurrency
 
 struct DiaryEditorView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var viewModel: DiaryViewModel
     @ObservedObject private var tagManager = EmotionTagManager.shared
     @State private var selection: [PhotosPickerItem] = []
     @State private var selectedCoordinate: CLLocationCoordinate2D?
     @State private var selectedPlaceName: String = ""
+    @State private var draftText: String = ""
     @State private var showMapPicker = false
     @State private var selectedPhotoIndex: Int = 0
     @State private var isShowingPhotoViewer = false
@@ -96,6 +98,7 @@ struct DiaryEditorView: View {
         )
         .onAppear {
             selectedPlaceName = viewModel.entry.locationName ?? ""
+            draftText = viewModel.entry.text
             if let lat = viewModel.entry.latitude,
                let lon = viewModel.entry.longitude {
                 selectedCoordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
@@ -108,6 +111,9 @@ struct DiaryEditorView: View {
                                                second: 0,
                                                of: Date()) ?? Date()
         }
+        .onDisappear {
+            viewModel.flushPendingTextSave()
+        }
         .onChange(of: selection) {
             _Concurrency.Task {
                 for item in selection {
@@ -116,6 +122,17 @@ struct DiaryEditorView: View {
                     }
                 }
                 selection = []
+            }
+        }
+        .onChange(of: draftText) { _, newValue in
+            viewModel.update(text: newValue)
+        }
+        .onChange(of: viewModel.entry.date) { _, _ in
+            draftText = viewModel.entry.text
+        }
+        .onChange(of: scenePhase, initial: false) { _, newPhase in
+            if newPhase != .active {
+                viewModel.flushPendingTextSave()
             }
         }
         .fullScreenCover(isPresented: $isShowingPhotoViewer) {
@@ -148,8 +165,8 @@ struct DiaryEditorView: View {
 
     private var textBinding: Binding<String> {
         Binding<String>(
-            get: { viewModel.entry.text },
-            set: { viewModel.update(text: $0) }
+            get: { draftText },
+            set: { draftText = $0 }
         )
     }
     
@@ -159,6 +176,7 @@ struct DiaryEditorView: View {
         if newDate > Date() { return }
         HapticManager.light()
         viewModel.loadEntry(for: newDate)
+        draftText = viewModel.entry.text
         // 位置情報をリセット
         selectedPlaceName = viewModel.entry.locationName ?? ""
         if let lat = viewModel.entry.latitude,
@@ -186,7 +204,7 @@ struct DiaryEditorView: View {
     private var entrySection: some View {
         Section("本文") {
             ZStack(alignment: .topLeading) {
-                if viewModel.entry.text.isEmpty {
+                if draftText.isEmpty {
                     Text("ここに文章を入力")
                         .foregroundStyle(.secondary)
                         .padding(.horizontal, 6)
@@ -248,7 +266,7 @@ struct DiaryEditorView: View {
                     }
                 }
             }
-            .disabled(viewModel.entry.text.isEmpty || (selectedAIProvider == .devpc && !DevPCLLMService.shared.canUseThisWeek))
+            .disabled(draftText.isEmpty || (selectedAIProvider == .devpc && !DevPCLLMService.shared.canUseThisWeek))
         } footer: {
             VStack(alignment: .leading, spacing: 4) {
                 Text(selectedScoreMode.description)
@@ -277,7 +295,7 @@ struct DiaryEditorView: View {
     
     private func askDevPC() {
         let prompt = DiaryScorePrompt.prompt(for: selectedScoreMode)
-        devPCPrompt = DiaryScorePrompt.build(prompt: prompt, diaryText: viewModel.entry.text)
+        devPCPrompt = DiaryScorePrompt.build(prompt: prompt, diaryText: draftText)
         HapticManager.light()
         // showDevPCSheet は onChange で設定される
     }
@@ -285,7 +303,7 @@ struct DiaryEditorView: View {
     private func copyForAIScoring() {
         // 選択したモードのプロンプト + 日記本文をクリップボードにコピー
         let prompt = DiaryScorePrompt.prompt(for: selectedScoreMode)
-        let fullText = DiaryScorePrompt.build(prompt: prompt, diaryText: viewModel.entry.text)
+        let fullText = DiaryScorePrompt.build(prompt: prompt, diaryText: draftText)
         UIPasteboard.general.string = fullText
         HapticManager.success()
         showAIAppSelectionSheet = true
@@ -313,7 +331,7 @@ struct DiaryEditorView: View {
                     // タグボタン一覧
                     FlowLayout(spacing: 8) {
                         ForEach(availableTags) { tag in
-                            let isSelected = viewModel.entry.text.contains(tag.hashTag)
+                            let isSelected = draftText.contains(tag.hashTag)
                             Button {
                                 toggleTag(tag)
                             } label: {
@@ -355,7 +373,7 @@ struct DiaryEditorView: View {
     
     private func toggleTag(_ tag: EmotionTag) {
         HapticManager.soft()
-        var text = viewModel.entry.text
+        var text = draftText
         if text.contains(tag.hashTag) {
             // タグを削除
             text = text.replacingOccurrences(of: " \(tag.hashTag)", with: "")
@@ -367,7 +385,7 @@ struct DiaryEditorView: View {
             }
             text += tag.hashTag
         }
-        viewModel.update(text: text.trimmingCharacters(in: .whitespaces))
+        draftText = text.trimmingCharacters(in: .whitespaces)
     }
 
     private var conditionSection: some View {
@@ -385,8 +403,7 @@ struct DiaryEditorView: View {
     private var locationSection: some View {
         Section("場所") {
             if let coordinate = selectedCoordinate {
-                Map(initialPosition: .region(MKCoordinateRegion(center: coordinate,
-                                                                span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))))
+                DiaryLocationMapView(coordinate: coordinate)
                     .frame(height: 120)
                     .cornerRadius(12)
             } else {
@@ -420,35 +437,16 @@ struct DiaryEditorView: View {
         Section("写真") {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack {
-                    ForEach(Array(viewModel.entry.photoPaths.enumerated()), id: \.offset) { index, path in
-                        if let image = PhotoStorage.loadImage(at: path) {
-                            let isFavorite = viewModel.entry.favoritePhotoPath == path
-                            image
-                                .resizable()
-                                .aspectRatio(contentMode: .fill)
-                                .frame(width: 80, height: 80)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
-                                .overlay(alignment: .topLeading) {
-                                    Button {
-                                        viewModel.setFavoritePhoto(at: index)
-                                        HapticManager.light()
-                                    } label: {
-                                        Image(systemName: isFavorite ? "star.fill" : "star")
-                                            .font(.caption)
-                                            .foregroundStyle(isFavorite ? Color.yellow : Color.white)
-                                            .padding(6)
-                                            .background(.black.opacity(0.5), in: Circle())
-                                            .symbolEffect(.bounce, value: isFavorite)
-                                    }
-                                    .offset(x: -8, y: -8)
-                                    .buttonStyle(.plain)
-                                }
-                                .onTapGesture {
-                                    selectedPhotoIndex = index
-                                    isShowingPhotoViewer = true
-                                }
-                        }
-                    }
+                    DiaryPhotoThumbnailList(photoPaths: viewModel.entry.photoPaths,
+                                            favoritePhotoPath: viewModel.entry.favoritePhotoPath,
+                                            onSetFavorite: { index in
+                                                viewModel.setFavoritePhoto(at: index)
+                                                HapticManager.light()
+                                            },
+                                            onOpen: { index in
+                                                selectedPhotoIndex = index
+                                                isShowingPhotoViewer = true
+                                            })
                     PhotosPicker(selection: $selection, matching: .images) {
                         VStack {
                             Image(systemName: "plus")
@@ -497,6 +495,62 @@ struct DiaryEditorView: View {
             Text("オンにすると毎日指定時刻に日記のリマインダーが届きます。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct DiaryLocationMapView: View, Equatable {
+    let coordinate: CLLocationCoordinate2D
+
+    static func ==(lhs: DiaryLocationMapView, rhs: DiaryLocationMapView) -> Bool {
+        lhs.coordinate.latitude == rhs.coordinate.latitude
+            && lhs.coordinate.longitude == rhs.coordinate.longitude
+    }
+
+    var body: some View {
+        Map(initialPosition: .region(MKCoordinateRegion(center: coordinate,
+                                                        span: MKCoordinateSpan(latitudeDelta: 0.01,
+                                                                               longitudeDelta: 0.01))))
+    }
+}
+
+private struct DiaryPhotoThumbnailList: View, Equatable {
+    let photoPaths: [String]
+    let favoritePhotoPath: String?
+    let onSetFavorite: (Int) -> Void
+    let onOpen: (Int) -> Void
+
+    static func ==(lhs: DiaryPhotoThumbnailList, rhs: DiaryPhotoThumbnailList) -> Bool {
+        lhs.photoPaths == rhs.photoPaths && lhs.favoritePhotoPath == rhs.favoritePhotoPath
+    }
+
+    var body: some View {
+        ForEach(Array(photoPaths.enumerated()), id: \.offset) { index, path in
+            if let image = PhotoStorage.loadImage(at: path) {
+                let isFavorite = favoritePhotoPath == path
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 80, height: 80)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .overlay(alignment: .topLeading) {
+                        Button {
+                            onSetFavorite(index)
+                        } label: {
+                            Image(systemName: isFavorite ? "star.fill" : "star")
+                                .font(.caption)
+                                .foregroundStyle(isFavorite ? Color.yellow : Color.white)
+                                .padding(6)
+                                .background(.black.opacity(0.5), in: Circle())
+                                .symbolEffect(.bounce, value: isFavorite)
+                        }
+                        .offset(x: -8, y: -8)
+                        .buttonStyle(.plain)
+                    }
+                    .onTapGesture {
+                        onOpen(index)
+                    }
+            }
         }
     }
 }

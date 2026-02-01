@@ -16,6 +16,8 @@ final class DiaryViewModel: ObservableObject {
     
     /// テキスト入力のデバウンス時間（秒）
     private static let textDebounceInterval: TimeInterval = 0.5
+    /// UI操作系（気分/体調）のデバウンス時間（秒）
+    private static let metadataDebounceInterval: TimeInterval = 0.25
 
     @Published private(set) var entry: DiaryEntry
 
@@ -23,6 +25,10 @@ final class DiaryViewModel: ObservableObject {
     
     /// テキスト保存用のデバウンスタスク
     private var textPersistTask: _Concurrency.Task<Void, Never>?
+    /// 気分/体調保存用のデバウンスタスク
+    private var metadataPersistTask: _Concurrency.Task<Void, Never>?
+    /// 画面入力の下書き本文
+    private var pendingText: String = ""
 
     init(store: AppDataStore, date: Date) {
         self.store = store
@@ -32,6 +38,7 @@ final class DiaryViewModel: ObservableObject {
         normalized.mood = normalized.mood ?? .neutral
         normalized.conditionScore = normalized.conditionScore ?? 3
         self.entry = normalized
+        self.pendingText = normalized.text
 
         if needsDefaultPersist {
             store.upsert(entry: normalized)
@@ -50,23 +57,25 @@ final class DiaryViewModel: ObservableObject {
         normalized.mood = normalized.mood ?? .neutral
         normalized.conditionScore = normalized.conditionScore ?? 3
         self.entry = normalized
+        self.pendingText = normalized.text
         cleanupMissingPhotos()
     }
 
     func update(text: String) {
-        entry.text = text
+        guard pendingText != text else { return }
+        pendingText = text
         // テキスト入力はデバウンスで遅延保存
         debouncedPersistText()
     }
 
     func update(mood: MoodLevel?) {
         entry.mood = mood
-        persist()  // 即時保存（UIの選択なので遅延不要）
+        debouncedPersistMetadata()
     }
 
     func update(condition: Int?) {
         entry.conditionScore = condition
-        persist()  // 即時保存（UIの選択なので遅延不要）
+        debouncedPersistMetadata()
     }
 
     func update(locationName: String?, coordinate: CLLocationCoordinate2D?) {
@@ -147,6 +156,7 @@ final class DiaryViewModel: ObservableObject {
     }
 
     private func persist() {
+        syncPendingTextIfNeeded()
         entry.mood = entry.mood ?? .neutral
         entry.conditionScore = entry.conditionScore ?? 3
         store.upsert(entry: entry)
@@ -154,6 +164,25 @@ final class DiaryViewModel: ObservableObject {
         // 日記の内容がある程度ある場合にポジティブアクションとして記録
         if !entry.text.isEmpty && entry.text.count > 10 {
             ReviewRequestManager.shared.registerPositiveAction()
+        }
+    }
+
+    private func syncPendingTextIfNeeded() {
+        if entry.text != pendingText {
+            entry.text = pendingText
+        }
+    }
+
+    private func debouncedPersistMetadata() {
+        metadataPersistTask?.cancel()
+        metadataPersistTask = _Concurrency.Task { [weak self] in
+            do {
+                try await _Concurrency.Task.sleep(nanoseconds: UInt64(Self.metadataDebounceInterval * 1_000_000_000))
+                guard !_Concurrency.Task.isCancelled else { return }
+                await self?.persist()
+            } catch {
+                // Task.sleep がキャンセルされた場合（正常動作）
+            }
         }
     }
 }
