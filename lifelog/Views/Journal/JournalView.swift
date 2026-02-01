@@ -648,11 +648,12 @@ struct JournalView: View {
                                 .font(.system(size: 9, weight: .medium))
                                 .lineLimit(1)
                                 .truncationMode(.tail)
+                                .allowsTightening(true)
+                                .fontWidth(.condensed)
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 2)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(item.color.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
-                                .padding(.horizontal, 4)  // Task items get padding
                         }
                     }
                     if overflow > 0 {
@@ -840,11 +841,12 @@ struct JournalView: View {
                                 .font(.system(size: 9, weight: .medium))
                                 .lineLimit(1)
                                 .truncationMode(.tail)
+                                .allowsTightening(true)
+                                .fontWidth(.condensed)
                                 .padding(.horizontal, 4)
                                 .padding(.vertical, 2)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .background(item.color.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
-                                .padding(.horizontal, 4)  // Task items get padding
                         }
                     }
                     if overflow > 0 {
@@ -1439,6 +1441,8 @@ struct JournalView: View {
                     .font(.system(size: 9, weight: .medium))
                     .lineLimit(1)
                     .truncationMode(.tail)
+                    .allowsTightening(true)
+                    .fontWidth(.condensed)
             } else {
                 // Empty spacer to maintain height for middle/end segments
                 Text(" ")
