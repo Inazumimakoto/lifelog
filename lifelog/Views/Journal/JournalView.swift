@@ -107,6 +107,9 @@ struct JournalView: View {
     @State private var reviewPhotoViewerDate: Date?
     @State private var reviewPhotoViewerIndex: Int = 0
     @State private var pendingPhotoViewerDate: Date?
+    @State private var didInitialSetup = false
+    @State private var deferredCalendarSyncTask: _Concurrency.Task<Void, Never>?
+    @State private var deferredPreloadTask: _Concurrency.Task<Void, Never>?
     
     private let resetTrigger: Int
 
@@ -226,18 +229,27 @@ struct JournalView: View {
             Button("キャンセル", role: .cancel) { pendingAddDate = nil }
         }
         .onAppear {
-            prepareMonthPagerIfNeeded()
-            prepareWeekPagerIfNeeded()
-            prepareDetailPagerIfNeeded()
-            viewModel.preloadMonths(around: viewModel.monthAnchor, radius: 1)
-            calendarSyncTrigger += 1
+            if didInitialSetup == false {
+                didInitialSetup = true
+                prepareMonthPagerIfNeeded()
+                prepareWeekPagerIfNeeded()
+                prepareDetailPagerIfNeeded()
+            }
+            scheduleDeferredPreload()
+            scheduleDeferredCalendarSync()
+        }
+        .onDisappear {
+            deferredCalendarSyncTask?.cancel()
+            deferredCalendarSyncTask = nil
+            deferredPreloadTask?.cancel()
+            deferredPreloadTask = nil
         }
         .task(id: calendarSyncTrigger) {
             await viewModel.syncExternalCalendarsIfNeeded()
         }
         .onChange(of: scenePhase, initial: false) { oldPhase, newPhase in
             if oldPhase != .active && newPhase == .active {
-                calendarSyncTrigger += 1
+                scheduleDeferredCalendarSync()
             }
         }
         .onChange(of: viewModel.displayMode) { _, newMode in
@@ -275,8 +287,12 @@ struct JournalView: View {
         }
         .onChange(of: resetTrigger) { _, _ in
             // 他のタブから戻った時に「予定カレンダー」「月表示」にリセット
-            calendarMode = .schedule
-            viewModel.displayMode = .month
+            if calendarMode != .schedule {
+                calendarMode = .schedule
+            }
+            if viewModel.displayMode != .month {
+                viewModel.displayMode = .month
+            }
         }
         .onChange(of: viewModel.monthAnchor) { _, newAnchor in
             guard calendarMode == .review else { return }
@@ -671,7 +687,7 @@ struct JournalView: View {
                             .stroke(Color.accentColor, lineWidth: 2)
                             .matchedGeometryEffect(id: "calendar-selection",
                                                    in: selectionNamespace,
-                                                   isSource: viewModel.displayMode == .month)
+                                                   isSource: viewModel.displayMode == .month && day.isWithinDisplayedMonth)
                     }
                 }
                 .contentShape(Rectangle())
@@ -1460,6 +1476,22 @@ struct JournalView: View {
     private func refreshExternalCalendars() {
         _Concurrency.Task {
             await viewModel.syncExternalCalendarsIfNeeded(force: true, anchorDate: viewModel.monthAnchor)
+        }
+    }
+
+    private func scheduleDeferredCalendarSync() {
+        deferredCalendarSyncTask?.cancel()
+        deferredCalendarSyncTask = _Concurrency.Task {
+            try? await _Concurrency.Task.sleep(nanoseconds: 350_000_000)
+            calendarSyncTrigger += 1
+        }
+    }
+
+    private func scheduleDeferredPreload() {
+        deferredPreloadTask?.cancel()
+        deferredPreloadTask = _Concurrency.Task {
+            try? await _Concurrency.Task.sleep(nanoseconds: 200_000_000)
+            viewModel.preloadMonths(around: viewModel.monthAnchor, radius: 1)
         }
     }
 
