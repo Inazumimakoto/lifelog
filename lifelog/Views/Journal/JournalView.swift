@@ -33,6 +33,8 @@ private struct CalendarPreviewText: UIViewRepresentable {
         label.backgroundColor = .clear
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        label.setContentCompressionResistancePriority(.required, for: .vertical)
+        label.setContentHuggingPriority(.required, for: .vertical)
         label.font = Self.previewFont
         return label
     }
@@ -691,6 +693,7 @@ struct JournalView: View {
                     eventBarView(item: item, date: day.date)
                 } else {
                     CalendarPreviewText(text: previewLabel(for: item))
+                        .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 3)
                         .padding(.vertical, 2)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -881,6 +884,7 @@ struct JournalView: View {
                     eventBarView(item: item, date: date)
                 } else {
                     CalendarPreviewText(text: previewLabel(for: item))
+                        .fixedSize(horizontal: false, vertical: true)
                         .padding(.horizontal, 3)
                         .padding(.vertical, 2)
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1474,6 +1478,7 @@ struct JournalView: View {
         HStack(spacing: 0) {
             if showTitle {
                 CalendarPreviewText(text: item.title)
+                    .fixedSize(horizontal: false, vertical: true)
             } else {
                 // Empty spacer to maintain height for middle/end segments
                 Text(" ")
