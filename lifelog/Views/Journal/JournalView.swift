@@ -640,9 +640,6 @@ struct JournalView: View {
                     ForEach(visible) { item in
                         if item.kind == .event {
                             eventBarView(item: item, date: day.date)
-                                // Multi-day events: no padding (extend to edge)
-                                // Single-day events: add padding
-                                .padding(.horizontal, item.isMultiDayEvent ? 0 : 4)
                         } else {
                             Text(previewLabel(for: item))
                                 .font(.system(size: 9, weight: .medium))
@@ -833,9 +830,6 @@ struct JournalView: View {
                     ForEach(visible) { item in
                         if item.kind == .event {
                             eventBarView(item: item, date: date)
-                                // Multi-day events: no padding (extend to edge)
-                                // Single-day events: add padding
-                                .padding(.horizontal, item.isMultiDayEvent ? 0 : 4)
                         } else {
                             Text(previewLabel(for: item))
                                 .font(.system(size: 9, weight: .medium))
