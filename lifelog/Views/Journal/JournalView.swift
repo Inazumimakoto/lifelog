@@ -1476,14 +1476,10 @@ struct JournalView: View {
         let trailingPadding: CGFloat = (position == .end || position == .none) ? 0 : -2
         
         HStack(spacing: 0) {
-            if showTitle {
-                CalendarPreviewText(text: item.title)
-                    .fixedSize(horizontal: false, vertical: true)
-            } else {
-                // Empty spacer to maintain height for middle/end segments
-                Text(" ")
-                    .font(.system(size: 9, weight: .medium))
-            }
+            CalendarPreviewText(text: showTitle ? item.title : " ")
+                .fixedSize(horizontal: false, vertical: true)
+                .opacity(showTitle ? 1 : 0)
+                .accessibilityHidden(showTitle == false)
         }
         .padding(.horizontal, showTitle ? 3 : 2)
         .padding(.vertical, 2)
