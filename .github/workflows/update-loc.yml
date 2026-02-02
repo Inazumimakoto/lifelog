@@ -57,25 +57,25 @@ jobs:
           readme_path = Path("README.md")
           readme = readme_path.read_text(encoding="utf-8")
 
-          # Replace Total Lines
+          # Replace Total Lines (Safe: \g<1> and \g<2>)
           readme = re.sub(
               r"(総行数: <strong>)[0-9,]+(</strong>)",
-              r"\g<1>" + total + r"\2",
+              r"\g<1>" + total + r"\g<2>",
               readme
           )
 
           # Replace Swift Lines
           readme = re.sub(
               r"(Swiftコード: <strong>)[0-9,]+(</strong>)",
-              r"\g<1>" + swift + r"\2",
+              r"\g<1>" + swift + r"\g<2>",
               readme
           )
 
           # Replace Largest File
-          # Matches: 📦 最大ファイル: <strong>Filename</strong> (1,234 行)
+          # Fix: Use \g<2> and \g<3> to avoid ambiguity when followed by numbers
           readme = re.sub(
               r"(最大ファイル: <strong>)[^<]+(</strong> \()[0-9,]+( 行\))",
-              r"\g<1>" + largest_file + r"\2" + largest_lines + r"\3",
+              r"\g<1>" + largest_file + r"\g<2>" + largest_lines + r"\g<3>",
               readme
           )
 
