@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 enum CalendarMode: Equatable {
     case schedule
@@ -17,6 +18,49 @@ private enum MultiDayPosition {
     case start     // First day of multi-day event
     case middle    // Middle day of multi-day event
     case end       // Last day of multi-day event
+}
+
+private struct CalendarPreviewText: UIViewRepresentable {
+    let text: String
+
+    func makeUIView(context: Context) -> UILabel {
+        let label = UILabel()
+        label.numberOfLines = 1
+        label.lineBreakMode = .byClipping
+        label.adjustsFontSizeToFitWidth = false
+        label.allowsDefaultTighteningForTruncation = true
+        label.textColor = .label
+        label.backgroundColor = .clear
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        label.setContentCompressionResistancePriority(.required, for: .vertical)
+        label.setContentHuggingPriority(.required, for: .vertical)
+        label.font = Self.previewFont
+        return label
+    }
+
+    func updateUIView(_ uiView: UILabel, context: Context) {
+        uiView.text = text
+        uiView.font = Self.previewFont
+    }
+
+    @available(iOS 16.0, *)
+    static func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize {
+        let targetWidth = proposal.width ?? .greatestFiniteMagnitude
+        let targetHeight = proposal.height ?? .greatestFiniteMagnitude
+        let size = uiView.sizeThatFits(CGSize(width: targetWidth, height: targetHeight))
+        return CGSize(width: proposal.width ?? size.width, height: size.height)
+    }
+
+    private static let previewFont: UIFont = {
+        let baseFont = UIFont.systemFont(ofSize: 9, weight: .medium)
+        let descriptor = baseFont.fontDescriptor
+        let traits = (descriptor.object(forKey: .traits) as? [UIFontDescriptor.TraitKey: Any]) ?? [:]
+        var condensedTraits = traits
+        condensedTraits[.width] = -0.2
+        let condensedDescriptor = descriptor.addingAttributes([.traits: condensedTraits])
+        return UIFont(descriptor: condensedDescriptor, size: 9)
+    }()
 }
 
 private struct DayPreviewItem: Identifiable {
@@ -623,80 +667,78 @@ struct JournalView: View {
 
     private func monthCalendar(for anchor: Date) -> some View {
         let columns = monthGridColumns
-        let days = viewModel.calendarDays(for: anchor)
         let itemLimit = 4
         return LazyVGrid(columns: columns, spacing: 4) {
-            ForEach(days) { day in
-                let previews = dayPreviewItems(events: day.events, tasks: day.tasks, on: day.date)
-                let (visible, overflow) = previewDisplay(previews, limit: itemLimit)
-                VStack(alignment: .leading, spacing: 2) {
-                    // Date fixed in top-left
-                    Text("\(Calendar.current.component(.day, from: day.date))")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
-                        .padding(.horizontal, 4)  // Date gets its own padding
-                    
-                    // Items below the date
-                    ForEach(visible) { item in
-                        if item.kind == .event {
-                            eventBarView(item: item, date: day.date)
-                                // Multi-day events: no padding (extend to edge)
-                                // Single-day events: add padding
-                                .padding(.horizontal, item.isMultiDayEvent ? 0 : 4)
-                        } else {
-                            Text(previewLabel(for: item))
-                                .font(.system(size: 9, weight: .medium))
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 2)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(item.color.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
-                                .padding(.horizontal, 4)  // Task items get padding
-                        }
-                    }
-                    if overflow > 0 {
-                        Text("+\(overflow)")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 4)  // Overflow text gets padding
-                    }
-                    
-                    Spacer(minLength: 0)
-                }
-                .padding(.top, 4)
-                // Remove .padding(.horizontal, 4) from VStack
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-                .frame(height: 88)
-                .frame(height: 88)
-                // Use a mask that allows horizontal overflow (for connected bars) 
-                // but clips vertical overflow (to keep fixed height).
-                // Padding -20 extends the mask horizontally by 20pt on each side.
-                .mask(Rectangle().padding(.horizontal, -20))
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(day.isToday ? Color.accentColor.opacity(0.12) : Color.clear)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.clear, lineWidth: 2)
-                )
-                .overlay(alignment: .center) {
-                    if viewModel.selectedDate.isSameDay(as: day.date) {
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.accentColor, lineWidth: 2)
-                            .matchedGeometryEffect(id: "calendar-selection",
-                                                   in: selectionNamespace,
-                                                   isSource: viewModel.displayMode == .month && day.isWithinDisplayedMonth)
-                    }
-                }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    openDayDetail(for: day.date)
-                }
+            ForEach(viewModel.calendarDays(for: anchor)) { day in
+                monthDayCell(day, itemLimit: itemLimit)
             }
         }
         .animation(.easeInOut, value: viewModel.selectedDate)
+    }
+
+    @ViewBuilder
+    private func monthDayCell(_ day: JournalViewModel.CalendarDay, itemLimit: Int) -> some View {
+        let previews = dayPreviewItems(events: day.events, tasks: day.tasks, on: day.date)
+        let (visible, overflow) = previewDisplay(previews, limit: itemLimit)
+        VStack(alignment: .leading, spacing: 2) {
+            // Date fixed in top-left
+            Text("\(Calendar.current.component(.day, from: day.date))")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
+                .padding(.horizontal, 4)  // Date gets its own padding
+            
+            // Items below the date
+            ForEach(visible) { item in
+                if item.kind == .event {
+                    eventBarView(item: item, date: day.date)
+                } else {
+                    CalendarPreviewText(text: previewLabel(for: item))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 3)
+                        .padding(.vertical, 2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(item.color.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
+                        .clipped()
+                }
+            }
+            if overflow > 0 {
+                Text("+\(overflow)")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 4)  // Overflow text gets padding
+            }
+            
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 4)
+        // Remove .padding(.horizontal, 4) from VStack
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(height: 88)
+        // Use a mask that allows horizontal overflow (for connected bars)
+        // but clips vertical overflow (to keep fixed height).
+        // Padding -20 extends the mask horizontally by 20pt on each side.
+        .mask(Rectangle().padding(.horizontal, -20))
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(day.isToday ? Color.accentColor.opacity(0.12) : Color.clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.clear, lineWidth: 2)
+        )
+        .overlay(alignment: .center) {
+            if viewModel.selectedDate.isSameDay(as: day.date) {
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.accentColor, lineWidth: 2)
+                    .matchedGeometryEffect(id: "calendar-selection",
+                                           in: selectionNamespace,
+                                           isSource: viewModel.displayMode == .month && day.isWithinDisplayedMonth)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            openDayDetail(for: day.date)
+        }
     }
 
     /// 凡例：各カテゴリの色を表示。タップでカレンダー設定を開く
@@ -820,72 +862,72 @@ struct JournalView: View {
         let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
         return LazyVGrid(columns: columns, spacing: 4) {
             ForEach(dates, id: \.self) { date in
-                let previews = dayPreviewItems(for: date)
-                let (visible, overflow) = previewDisplay(previews, limit: itemLimit)
-                VStack(alignment: .leading, spacing: 2) {
-                    // Date fixed in top-left
-                    Text("\(Calendar.current.component(.day, from: date))")
-                        .font(.subheadline.weight(.semibold))
-                        .padding(.horizontal, 4)  // Date gets its own padding
-                    
-                    // Items below the date
-                    ForEach(visible) { item in
-                        if item.kind == .event {
-                            eventBarView(item: item, date: date)
-                                // Multi-day events: no padding (extend to edge)
-                                // Single-day events: add padding
-                                .padding(.horizontal, item.isMultiDayEvent ? 0 : 4)
-                        } else {
-                            Text(previewLabel(for: item))
-                                .font(.system(size: 9, weight: .medium))
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 2)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(item.color.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
-                                .padding(.horizontal, 4)  // Task items get padding
-                        }
-                    }
-                    if overflow > 0 {
-                        Text("+\(overflow)")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 4)  // Overflow text gets padding
-                    }
-                    
-                    Spacer(minLength: 0)
-                }
-                .padding(.top, 4)
-                // Remove .padding(.horizontal, 4) from VStack
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-                .frame(height: 88)
-                // Mask allowing horizontal overflow to connect bars
-                .mask(Rectangle().padding(.horizontal, -20))
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(date.isSameDay(as: Date()) ? Color.accentColor.opacity(0.12) : Color.clear)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.clear, lineWidth: 2)
-                )
-                .overlay(alignment: .center) {
-                    if date.startOfDay == viewModel.selectedDate.startOfDay {
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.accentColor, lineWidth: 2)
-                            .matchedGeometryEffect(id: "calendar-selection",
-                                                   in: selectionNamespace,
-                                                   isSource: viewModel.displayMode == .week)
-                    }
-                }
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    openDayDetail(for: date)
-                }
+                weekDayCell(date, itemLimit: itemLimit)
             }
         }
         .animation(.easeInOut, value: viewModel.selectedDate)
+    }
+
+    @ViewBuilder
+    private func weekDayCell(_ date: Date, itemLimit: Int) -> some View {
+        let previews = dayPreviewItems(for: date)
+        let (visible, overflow) = previewDisplay(previews, limit: itemLimit)
+        VStack(alignment: .leading, spacing: 2) {
+            // Date fixed in top-left
+            Text("\(Calendar.current.component(.day, from: date))")
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, 4)  // Date gets its own padding
+            
+            // Items below the date
+            ForEach(visible) { item in
+                if item.kind == .event {
+                    eventBarView(item: item, date: date)
+                } else {
+                    CalendarPreviewText(text: previewLabel(for: item))
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 3)
+                        .padding(.vertical, 2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(item.color.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
+                        .clipped()
+                }
+            }
+            if overflow > 0 {
+                Text("+\(overflow)")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 4)  // Overflow text gets padding
+            }
+            
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 4)
+        // Remove .padding(.horizontal, 4) from VStack
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(height: 88)
+        // Mask allowing horizontal overflow to connect bars
+        .mask(Rectangle().padding(.horizontal, -20))
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(date.isSameDay(as: Date()) ? Color.accentColor.opacity(0.12) : Color.clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.clear, lineWidth: 2)
+        )
+        .overlay(alignment: .center) {
+            if date.startOfDay == viewModel.selectedDate.startOfDay {
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.accentColor, lineWidth: 2)
+                    .matchedGeometryEffect(id: "calendar-selection",
+                                           in: selectionNamespace,
+                                           isSource: viewModel.displayMode == .week)
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            openDayDetail(for: date)
+        }
     }
 
     private var activeDisplayMode: JournalViewModel.DisplayMode {
@@ -1435,17 +1477,15 @@ struct JournalView: View {
         
         HStack(spacing: 0) {
             if showTitle {
-                Text(item.title)
-                    .font(.system(size: 9, weight: .medium))
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+                CalendarPreviewText(text: item.title)
+                    .fixedSize(horizontal: false, vertical: true)
             } else {
                 // Empty spacer to maintain height for middle/end segments
                 Text(" ")
                     .font(.system(size: 9, weight: .medium))
             }
         }
-        .padding(.horizontal, showTitle ? 4 : 2)
+        .padding(.horizontal, showTitle ? 3 : 2)
         .padding(.vertical, 2)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
@@ -1457,6 +1497,7 @@ struct JournalView: View {
             )
             .fill(item.color.opacity(0.2))
         )
+        .clipped()
         .padding(.leading, leadingPadding)
         .padding(.trailing, trailingPadding)
     }
