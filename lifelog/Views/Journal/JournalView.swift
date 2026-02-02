@@ -7,10 +7,25 @@
 
 import SwiftUI
 import UIKit
+import MapKit
 
 enum CalendarMode: Equatable {
     case schedule
     case review
+}
+
+private enum ReviewContentMode: String, CaseIterable, Identifiable {
+    case diary = "日記"
+    case map = "地図"
+
+    var id: String { rawValue }
+}
+
+private enum ReviewMapPeriod: String, CaseIterable, Identifiable {
+    case month = "今月"
+    case all = "すべて"
+
+    var id: String { rawValue }
 }
 
 private enum MultiDayPosition {
@@ -145,6 +160,8 @@ struct JournalView: View {
     @State private var showMemoEditor = false
     @AppStorage("showMoodOnReviewCalendar") private var showMoodOnReviewCalendar = true
     @State private var calendarMode: CalendarMode = .schedule
+    @State private var reviewContentMode: ReviewContentMode = .diary
+    @State private var reviewMapPeriod: ReviewMapPeriod = .month
     @State private var selectedReviewDate: Date? = Date().startOfDay
     @State private var reviewPhotoIndex: Int = 0
     @State private var didInitReviewPhotoIndex: Bool = false
@@ -328,6 +345,7 @@ struct JournalView: View {
                 viewModel.displayMode = .month
                 selectedReviewDate = viewModel.selectedDate
                 reviewPhotoIndex = preferredPhotoIndex(for: store.entry(for: selectedReviewDate ?? viewModel.selectedDate))
+                reviewContentMode = .diary
             }
         }
         .onChange(of: resetTrigger) { _, _ in
@@ -363,6 +381,8 @@ struct JournalView: View {
                 monthHeader
                 if calendarMode == .schedule {
                     modePicker
+                } else {
+                    reviewModePicker
                 }
                 if activeDisplayMode == .month {
                     weekdayHeader
@@ -376,7 +396,11 @@ struct JournalView: View {
                     contentArea
                     calendarLegend
                 } else {
-                    reviewDetail
+                    if reviewContentMode == .diary {
+                        reviewDetail
+                    } else {
+                        reviewMap
+                    }
                 }
                 if viewModel.calendarAccessDenied {
                     Text("設定 > プライバシーとセキュリティ > カレンダーでlifelogへのアクセスを許可すると外部カレンダーの予定が表示されます。")
@@ -591,6 +615,15 @@ struct JournalView: View {
     private var modePicker: some View {
         Picker("表示切替", selection: $viewModel.displayMode) {
             ForEach(JournalViewModel.DisplayMode.allCases) { mode in
+                Text(mode.rawValue).tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+    }
+
+    private var reviewModePicker: some View {
+        Picker("表示切替", selection: $reviewContentMode) {
+            ForEach(ReviewContentMode.allCases) { mode in
                 Text(mode.rawValue).tag(mode)
             }
         }
@@ -994,6 +1027,12 @@ struct JournalView: View {
         }
     }
 
+    private var reviewMap: some View {
+        ReviewMapView(entries: reviewMapEntries(for: reviewMapPeriod),
+                      period: $reviewMapPeriod,
+                      onOpenDiary: { openDiaryEditor(for: $0) })
+    }
+
     private func preferredPhotoIndex(for diary: DiaryEntry?) -> Int {
         guard let diary else { return 0 }
         if let favorite = diary.favoritePhotoPath,
@@ -1001,6 +1040,48 @@ struct JournalView: View {
             return index
         }
         return 0
+    }
+
+    private func reviewMapEntries(for period: ReviewMapPeriod) -> [ReviewLocationEntry] {
+        let calendar = Calendar.current
+        let anchor = selectedReviewDate ?? viewModel.monthAnchor
+        let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: anchor)) ?? anchor
+        let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) ?? monthStart
+
+        func isIncluded(_ date: Date) -> Bool {
+            switch period {
+            case .all:
+                return true
+            case .month:
+                return date >= monthStart && date < monthEnd
+            }
+        }
+
+        var results: [ReviewLocationEntry] = []
+        for entry in store.diaryEntries {
+            let entryDate = entry.date.startOfDay
+            guard isIncluded(entryDate) else { continue }
+            let locations: [DiaryLocation]
+            if entry.locations.isEmpty,
+               let name = entry.locationName,
+               name.isEmpty == false,
+               let latitude = entry.latitude,
+               let longitude = entry.longitude {
+                locations = [
+                    DiaryLocation(name: name,
+                                  address: nil,
+                                  latitude: latitude,
+                                  longitude: longitude,
+                                  mapItemURL: nil)
+                ]
+            } else {
+                locations = entry.locations
+            }
+            for location in locations {
+                results.append(ReviewLocationEntry(date: entryDate, location: location))
+            }
+        }
+        return results.sorted { $0.date > $1.date }
     }
 
     private func conditionEmoji(for score: Int) -> String {
@@ -2177,6 +2258,182 @@ private struct TimelineColumnView: View {
         case .sleep:
             return .purple
         }
+    }
+}
+
+// MARK: - Review Map
+private struct ReviewLocationEntry: Identifiable, Hashable {
+    let id: String
+    let date: Date
+    let location: DiaryLocation
+
+    init(date: Date, location: DiaryLocation) {
+        self.date = date
+        self.location = location
+        self.id = "\(date.timeIntervalSince1970)-\(location.id.uuidString)"
+    }
+
+    var name: String { location.name }
+    var address: String? { location.address }
+    var coordinate: CLLocationCoordinate2D { location.coordinate }
+}
+
+private struct ReviewMapView: View {
+    let entries: [ReviewLocationEntry]
+    @Binding var period: ReviewMapPeriod
+    let onOpenDiary: (Date) -> Void
+
+    @State private var cameraPosition: MapCameraPosition = .region(Self.defaultRegion)
+    @State private var selectedEntry: ReviewLocationEntry?
+    @State private var hasAppliedRegion = false
+
+    private static let defaultRegion = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 36.2048, longitude: 138.2529),
+                                                          span: MKCoordinateSpan(latitudeDelta: 12, longitudeDelta: 12))
+
+    var body: some View {
+        ZStack(alignment: .bottom) {
+            Map(position: $cameraPosition,
+                interactionModes: .all,
+                selection: $selectedEntry) {
+                ForEach(entries) { entry in
+                    Marker(entry.name, coordinate: entry.coordinate)
+                        .tag(entry)
+                }
+            }
+            .overlay(alignment: .topTrailing) {
+                periodMenu
+                    .padding(.top, 8)
+                    .padding(.trailing, 12)
+            }
+            .onChange(of: selectedEntry) { _, newValue in
+                guard let entry = newValue else { return }
+                onOpenDiary(entry.date)
+                selectedEntry = nil
+            }
+            .onAppear {
+                applyRegion(force: true)
+            }
+            .onChange(of: period) { _, _ in
+                applyRegion(force: true)
+            }
+            .onChange(of: entries) { _, _ in
+                applyRegion(force: true)
+            }
+
+            if entries.isEmpty {
+                emptyState
+            } else {
+                listSheet
+            }
+        }
+        .frame(maxWidth: .infinity)
+        .frame(minHeight: 420)
+    }
+
+    private var periodMenu: some View {
+        Menu {
+            ForEach(ReviewMapPeriod.allCases) { option in
+                Button(option.rawValue) {
+                    period = option
+                }
+            }
+        } label: {
+            HStack(spacing: 6) {
+                Text(period.rawValue)
+                    .font(.caption.weight(.semibold))
+                Image(systemName: "chevron.down")
+                    .font(.caption2.weight(.semibold))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 6)
+            .background(.ultraThinMaterial, in: Capsule())
+            .overlay(Capsule().stroke(.white.opacity(0.15), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "mappin.slash")
+                .font(.title2)
+                .foregroundStyle(.secondary)
+            Text("この期間の場所はありません")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
+        .padding(.bottom, 24)
+    }
+
+    private var listSheet: some View {
+        VStack(spacing: 8) {
+            Capsule()
+                .fill(Color.secondary.opacity(0.4))
+                .frame(width: 36, height: 4)
+                .padding(.top, 8)
+            ScrollView {
+                LazyVStack(spacing: 12) {
+                    ForEach(entries) { entry in
+                        Button {
+                            onOpenDiary(entry.date)
+                        } label: {
+                            HStack(alignment: .top, spacing: 12) {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(entry.name)
+                                        .font(.body.weight(.semibold))
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(1)
+                                    Text(entry.date.jaMonthDayString)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 4)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+            }
+            .frame(maxHeight: 220)
+        }
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
+    }
+
+    private func applyRegion(force: Bool) {
+        guard force || hasAppliedRegion == false else { return }
+        let region = regionForEntries(entries)
+        cameraPosition = .region(region)
+        hasAppliedRegion = true
+    }
+
+    private func regionForEntries(_ items: [ReviewLocationEntry]) -> MKCoordinateRegion {
+        guard let first = items.first else { return Self.defaultRegion }
+        var minLat = first.coordinate.latitude
+        var maxLat = first.coordinate.latitude
+        var minLon = first.coordinate.longitude
+        var maxLon = first.coordinate.longitude
+        for entry in items.dropFirst() {
+            minLat = min(minLat, entry.coordinate.latitude)
+            maxLat = max(maxLat, entry.coordinate.latitude)
+            minLon = min(minLon, entry.coordinate.longitude)
+            maxLon = max(maxLon, entry.coordinate.longitude)
+        }
+        let latDelta = max(0.05, (maxLat - minLat) * 1.4)
+        let lonDelta = max(0.05, (maxLon - minLon) * 1.4)
+        let center = CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2,
+                                            longitude: (minLon + maxLon) / 2)
+        return MKCoordinateRegion(center: center,
+                                  span: MKCoordinateSpan(latitudeDelta: latDelta,
+                                                         longitudeDelta: lonDelta))
     }
 }
 
