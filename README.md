@@ -99,7 +99,8 @@
 | 超大規模 | 200,000〜 |
 
 <p align="center">
-  <strong>🎯 lifelog = 中規模〜大規模アプリの境目</strong>
+  <strong>🎯 lifelog = 中規模〜大規模アプリの境目</strong><br>
+  <strong>しかもこれ全部AIが書いた。まじですごいw</strong>
 </p>
 
 > *AIが生成した **42,000行** のコード。リファクタリング？無理無理（絶望）*
