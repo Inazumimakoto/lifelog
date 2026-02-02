@@ -5,35 +5,37 @@ on:
     branches: [main]
   workflow_dispatch:
 
-jobs:
-  update-loc:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+  jobs:
+    update-loc:
+      runs-on: ubuntu-latest
+      permissions:
+        contents: write
+      steps:
+        - uses: actions/checkout@v4
+          with:
+            fetch-depth: 0
 
-      - name: Calculate LOC stats
-        id: loc
-        run: |
-          # Total lines
-          TOTAL=$(git ls-files | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
-          echo "total=$TOTAL" >> $GITHUB_OUTPUT
-          
-          # Swift lines
-            SWIFT=$(git ls-files '*.swift' | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
+        - name: Calculate LOC stats
+          id: loc
+          run: |
+            # Total lines
+            TOTAL=$(git ls-files | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
+            echo "total=$TOTAL" >> $GITHUB_OUTPUT
+
+            # Swift lines
+            SWIFT=$(git ls-files '*.swift' | xargs wc -l 2>/dev/null | tail -1 | awk '{print
+  $1}')
             echo "swift=$SWIFT" >> $GITHUB_OUTPUT
-          
-          # Largest file (excluding binary/generated files)
-          LARGEST=$(git ls-files | grep -E '\.(swift|ts|js|md|html|css)$' | grep -v 'package-lock' | xargs wc -l 2>/dev/null | sort -rn | head -2 | tail -1)
-          LARGEST_LINES=$(echo "$LARGEST" | awk '{print $1}')
-          LARGEST_FILE=$(echo "$LARGEST" | awk '{print $2}' | xargs basename)
-          echo "largest_lines=$LARGEST_LINES" >> $GITHUB_OUTPUT
-          echo "largest_file=$LARGEST_FILE" >> $GITHUB_OUTPUT
-          
-          - name: Update README
+
+            # Largest file (excluding binary/generated files)
+            LARGEST=$(git ls-files | grep -E '\.(swift|ts|js|md|html|css)$' | grep -v
+  'package-lock' | xargs wc -l 2>/dev/null | sort -rn | head -2 | tail -1)
+            LARGEST_LINES=$(echo "$LARGEST" | awk '{print $1}')
+            LARGEST_FILE=$(echo "$LARGEST" | awk '{print $2}' | xargs basename)
+            echo "largest_lines=$LARGEST_LINES" >> $GITHUB_OUTPUT
+            echo "largest_file=$LARGEST_FILE" >> $GITHUB_OUTPUT
+
+        - name: Update README
           env:
             TOTAL: ${{ steps.loc.outputs.total }}
             SWIFT: ${{ steps.loc.outputs.swift }}
@@ -45,9 +47,14 @@ jobs:
             from pathlib import Path
 
             readme = Path("README.md").read_text(encoding="utf-8")
-            readme = re.sub(r"(総行数: <strong>)[0-9,]+(</strong>)", r"\g<1>" +os.environ["TOTAL"] + r"\2", readme)
-            readme = re.sub(r"(Swiftコード: <strong>)[0-9,]+(</strong>)", r"\g<1>" +os.environ["SWIFT"] + r"\2", readme)
-            readme = re.sub(r"(最大ファイル: <strong>)[^<]+(</strong> \\()[0-9,]+( 行\\))",r"\g<1>" + os.environ["LARGEST_FILE"] + r"\2" +os.environ["LARGEST_LINES"] + r"\3",readme)
+            readme = re.sub(r"(総行数: <strong>)[0-9,]+(</strong>)", r"\g<1>" +
+  os.environ["TOTAL"] + r"\2", readme)
+            readme = re.sub(r"(Swiftコード: <strong>)[0-9,]+(</strong>)", r"\g<1>" +
+  os.environ["SWIFT"] + r"\2", readme)
+            readme = re.sub(r"(最大ファイル: <strong>)[^<]+(</strong> \\()[0-9,]+( 行\\))",
+                            r"\g<1>" + os.environ["LARGEST_FILE"] + r"\2" +
+  os.environ["LARGEST_LINES"] + r"\3",
+                            readme)
             Path("README.md").write_text(readme, encoding="utf-8")
             PY
 
