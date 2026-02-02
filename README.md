@@ -81,6 +81,16 @@
 
 ---
 
+### 📈 Code Stats
+
+<p align="center">
+  📝 Total Lines: **42090** &nbsp;•&nbsp; 📦 Largest File: **JournalView.swift** (2328 lines)
+</p>
+
+<sub>Stats auto-updated on every push to main</sub>
+
+---
+
 > ### 💬 *"I didn't write a single line of SwiftUI.*
 > ### *The AI did. All of it."*
 
