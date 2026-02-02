@@ -659,13 +659,9 @@ struct JournalView: View {
             }
             extendMonthPagerIfNeeded(at: newSelection)
             
-            // 振り返りモードの場合、新しい月の写真をプリフェッチ
+            // 振り返りモードの場合、前後月含めてプリフェッチ
             if calendarMode == .review {
-                let days = viewModel.calendarDays(for: anchor)
-                let photoPaths = days.compactMap { $0.diary?.favoritePhotoPath }
-                if !photoPaths.isEmpty {
-                    PhotoStorage.prefetchThumbnails(paths: photoPaths)
-                }
+                prefetchPhotosForMonths(around: anchor)
             }
         }
     }
@@ -959,11 +955,27 @@ struct JournalView: View {
         }
         .animation(.easeInOut, value: selectedReviewDate)
         .onAppear {
-            // プリフェッチ: このカレンダー月の全写真を裏で読み込み
-            let photoPaths = days.compactMap { $0.diary?.favoritePhotoPath }
-            if !photoPaths.isEmpty {
-                PhotoStorage.prefetchThumbnails(paths: photoPaths)
+            // プリフェッチ: 今月 + 前後の月の写真を裏で読み込み
+            prefetchPhotosForMonths(around: anchor)
+        }
+    }
+    
+    // 前後の月も含めてプリフェッチ
+    private func prefetchPhotosForMonths(around anchor: Date) {
+        let calendar = Calendar.current
+        var allPaths: [String] = []
+        
+        // 前月・今月・次月の3ヶ月分
+        for offset in -1...1 {
+            if let monthDate = calendar.date(byAdding: .month, value: offset, to: anchor) {
+                let days = viewModel.calendarDays(for: monthDate)
+                let paths = days.compactMap { $0.diary?.favoritePhotoPath }
+                allPaths.append(contentsOf: paths)
             }
+        }
+        
+        if !allPaths.isEmpty {
+            PhotoStorage.prefetchThumbnails(paths: allPaths)
         }
     }
 
