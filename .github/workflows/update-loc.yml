@@ -36,12 +36,11 @@ jobs:
       - name: Update README
         run: |
           # Update total LOC (JP line)
-          sed -i -E "s/(総行数: <strong>)[0-9,]+(<\\/strong>)/\\1${{ steps.loc.outputs.total }}\\2/"README.md
-          # Update Swift LOC (JP line)
-          sed -i -E "s/(Swiftコード: <strong>)[0-9,]+(<\\/strong>)/\\1${{ steps.loc.outputs.swift }}\\2/" README.md
-          # Update largest file (JP line)
-          sed -i -E "s/(最大ファイル: <strong>)[^<]+(<\\/strong> \\()[0-9,]+( 行\\))/\\1${{ steps.loc.outputs.largest_file }}\\2${{ steps.loc.outputs.largest_lines }}\\3/" README.md
-          
+            sed -i -E "s|(総行数: <strong>)[0-9,]+(</strong>)|\\1${{ steps.loc.outputs.total }}\\2|" README.md
+            # Update Swift LOC (JP line)
+            sed -i -E "s|(Swiftコード: <strong>)[0-9,]+(</strong>)|\\1${{ steps.loc.outputs.swift }}\\2|" README.md
+            # Update largest file (JP line)
+            sed -i -E "s|(最大ファイル: <strong>)[^<]+(</strong> \\()[0-9,]+( 行\\))|\\1${{ steps.loc.outputs.largest_file }}\\2${{ steps.loc.outputs.largest_lines }}\\3|"README.md
       - name: Commit and push
         run: |
           git config user.name github-actions[bot]
