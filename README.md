@@ -84,7 +84,7 @@
 ### 📈 Code Stats
 
 <p align="center">
-  📝 Total Lines: **42090** &nbsp;•&nbsp; 📦 Largest File: **JournalView.swift** (2328 lines)
+  📝 Total Lines: **42144** &nbsp;•&nbsp; 📦 Largest File: **package-lock.json** (9758 lines)
 </p>
 
 <sub>Stats auto-updated on every push to main</sub>
