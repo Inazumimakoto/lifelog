@@ -180,3 +180,32 @@ xcodebuild -project lifelog.xcodeproj -scheme lifelog -destination 'generic/plat
 ```
 
 シミュレータが利用できない環境では CoreSimulatorService 絡みで失敗することがあります。実機/ローカルの Xcode で改めて実行してください。
+
+## フォルダ構成
+
+```
+lifelog/
+├── lifelog/                    # メインアプリ (iOS)
+│   ├── Models/                 # データモデル
+│   ├── Views/                  # SwiftUI ビュー
+│   │   ├── Today/              # ホーム画面
+│   │   ├── Journal/            # カレンダー画面
+│   │   ├── Habits/             # 習慣 & カウントダウン
+│   │   ├── Health/             # ヘルスダッシュボード
+│   │   ├── Diary/              # 日記機能
+│   │   ├── Letter/             # 未来への手紙
+│   │   ├── LetterSharing/      # レターシェアリング
+│   │   └── Settings/           # 設定画面
+│   ├── ViewModels/             # ビューモデル (MVVM)
+│   ├── Services/               # ビジネスロジック・API通信
+│   └── Components/             # 共通UIコンポーネント
+├── LifelogWidgets/             # ウィジェット (iOS)
+├── functions/                  # Firebase Cloud Functions
+├── docs/                       # ドキュメント
+│   ├── requirements.md         # 要件定義
+│   ├── ui-guidelines.md        # UI ガイドライン
+│   └── *.md                    # 機能仕様書
+├── GEMINI.md                   # AI向けプロジェクト概要
+├── AGENTS.md                   # コントリビューターガイド
+└── README.md                   # このファイル
+```
