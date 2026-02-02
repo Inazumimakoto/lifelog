@@ -84,10 +84,12 @@
 ### 📈 Code Stats
 
 <p align="center">
-  📝 Total Lines: **42144** &nbsp;•&nbsp; 📦 Largest File: **package-lock.json** (9758 lines)
+  📝 Total Lines: <strong>42144</strong> &nbsp;•&nbsp; 📦 Largest File: <strong>JournalView.swift</strong> (2328 lines)
 </p>
 
 <sub>Stats auto-updated on every push to main</sub>
+
+> *AIが生み出した **42,000行** のコード。リファクタリング？無理に決まってるでしょ。*
 
 ---
 
