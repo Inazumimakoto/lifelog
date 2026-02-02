@@ -145,18 +145,25 @@ struct PhotoStorage {
         }
     }
     
-    // MARK: - Prefetch (バックグラウンドで先読み)
+    // MARK: - Prefetch (バックグラウンドで並列先読み)
+    private static let prefetchQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = 4  // 4並列で読み込み
+        queue.qualityOfService = .userInitiated  // 高優先度
+        return queue
+    }()
+    
     static func prefetchThumbnails(paths: [String]) {
-        // バックグラウンドで並列読み込み
-        DispatchQueue.global(qos: .utility).async {
-            for path in paths {
-                // 既にキャッシュにあればスキップ
-                if PhotoThumbnailCache.shared.thumbnail(for: path) != nil {
-                    continue
-                }
-                
+        for path in paths {
+            // 既にキャッシュにあればスキップ
+            if PhotoThumbnailCache.shared.thumbnail(for: path) != nil {
+                continue
+            }
+            
+            // 並列でキューに追加
+            prefetchQueue.addOperation {
                 let url = photosDirectory.appendingPathComponent(path)
-                guard let uiImage = UIImage(contentsOfFile: url.path) else { continue }
+                guard let uiImage = UIImage(contentsOfFile: url.path) else { return }
                 
                 let thumbnail = resizeImage(uiImage, to: thumbnailSize)
                 PhotoThumbnailCache.shared.setThumbnail(thumbnail, for: path)
