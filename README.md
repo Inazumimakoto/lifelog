@@ -132,7 +132,7 @@ In other words:
 **No hand-written SwiftUI. No copy-paste. No manual layout tweaking. Fully AI-driven development.**
 
 > And yes, of course this README section was also written with AI.  
-> Loudly and proudly: **written by ChatGPT** 😎
+> Loudly and proudly: **written by Codex** 😎
 
 ---
 
@@ -150,7 +150,7 @@ In other words:
 **手書きSwiftUIコードなし・コピペもなし・UI手組みなしの、フルAI駆動開発です。**
 
 > もちろん、このREADMEの文章も当然のようにAIが書いてます。  
-> ドヤ顔で言いますが、**written by ChatGPT です ✨**
+> ドヤ顔で言いますが、**written by Codex です ✨**
 </div>
 
 # lifelog
