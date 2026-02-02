@@ -2296,8 +2296,15 @@ private struct ReviewLocationGroup: Identifiable, Hashable {
     var name: String { location.name }
     var address: String? { location.address }
     var coordinate: CLLocationCoordinate2D { location.coordinate }
-    var count: Int { dates.count }
-    var latestDate: Date { dates.max() ?? Date.distantPast }
+    var uniqueDates: [Date] {
+        let unique = Set(dates.map { $0.startOfDay })
+        return unique.sorted(by: >)
+    }
+    var count: Int { uniqueDates.count }
+    var latestDate: Date { uniqueDates.first ?? Date.distantPast }
+    var dateSummary: String {
+        ReviewDateFormatter.summary(for: uniqueDates)
+    }
 }
 
 private struct ReviewLocationGroupBuilder {
@@ -2315,6 +2322,37 @@ private struct ReviewLocationGroupBuilder {
         let lat = (location.latitude * 10_000).rounded() / 10_000
         let lon = (location.longitude * 10_000).rounded() / 10_000
         return "\(location.name)|\(lat)|\(lon)"
+    }
+}
+
+private enum ReviewDateFormatter {
+    private static let monthDay: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "MM/dd"
+        return formatter
+    }()
+
+    static func summary(for dates: [Date]) -> String {
+        guard let first = dates.first else { return "" }
+        if dates.count == 1 {
+            return monthDay.string(from: first)
+        }
+        let calendar = Calendar.current
+        let sameMonth = dates.allSatisfy { calendar.isDate($0, equalTo: first, toGranularity: .month) }
+        if sameMonth {
+            let dayNumbers = dates.dropFirst().map { String(calendar.component(.day, from: $0)) }
+            if dates.count <= 3 {
+                return ([monthDay.string(from: first)] + Array(dayNumbers.prefix(2))).joined(separator: ",")
+            }
+            let shown = [monthDay.string(from: first)] + Array(dayNumbers.prefix(2))
+            return shown.joined(separator: ",") + "+\(dates.count - 3)"
+        }
+        if dates.count == 2 {
+            return dates.map { monthDay.string(from: $0) }.joined(separator: ",")
+        }
+        let shown = dates.prefix(2).map { monthDay.string(from: $0) }
+        return shown.joined(separator: ",") + "+\(dates.count - 2)"
     }
 }
 
@@ -2339,20 +2377,13 @@ private struct ReviewMapView: View {
                     Annotation(group.name, coordinate: group.coordinate) {
                         VStack(spacing: 0) {
                             HStack(spacing: 4) {
-                                Text(group.latestDate.jaMonthDayString)
+                                Text(group.dateSummary)
                                     .font(.system(size: 9, weight: .semibold))
                                     .foregroundStyle(.white)
                                     .padding(.horizontal, 5)
                                     .padding(.vertical, 1)
                                     .background(.black.opacity(0.7), in: Capsule())
-                                if group.count > 1 {
-                                    Text("×\(group.count)")
-                                        .font(.system(size: 8, weight: .semibold))
-                                        .foregroundStyle(.white)
-                                        .padding(.horizontal, 4)
-                                        .padding(.vertical, 1)
-                                        .background(.black.opacity(0.7), in: Capsule())
-                                }
+                                    .lineLimit(1)
                             }
                             .padding(.bottom, -5)
                             .zIndex(1)
@@ -2451,16 +2482,9 @@ private struct ReviewMapView: View {
                                         .font(.body.weight(.semibold))
                                         .foregroundStyle(.primary)
                                         .lineLimit(1)
-                                    HStack(spacing: 6) {
-                                        Text(group.latestDate.jaMonthDayString)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                        if group.count > 1 {
-                                            Text("×\(group.count)")
-                                                .font(.caption2.weight(.semibold))
-                                                .foregroundStyle(.secondary)
-                                        }
-                                    }
+                                    Text(group.dateSummary)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
