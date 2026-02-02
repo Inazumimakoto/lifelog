@@ -84,10 +84,23 @@
 ### 📈 Code Stats
 
 <p align="center">
-  📝 総行数: <strong>42144</strong> &nbsp;•&nbsp; 📦 最大ファイル: <strong>JournalView.swift</strong> (2328 行)
+  📝 総行数: <strong>42,144</strong> &nbsp;•&nbsp; � Swiftコード: <strong>27,119</strong> &nbsp;•&nbsp; �📦 最大ファイル: <strong>JournalView.swift</strong> (2,328 行)
 </p>
 
 <sub>Stats 自動更新</sub>
+
+<br>
+
+| アプリ規模 | 行数 | 
+|:----------:|:----:|
+| 小規模 | 5,000〜15,000 |
+| 中規模 | 15,000〜50,000 |
+| 大規模 | 50,000〜200,000 |
+| 超大規模 | 200,000〜 |
+
+<p align="center">
+  <strong>🎯 lifelog = 中規模〜大規模アプリの境目</strong>
+</p>
 
 > *AIが生成した **42,000行** のコード。リファクタリング？無理無理（絶望）*
 
