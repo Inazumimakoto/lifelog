@@ -2298,18 +2298,20 @@ private struct ReviewMapView: View {
                 interactionModes: .all,
                 selection: $selectedEntry) {
                 ForEach(entries) { entry in
-                    Marker(entry.name, coordinate: entry.coordinate)
-                        .tag(entry)
-                    Annotation("", coordinate: entry.coordinate, anchor: .bottom) {
-                        Text(entry.date.jaMonthDayString)
-                            .font(.system(size: 9, weight: .semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 5)
-                            .padding(.vertical, 1)
-                            .background(.black.opacity(0.7), in: Capsule())
-                            .offset(y: -24)
-                            .allowsHitTesting(false)
+                    Annotation(entry.name, coordinate: entry.coordinate) {
+                        VStack(spacing: 4) {
+                            Text(entry.date.jaMonthDayString)
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(.black.opacity(0.7), in: Capsule())
+                            Image(systemName: "mappin.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(.red)
+                        }
                     }
+                    .tag(entry)
                 }
             }
             .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
