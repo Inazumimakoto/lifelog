@@ -526,31 +526,59 @@ private struct DiaryPhotoThumbnailList: View, Equatable {
 
     var body: some View {
         ForEach(Array(photoPaths.enumerated()), id: \.offset) { index, path in
-            if let image = PhotoStorage.loadImage(at: path) {
-                let isFavorite = favoritePhotoPath == path
-                image
+            let isFavorite = favoritePhotoPath == path
+            DiaryPhotoThumbnailItem(
+                path: path,
+                index: index,
+                isFavorite: isFavorite,
+                onSetFavorite: onSetFavorite,
+                onOpen: onOpen
+            )
+        }
+    }
+}
+
+// 個別のサムネイルアイテム（非同期読み込み）
+private struct DiaryPhotoThumbnailItem: View {
+    let path: String
+    let index: Int
+    let isFavorite: Bool
+    let onSetFavorite: (Int) -> Void
+    let onOpen: (Int) -> Void
+    
+    @State private var thumbnail: UIImage?
+    
+    var body: some View {
+        Group {
+            if let thumbnail = thumbnail {
+                Image(uiImage: thumbnail)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
-                    .frame(width: 80, height: 80)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(alignment: .topLeading) {
-                        Button {
-                            onSetFavorite(index)
-                        } label: {
-                            Image(systemName: isFavorite ? "star.fill" : "star")
-                                .font(.caption)
-                                .foregroundStyle(isFavorite ? Color.yellow : Color.white)
-                                .padding(6)
-                                .background(.black.opacity(0.5), in: Circle())
-                                .symbolEffect(.bounce, value: isFavorite)
-                        }
-                        .offset(x: -8, y: -8)
-                        .buttonStyle(.plain)
-                    }
-                    .onTapGesture {
-                        onOpen(index)
-                    }
+            } else {
+                ProgressView()
             }
+        }
+        .frame(width: 80, height: 80)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(alignment: .topLeading) {
+            Button {
+                onSetFavorite(index)
+            } label: {
+                Image(systemName: isFavorite ? "star.fill" : "star")
+                    .font(.caption)
+                    .foregroundStyle(isFavorite ? Color.yellow : Color.white)
+                    .padding(6)
+                    .background(.black.opacity(0.5), in: Circle())
+                    .symbolEffect(.bounce, value: isFavorite)
+            }
+            .offset(x: -8, y: -8)
+            .buttonStyle(.plain)
+        }
+        .onTapGesture {
+            onOpen(index)
+        }
+        .task {
+            thumbnail = await PhotoStorage.loadThumbnail(at: path)
         }
     }
 }

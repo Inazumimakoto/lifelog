@@ -28,22 +28,8 @@ struct DiaryPhotoViewerView: View {
             if viewModel.entry.photoPaths.isEmpty == false {
                 TabView(selection: $currentIndex) {
                     ForEach(Array(viewModel.entry.photoPaths.enumerated()), id: \.offset) { index, path in
-                        if let image = PhotoStorage.loadImage(at: path) {
-                            image
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .background(Color.black)
-                                .tag(index)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        chromeVisible.toggle()
-                                    }
-                                }
-                        } else {
-                            Color.black.tag(index)
-                        }
+                        FullImagePage(path: path, chromeVisible: $chromeVisible)
+                            .tag(index)
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .automatic))
@@ -126,6 +112,42 @@ struct DiaryPhotoViewerView: View {
             dismiss()
         } else {
             currentIndex = min(currentIndex, remaining - 1)
+        }
+    }
+}
+
+// 非同期でフルサイズ画像を読み込むページ
+private struct FullImagePage: View {
+    let path: String
+    @Binding var chromeVisible: Bool
+    
+    @State private var image: UIImage?
+    @State private var isLoading = true
+    
+    var body: some View {
+        Group {
+            if let image = image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if isLoading {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+            } else {
+                Color.black
+            }
+        }
+        .background(Color.black)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                chromeVisible.toggle()
+            }
+        }
+        .task {
+            image = await PhotoStorage.loadFullImage(at: path)
+            isLoading = false
         }
     }
 }

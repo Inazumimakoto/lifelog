@@ -940,66 +940,12 @@ struct JournalView: View {
         return LazyVGrid(columns: columns, spacing: 6) {
             ForEach(days) { day in
                 let isSelected = selectedReviewDate?.isSameDay(as: day.date) ?? false
-                let favoriteImage: Image? = day.diary?.favoritePhotoPath.flatMap { PhotoStorage.loadImage(at: $0) }
-                let moodEmoji = day.diary?.mood?.emoji
-                let shouldShowMood = showMoodOnReviewCalendar && moodEmoji != nil
-                let dateForSelection = day.date
-                let hasPhoto = favoriteImage != nil
-                
-                ZStack(alignment: .topLeading) {
-                    // Background: Photo or empty
-                    if let image = favoriteImage {
-                        image
-                            .resizable()
-                            .scaledToFill()
-                            .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
-                    } else {
-                        Color.clear
-                    }
-                    
-                    // Overlay: Date and mood
-                    ZStack(alignment: .top) {
-                        Text("\(Calendar.current.component(.day, from: day.date))")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(hasPhoto ? .white : (day.isWithinDisplayedMonth ? .primary : .secondary))
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 2)
-                            .background(
-                                hasPhoto ? Color.black.opacity(0.4) : Color.clear,
-                                in: RoundedRectangle(cornerRadius: 4)
-                            )
-                            .frame(maxWidth: .infinity, alignment: .topLeading)
-                        
-                        if shouldShowMood {
-                            Text(moodEmoji!)
-                                .font(.caption2)
-                                .padding(2)
-                                .background(
-                                    hasPhoto ? Color.black.opacity(0.4) : Color.clear,
-                                    in: Circle()
-                                )
-                                .frame(maxWidth: .infinity, alignment: .topTrailing)
-                        }
-                    }
-                    .padding(4)
-                }
-                .frame(height: 88)
-                .background(
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(day.isToday ? Color.accentColor.opacity(0.12) : Color(.systemGray6))
+                ReviewDayCell(
+                    day: day,
+                    isSelected: isSelected,
+                    showMoodOnReviewCalendar: showMoodOnReviewCalendar,
+                    onTap: { openDayDetail(for: day.date) }
                 )
-                .clipShape(RoundedRectangle(cornerRadius: 10))
-                .overlay(alignment: .center) {
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.accentColor, lineWidth: 2)
-                    }
-                }
-                .opacity(day.isWithinDisplayedMonth ? 1.0 : 0.35)
-                .contentShape(Rectangle())
-                .onTapGesture {
-                    openDayDetail(for: dateForSelection)
-                }
             }
         }
         .animation(.easeInOut, value: selectedReviewDate)
@@ -2227,20 +2173,15 @@ private struct ReviewDetailPanel: View {
             if let diary, photoPaths.isEmpty == false {
                 TabView(selection: $photoSelection) {
                     ForEach(Array(photoPaths.enumerated()), id: \.offset) { index, path in
-                        if let image = PhotoStorage.loadImage(at: path) {
-                            image
-                                .resizable()
-                                .scaledToFill()
-                                .onTapGesture {
-                                    selectedPhotoIndex = index
-                                    showPhotoViewer = true
-                                }
-                                .frame(height: 220)
-                                .frame(maxWidth: .infinity)
-                                .clipped()
-                                .cornerRadius(12)
-                                .tag(index)
-                        }
+                        DetailPanelPhotoPage(
+                            path: path,
+                            index: index,
+                            onTap: {
+                                selectedPhotoIndex = index
+                                showPhotoViewer = true
+                            }
+                        )
+                        .tag(index)
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .automatic))
@@ -2323,6 +2264,119 @@ private struct ReviewDetailPanel: View {
         case 4: return "🙂"
         case 5: return "💪"
         default: return "😐"
+        }
+    }
+}
+
+// MARK: - Review Day Cell (非同期サムネイル対応)
+private struct ReviewDayCell: View {
+    let day: JournalViewModel.CalendarDay
+    let isSelected: Bool
+    let showMoodOnReviewCalendar: Bool
+    let onTap: () -> Void
+    
+    @State private var thumbnail: UIImage?
+    
+    private var hasPhoto: Bool { thumbnail != nil }
+    private var moodEmoji: String? { day.diary?.mood?.emoji }
+    private var shouldShowMood: Bool { showMoodOnReviewCalendar && moodEmoji != nil }
+    
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            // Background: Photo or empty
+            if let thumbnail = thumbnail {
+                Image(uiImage: thumbnail)
+                    .resizable()
+                    .scaledToFill()
+                    .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+            } else {
+                Color.clear
+            }
+            
+            // Overlay: Date and mood
+            ZStack(alignment: .top) {
+                Text("\(Calendar.current.component(.day, from: day.date))")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(hasPhoto ? .white : (day.isWithinDisplayedMonth ? .primary : .secondary))
+                    .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
+                    .background(
+                        hasPhoto ? Color.black.opacity(0.4) : Color.clear,
+                        in: RoundedRectangle(cornerRadius: 4)
+                    )
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
+                
+                if shouldShowMood {
+                    Text(moodEmoji!)
+                        .font(.caption2)
+                        .padding(2)
+                        .background(
+                            hasPhoto ? Color.black.opacity(0.4) : Color.clear,
+                            in: Circle()
+                        )
+                        .frame(maxWidth: .infinity, alignment: .topTrailing)
+                }
+            }
+            .padding(4)
+        }
+        .frame(height: 88)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(day.isToday ? Color.accentColor.opacity(0.12) : Color(.systemGray6))
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(alignment: .center) {
+            if isSelected {
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.accentColor, lineWidth: 2)
+            }
+        }
+        .opacity(day.isWithinDisplayedMonth ? 1.0 : 0.35)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onTap()
+        }
+        .task {
+            if let path = day.diary?.favoritePhotoPath {
+                thumbnail = await PhotoStorage.loadThumbnail(at: path)
+            }
+        }
+    }
+}
+
+// MARK: - Detail Panel Photo Page (非同期読み込み)
+private struct DetailPanelPhotoPage: View {
+    let path: String
+    let index: Int
+    let onTap: () -> Void
+    
+    @State private var image: UIImage?
+    @State private var isLoading = true
+    
+    var body: some View {
+        Group {
+            if let image = image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else if isLoading {
+                ProgressView()
+            } else {
+                Color.gray.opacity(0.3)
+            }
+        }
+        .frame(height: 220)
+        .frame(maxWidth: .infinity)
+        .clipped()
+        .cornerRadius(12)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onTap()
+        }
+        .task {
+            // 詳細パネルではやや大きめの画像が必要なのでサムネイルでなくフルを使用
+            image = await PhotoStorage.loadThumbnail(at: path)
+            isLoading = false
         }
     }
 }
