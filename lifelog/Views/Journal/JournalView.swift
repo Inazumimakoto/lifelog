@@ -1787,8 +1787,8 @@ private struct CalendarDetailPanel: View {
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
-                                if let location = entry.locationName {
-                                    Label(location, systemImage: "mappin.and.ellipse")
+                                if let locationLabel = locationLabel(for: entry) {
+                                    Label(locationLabel, systemImage: "mappin.and.ellipse")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -1961,6 +1961,19 @@ private struct CalendarDetailPanel: View {
         default: emoji = "😫"
         }
         return "\(emoji) \(score)"
+    }
+
+    private func locationLabel(for entry: DiaryEntry) -> String? {
+        if let first = entry.locations.first {
+            if entry.locations.count > 1 {
+                return "\(first.name) ほか\(entry.locations.count - 1)件"
+            }
+            return first.name
+        }
+        if let name = entry.locationName, name.isEmpty == false {
+            return name
+        }
+        return nil
     }
 }
 
@@ -2195,6 +2208,19 @@ private struct ReviewDetailPanel: View {
         self._didInitReviewPhotoIndex = didInitReviewPhotoIndex
         self._reviewPhotoIndex = reviewPhotoIndex
     }
+
+    private func locationLabel(for entry: DiaryEntry) -> String? {
+        if let first = entry.locations.first {
+            if entry.locations.count > 1 {
+                return "\(first.name) ほか\(entry.locations.count - 1)件"
+            }
+            return first.name
+        }
+        if let name = entry.locationName, name.isEmpty == false {
+            return name
+        }
+        return nil
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -2230,7 +2256,7 @@ private struct ReviewDetailPanel: View {
                     }
                     .foregroundStyle(.primary)
                 }
-                if let place = diary.locationName, place.isEmpty == false {
+                if let place = locationLabel(for: diary) {
                     Label(place, systemImage: "mappin.and.ellipse")
                         .foregroundStyle(.primary)
                 }

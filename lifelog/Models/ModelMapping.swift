@@ -54,12 +54,18 @@ extension SDTask {
 // MARK: - DiaryEntry Mapping
 extension DiaryEntry {
     init(sd: SDDiaryEntry) {
+        let decodedLocations = DiaryLocationCoding.decode(sd.locationsData)
+        let legacyLocation = DiaryLocationCoding.legacyLocation(name: sd.locationName,
+                                                                latitude: sd.latitude,
+                                                                longitude: sd.longitude)
+        let locations = decodedLocations.isEmpty ? legacyLocation : decodedLocations
         self.init(
             id: sd.id,
             date: sd.date,
             text: sd.text,
             mood: sd.mood,
             conditionScore: sd.conditionScore,
+            locations: locations,
             locationName: sd.locationName,
             latitude: sd.latitude,
             longitude: sd.longitude,
@@ -77,6 +83,7 @@ extension SDDiaryEntry {
             text: domain.text,
             mood: domain.mood,
             conditionScore: domain.conditionScore,
+            locationsData: DiaryLocationCoding.encode(domain.locations),
             locationName: domain.locationName,
             latitude: domain.latitude,
             longitude: domain.longitude,
@@ -90,11 +97,35 @@ extension SDDiaryEntry {
         self.text = domain.text
         self.mood = domain.mood
         self.conditionScore = domain.conditionScore
+        self.locationsData = DiaryLocationCoding.encode(domain.locations)
         self.locationName = domain.locationName
         self.latitude = domain.latitude
         self.longitude = domain.longitude
         self.photoPaths = domain.photoPaths
         self.favoritePhotoPath = domain.favoritePhotoPath
+    }
+}
+
+private enum DiaryLocationCoding {
+    static func encode(_ locations: [DiaryLocation]) -> Data? {
+        guard locations.isEmpty == false else { return nil }
+        return try? JSONEncoder().encode(locations)
+    }
+
+    static func decode(_ data: Data?) -> [DiaryLocation] {
+        guard let data else { return [] }
+        return (try? JSONDecoder().decode([DiaryLocation].self, from: data)) ?? []
+    }
+
+    static func legacyLocation(name: String?, latitude: Double?, longitude: Double?) -> [DiaryLocation] {
+        guard let name, let latitude, let longitude else { return [] }
+        return [
+            DiaryLocation(name: name,
+                          address: nil,
+                          latitude: latitude,
+                          longitude: longitude,
+                          mapItemURL: nil)
+        ]
     }
 }
 

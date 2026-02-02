@@ -16,10 +16,9 @@ struct DiaryEditorView: View {
     @StateObject private var viewModel: DiaryViewModel
     @ObservedObject private var tagManager = EmotionTagManager.shared
     @State private var selection: [PhotosPickerItem] = []
-    @State private var selectedCoordinate: CLLocationCoordinate2D?
-    @State private var selectedPlaceName: String = ""
     @State private var draftText: String = ""
-    @State private var showMapPicker = false
+    @State private var showLocationPicker = false
+    @State private var pendingLocationSelection: DiaryLocation?
     @State private var selectedPhoto: PhotoSelection?
     @State private var showTagManager = false
     @State private var isTagSectionExpanded = false
@@ -97,12 +96,7 @@ struct DiaryEditorView: View {
                 }
         )
         .onAppear {
-            selectedPlaceName = viewModel.entry.locationName ?? ""
             draftText = viewModel.entry.text
-            if let lat = viewModel.entry.latitude,
-               let lon = viewModel.entry.longitude {
-                selectedCoordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
-            }
             // 日記リマインダー設定を読み込み
             diaryReminderEnabled = viewModel.store.diaryReminderEnabled
             let calendar = Calendar.current
@@ -159,6 +153,18 @@ struct DiaryEditorView: View {
                 }
             }
         }
+        .sheet(isPresented: $showLocationPicker, onDismiss: {
+            if let pendingLocationSelection {
+                viewModel.addLocation(pendingLocationSelection)
+                self.pendingLocationSelection = nil
+            }
+        }) {
+            DiaryLocationPickerView(isPresented: $showLocationPicker,
+                                    initialCoordinate: locationSeedCoordinate) { location in
+                pendingLocationSelection = location
+            }
+            .presentationDetents([.large])
+        }
         .onChange(of: devPCPrompt) { _, newValue in
             if !newValue.isEmpty {
                 showDevPCSheet = true
@@ -180,14 +186,6 @@ struct DiaryEditorView: View {
         HapticManager.light()
         viewModel.loadEntry(for: newDate)
         draftText = viewModel.entry.text
-        // 位置情報をリセット
-        selectedPlaceName = viewModel.entry.locationName ?? ""
-        if let lat = viewModel.entry.latitude,
-           let lon = viewModel.entry.longitude {
-            selectedCoordinate = CLLocationCoordinate2D(latitude: lat, longitude: lon)
-        } else {
-            selectedCoordinate = nil
-        }
     }
 
     private var moodBinding: Binding<MoodLevel> {
@@ -405,35 +403,40 @@ struct DiaryEditorView: View {
 
     private var locationSection: some View {
         Section("場所") {
-            if let coordinate = selectedCoordinate {
-                DiaryLocationMapView(coordinate: coordinate)
-                    .frame(height: 120)
-                    .cornerRadius(12)
-            } else {
-                Text("訪れた場所を保存しておきましょう。下のボタンからマップを開いて選択できます。")
+            // docs/requirements.md §4.4 日記: 位置情報ログ
+            if viewModel.entry.locations.isEmpty {
+                Text("訪れた場所を残しておきましょう。地図を動かしてお店やスポットを選べます。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            }
-            TextField("場所を入力", text: $selectedPlaceName)
-                .onChange(of: selectedPlaceName) {
-                    viewModel.update(locationName: selectedPlaceName.isEmpty ? nil : selectedPlaceName,
-                                     coordinate: selectedCoordinate)
+            } else {
+                DiaryLocationsMapView(locations: viewModel.entry.locations)
+                    .frame(height: 120)
+                    .cornerRadius(12)
+                VStack(spacing: 8) {
+                    ForEach(viewModel.entry.locations) { location in
+                        DiaryLocationRow(location: location) {
+                            viewModel.removeLocation(id: location.id)
+                        }
+                    }
                 }
+            }
             Button {
-                showMapPicker = true
+                showLocationPicker = true
             } label: {
-                Label("マップから選ぶ", systemImage: "mappin.and.ellipse")
+                Label("場所を追加", systemImage: "mappin.and.ellipse")
             }
         }
-        .sheet(isPresented: $showMapPicker) {
-            LocationSearchView { item in
-                selectedPlaceName = item.name ?? ""
-                selectedCoordinate = item.placemark.coordinate
-                viewModel.update(locationName: selectedPlaceName,
-                                 coordinate: selectedCoordinate)
-            }
-            .presentationDetents([.medium, .large])
+    }
+
+    private var locationSeedCoordinate: CLLocationCoordinate2D {
+        if let location = viewModel.entry.locations.last {
+            return location.coordinate
         }
+        if let lat = viewModel.entry.latitude, let lon = viewModel.entry.longitude {
+            return CLLocationCoordinate2D(latitude: lat, longitude: lon)
+        }
+        return viewModel.recentLocationCoordinate()
+            ?? CLLocationCoordinate2D(latitude: 35.681236, longitude: 139.767125)
     }
 
     private var photosSection: some View {
@@ -530,18 +533,71 @@ struct DiaryEditorView: View {
     }
 }
 
-private struct DiaryLocationMapView: View, Equatable {
-    let coordinate: CLLocationCoordinate2D
+private struct DiaryLocationsMapView: View, Equatable {
+    let locations: [DiaryLocation]
 
-    static func ==(lhs: DiaryLocationMapView, rhs: DiaryLocationMapView) -> Bool {
-        lhs.coordinate.latitude == rhs.coordinate.latitude
-            && lhs.coordinate.longitude == rhs.coordinate.longitude
+    static func ==(lhs: DiaryLocationsMapView, rhs: DiaryLocationsMapView) -> Bool {
+        lhs.locations == rhs.locations
     }
 
     var body: some View {
-        Map(initialPosition: .region(MKCoordinateRegion(center: coordinate,
-                                                        span: MKCoordinateSpan(latitudeDelta: 0.01,
-                                                                               longitudeDelta: 0.01))))
+        Map(initialPosition: .region(region(for: locations)), interactionModes: []) {
+            ForEach(locations) { location in
+                Marker(location.name, coordinate: location.coordinate)
+            }
+        }
+        .mapStyle(.standard(elevation: .flat))
+    }
+
+    private func region(for locations: [DiaryLocation]) -> MKCoordinateRegion {
+        guard let first = locations.first else {
+            return MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 35.681236, longitude: 139.767125),
+                                      span: MKCoordinateSpan(latitudeDelta: 0.02, longitudeDelta: 0.02))
+        }
+        if locations.count == 1 {
+            return MKCoordinateRegion(center: first.coordinate,
+                                      span: MKCoordinateSpan(latitudeDelta: 0.01, longitudeDelta: 0.01))
+        }
+        let latitudes = locations.map { $0.latitude }
+        let longitudes = locations.map { $0.longitude }
+        let minLat = latitudes.min() ?? first.latitude
+        let maxLat = latitudes.max() ?? first.latitude
+        let minLon = longitudes.min() ?? first.longitude
+        let maxLon = longitudes.max() ?? first.longitude
+        let center = CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2,
+                                            longitude: (minLon + maxLon) / 2)
+        let span = MKCoordinateSpan(latitudeDelta: max(0.01, (maxLat - minLat) * 1.8),
+                                    longitudeDelta: max(0.01, (maxLon - minLon) * 1.8))
+        return MKCoordinateRegion(center: center, span: span)
+    }
+}
+
+private struct DiaryLocationRow: View {
+    let location: DiaryLocation
+    let onRemove: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(location.name)
+                    .font(.body)
+                if let address = location.address, address.isEmpty == false {
+                    Text(address)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            Button {
+                onRemove()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(10)
+        .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
     }
 }
 

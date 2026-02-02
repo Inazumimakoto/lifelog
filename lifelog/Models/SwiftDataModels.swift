@@ -51,6 +51,7 @@ final class SDDiaryEntry {
     var text: String
     var mood: MoodLevel?
     var conditionScore: Int?
+    var locationsData: Data?
     var locationName: String?
     var latitude: Double?
     var longitude: Double?
@@ -62,6 +63,7 @@ final class SDDiaryEntry {
          text: String,
          mood: MoodLevel? = .neutral,
          conditionScore: Int? = 3,
+         locationsData: Data? = nil,
          locationName: String? = nil,
          latitude: Double? = nil,
          longitude: Double? = nil,
@@ -72,6 +74,7 @@ final class SDDiaryEntry {
         self.text = text
         self.mood = mood
         self.conditionScore = conditionScore
+        self.locationsData = locationsData
         self.locationName = locationName
         self.latitude = latitude
         self.longitude = longitude

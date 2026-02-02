@@ -52,7 +52,7 @@
 
 ### 4.4 日記 (Diary)
 - 1 日に 1 件 or 複数エントリ
-- 入力: テキスト (初期値は空)、写真(最大 50 枚、PhotosPicker から取得し Documents 保存)、気分スコア(1~5)、体調(5段階・絵文字)、位置情報 (MapKit 検索 + 訪れた場所説明文)
+- 入力: テキスト (初期値は空)、写真(最大 50 枚、PhotosPicker から取得し Documents 保存)、気分スコア(1~5)、体調(5段階・絵文字)、位置情報 (地図を動かして複数スポットを選択・保存)
 - 体調/気分/睡眠/歩数の相関を Health 画面にグラフとして表示
 
 ### 4.5 カレンダー詳細 (Bujo)
@@ -94,7 +94,7 @@
 | エンティティ | 主なフィールド |
 | --- | --- |
 | Task | id(UUID), title, detail, dueDate, priority(Int 1~3), isCompleted |
-| DiaryEntry | id, date, text, mood(Int 1~5), conditionScore, photoPaths([String]), locationName, latitude, longitude |
+| DiaryEntry | id, date, text, mood(Int 1~5), conditionScore, photoPaths([String]), locations([DiaryLocation]), locationName, latitude, longitude |
 | Habit | id, title, iconName, colorHex, schedule(HabitSchedule) |
 | HabitRecord | id, habitID, date, isCompleted |
 | Anniversary | id, title, targetDate, type(countdown/since), repeatsYearly |

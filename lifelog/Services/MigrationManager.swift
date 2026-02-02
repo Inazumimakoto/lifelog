@@ -59,18 +59,7 @@ class MigrationManager {
                  // normalization logic from AppDataStore
                  let normalizedItems = AppDataStore.normalizeDiaryEntries(items)
                 for item in normalizedItems {
-                    let newItem = SDDiaryEntry(
-                        id: item.id,
-                        date: item.date,
-                        text: item.text,
-                        mood: item.mood,
-                        conditionScore: item.conditionScore,
-                        locationName: item.locationName,
-                        latitude: item.latitude,
-                        longitude: item.longitude,
-                        photoPaths: item.photoPaths,
-                        favoritePhotoPath: item.favoritePhotoPath
-                    )
+                    let newItem = SDDiaryEntry(domain: item)
                     modelContext.insert(newItem)
                 }
             }

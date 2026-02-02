@@ -94,7 +94,50 @@ final class DiaryViewModel: ObservableObject {
         entry.locationName = locationName
         entry.latitude = coordinate?.latitude
         entry.longitude = coordinate?.longitude
+        if let locationName, let coordinate {
+            if entry.locations.isEmpty {
+                entry.locations = [
+                    DiaryLocation(name: locationName,
+                                  address: nil,
+                                  latitude: coordinate.latitude,
+                                  longitude: coordinate.longitude,
+                                  mapItemURL: nil)
+                ]
+            } else {
+                entry.locations[0].name = locationName
+                entry.locations[0].latitude = coordinate.latitude
+                entry.locations[0].longitude = coordinate.longitude
+            }
+        } else if entry.locations.isEmpty == false {
+            entry.locations = []
+        }
         persist()
+    }
+
+    func addLocation(_ location: DiaryLocation) {
+        guard entry.locations.contains(location) == false else { return }
+        entry.locations.append(location)
+        syncPrimaryLocation()
+        persist()
+    }
+
+    func removeLocation(id: UUID) {
+        entry.locations.removeAll { $0.id == id }
+        syncPrimaryLocation()
+        persist()
+    }
+
+    func recentLocationCoordinate() -> CLLocationCoordinate2D? {
+        let sorted = store.diaryEntries.sorted { $0.date > $1.date }
+        for entry in sorted {
+            if let location = entry.locations.first {
+                return location.coordinate
+            }
+            if let lat = entry.latitude, let lon = entry.longitude {
+                return CLLocationCoordinate2D(latitude: lat, longitude: lon)
+            }
+        }
+        return nil
     }
 
     func addPhoto(data: Data) {
@@ -182,6 +225,18 @@ final class DiaryViewModel: ObservableObject {
         guard kept.count != original.count else { return }
         entry.photoPaths = kept
         persist()
+    }
+
+    private func syncPrimaryLocation() {
+        if let first = entry.locations.first {
+            entry.locationName = first.name
+            entry.latitude = first.latitude
+            entry.longitude = first.longitude
+        } else {
+            entry.locationName = nil
+            entry.latitude = nil
+            entry.longitude = nil
+        }
     }
     
     // MARK: - Debounce Methods

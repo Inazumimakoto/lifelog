@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import EventKit
+import CoreLocation
 
 // MARK: - Enumerations
 
@@ -214,12 +215,40 @@ struct Task: Identifiable, Codable, Hashable {
     }
 }
 
+struct DiaryLocation: Identifiable, Codable, Hashable {
+    let id: UUID
+    var name: String
+    var address: String?
+    var latitude: Double
+    var longitude: Double
+    var mapItemURL: String?
+
+    init(id: UUID = UUID(),
+         name: String,
+         address: String?,
+         latitude: Double,
+         longitude: Double,
+         mapItemURL: String?) {
+        self.id = id
+        self.name = name
+        self.address = address
+        self.latitude = latitude
+        self.longitude = longitude
+        self.mapItemURL = mapItemURL
+    }
+
+    var coordinate: CLLocationCoordinate2D {
+        CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+}
+
 struct DiaryEntry: Identifiable, Codable, Hashable {
     let id: UUID
     var date: Date
     var text: String
     var mood: MoodLevel?
     var conditionScore: Int?
+    var locations: [DiaryLocation]
     var locationName: String?
     var latitude: Double?
     var longitude: Double?
@@ -232,6 +261,7 @@ struct DiaryEntry: Identifiable, Codable, Hashable {
          text: String,
          mood: MoodLevel? = .neutral,
          conditionScore: Int? = 3,
+         locations: [DiaryLocation] = [],
          locationName: String? = nil,
          latitude: Double? = nil,
          longitude: Double? = nil,
@@ -242,6 +272,17 @@ struct DiaryEntry: Identifiable, Codable, Hashable {
         self.text = text
         self.mood = mood
         self.conditionScore = conditionScore
+        if locations.isEmpty, let name = locationName, let lat = latitude, let lon = longitude {
+            self.locations = [
+                DiaryLocation(name: name,
+                              address: nil,
+                              latitude: lat,
+                              longitude: lon,
+                              mapItemURL: nil)
+            ]
+        } else {
+            self.locations = locations
+        }
         self.locationName = locationName
         self.latitude = latitude
         self.longitude = longitude
