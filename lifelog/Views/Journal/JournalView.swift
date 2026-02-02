@@ -1030,7 +1030,7 @@ struct JournalView: View {
     }
 
     private var reviewMap: some View {
-        ReviewMapView(entries: reviewMapEntries(for: reviewMapPeriod),
+        ReviewMapView(groups: reviewMapGroups(for: reviewMapPeriod),
                       period: $reviewMapPeriod,
                       onOpenDiary: { openDiaryEditor(for: $0) })
     }
@@ -1044,7 +1044,7 @@ struct JournalView: View {
         return 0
     }
 
-    private func reviewMapEntries(for period: ReviewMapPeriod) -> [ReviewLocationEntry] {
+    private func reviewMapGroups(for period: ReviewMapPeriod) -> [ReviewLocationGroup] {
         let calendar = Calendar.current
         let anchor = selectedReviewDate ?? viewModel.monthAnchor
         let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: anchor)) ?? anchor
@@ -1083,7 +1083,19 @@ struct JournalView: View {
                 results.append(ReviewLocationEntry(date: entryDate, location: location))
             }
         }
-        return results.sorted { $0.date > $1.date }
+        var grouped: [String: ReviewLocationGroupBuilder] = [:]
+        for entry in results {
+            let key = ReviewLocationGroupBuilder.makeKey(for: entry.location)
+            if var existing = grouped[key] {
+                existing.dates.append(entry.date)
+                grouped[key] = existing
+            } else {
+                grouped[key] = ReviewLocationGroupBuilder(location: entry.location, dates: [entry.date])
+            }
+        }
+        return grouped.values
+            .map { ReviewLocationGroup(id: $0.id, location: $0.location, dates: $0.dates) }
+            .sorted { $0.latestDate > $1.latestDate }
     }
 
     private func conditionEmoji(for score: Int) -> String {
@@ -2274,19 +2286,45 @@ private struct ReviewLocationEntry: Identifiable, Hashable {
         self.location = location
         self.id = "\(date.timeIntervalSince1970)-\(location.id.uuidString)"
     }
+}
+
+private struct ReviewLocationGroup: Identifiable, Hashable {
+    let id: String
+    let location: DiaryLocation
+    let dates: [Date]
 
     var name: String { location.name }
     var address: String? { location.address }
     var coordinate: CLLocationCoordinate2D { location.coordinate }
+    var count: Int { dates.count }
+    var latestDate: Date { dates.max() ?? Date.distantPast }
+}
+
+private struct ReviewLocationGroupBuilder {
+    let id: String
+    let location: DiaryLocation
+    var dates: [Date]
+
+    init(location: DiaryLocation, dates: [Date]) {
+        self.location = location
+        self.dates = dates
+        self.id = Self.makeKey(for: location)
+    }
+
+    static func makeKey(for location: DiaryLocation) -> String {
+        let lat = (location.latitude * 10_000).rounded() / 10_000
+        let lon = (location.longitude * 10_000).rounded() / 10_000
+        return "\(location.name)|\(lat)|\(lon)"
+    }
 }
 
 private struct ReviewMapView: View {
-    let entries: [ReviewLocationEntry]
+    let groups: [ReviewLocationGroup]
     @Binding var period: ReviewMapPeriod
     let onOpenDiary: (Date) -> Void
 
     @State private var cameraPosition: MapCameraPosition = .region(Self.defaultRegion)
-    @State private var selectedEntry: ReviewLocationEntry?
+    @State private var selectedGroup: ReviewLocationGroup?
     @State private var hasAppliedRegion = false
 
     private static let defaultRegion = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 36.2048, longitude: 138.2529),
@@ -2296,22 +2334,32 @@ private struct ReviewMapView: View {
         VStack(spacing: 12) {
             Map(position: $cameraPosition,
                 interactionModes: .all,
-                selection: $selectedEntry) {
-                ForEach(entries) { entry in
-                    Annotation(entry.name, coordinate: entry.coordinate) {
+                selection: $selectedGroup) {
+                ForEach(groups) { group in
+                    Annotation(group.name, coordinate: group.coordinate) {
                         VStack(spacing: 2) {
-                            Text(entry.date.jaMonthDayString)
-                                .font(.system(size: 9, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1)
-                                .background(.black.opacity(0.7), in: Capsule())
+                            HStack(spacing: 4) {
+                                Text(group.latestDate.jaMonthDayString)
+                                    .font(.system(size: 9, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 1)
+                                    .background(.black.opacity(0.7), in: Capsule())
+                                if group.count > 1 {
+                                    Text("×\(group.count)")
+                                        .font(.system(size: 8, weight: .semibold))
+                                        .foregroundStyle(.white)
+                                        .padding(.horizontal, 4)
+                                        .padding(.vertical, 1)
+                                        .background(.black.opacity(0.7), in: Capsule())
+                                }
+                            }
                             Image(systemName: "mappin.circle.fill")
                                 .font(.title2)
                                 .foregroundStyle(.red)
                         }
                     }
-                    .tag(entry)
+                    .tag(group)
                 }
             }
             .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
@@ -2320,10 +2368,10 @@ private struct ReviewMapView: View {
                     .padding(.top, 8)
                     .padding(.trailing, 12)
             }
-            .onChange(of: selectedEntry) { _, newValue in
-                guard let entry = newValue else { return }
-                onOpenDiary(entry.date)
-                selectedEntry = nil
+            .onChange(of: selectedGroup) { _, newValue in
+                guard let group = newValue else { return }
+                onOpenDiary(group.latestDate)
+                selectedGroup = nil
             }
             .onAppear {
                 applyRegion(force: true)
@@ -2331,12 +2379,12 @@ private struct ReviewMapView: View {
             .onChange(of: period) { _, _ in
                 applyRegion(force: true)
             }
-            .onChange(of: entries) { _, _ in
+            .onChange(of: groups) { _, _ in
                 applyRegion(force: true)
             }
             .frame(minHeight: 420)
 
-            if entries.isEmpty {
+            if groups.isEmpty {
                 emptyState
             } else {
                 listSheet
@@ -2390,19 +2438,26 @@ private struct ReviewMapView: View {
                 .padding(.top, 8)
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    ForEach(entries) { entry in
+                    ForEach(groups) { group in
                         Button {
-                            onOpenDiary(entry.date)
+                            onOpenDiary(group.latestDate)
                         } label: {
                             HStack(alignment: .top, spacing: 12) {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(entry.name)
+                                    Text(group.name)
                                         .font(.body.weight(.semibold))
                                         .foregroundStyle(.primary)
                                         .lineLimit(1)
-                                    Text(entry.date.jaMonthDayString)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                    HStack(spacing: 6) {
+                                        Text(group.latestDate.jaMonthDayString)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        if group.count > 1 {
+                                            Text("×\(group.count)")
+                                                .font(.caption2.weight(.semibold))
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
@@ -2425,12 +2480,12 @@ private struct ReviewMapView: View {
 
     private func applyRegion(force: Bool) {
         guard force || hasAppliedRegion == false else { return }
-        let region = regionForEntries(entries)
+        let region = regionForEntries(groups)
         cameraPosition = .region(region)
         hasAppliedRegion = true
     }
 
-    private func regionForEntries(_ items: [ReviewLocationEntry]) -> MKCoordinateRegion {
+    private func regionForEntries(_ items: [ReviewLocationGroup]) -> MKCoordinateRegion {
         guard let first = items.first else { return Self.defaultRegion }
         var minLat = first.coordinate.latitude
         var maxLat = first.coordinate.latitude
