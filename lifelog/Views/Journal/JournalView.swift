@@ -2337,7 +2337,7 @@ private struct ReviewMapView: View {
                 selection: $selectedGroup) {
                 ForEach(groups) { group in
                     Annotation(group.name, coordinate: group.coordinate) {
-                        VStack(spacing: 2) {
+                        VStack(spacing: 0) {
                             HStack(spacing: 4) {
                                 Text(group.latestDate.jaMonthDayString)
                                     .font(.system(size: 9, weight: .semibold))
@@ -2354,6 +2354,7 @@ private struct ReviewMapView: View {
                                         .background(.black.opacity(0.7), in: Capsule())
                                 }
                             }
+                            .padding(.bottom, -2)
                             Image(systemName: "mappin.circle.fill")
                                 .font(.title2)
                                 .foregroundStyle(.red)
