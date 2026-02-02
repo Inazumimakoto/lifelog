@@ -384,14 +384,16 @@ struct JournalView: View {
                 } else {
                     reviewModePicker
                 }
-                if activeDisplayMode == .month {
-                    weekdayHeader
-                        .padding(.horizontal, 4)
-                } else if activeDisplayMode == .week {
-                    weekdayHeader
-                        .padding(.horizontal, 4)
+                if calendarMode == .schedule || reviewContentMode == .diary {
+                    if activeDisplayMode == .month {
+                        weekdayHeader
+                            .padding(.horizontal, 4)
+                    } else if activeDisplayMode == .week {
+                        weekdayHeader
+                            .padding(.horizontal, 4)
+                    }
+                    calendarSwitcher
                 }
-                calendarSwitcher
                 if calendarMode == .schedule {
                     contentArea
                     calendarLegend
@@ -2327,7 +2329,7 @@ private struct ReviewMapView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(minHeight: 420)
+        .frame(minHeight: 520)
     }
 
     private var periodMenu: some View {
