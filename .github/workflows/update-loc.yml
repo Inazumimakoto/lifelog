@@ -1,0 +1,44 @@
+name: Update LOC Stats
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  update-loc:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate LOC stats
+        id: loc
+        run: |
+          # Total lines
+          TOTAL=$(git ls-files | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
+          echo "total=$TOTAL" >> $GITHUB_OUTPUT
+          
+          # Largest file (excluding binary/generated files)
+          LARGEST=$(git ls-files | grep -E '\.(swift|ts|js|json|md|html|css)$' | xargs wc -l 2>/dev/null | sort -rn | head -2 | tail -1)
+          LARGEST_LINES=$(echo "$LARGEST" | awk '{print $1}')
+          LARGEST_FILE=$(echo "$LARGEST" | awk '{print $2}' | xargs basename)
+          echo "largest_lines=$LARGEST_LINES" >> $GITHUB_OUTPUT
+          echo "largest_file=$LARGEST_FILE" >> $GITHUB_OUTPUT
+
+      - name: Update README
+        run: |
+          # Update total LOC
+          sed -i "s/📝 Total Lines: \*\*[0-9,]*\*\*/📝 Total Lines: **${{ steps.loc.outputs.total }}**/" README.md
+          
+          # Update largest file
+          sed -i "s/📦 Largest File: \*\*[^*]*\*\* ([0-9,]* lines)/📦 Largest File: **${{ steps.loc.outputs.largest_file }}** (${{ steps.loc.outputs.largest_lines }} lines)/" README.md
+
+      - name: Commit and push
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email github-actions[bot]@users.noreply.github.com
+          git diff --quiet README.md || (git add README.md && git commit -m "docs: update LOC stats [skip ci]" && git push)
