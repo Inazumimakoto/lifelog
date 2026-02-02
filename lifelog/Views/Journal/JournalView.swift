@@ -2354,10 +2354,12 @@ private struct ReviewMapView: View {
                                         .background(.black.opacity(0.7), in: Capsule())
                                 }
                             }
-                            .padding(.bottom, -2)
+                            .padding(.bottom, -5)
+                            .zIndex(1)
                             Image(systemName: "mappin.circle.fill")
                                 .font(.title2)
                                 .foregroundStyle(.red)
+                                .zIndex(0)
                         }
                     }
                     .tag(group)
