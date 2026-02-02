@@ -8,11 +8,23 @@
 import Foundation
 import CoreLocation
 import Combine
+import PhotosUI
+import SwiftUI
 
 @MainActor
 final class DiaryViewModel: ObservableObject {
 
     static let maxPhotos: Int = 10
+
+    struct PhotoImportSummary: Equatable {
+        var addedPaths: [String] = []
+        var skippedCount: Int = 0
+        var failedLoadCount: Int = 0
+        var failedSaveCount: Int = 0
+        
+        var addedCount: Int { addedPaths.count }
+        var hasIssues: Bool { skippedCount > 0 || failedLoadCount > 0 || failedSaveCount > 0 }
+    }
     
     /// テキスト入力のデバウンス時間（秒）
     private static let textDebounceInterval: TimeInterval = 0.5
@@ -90,6 +102,53 @@ final class DiaryViewModel: ObservableObject {
         guard let path = try? PhotoStorage.save(data: data) else { return }
         entry.photoPaths.append(path)
         persist()
+    }
+
+    func importPhotos(from items: [PhotosPickerItem]) async -> PhotoImportSummary {
+        guard items.isEmpty == false else { return PhotoImportSummary() }
+
+        let targetDate = entry.date
+        let availableSlots = max(0, Self.maxPhotos - entry.photoPaths.count)
+        if availableSlots == 0 {
+            return PhotoImportSummary(addedPaths: [],
+                                      skippedCount: items.count,
+                                      failedLoadCount: 0,
+                                      failedSaveCount: 0)
+        }
+        
+        let usableItems = Array(items.prefix(availableSlots))
+        var summary = PhotoImportSummary()
+        summary.skippedCount = max(0, items.count - usableItems.count)
+        
+        for item in usableItems {
+            do {
+                guard let data = try await item.loadTransferable(type: Data.self) else {
+                    summary.failedLoadCount += 1
+                    continue
+                }
+                do {
+                    let path = try await PhotoStorage.saveAsync(data: data)
+                    summary.addedPaths.append(path)
+                } catch {
+                    summary.failedSaveCount += 1
+                }
+            } catch {
+                summary.failedLoadCount += 1
+            }
+        }
+        
+        if summary.addedPaths.isEmpty == false {
+            if entry.date.isSameDay(as: targetDate) {
+                entry.photoPaths.append(contentsOf: summary.addedPaths)
+                persist()
+            } else {
+                var otherEntry = store.entry(for: targetDate) ?? DiaryEntry(date: targetDate, text: "")
+                otherEntry.photoPaths.append(contentsOf: summary.addedPaths)
+                store.upsert(entry: otherEntry)
+            }
+        }
+        
+        return summary
     }
 
     func deletePhoto(at offsets: IndexSet) {

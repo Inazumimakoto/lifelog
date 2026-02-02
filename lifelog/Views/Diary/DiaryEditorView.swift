@@ -20,12 +20,12 @@ struct DiaryEditorView: View {
     @State private var selectedPlaceName: String = ""
     @State private var draftText: String = ""
     @State private var showMapPicker = false
-    @State private var selectedPhotoIndex: Int = 0
-    @State private var isShowingPhotoViewer = false
+    @State private var selectedPhoto: PhotoSelection?
     @State private var showTagManager = false
     @State private var isTagSectionExpanded = false
     @State private var diaryReminderEnabled: Bool = false
     @State private var diaryReminderTime: Date = Date()
+    @State private var isImportingPhotos = false
     
     // AI採点機能
     @State private var showAIAppSelectionSheet = false
@@ -114,14 +114,17 @@ struct DiaryEditorView: View {
         .onDisappear {
             viewModel.flushPendingTextSave()
         }
-        .onChange(of: selection) {
+        .onChange(of: selection) { _, newSelection in
+            guard newSelection.isEmpty == false else { return }
+            let items = newSelection
+            selection = []
+            isImportingPhotos = true
             _Concurrency.Task {
-                for item in selection {
-                    if let data = try? await item.loadTransferable(type: Data.self) {
-                        viewModel.addPhoto(data: data)
-                    }
+                let summary = await viewModel.importPhotos(from: items)
+                await MainActor.run {
+                    isImportingPhotos = false
+                    showPhotoImportToast(summary)
                 }
-                selection = []
             }
         }
         .onChange(of: draftText) { _, newValue in
@@ -135,8 +138,8 @@ struct DiaryEditorView: View {
                 viewModel.flushPendingTextSave()
             }
         }
-        .fullScreenCover(isPresented: $isShowingPhotoViewer) {
-            DiaryPhotoViewerView(viewModel: viewModel, initialIndex: selectedPhotoIndex)
+        .fullScreenCover(item: $selectedPhoto) { selection in
+            DiaryPhotoViewerView(viewModel: viewModel, initialIndex: selection.index)
         }
         .sheet(isPresented: $showTagManager) {
             EmotionTagManagerView()
@@ -434,7 +437,8 @@ struct DiaryEditorView: View {
     }
 
     private var photosSection: some View {
-        Section("写真") {
+        let remainingSlots = max(0, DiaryViewModel.maxPhotos - viewModel.entry.photoPaths.count)
+        return Section("写真") {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack {
                     DiaryPhotoThumbnailList(photoPaths: viewModel.entry.photoPaths,
@@ -444,24 +448,51 @@ struct DiaryEditorView: View {
                                                 HapticManager.light()
                                             },
                                             onOpen: { index in
-                                                selectedPhotoIndex = index
-                                                isShowingPhotoViewer = true
+                                                selectedPhoto = PhotoSelection(index: index)
                                             })
-                    PhotosPicker(selection: $selection, matching: .images) {
+                    PhotosPicker(selection: $selection,
+                                 maxSelectionCount: max(1, remainingSlots),
+                                 matching: .images) {
                         VStack {
-                            Image(systemName: "plus")
-                                .font(.title3)
-                            Text("追加")
+                            if isImportingPhotos {
+                                ProgressView()
+                                    .progressViewStyle(.circular)
+                            } else {
+                                Image(systemName: "plus")
+                                    .font(.title3)
+                                Text("追加")
+                            }
                         }
                         .frame(width: 80, height: 80)
                         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
                     }
+                    .disabled(isImportingPhotos || remainingSlots == 0)
                 }
             }
             Text("写真は最大\(DiaryViewModel.maxPhotos)枚まで追加できます。⭐️で「今日の一枚」をえらびましょう。現在 \(viewModel.entry.photoPaths.count)/\(DiaryViewModel.maxPhotos) 枚。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private func showPhotoImportToast(_ summary: DiaryViewModel.PhotoImportSummary) {
+        guard summary.hasIssues || summary.addedCount == 0 else { return }
+        var lines: [String] = []
+        if summary.addedCount > 0 {
+            lines.append("写真を追加しました（\(summary.addedCount)枚）")
+        }
+        if summary.skippedCount > 0 {
+            lines.append("最大\(DiaryViewModel.maxPhotos)枚までのため、\(summary.skippedCount)枚は追加できませんでした")
+        }
+        if summary.failedLoadCount > 0 {
+            lines.append("読み込めない写真が\(summary.failedLoadCount)枚ありました")
+        }
+        if summary.failedSaveCount > 0 {
+            lines.append("保存に失敗した写真が\(summary.failedSaveCount)枚ありました")
+        }
+        guard lines.isEmpty == false else { return }
+        let emoji = summary.addedCount > 0 ? "🖼️" : "⚠️"
+        ToastManager.shared.show(emoji: emoji, message: lines.joined(separator: "\n"))
     }
 
     private var conditionLevels: [ConditionLevel] {
@@ -511,6 +542,16 @@ private struct DiaryLocationMapView: View, Equatable {
         Map(initialPosition: .region(MKCoordinateRegion(center: coordinate,
                                                         span: MKCoordinateSpan(latitudeDelta: 0.01,
                                                                                longitudeDelta: 0.01))))
+    }
+}
+
+private struct PhotoSelection: Identifiable {
+    let id: Int
+    let index: Int
+    
+    init(index: Int) {
+        self.id = index
+        self.index = index
     }
 }
 

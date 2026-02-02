@@ -70,6 +70,20 @@ struct PhotoStorage {
         return filename
     }
 
+    // MARK: - Save (Async)
+    static func saveAsync(data: Data) async throws -> String {
+        try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                do {
+                    let path = try save(data: data)
+                    continuation.resume(returning: path)
+                } catch {
+                    continuation.resume(throwing: error)
+                }
+            }
+        }
+    }
+
     // MARK: - Load (Sync - 後方互換性のため残す)
     static func loadImage(at path: String) -> Image? {
         if let cached = PhotoThumbnailCache.shared.fullImage(for: path) {
