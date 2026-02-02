@@ -144,6 +144,25 @@ struct PhotoStorage {
             image.draw(in: CGRect(origin: .zero, size: newSize))
         }
     }
+    
+    // MARK: - Prefetch (バックグラウンドで先読み)
+    static func prefetchThumbnails(paths: [String]) {
+        // バックグラウンドで並列読み込み
+        DispatchQueue.global(qos: .utility).async {
+            for path in paths {
+                // 既にキャッシュにあればスキップ
+                if PhotoThumbnailCache.shared.thumbnail(for: path) != nil {
+                    continue
+                }
+                
+                let url = photosDirectory.appendingPathComponent(path)
+                guard let uiImage = UIImage(contentsOfFile: url.path) else { continue }
+                
+                let thumbnail = resizeImage(uiImage, to: thumbnailSize)
+                PhotoThumbnailCache.shared.setThumbnail(thumbnail, for: path)
+            }
+        }
+    }
 
     // MARK: - Delete
     static func delete(at path: String) {

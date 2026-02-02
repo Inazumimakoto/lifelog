@@ -658,6 +658,15 @@ struct JournalView: View {
                 DispatchQueue.main.async { self.isSyncingMonthPager = false }
             }
             extendMonthPagerIfNeeded(at: newSelection)
+            
+            // 振り返りモードの場合、新しい月の写真をプリフェッチ
+            if calendarMode == .review {
+                let days = viewModel.calendarDays(for: anchor)
+                let photoPaths = days.compactMap { $0.diary?.favoritePhotoPath }
+                if !photoPaths.isEmpty {
+                    PhotoStorage.prefetchThumbnails(paths: photoPaths)
+                }
+            }
         }
     }
 
@@ -949,6 +958,13 @@ struct JournalView: View {
             }
         }
         .animation(.easeInOut, value: selectedReviewDate)
+        .onAppear {
+            // プリフェッチ: このカレンダー月の全写真を裏で読み込み
+            let photoPaths = days.compactMap { $0.diary?.favoritePhotoPath }
+            if !photoPaths.isEmpty {
+                PhotoStorage.prefetchThumbnails(paths: photoPaths)
+            }
+        }
     }
 
     private var reviewDetail: some View {
