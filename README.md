@@ -84,12 +84,12 @@
 ### 📈 Code Stats
 
 <p align="center">
-  📝 Total Lines: <strong>42144</strong> &nbsp;•&nbsp; 📦 Largest File: <strong>JournalView.swift</strong> (2328 lines)
+  📝 総行数: <strong>42144</strong> &nbsp;•&nbsp; 📦 最大ファイル: <strong>JournalView.swift</strong> (2328 行)
 </p>
 
-<sub>Stats auto-updated on every push to main</sub>
+<sub>Stats 自動更新</sub>
 
-> *AIが生み出した **42,000行** のコード。リファクタリング？無理に決まってるでしょ。*
+> *AIが生成した **42,000行** のコード。リファクタリング？無理無理（絶望）*
 
 ---
 
