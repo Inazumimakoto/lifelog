@@ -4,6 +4,12 @@
 
 <a href="https://git.io/typing-svg"><img src="https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=500&size=24&pause=1000&color=20C20E&center=true&vCenter=true&random=false&width=500&lines=🤖+AI+System+Online...;🧠+Analyzing+Requirements...;⚡️+Generating+SwiftUI+Code...;✅+Project+Status:+Active."></a>
 
+<br>
+
+<a href="https://apps.apple.com/jp/app/lifelog-%E6%97%A5%E8%A8%98-%E4%BA%88%E5%AE%9A-todo-%E7%BF%92%E6%85%A3-%E5%81%A5%E5%BA%B7-%E3%83%A1%E3%83%A2/id6755782099">
+  <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" height="50">
+</a>
+
 <br><br>
 
 ### 🤖 Powered by AI Models
