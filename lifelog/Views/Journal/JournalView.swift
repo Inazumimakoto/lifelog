@@ -127,6 +127,7 @@ struct JournalView: View {
     @State private var pendingAddDate: Date?
     @State private var newItemDate: Date?
     @State private var diaryEditorDate: Date?
+    @State private var isDiaryOpeningFromReview = false
     @State private var isProgrammaticWeekPagerChange = false
     private let detailPagerRadius = 7
     @State private var detailPagerAnchors: [Date] = []
@@ -461,6 +462,13 @@ struct JournalView: View {
                         diaryEditorDate = pending
                     }
                 }
+            }
+            .onChange(of: showingDetailPanel) { _, isShowing in
+                guard isShowing == false else { return }
+                if isDiaryOpeningFromReview == false {
+                    pendingDiaryDate = nil
+                }
+                isDiaryOpeningFromReview = false
             }
             .presentationDetents(
                 calendarMode == .schedule
@@ -1027,7 +1035,8 @@ struct JournalView: View {
             pendingPhotoViewerDate: $pendingPhotoViewerDate,
             showingDetailPanel: $showingDetailPanel,
             didInitReviewPhotoIndex: $didInitReviewPhotoIndex,
-            reviewPhotoIndex: $reviewPhotoIndex
+            reviewPhotoIndex: $reviewPhotoIndex,
+            onOpenDiary: { openDiaryEditor(for: $0) }
         )
     }
 
@@ -1085,7 +1094,9 @@ struct JournalView: View {
     private func openDiaryEditor(for date: Date) {
         let targetDate = date.startOfDay
         viewModel.selectedDate = targetDate
-        if showingDetailPanel {
+        let fromReview = calendarMode == .review
+        isDiaryOpeningFromReview = fromReview
+        if showingDetailPanel || fromReview {
             pendingDiaryDate = targetDate
             showingDetailPanel = false
         } else {
@@ -1166,7 +1177,8 @@ struct JournalView: View {
                                         includeAddButtons: includeAddButtons,
                                         showHeader: showHeader,
                                         onToggleTask: { toggleTask($0) },
-                                        onToggleHabit: { toggleHabit($0, on: snapshot.date) })
+                                        onToggleHabit: { toggleHabit($0, on: snapshot.date) },
+                                        onOpenDiary: { openDiaryEditor(for: $0) })
                 )
                 : AnyView(reviewDetailCard(for: anchor))
                 content.tag(index)
@@ -1630,13 +1642,14 @@ private struct CalendarDetailPanel: View {
     var showHeader: Bool = false
     var onToggleTask: (Task) -> Void
     var onToggleHabit: (Habit) -> Void
+    var onOpenDiary: (Date) -> Void
     
     // シート管理用State
     @State private var editingTask: Task?
     @State private var editingEvent: CalendarEvent?
     @State private var showAddTask = false
     @State private var showAddEvent = false
-    @State private var showDiaryEditor = false
+    @State private var diaryEditorDate: Date?
 
     private var hasDiaryEntry: Bool {
         if let entry = snapshot.diaryEntry {
@@ -1800,7 +1813,7 @@ private struct CalendarDetailPanel: View {
                             placeholder("まだ日記は追加されていません")
                         }
                         Button {
-                            showDiaryEditor = true
+                            onOpenDiary(snapshot.date)
                         } label: {
                             Label(hasDiaryEntry ? "日記を編集" : "日記を追加",
                                   systemImage: "square.and.pencil")
@@ -1841,10 +1854,10 @@ private struct CalendarDetailPanel: View {
                 }
             }
         }
-        .sheet(isPresented: $showDiaryEditor) {
+        .sheet(item: $diaryEditorDate) { editorDate in
             NavigationStack {
-                DiaryEditorView(store: store, date: snapshot.date)
-                    .id(snapshot.date)
+                DiaryEditorView(store: store, date: editorDate)
+                    .id(editorDate)
             }
         }
     }
@@ -2180,8 +2193,9 @@ private struct ReviewDetailPanel: View {
     @Binding var showingDetailPanel: Bool
     @Binding var didInitReviewPhotoIndex: Bool
     @Binding var reviewPhotoIndex: Int
+    let onOpenDiary: (Date) -> Void
     
-    @State private var showDiaryEditor = false
+    @State private var diaryEditorDate: Date?
     @State private var showPhotoViewer = false
     @State private var selectedPhotoIndex = 0
     
@@ -2195,7 +2209,8 @@ private struct ReviewDetailPanel: View {
          pendingPhotoViewerDate: Binding<Date?>,
          showingDetailPanel: Binding<Bool>,
          didInitReviewPhotoIndex: Binding<Bool>,
-         reviewPhotoIndex: Binding<Int>) {
+         reviewPhotoIndex: Binding<Int>,
+         onOpenDiary: @escaping (Date) -> Void) {
         self.date = date
         self.store = store
         self.diary = diary
@@ -2207,6 +2222,7 @@ private struct ReviewDetailPanel: View {
         self._showingDetailPanel = showingDetailPanel
         self._didInitReviewPhotoIndex = didInitReviewPhotoIndex
         self._reviewPhotoIndex = reviewPhotoIndex
+        self.onOpenDiary = onOpenDiary
     }
 
     private func locationLabel(for entry: DiaryEntry) -> String? {
@@ -2266,7 +2282,7 @@ private struct ReviewDetailPanel: View {
                         .lineLimit(1)
                 }
                 Button {
-                    showDiaryEditor = true
+                    onOpenDiary(date)
                 } label: {
                     Text("この日の日記を開く")
                         .frame(maxWidth: .infinity)
@@ -2276,7 +2292,7 @@ private struct ReviewDetailPanel: View {
                 Text("この日の日記はまだありません。")
                     .foregroundStyle(.secondary)
                 Button {
-                    showDiaryEditor = true
+                    onOpenDiary(date)
                 } label: {
                     Text("日記を書く")
                         .frame(maxWidth: .infinity)
@@ -2298,10 +2314,10 @@ private struct ReviewDetailPanel: View {
             let maxIndex = max(paths.count - 1, 0)
             reviewPhotoIndex = min(reviewPhotoIndex, maxIndex)
         }
-        .sheet(isPresented: $showDiaryEditor) {
+        .sheet(item: $diaryEditorDate) { editorDate in
             NavigationStack {
-                DiaryEditorView(store: store, date: date)
-                    .id(date)
+                DiaryEditorView(store: store, date: editorDate)
+                    .id(editorDate)
             }
         }
         .fullScreenCover(isPresented: $showPhotoViewer) {

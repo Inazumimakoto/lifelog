@@ -14,6 +14,7 @@ struct DiaryLocationPickerView: View {
     @Binding private var isPresented: Bool
     @StateObject private var viewModel: DiaryLocationPickerViewModel
     @State private var selectedPlace: NearbyPlace?
+    @FocusState private var isSearchFocused: Bool
 
     private let onSelect: (DiaryLocation) -> Void
 
@@ -28,6 +29,7 @@ struct DiaryLocationPickerView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
+                searchBar
                 Map(position: $viewModel.cameraPosition,
                     interactionModes: .all,
                     selection: $selectedPlace) {
@@ -44,6 +46,16 @@ struct DiaryLocationPickerView: View {
                         .shadow(radius: 2)
                         .allowsHitTesting(false)
                 }
+                .overlay(alignment: .topTrailing) {
+                    if viewModel.canSearchThisArea {
+                        Button("このエリアを検索") {
+                            viewModel.searchPlaces()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .padding(.top, 8)
+                        .padding(.trailing, 12)
+                    }
+                }
                 .onChange(of: selectedPlace) { _, newValue in
                     guard let place = newValue else { return }
                     onSelect(DiaryLocation(mapItem: place.mapItem))
@@ -51,11 +63,36 @@ struct DiaryLocationPickerView: View {
                     selectedPlace = nil
                 }
                 .onMapCameraChange(frequency: .onEnd) { context in
-                    viewModel.updateCenter(context.region.center)
+                    viewModel.updateRegion(context.region)
                 }
                 .frame(height: 280)
 
                 List {
+                    if viewModel.shouldShowSearchResults {
+                        Section("検索結果") {
+                            if viewModel.isSearching {
+                                HStack {
+                                    Spacer()
+                                    ProgressView()
+                                    Spacer()
+                                }
+                            } else if viewModel.searchResults.isEmpty {
+                                Text("検索結果が見つかりませんでした")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            ForEach(viewModel.searchResults) { place in
+                                PlaceResultRow(place: place,
+                                               onMove: {
+                                                   viewModel.focus(on: place.coordinate)
+                                               },
+                                               onAdd: {
+                                                   onSelect(DiaryLocation(mapItem: place.mapItem))
+                                                   isPresented = false
+                                               })
+                            }
+                        }
+                    }
                     if let centerLabel = viewModel.centerLabel {
                         Section("中心の場所") {
                             Button {
@@ -82,24 +119,19 @@ struct DiaryLocationPickerView: View {
                             }
                         }
                         ForEach(viewModel.nearbyPlaces) { place in
-                            Button {
-                                onSelect(DiaryLocation(mapItem: place.mapItem))
-                                isPresented = false
-                            } label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(place.mapItem.name ?? "名称不明")
-                                        .font(.body)
-                                    if let address = place.address, address.isEmpty == false {
-                                        Text(address)
-                                            .font(.caption)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                }
-                            }
+                            PlaceResultRow(place: place,
+                                           onMove: {
+                                               viewModel.focus(on: place.coordinate)
+                                           },
+                                           onAdd: {
+                                               onSelect(DiaryLocation(mapItem: place.mapItem))
+                                               isPresented = false
+                                           })
                         }
                     }
                 }
                 .listStyle(.insetGrouped)
+                .scrollDismissesKeyboard(.never)
             }
             .navigationTitle("場所を選ぶ")
             .toolbar {
@@ -111,6 +143,41 @@ struct DiaryLocationPickerView: View {
             }
         }
     }
+
+    private var searchBar: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(.secondary)
+            TextField("場所を検索", text: $viewModel.searchText)
+                .textInputAutocapitalization(.never)
+                .disableAutocorrection(true)
+                .submitLabel(.search)
+                .focused($isSearchFocused)
+                .onSubmit {
+                    viewModel.searchPlaces()
+                    isSearchFocused = false
+                }
+                .onChange(of: viewModel.searchText) { _, _ in
+                    viewModel.searchTextDidChange()
+                }
+            if viewModel.searchText.isEmpty == false {
+                Button {
+                    viewModel.clearSearch()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+            }
+            Button("検索") {
+                viewModel.searchPlaces()
+                isSearchFocused = false
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(.horizontal)
+        .padding(.vertical, 10)
+    }
 }
 
 @MainActor
@@ -120,15 +187,24 @@ private final class DiaryLocationPickerViewModel: ObservableObject {
     @Published private(set) var centerLabel: String?
     @Published private(set) var isLoading: Bool = false
     @Published private(set) var centerCoordinate: CLLocationCoordinate2D
+    @Published private(set) var mapRegion: MKCoordinateRegion
+    @Published var searchText: String = ""
+    @Published private(set) var searchResults: [NearbyPlace] = []
+    @Published private(set) var isSearching: Bool = false
+    @Published private(set) var isSearchAreaDirty: Bool = false
+    @Published private(set) var hasSearched: Bool = false
 
     private var searchTask: _Concurrency.Task<Void, Never>?
+    private var queryTask: _Concurrency.Task<Void, Never>?
     private let geocoder = CLGeocoder()
 
     init(centerCoordinate: CLLocationCoordinate2D) {
         self.centerCoordinate = centerCoordinate
-        cameraPosition = .region(MKCoordinateRegion(center: centerCoordinate,
-                                                    span: MKCoordinateSpan(latitudeDelta: 0.02,
-                                                                           longitudeDelta: 0.02)))
+        let region = MKCoordinateRegion(center: centerCoordinate,
+                                        span: MKCoordinateSpan(latitudeDelta: 0.02,
+                                                               longitudeDelta: 0.02))
+        mapRegion = region
+        cameraPosition = .region(region)
         updateCenter(centerCoordinate)
     }
 
@@ -142,6 +218,14 @@ private final class DiaryLocationPickerViewModel: ObservableObject {
         }
     }
 
+    func updateRegion(_ region: MKCoordinateRegion) {
+        mapRegion = region
+        updateCenter(region.center)
+        if hasSearched && searchText.isEmpty == false {
+            isSearchAreaDirty = true
+        }
+    }
+
     func centerLocation() -> DiaryLocation {
         let label = centerLabel ?? "選択した場所"
         return DiaryLocation(name: label,
@@ -149,6 +233,78 @@ private final class DiaryLocationPickerViewModel: ObservableObject {
                              latitude: centerCoordinate.latitude,
                              longitude: centerCoordinate.longitude,
                              mapItemURL: nil)
+    }
+
+    func focus(on coordinate: CLLocationCoordinate2D) {
+        let region = MKCoordinateRegion(center: coordinate,
+                                        span: MKCoordinateSpan(latitudeDelta: 0.01,
+                                                               longitudeDelta: 0.01))
+        cameraPosition = .region(region)
+        updateRegion(region)
+    }
+
+    var shouldShowSearchResults: Bool {
+        isSearching || hasSearched
+    }
+
+    func clearSearch() {
+        searchText = ""
+        searchResults = []
+        queryTask?.cancel()
+        queryTask = nil
+        hasSearched = false
+        isSearchAreaDirty = false
+    }
+
+    func searchTextDidChange() {
+        let trimmed = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            clearSearch()
+        } else {
+            hasSearched = false
+            isSearchAreaDirty = false
+            searchResults = []
+        }
+    }
+
+    var canSearchThisArea: Bool {
+        searchText.isEmpty == false && hasSearched && isSearchAreaDirty
+    }
+
+    func searchPlaces() {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard query.isEmpty == false else {
+            clearSearch()
+            return
+        }
+        queryTask?.cancel()
+        isSearching = true
+        isSearchAreaDirty = false
+        let region = mapRegion
+        queryTask = _Concurrency.Task { [weak self] in
+            guard let self else { return }
+            let request = MKLocalSearch.Request()
+            request.naturalLanguageQuery = query
+            request.region = region
+            request.resultTypes = .pointOfInterest
+            do {
+                let response = try await performSearch(request)
+                let items = response.mapItems
+                await MainActor.run {
+                    self.searchResults = items.map { NearbyPlace(mapItem: $0) }
+                    self.isSearching = false
+                    self.hasSearched = true
+                    self.isSearchAreaDirty = false
+                }
+            } catch {
+                await MainActor.run {
+                    self.searchResults = []
+                    self.isSearching = false
+                    self.hasSearched = true
+                    self.isSearchAreaDirty = false
+                }
+            }
+        }
     }
 
     private func loadNearbyPlaces(for coordinate: CLLocationCoordinate2D) async {
@@ -212,6 +368,31 @@ private final class DiaryLocationPickerViewModel: ObservableObject {
     }
 }
 
+private struct PlaceResultRow: View {
+    let place: NearbyPlace
+    let onMove: () -> Void
+    let onAdd: () -> Void
+
+    var body: some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(place.name)
+                    .font(.body)
+                if let address = place.address, address.isEmpty == false {
+                    Text(address)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer()
+            Button("追加", action: onAdd)
+                .buttonStyle(.bordered)
+        }
+        .contentShape(Rectangle())
+        .onTapGesture(perform: onMove)
+    }
+}
+
 private struct NearbyPlace: Identifiable, Hashable {
     let id = UUID()
     let mapItem: MKMapItem
@@ -222,6 +403,14 @@ private struct NearbyPlace: Identifiable, Hashable {
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+    }
+
+    var name: String {
+        mapItem.name ?? "名称不明"
+    }
+
+    var coordinate: CLLocationCoordinate2D {
+        mapItem.placemark.coordinate
     }
 
     var address: String? {
