@@ -2299,7 +2299,7 @@ private struct ReviewMapView: View {
                 selection: $selectedEntry) {
                 ForEach(entries) { entry in
                     Annotation(entry.name, coordinate: entry.coordinate) {
-                        VStack(spacing: 4) {
+                        VStack(spacing: 2) {
                             Text(entry.date.jaMonthDayString)
                                 .font(.system(size: 9, weight: .semibold))
                                 .foregroundStyle(.white)
