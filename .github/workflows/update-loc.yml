@@ -32,15 +32,26 @@ jobs:
           LARGEST_FILE=$(echo "$LARGEST" | awk '{print $2}' | xargs basename)
           echo "largest_lines=$LARGEST_LINES" >> $GITHUB_OUTPUT
           echo "largest_file=$LARGEST_FILE" >> $GITHUB_OUTPUT
+          
+          - name: Update README
+          env:
+            TOTAL: ${{ steps.loc.outputs.total }}
+            SWIFT: ${{ steps.loc.outputs.swift }}
+            LARGEST_FILE: ${{ steps.loc.outputs.largest_file }}
+            LARGEST_LINES: ${{ steps.loc.outputs.largest_lines }}
+          run: |
+            python3 - <<'PY'
+            import os, re
+            from pathlib import Path
 
-      - name: Update README
-        run: |
-          # Update total LOC (JP line)
-            sed -i -E "s|(総行数: <strong>)[0-9,]+(</strong>)|\\1${{ steps.loc.outputs.total }}\\2|" README.md
-            # Update Swift LOC (JP line)
-            sed -i -E "s|(Swiftコード: <strong>)[0-9,]+(</strong>)|\\1${{ steps.loc.outputs.swift }}\\2|" README.md
-            # Update largest file (JP line)
-            sed -i -E "s|(最大ファイル: <strong>)[^<]+(</strong> \\()[0-9,]+( 行\\))|\\1${{ steps.loc.outputs.largest_file }}\\2${{ steps.loc.outputs.largest_lines }}\\3|"README.md
+            readme = Path("README.md").read_text(encoding="utf-8")
+            readme = re.sub(r"(総行数: <strong>)[0-9,]+(</strong>)", r"\g<1>" +os.environ["TOTAL"] + r"\2", readme)
+            readme = re.sub(r"(Swiftコード: <strong>)[0-9,]+(</strong>)", r"\g<1>" +os.environ["SWIFT"] + r"\2", readme)
+            readme = re.sub(r"(最大ファイル: <strong>)[^<]+(</strong> \\()[0-9,]+( 行\\))",r"\g<1>" + os.environ["LARGEST_FILE"] + r"\2" +os.environ["LARGEST_LINES"] + r"\3",readme)
+            Path("README.md").write_text(readme, encoding="utf-8")
+            PY
+
+      
       - name: Commit and push
         run: |
           git config user.name github-actions[bot]
