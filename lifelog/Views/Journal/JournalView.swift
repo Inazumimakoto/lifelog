@@ -2301,10 +2301,10 @@ private struct ReviewMapView: View {
                     Annotation(entry.name, coordinate: entry.coordinate) {
                         VStack(spacing: 4) {
                             Text(entry.date.jaMonthDayString)
-                                .font(.caption2.weight(.semibold))
+                                .font(.system(size: 9, weight: .semibold))
                                 .foregroundStyle(.white)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
                                 .background(.black.opacity(0.7), in: Capsule())
                             Image(systemName: "mappin.circle.fill")
                                 .font(.title2)
