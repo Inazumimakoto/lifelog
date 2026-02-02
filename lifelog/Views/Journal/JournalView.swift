@@ -2293,7 +2293,7 @@ private struct ReviewMapView: View {
                                                           span: MKCoordinateSpan(latitudeDelta: 12, longitudeDelta: 12))
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        VStack(spacing: 12) {
             Map(position: $cameraPosition,
                 interactionModes: .all,
                 selection: $selectedEntry) {
@@ -2321,6 +2321,7 @@ private struct ReviewMapView: View {
             .onChange(of: entries) { _, _ in
                 applyRegion(force: true)
             }
+            .frame(minHeight: 420)
 
             if entries.isEmpty {
                 emptyState
@@ -2329,7 +2330,6 @@ private struct ReviewMapView: View {
             }
         }
         .frame(maxWidth: .infinity)
-        .frame(minHeight: 520)
     }
 
     private var periodMenu: some View {
@@ -2363,9 +2363,10 @@ private struct ReviewMapView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity)
         .padding(16)
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
-        .padding(.bottom, 24)
+        .padding(.horizontal, 12)
     }
 
     private var listSheet: some View {
@@ -2407,7 +2408,6 @@ private struct ReviewMapView: View {
         }
         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18))
         .padding(.horizontal, 12)
-        .padding(.bottom, 8)
     }
 
     private func applyRegion(force: Bool) {
