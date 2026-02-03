@@ -2356,6 +2356,64 @@ private enum ReviewDateFormatter {
     }
 }
 
+private struct ReviewMapPlaceDetailSheet: View {
+    let group: ReviewLocationGroup
+    let onOpenDiary: (Date) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(spacing: 16) {
+            Capsule()
+                .fill(Color.secondary.opacity(0.4))
+                .frame(width: 36, height: 4)
+                .padding(.top, 8)
+
+            VStack(spacing: 6) {
+                Text(group.name)
+                    .font(.headline)
+                if let address = group.address, address.isEmpty == false {
+                    Text(address)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                if group.count > 1 {
+                    Text("\(group.count)回")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .frame(maxWidth: .infinity)
+
+            ScrollView {
+                LazyVStack(spacing: 8) {
+                    ForEach(group.uniqueDates, id: \.self) { date in
+                        Button {
+                            onOpenDiary(date)
+                            dismiss()
+                        } label: {
+                            HStack {
+                                Text(date.jaMonthDayString)
+                                    .font(.body)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 12)
+                            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 12)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+}
+
 private struct ReviewMapView: View {
     let groups: [ReviewLocationGroup]
     @Binding var period: ReviewMapPeriod
@@ -2363,6 +2421,7 @@ private struct ReviewMapView: View {
 
     @State private var cameraPosition: MapCameraPosition = .region(Self.defaultRegion)
     @State private var selectedGroup: ReviewLocationGroup?
+    @State private var detailGroup: ReviewLocationGroup?
     @State private var hasAppliedRegion = false
 
     private static let defaultRegion = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 36.2048, longitude: 138.2529),
@@ -2404,7 +2463,7 @@ private struct ReviewMapView: View {
             }
             .onChange(of: selectedGroup) { _, newValue in
                 guard let group = newValue else { return }
-                onOpenDiary(group.latestDate)
+                detailGroup = group
                 selectedGroup = nil
             }
             .onAppear {
@@ -2425,6 +2484,13 @@ private struct ReviewMapView: View {
             }
         }
         .frame(maxWidth: .infinity)
+        .sheet(item: $detailGroup) { group in
+            ReviewMapPlaceDetailSheet(group: group, onOpenDiary: { date in
+                onOpenDiary(date)
+                detailGroup = nil
+            })
+            .presentationDetents([.medium, .large])
+        }
     }
 
     private var periodMenu: some View {
@@ -2474,7 +2540,7 @@ private struct ReviewMapView: View {
                 LazyVStack(spacing: 12) {
                     ForEach(groups) { group in
                         Button {
-                            onOpenDiary(group.latestDate)
+                            detailGroup = group
                         } label: {
                             HStack(alignment: .top, spacing: 12) {
                                 VStack(alignment: .leading, spacing: 4) {
