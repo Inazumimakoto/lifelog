@@ -167,7 +167,9 @@ struct DiaryEditorView: View {
             .presentationDetents([.large])
         }
         .sheet(item: $photoLinkContext) { context in
-            PhotoLocationLinkSheet(context: context, viewModel: viewModel)
+            PhotoLocationLinkSheet(context: context, viewModel: viewModel, onImportSummary: { summary in
+                showPhotoImportToast(summary)
+            })
                 .presentationDetents([.medium, .large])
         }
         .onChange(of: devPCPrompt) { _, newValue in
@@ -450,13 +452,14 @@ struct DiaryEditorView: View {
 
     private var photosSection: some View {
         let remainingSlots = max(0, DiaryViewModel.maxPhotos - viewModel.entry.photoPaths.count)
-        let linkedPhotoPaths = Set(viewModel.entry.locations.flatMap { $0.photoPaths })
         return Section("写真") {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack {
                     DiaryPhotoThumbnailList(photoPaths: viewModel.entry.photoPaths,
                                             favoritePhotoPath: viewModel.entry.favoritePhotoPath,
                                             linkedPhotoPaths: linkedPhotoPaths,
+                                            showFavorite: true,
+                                            showDelete: false,
                                             onSetFavorite: { index in
                                                 viewModel.setFavoritePhoto(at: index)
                                                 HapticManager.light()
@@ -466,7 +469,8 @@ struct DiaryEditorView: View {
                                             },
                                             onLink: { path in
                                                 photoLinkContext = .photo(path)
-                                            })
+                                            },
+                                            onDelete: nil)
                     PhotosPicker(selection: $selection,
                                  maxSelectionCount: max(1, remainingSlots),
                                  matching: .images) {
@@ -490,6 +494,10 @@ struct DiaryEditorView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
+    }
+
+    private var linkedPhotoPaths: Set<String> {
+        Set(viewModel.entry.locations.flatMap { $0.photoPaths })
     }
 
     private func showPhotoImportToast(_ summary: DiaryViewModel.PhotoImportSummary) {
@@ -595,38 +603,50 @@ private struct DiaryLocationRow: View {
 
     var body: some View {
         let photoCount = location.photoPaths.count
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(location.name)
-                    .font(.body)
-                if let address = location.address, address.isEmpty == false {
-                    Text(address)
-                        .font(.caption)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(location.name)
+                        .font(.body)
+                    if let address = location.address, address.isEmpty == false {
+                        Text(address)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                Button {
+                    onLink()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "photo.on.rectangle.angled")
+                        Text(photoCount == 0 ? "写真" : "写真 \(photoCount)")
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(photoCount == 0 ? .secondary : .primary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(.secondarySystemBackground), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                Button {
+                    onRemove()
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
                 }
+                .buttonStyle(.plain)
             }
-            Spacer()
-            Button {
-                onLink()
-            } label: {
-                HStack(spacing: 4) {
-                    Image(systemName: "photo.on.rectangle.angled")
-                    Text(photoCount == 0 ? "写真" : "写真 \(photoCount)")
+            if location.photoPaths.isEmpty == false {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(location.photoPaths, id: \.self) { path in
+                            AsyncThumbnailImage(path: path, size: 44)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        }
+                    }
                 }
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(photoCount == 0 ? .secondary : .primary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color(.secondarySystemBackground), in: Capsule())
             }
-            .buttonStyle(.plain)
-            Button {
-                onRemove()
-            } label: {
-                Image(systemName: "xmark.circle.fill")
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.plain)
         }
         .padding(10)
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
@@ -660,10 +680,13 @@ private enum PhotoLinkContext: Identifiable {
 private struct PhotoLocationLinkSheet: View {
     let context: PhotoLinkContext
     @ObservedObject var viewModel: DiaryViewModel
+    let onImportSummary: (DiaryViewModel.PhotoImportSummary) -> Void
     @Environment(\.dismiss) private var dismiss
 
     @State private var selectedPhotoPaths: Set<String> = []
     @State private var selectedLocationIDs: Set<UUID> = []
+    @State private var locationSelection: [PhotosPickerItem] = []
+    @State private var isImportingLocationPhotos = false
 
     private var isLocationMode: Bool {
         if case .location = context { return true }
@@ -706,6 +729,22 @@ private struct PhotoLocationLinkSheet: View {
             .onAppear {
                 setupSelection()
             }
+            .onChange(of: locationSelection) { _, newSelection in
+                guard newSelection.isEmpty == false else { return }
+                let items = newSelection
+                locationSelection = []
+                isImportingLocationPhotos = true
+                _Concurrency.Task {
+                    let summary = await viewModel.importLocationPhotos(from: items)
+                    await MainActor.run {
+                        isImportingLocationPhotos = false
+                        if summary.addedCount > 0 {
+                            selectedPhotoPaths.formUnion(summary.addedPaths)
+                        }
+                        onImportSummary(summary)
+                    }
+                }
+            }
         }
     }
 
@@ -717,22 +756,62 @@ private struct PhotoLocationLinkSheet: View {
                     .padding(.horizontal, 16)
                     .padding(.top, 8)
             }
-            if viewModel.entry.photoPaths.isEmpty {
+            let diaryPaths = viewModel.entry.photoPaths
+            let locationPaths = viewModel.entry.locationPhotoPaths
+            if diaryPaths.isEmpty && locationPaths.isEmpty {
                 Text("写真がありません")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
-                    LazyVGrid(columns: photoGridColumns, spacing: 12) {
-                        ForEach(viewModel.entry.photoPaths, id: \.self) { path in
-                            PhotoLinkTile(path: path,
-                                          isSelected: selectedPhotoPaths.contains(path)) {
-                                togglePhoto(path)
+                    LazyVStack(alignment: .leading, spacing: 16) {
+                        if diaryPaths.isEmpty == false {
+                            Text("日記の写真")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 16)
+                            LazyVGrid(columns: photoGridColumns, spacing: 12) {
+                                ForEach(diaryPaths, id: \.self) { path in
+                                    PhotoLinkTile(path: path,
+                                                  isSelected: selectedPhotoPaths.contains(path)) {
+                                        togglePhoto(path)
+                                    }
+                                }
                             }
+                            .padding(.horizontal, 16)
                         }
+                        Text("追加した写真")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 16)
+                        LazyVGrid(columns: photoGridColumns, spacing: 12) {
+                            ForEach(locationPaths, id: \.self) { path in
+                                PhotoLinkTile(path: path,
+                                              isSelected: selectedPhotoPaths.contains(path)) {
+                                    togglePhoto(path)
+                                }
+                            }
+                            PhotosPicker(selection: $locationSelection,
+                                         maxSelectionCount: nil,
+                                         matching: .images) {
+                                VStack {
+                                    if isImportingLocationPhotos {
+                                        ProgressView()
+                                            .progressViewStyle(.circular)
+                                    } else {
+                                        Image(systemName: "plus")
+                                            .font(.title3)
+                                        Text("追加")
+                                    }
+                                }
+                                .frame(width: 72, height: 72)
+                                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+                            }
+                            .disabled(isImportingLocationPhotos)
+                        }
+                        .padding(.horizontal, 16)
                     }
-                    .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                 }
             }
@@ -814,6 +893,19 @@ private struct PhotoLocationLinkSheet: View {
         } else {
             selectedPhotoPaths.insert(path)
         }
+        if isLocationMode, let location = currentLocation {
+            viewModel.updatePhotoLinks(forLocation: location.id, selectedPaths: Array(selectedPhotoPaths))
+            if viewModel.entry.locationPhotoPaths.contains(path) {
+                pruneUnlinkedLocationPhoto(path)
+            }
+        }
+    }
+
+    private func pruneUnlinkedLocationPhoto(_ path: String) {
+        let stillLinked = viewModel.entry.locations.contains { $0.photoPaths.contains(path) }
+        if stillLinked == false {
+            viewModel.deleteLocationPhoto(path: path)
+        }
     }
 
     private func toggleLocation(_ id: UUID) {
@@ -827,8 +919,7 @@ private struct PhotoLocationLinkSheet: View {
     private func applySelection() {
         switch context {
         case .location(let id):
-            let ordered = viewModel.entry.photoPaths.filter { selectedPhotoPaths.contains($0) }
-            viewModel.updatePhotoLinks(forLocation: id, selectedPaths: ordered)
+            viewModel.updatePhotoLinks(forLocation: id, selectedPaths: Array(selectedPhotoPaths))
         case .photo(let path):
             let ordered = viewModel.entry.locations
                 .map(\.id)
@@ -864,14 +955,19 @@ private struct DiaryPhotoThumbnailList: View, Equatable {
     let photoPaths: [String]
     let favoritePhotoPath: String?
     let linkedPhotoPaths: Set<String>
+    let showFavorite: Bool
+    let showDelete: Bool
     let onSetFavorite: (Int) -> Void
     let onOpen: (Int) -> Void
     let onLink: (String) -> Void
+    let onDelete: ((String) -> Void)?
 
     static func ==(lhs: DiaryPhotoThumbnailList, rhs: DiaryPhotoThumbnailList) -> Bool {
         lhs.photoPaths == rhs.photoPaths
         && lhs.favoritePhotoPath == rhs.favoritePhotoPath
         && lhs.linkedPhotoPaths == rhs.linkedPhotoPaths
+        && lhs.showFavorite == rhs.showFavorite
+        && lhs.showDelete == rhs.showDelete
     }
 
     var body: some View {
@@ -883,9 +979,12 @@ private struct DiaryPhotoThumbnailList: View, Equatable {
                 index: index,
                 isFavorite: isFavorite,
                 isLinked: isLinked,
+                showFavorite: showFavorite,
+                showDelete: showDelete,
                 onSetFavorite: onSetFavorite,
                 onOpen: onOpen,
-                onLink: onLink
+                onLink: onLink,
+                onDelete: onDelete
             )
         }
     }
@@ -897,9 +996,12 @@ private struct DiaryPhotoThumbnailItem: View {
     let index: Int
     let isFavorite: Bool
     let isLinked: Bool
+    let showFavorite: Bool
+    let showDelete: Bool
     let onSetFavorite: (Int) -> Void
     let onOpen: (Int) -> Void
     let onLink: (String) -> Void
+    let onDelete: ((String) -> Void)?
     
     @State private var thumbnail: UIImage?
     
@@ -916,18 +1018,32 @@ private struct DiaryPhotoThumbnailItem: View {
         .frame(width: 80, height: 80)
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .overlay(alignment: .topLeading) {
-            Button {
-                onSetFavorite(index)
-            } label: {
-                Image(systemName: isFavorite ? "star.fill" : "star")
-                    .font(.caption)
-                    .foregroundStyle(isFavorite ? Color.yellow : Color.white)
-                    .padding(6)
-                    .background(.black.opacity(0.5), in: Circle())
-                    .symbolEffect(.bounce, value: isFavorite)
+            if showFavorite {
+                Button {
+                    onSetFavorite(index)
+                } label: {
+                    Image(systemName: isFavorite ? "star.fill" : "star")
+                        .font(.caption)
+                        .foregroundStyle(isFavorite ? Color.yellow : Color.white)
+                        .padding(6)
+                        .background(.black.opacity(0.5), in: Circle())
+                        .symbolEffect(.bounce, value: isFavorite)
+                }
+                .offset(x: -8, y: -8)
+                .buttonStyle(.plain)
+            } else if showDelete, let onDelete {
+                Button {
+                    onDelete(path)
+                } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.white)
+                        .padding(6)
+                        .background(.black.opacity(0.5), in: Circle())
+                }
+                .offset(x: -8, y: -8)
+                .buttonStyle(.plain)
             }
-            .offset(x: -8, y: -8)
-            .buttonStyle(.plain)
         }
         .overlay(alignment: .bottomTrailing) {
             Button {

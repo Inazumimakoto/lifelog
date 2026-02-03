@@ -70,6 +70,7 @@ extension DiaryEntry {
             latitude: sd.latitude,
             longitude: sd.longitude,
             photoPaths: sd.photoPaths,
+            locationPhotoPaths: sd.locationPhotoPaths ?? [],
             favoritePhotoPath: sd.favoritePhotoPath
         )
     }
@@ -88,6 +89,7 @@ extension SDDiaryEntry {
             latitude: domain.latitude,
             longitude: domain.longitude,
             photoPaths: domain.photoPaths,
+            locationPhotoPaths: domain.locationPhotoPaths,
             favoritePhotoPath: domain.favoritePhotoPath
         )
     }
@@ -102,6 +104,7 @@ extension SDDiaryEntry {
         self.latitude = domain.latitude
         self.longitude = domain.longitude
         self.photoPaths = domain.photoPaths
+        self.locationPhotoPaths = domain.locationPhotoPaths
         self.favoritePhotoPath = domain.favoritePhotoPath
     }
 }

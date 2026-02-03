@@ -2440,19 +2440,29 @@ private struct ReviewMapVisitRow: View {
     let visit: ReviewLocationVisit
     let onOpenDiary: (Date) -> Void
     @Environment(\.dismiss) private var dismiss
+    @State private var showPhotoViewer = false
+    @State private var photoViewerIndex = 0
+
+    private let photoSize: CGFloat = 96
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             if visit.photoPaths.isEmpty {
                 Text("写真なし")
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(visit.photoPaths, id: \.self) { path in
-                            AsyncThumbnailImage(path: path, size: 64)
-                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                        ForEach(Array(visit.photoPaths.enumerated()), id: \.offset) { index, path in
+                            Button {
+                                photoViewerIndex = index
+                                showPhotoViewer = true
+                            } label: {
+                                AsyncThumbnailImage(path: path, size: photoSize)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -2463,16 +2473,103 @@ private struct ReviewMapVisitRow: View {
             } label: {
                 HStack(spacing: 6) {
                     Text(visit.date.jaMonthDayString)
-                        .font(.caption)
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
                     Image(systemName: "chevron.right")
-                        .font(.caption2)
+                        .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
             .buttonStyle(.plain)
         }
         .padding(.vertical, 4)
+        .fullScreenCover(isPresented: $showPhotoViewer) {
+            ReviewMapPhotoViewer(paths: visit.photoPaths, initialIndex: photoViewerIndex)
+        }
+    }
+}
+
+private struct ReviewMapPhotoViewer: View {
+    @Environment(\.dismiss) private var dismiss
+    let paths: [String]
+    @State private var currentIndex: Int
+    @State private var chromeVisible = true
+
+    init(paths: [String], initialIndex: Int) {
+        self.paths = paths
+        let clampedIndex = max(0, min(initialIndex, max(0, paths.count - 1)))
+        _currentIndex = State(initialValue: clampedIndex)
+    }
+
+    var body: some View {
+        ZStack {
+            Color.black
+                .ignoresSafeArea()
+
+            if paths.isEmpty == false {
+                TabView(selection: $currentIndex) {
+                    ForEach(Array(paths.enumerated()), id: \.offset) { index, path in
+                        ReviewMapFullImagePage(path: path, chromeVisible: $chromeVisible)
+                            .tag(index)
+                    }
+                }
+                .tabViewStyle(.page(indexDisplayMode: .automatic))
+            }
+
+            VStack {
+                HStack {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white)
+                            .padding(12)
+                            .background(.black.opacity(0.5), in: Circle())
+                    }
+                    Spacer()
+                }
+                .padding([.top, .horizontal], 16)
+                .opacity(chromeVisible ? 1 : 0)
+                .allowsHitTesting(chromeVisible)
+                Spacer()
+            }
+        }
+    }
+}
+
+private struct ReviewMapFullImagePage: View {
+    let path: String
+    @Binding var chromeVisible: Bool
+
+    @State private var image: UIImage?
+    @State private var isLoading = true
+
+    var body: some View {
+        Group {
+            if let image = image {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if isLoading {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+            } else {
+                Color.black
+            }
+        }
+        .background(Color.black)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                chromeVisible.toggle()
+            }
+        }
+        .task {
+            image = await PhotoStorage.loadFullImage(at: path)
+            isLoading = false
+        }
     }
 }
 

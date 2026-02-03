@@ -56,6 +56,7 @@ final class SDDiaryEntry {
     var latitude: Double?
     var longitude: Double?
     var photoPaths: [String]
+    var locationPhotoPaths: [String]?
     var favoritePhotoPath: String?
 
     init(id: UUID = UUID(),
@@ -68,6 +69,7 @@ final class SDDiaryEntry {
          latitude: Double? = nil,
          longitude: Double? = nil,
          photoPaths: [String] = [],
+         locationPhotoPaths: [String] = [],
          favoritePhotoPath: String? = nil) {
         self.id = id
         self.date = date
@@ -79,6 +81,7 @@ final class SDDiaryEntry {
         self.latitude = latitude
         self.longitude = longitude
         self.photoPaths = photoPaths
+        self.locationPhotoPaths = locationPhotoPaths
         self.favoritePhotoPath = favoritePhotoPath
     }
 }

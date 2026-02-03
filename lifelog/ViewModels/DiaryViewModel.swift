@@ -181,6 +181,12 @@ final class DiaryViewModel: ObservableObject {
         persist()
     }
 
+    func addLocationPhoto(data: Data) {
+        guard let path = try? PhotoStorage.save(data: data) else { return }
+        entry.locationPhotoPaths.append(path)
+        persist()
+    }
+
     func importPhotos(from items: [PhotosPickerItem]) async -> PhotoImportSummary {
         guard items.isEmpty == false else { return PhotoImportSummary() }
 
@@ -228,6 +234,43 @@ final class DiaryViewModel: ObservableObject {
         return summary
     }
 
+    func importLocationPhotos(from items: [PhotosPickerItem]) async -> PhotoImportSummary {
+        guard items.isEmpty == false else { return PhotoImportSummary() }
+
+        let targetDate = entry.date
+        var summary = PhotoImportSummary()
+
+        for item in items {
+            do {
+                guard let data = try await item.loadTransferable(type: Data.self) else {
+                    summary.failedLoadCount += 1
+                    continue
+                }
+                do {
+                    let path = try await PhotoStorage.saveAsync(data: data)
+                    summary.addedPaths.append(path)
+                } catch {
+                    summary.failedSaveCount += 1
+                }
+            } catch {
+                summary.failedLoadCount += 1
+            }
+        }
+
+        if summary.addedPaths.isEmpty == false {
+            if entry.date.isSameDay(as: targetDate) {
+                entry.locationPhotoPaths.append(contentsOf: summary.addedPaths)
+                persist()
+            } else {
+                var otherEntry = store.entry(for: targetDate) ?? DiaryEntry(date: targetDate, text: "")
+                otherEntry.locationPhotoPaths.append(contentsOf: summary.addedPaths)
+                store.upsert(entry: otherEntry)
+            }
+        }
+
+        return summary
+    }
+
     func deletePhoto(at offsets: IndexSet) {
         let sortedOffsets = offsets.sorted(by: >)
         for index in sortedOffsets {
@@ -243,6 +286,23 @@ final class DiaryViewModel: ObservableObject {
         persist()
     }
 
+    func deleteLocationPhoto(at offsets: IndexSet) {
+        let sortedOffsets = offsets.sorted(by: >)
+        for index in sortedOffsets {
+            guard entry.locationPhotoPaths.indices.contains(index) else { continue }
+            let path = entry.locationPhotoPaths[index]
+            PhotoStorage.delete(at: path)
+            removePhotoLinks(for: path)
+            entry.locationPhotoPaths.remove(at: index)
+        }
+        persist()
+    }
+
+    func deleteLocationPhoto(path: String) {
+        guard let index = entry.locationPhotoPaths.firstIndex(of: path) else { return }
+        deleteLocationPhoto(at: IndexSet(integer: index))
+    }
+
     func setFavoritePhoto(at index: Int) {
         guard entry.photoPaths.indices.contains(index) else { return }
         let path = entry.photoPaths[index]
@@ -255,16 +315,29 @@ final class DiaryViewModel: ObservableObject {
     }
 
     func cleanupMissingPhotos() {
-        let original = entry.photoPaths
-        let kept = original.filter { PhotoStorage.fileExists(for: $0) }
-        guard kept.count != original.count else { return }
-        entry.photoPaths = kept
-        pruneLocationPhotoLinks(availablePaths: Set(kept))
+        let originalDiary = entry.photoPaths
+        let originalLocation = entry.locationPhotoPaths
+        let keptDiary = originalDiary.filter { PhotoStorage.fileExists(for: $0) }
+        let keptLocation = originalLocation.filter { PhotoStorage.fileExists(for: $0) }
+        let allKept = Set(keptDiary + keptLocation)
+        let didChange = keptDiary.count != originalDiary.count
+            || keptLocation.count != originalLocation.count
+        guard didChange else { return }
+        entry.photoPaths = keptDiary
+        entry.locationPhotoPaths = keptLocation
+        if let favorite = entry.favoritePhotoPath, keptDiary.contains(favorite) == false {
+            entry.favoritePhotoPath = nil
+        }
+        pruneLocationPhotoLinks(availablePaths: allKept)
         persist()
     }
 
     private func orderedPhotoPaths(from selection: Set<String>) -> [String] {
-        entry.photoPaths.filter { selection.contains($0) }
+        allPhotoPathsInOrder.filter { selection.contains($0) }
+    }
+
+    private var allPhotoPathsInOrder: [String] {
+        entry.photoPaths + entry.locationPhotoPaths
     }
 
     private func removePhotoLinks(for path: String) {

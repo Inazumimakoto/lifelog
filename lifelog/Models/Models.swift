@@ -282,6 +282,7 @@ struct DiaryEntry: Identifiable, Codable, Hashable {
     var latitude: Double?
     var longitude: Double?
     var photoPaths: [String]
+    var locationPhotoPaths: [String]
     // Will be used later to surface a day's favorite shot in the calendar/album view.
     var favoritePhotoPath: String?
 
@@ -295,6 +296,7 @@ struct DiaryEntry: Identifiable, Codable, Hashable {
          latitude: Double? = nil,
          longitude: Double? = nil,
          photoPaths: [String] = [],
+         locationPhotoPaths: [String] = [],
          favoritePhotoPath: String? = nil) {
         self.id = id
         self.date = date
@@ -317,6 +319,7 @@ struct DiaryEntry: Identifiable, Codable, Hashable {
         self.latitude = latitude
         self.longitude = longitude
         self.photoPaths = photoPaths
+        self.locationPhotoPaths = locationPhotoPaths
         self.favoritePhotoPath = favoritePhotoPath
     }
 }
