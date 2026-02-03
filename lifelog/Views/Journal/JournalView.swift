@@ -1074,27 +1074,32 @@ struct JournalView: View {
                                   address: nil,
                                   latitude: latitude,
                                   longitude: longitude,
-                                  mapItemURL: nil)
+                                  mapItemURL: nil,
+                                  photoPaths: [])
                 ]
             } else {
                 locations = entry.locations
             }
             for location in locations {
-                results.append(ReviewLocationEntry(date: entryDate, location: location))
+                results.append(ReviewLocationEntry(date: entryDate,
+                                                   location: location,
+                                                   photoPaths: location.photoPaths))
             }
         }
         var grouped: [String: ReviewLocationGroupBuilder] = [:]
         for entry in results {
             let key = ReviewLocationGroupBuilder.makeKey(for: entry.location)
             if var existing = grouped[key] {
-                existing.dates.append(entry.date)
+                existing.add(date: entry.date, photoPaths: entry.photoPaths)
                 grouped[key] = existing
             } else {
-                grouped[key] = ReviewLocationGroupBuilder(location: entry.location, dates: [entry.date])
+                grouped[key] = ReviewLocationGroupBuilder(location: entry.location,
+                                                          date: entry.date,
+                                                          photoPaths: entry.photoPaths)
             }
         }
         return grouped.values
-            .map { ReviewLocationGroup(id: $0.id, location: $0.location, dates: $0.dates) }
+            .map { ReviewLocationGroup(id: $0.id, location: $0.location, visits: $0.visits) }
             .sorted { $0.latestDate > $1.latestDate }
     }
 
@@ -2280,25 +2285,39 @@ private struct ReviewLocationEntry: Identifiable, Hashable {
     let id: String
     let date: Date
     let location: DiaryLocation
+    let photoPaths: [String]
 
-    init(date: Date, location: DiaryLocation) {
+    init(date: Date, location: DiaryLocation, photoPaths: [String]) {
         self.date = date
         self.location = location
+        self.photoPaths = photoPaths
         self.id = "\(date.timeIntervalSince1970)-\(location.id.uuidString)"
+    }
+}
+
+private struct ReviewLocationVisit: Identifiable, Hashable {
+    let id: String
+    let date: Date
+    let photoPaths: [String]
+
+    init(date: Date, photoPaths: [String]) {
+        let normalized = date.startOfDay
+        self.date = normalized
+        self.photoPaths = photoPaths
+        self.id = "\(normalized.timeIntervalSince1970)"
     }
 }
 
 private struct ReviewLocationGroup: Identifiable, Hashable {
     let id: String
     let location: DiaryLocation
-    let dates: [Date]
+    let visits: [ReviewLocationVisit]
 
     var name: String { location.name }
     var address: String? { location.address }
     var coordinate: CLLocationCoordinate2D { location.coordinate }
     var uniqueDates: [Date] {
-        let unique = Set(dates.map { $0.startOfDay })
-        return unique.sorted(by: >)
+        visits.map(\.date)
     }
     var count: Int { uniqueDates.count }
     var latestDate: Date { uniqueDates.first ?? Date.distantPast }
@@ -2310,18 +2329,37 @@ private struct ReviewLocationGroup: Identifiable, Hashable {
 private struct ReviewLocationGroupBuilder {
     let id: String
     let location: DiaryLocation
-    var dates: [Date]
+    var visitPhotos: [Date: [String]]
 
-    init(location: DiaryLocation, dates: [Date]) {
+    init(location: DiaryLocation, date: Date, photoPaths: [String]) {
         self.location = location
-        self.dates = dates
         self.id = Self.makeKey(for: location)
+        self.visitPhotos = [:]
+        add(date: date, photoPaths: photoPaths)
     }
 
     static func makeKey(for location: DiaryLocation) -> String {
         let lat = (location.latitude * 10_000).rounded() / 10_000
         let lon = (location.longitude * 10_000).rounded() / 10_000
         return "\(location.name)|\(lat)|\(lon)"
+    }
+
+    mutating func add(date: Date, photoPaths: [String]) {
+        let keyDate = date.startOfDay
+        if var existing = visitPhotos[keyDate] {
+            for path in photoPaths where existing.contains(path) == false {
+                existing.append(path)
+            }
+            visitPhotos[keyDate] = existing
+        } else {
+            visitPhotos[keyDate] = photoPaths
+        }
+    }
+
+    var visits: [ReviewLocationVisit] {
+        visitPhotos
+            .map { ReviewLocationVisit(date: $0.key, photoPaths: $0.value) }
+            .sorted { $0.date > $1.date }
     }
 }
 
@@ -2386,24 +2424,8 @@ private struct ReviewMapPlaceDetailSheet: View {
 
             ScrollView {
                 LazyVStack(spacing: 8) {
-                    ForEach(group.uniqueDates, id: \.self) { date in
-                        Button {
-                            onOpenDiary(date)
-                            dismiss()
-                        } label: {
-                            HStack {
-                                Text(date.jaMonthDayString)
-                                    .font(.body)
-                                Spacer()
-                                Image(systemName: "chevron.right")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(.vertical, 6)
-                            .padding(.horizontal, 12)
-                            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 10))
-                        }
-                        .buttonStyle(.plain)
+                    ForEach(group.visits) { visit in
+                        ReviewMapVisitRow(visit: visit, onOpenDiary: onOpenDiary)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -2411,6 +2433,46 @@ private struct ReviewMapPlaceDetailSheet: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+}
+
+private struct ReviewMapVisitRow: View {
+    let visit: ReviewLocationVisit
+    let onOpenDiary: (Date) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            if visit.photoPaths.isEmpty {
+                Text("写真なし")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(visit.photoPaths, id: \.self) { path in
+                            AsyncThumbnailImage(path: path, size: 64)
+                                .clipShape(RoundedRectangle(cornerRadius: 10))
+                        }
+                    }
+                }
+            }
+            Button {
+                onOpenDiary(visit.date)
+                dismiss()
+            } label: {
+                HStack(spacing: 6) {
+                    Text(visit.date.jaMonthDayString)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Image(systemName: "chevron.right")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.vertical, 4)
     }
 }
 

@@ -232,7 +232,8 @@ private final class DiaryLocationPickerViewModel: ObservableObject {
                              address: centerLabel,
                              latitude: centerCoordinate.latitude,
                              longitude: centerCoordinate.longitude,
-                             mapItemURL: nil)
+                             mapItemURL: nil,
+                             photoPaths: [])
     }
 
     func focus(on coordinate: CLLocationCoordinate2D) {
@@ -436,6 +437,7 @@ private extension DiaryLocation {
                   address: address.isEmpty ? placemark.title : address,
                   latitude: placemark.coordinate.latitude,
                   longitude: placemark.coordinate.longitude,
-                  mapItemURL: mapItem.url?.absoluteString)
+                  mapItemURL: mapItem.url?.absoluteString,
+                  photoPaths: [])
     }
 }

@@ -124,7 +124,8 @@ private enum DiaryLocationCoding {
                           address: nil,
                           latitude: latitude,
                           longitude: longitude,
-                          mapItemURL: nil)
+                          mapItemURL: nil,
+                          photoPaths: [])
         ]
     }
 }

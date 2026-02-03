@@ -101,7 +101,8 @@ final class DiaryViewModel: ObservableObject {
                                   address: nil,
                                   latitude: coordinate.latitude,
                                   longitude: coordinate.longitude,
-                                  mapItemURL: nil)
+                                  mapItemURL: nil,
+                                  photoPaths: [])
                 ]
             } else {
                 entry.locations[0].name = locationName
@@ -125,6 +126,39 @@ final class DiaryViewModel: ObservableObject {
         entry.locations.removeAll { $0.id == id }
         syncPrimaryLocation()
         persist()
+    }
+
+    func updatePhotoLinks(forLocation locationID: UUID, selectedPaths: [String]) {
+        guard let index = entry.locations.firstIndex(where: { $0.id == locationID }) else { return }
+        let ordered = orderedPhotoPaths(from: Set(selectedPaths))
+        entry.locations[index].photoPaths = ordered
+        persist()
+    }
+
+    func updateLocationLinks(forPhoto path: String, selectedLocationIDs: [UUID]) {
+        let targetIDs = Set(selectedLocationIDs)
+        var didChange = false
+        for index in entry.locations.indices {
+            let locationID = entry.locations[index].id
+            let contains = entry.locations[index].photoPaths.contains(path)
+            if targetIDs.contains(locationID) {
+                if contains == false {
+                    entry.locations[index].photoPaths.append(path)
+                    didChange = true
+                }
+            } else if contains {
+                entry.locations[index].photoPaths.removeAll { $0 == path }
+                didChange = true
+            }
+        }
+        if didChange {
+            for index in entry.locations.indices {
+                entry.locations[index].photoPaths = orderedPhotoPaths(from: Set(entry.locations[index].photoPaths))
+            }
+        }
+        if didChange {
+            persist()
+        }
     }
 
     func recentLocationCoordinate() -> CLLocationCoordinate2D? {
@@ -200,6 +234,7 @@ final class DiaryViewModel: ObservableObject {
             guard entry.photoPaths.indices.contains(index) else { continue }
             let path = entry.photoPaths[index]
             PhotoStorage.delete(at: path)
+            removePhotoLinks(for: path)
             if entry.favoritePhotoPath == path {
                 entry.favoritePhotoPath = nil
             }
@@ -224,7 +259,32 @@ final class DiaryViewModel: ObservableObject {
         let kept = original.filter { PhotoStorage.fileExists(for: $0) }
         guard kept.count != original.count else { return }
         entry.photoPaths = kept
+        pruneLocationPhotoLinks(availablePaths: Set(kept))
         persist()
+    }
+
+    private func orderedPhotoPaths(from selection: Set<String>) -> [String] {
+        entry.photoPaths.filter { selection.contains($0) }
+    }
+
+    private func removePhotoLinks(for path: String) {
+        for index in entry.locations.indices {
+            let original = entry.locations[index].photoPaths
+            let filtered = original.filter { $0 != path }
+            if filtered.count != original.count {
+                entry.locations[index].photoPaths = filtered
+            }
+        }
+    }
+
+    private func pruneLocationPhotoLinks(availablePaths: Set<String>) {
+        for index in entry.locations.indices {
+            let original = entry.locations[index].photoPaths
+            let filtered = original.filter { availablePaths.contains($0) }
+            if filtered.count != original.count {
+                entry.locations[index].photoPaths = filtered
+            }
+        }
     }
 
     private func syncPrimaryLocation() {

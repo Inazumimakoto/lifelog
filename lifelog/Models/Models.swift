@@ -222,23 +222,52 @@ struct DiaryLocation: Identifiable, Codable, Hashable {
     var latitude: Double
     var longitude: Double
     var mapItemURL: String?
+    var photoPaths: [String]
 
     init(id: UUID = UUID(),
          name: String,
          address: String?,
          latitude: Double,
          longitude: Double,
-         mapItemURL: String?) {
+         mapItemURL: String?,
+         photoPaths: [String] = []) {
         self.id = id
         self.name = name
         self.address = address
         self.latitude = latitude
         self.longitude = longitude
         self.mapItemURL = mapItemURL
+        self.photoPaths = photoPaths
     }
 
     var coordinate: CLLocationCoordinate2D {
         CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, address, latitude, longitude, mapItemURL, photoPaths
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        address = try container.decodeIfPresent(String.self, forKey: .address)
+        latitude = try container.decode(Double.self, forKey: .latitude)
+        longitude = try container.decode(Double.self, forKey: .longitude)
+        mapItemURL = try container.decodeIfPresent(String.self, forKey: .mapItemURL)
+        photoPaths = try container.decodeIfPresent([String].self, forKey: .photoPaths) ?? []
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(address, forKey: .address)
+        try container.encode(latitude, forKey: .latitude)
+        try container.encode(longitude, forKey: .longitude)
+        try container.encodeIfPresent(mapItemURL, forKey: .mapItemURL)
+        try container.encode(photoPaths, forKey: .photoPaths)
     }
 }
 
@@ -278,7 +307,8 @@ struct DiaryEntry: Identifiable, Codable, Hashable {
                               address: nil,
                               latitude: lat,
                               longitude: lon,
-                              mapItemURL: nil)
+                              mapItemURL: nil,
+                              photoPaths: [])
             ]
         } else {
             self.locations = locations

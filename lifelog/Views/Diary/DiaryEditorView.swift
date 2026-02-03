@@ -25,6 +25,7 @@ struct DiaryEditorView: View {
     @State private var diaryReminderEnabled: Bool = false
     @State private var diaryReminderTime: Date = Date()
     @State private var isImportingPhotos = false
+    @State private var photoLinkContext: PhotoLinkContext?
     
     // AI採点機能
     @State private var showAIAppSelectionSheet = false
@@ -164,6 +165,10 @@ struct DiaryEditorView: View {
                 pendingLocationSelection = location
             }
             .presentationDetents([.large])
+        }
+        .sheet(item: $photoLinkContext) { context in
+            PhotoLocationLinkSheet(context: context, viewModel: viewModel)
+                .presentationDetents([.medium, .large])
         }
         .onChange(of: devPCPrompt) { _, newValue in
             if !newValue.isEmpty {
@@ -414,9 +419,13 @@ struct DiaryEditorView: View {
                     .cornerRadius(12)
                 VStack(spacing: 8) {
                     ForEach(viewModel.entry.locations) { location in
-                        DiaryLocationRow(location: location) {
-                            viewModel.removeLocation(id: location.id)
-                        }
+                        DiaryLocationRow(location: location,
+                                         onLink: {
+                                             photoLinkContext = .location(location.id)
+                                         },
+                                         onRemove: {
+                                             viewModel.removeLocation(id: location.id)
+                                         })
                     }
                 }
             }
@@ -441,17 +450,22 @@ struct DiaryEditorView: View {
 
     private var photosSection: some View {
         let remainingSlots = max(0, DiaryViewModel.maxPhotos - viewModel.entry.photoPaths.count)
+        let linkedPhotoPaths = Set(viewModel.entry.locations.flatMap { $0.photoPaths })
         return Section("写真") {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack {
                     DiaryPhotoThumbnailList(photoPaths: viewModel.entry.photoPaths,
                                             favoritePhotoPath: viewModel.entry.favoritePhotoPath,
+                                            linkedPhotoPaths: linkedPhotoPaths,
                                             onSetFavorite: { index in
                                                 viewModel.setFavoritePhoto(at: index)
                                                 HapticManager.light()
                                             },
                                             onOpen: { index in
                                                 selectedPhoto = PhotoSelection(index: index)
+                                            },
+                                            onLink: { path in
+                                                photoLinkContext = .photo(path)
                                             })
                     PhotosPicker(selection: $selection,
                                  maxSelectionCount: max(1, remainingSlots),
@@ -537,7 +551,9 @@ private struct DiaryLocationsMapView: View, Equatable {
     let locations: [DiaryLocation]
 
     static func ==(lhs: DiaryLocationsMapView, rhs: DiaryLocationsMapView) -> Bool {
-        lhs.locations == rhs.locations
+        let lhsKeys = lhs.locations.map { "\($0.id.uuidString)|\($0.name)|\($0.address ?? "")|\($0.latitude)|\($0.longitude)" }
+        let rhsKeys = rhs.locations.map { "\($0.id.uuidString)|\($0.name)|\($0.address ?? "")|\($0.latitude)|\($0.longitude)" }
+        return lhsKeys == rhsKeys
     }
 
     var body: some View {
@@ -574,9 +590,11 @@ private struct DiaryLocationsMapView: View, Equatable {
 
 private struct DiaryLocationRow: View {
     let location: DiaryLocation
+    let onLink: () -> Void
     let onRemove: () -> Void
 
     var body: some View {
+        let photoCount = location.photoPaths.count
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(location.name)
@@ -588,6 +606,20 @@ private struct DiaryLocationRow: View {
                 }
             }
             Spacer()
+            Button {
+                onLink()
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "photo.on.rectangle.angled")
+                    Text(photoCount == 0 ? "写真" : "写真 \(photoCount)")
+                }
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(photoCount == 0 ? .secondary : .primary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color(.secondarySystemBackground), in: Capsule())
+            }
+            .buttonStyle(.plain)
             Button {
                 onRemove()
             } label: {
@@ -611,25 +643,249 @@ private struct PhotoSelection: Identifiable {
     }
 }
 
+private enum PhotoLinkContext: Identifiable {
+    case location(UUID)
+    case photo(String)
+
+    var id: String {
+        switch self {
+        case .location(let id):
+            return "location-\(id.uuidString)"
+        case .photo(let path):
+            return "photo-\(path)"
+        }
+    }
+}
+
+private struct PhotoLocationLinkSheet: View {
+    let context: PhotoLinkContext
+    @ObservedObject var viewModel: DiaryViewModel
+    @Environment(\.dismiss) private var dismiss
+
+    @State private var selectedPhotoPaths: Set<String> = []
+    @State private var selectedLocationIDs: Set<UUID> = []
+
+    private var isLocationMode: Bool {
+        if case .location = context { return true }
+        return false
+    }
+
+    private var currentLocation: DiaryLocation? {
+        guard case .location(let id) = context else { return nil }
+        return viewModel.entry.locations.first { $0.id == id }
+    }
+
+    private var currentPhotoPath: String? {
+        guard case .photo(let path) = context else { return nil }
+        return path
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if isLocationMode {
+                    locationModeView
+                } else {
+                    photoModeView
+                }
+            }
+            .navigationTitle(isLocationMode ? "写真を紐付け" : "場所を紐付け")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("閉じる") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完了") {
+                        applySelection()
+                    }
+                }
+            }
+            .onAppear {
+                setupSelection()
+            }
+        }
+    }
+
+    private var locationModeView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let location = currentLocation {
+                Text(location.name)
+                    .font(.headline)
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+            }
+            if viewModel.entry.photoPaths.isEmpty {
+                Text("写真がありません")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVGrid(columns: photoGridColumns, spacing: 12) {
+                        ForEach(viewModel.entry.photoPaths, id: \.self) { path in
+                            PhotoLinkTile(path: path,
+                                          isSelected: selectedPhotoPaths.contains(path)) {
+                                togglePhoto(path)
+                            }
+                        }
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                }
+            }
+        }
+    }
+
+    private var photoModeView: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let path = currentPhotoPath {
+                HStack(spacing: 12) {
+                    AsyncThumbnailImage(path: path, size: 72)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                    Text("この写真に場所を紐付けます")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
+            }
+            if viewModel.entry.locations.isEmpty {
+                Text("場所がありません")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                List {
+                    ForEach(viewModel.entry.locations) { location in
+                        Button {
+                            toggleLocation(location.id)
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(location.name)
+                                        .foregroundStyle(.primary)
+                                    if let address = location.address, address.isEmpty == false {
+                                        Text(address)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                Spacer()
+                                if selectedLocationIDs.contains(location.id) {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .foregroundStyle(Color.accentColor)
+                                } else {
+                                    Image(systemName: "circle")
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+                .listStyle(.plain)
+            }
+        }
+    }
+
+    private var photoGridColumns: [GridItem] {
+        Array(repeating: GridItem(.flexible(minimum: 72), spacing: 12), count: 4)
+    }
+
+    private func setupSelection() {
+        switch context {
+        case .location(let id):
+            if let location = viewModel.entry.locations.first(where: { $0.id == id }) {
+                selectedPhotoPaths = Set(location.photoPaths)
+            }
+        case .photo(let path):
+            let linked = viewModel.entry.locations
+                .filter { $0.photoPaths.contains(path) }
+                .map(\.id)
+            selectedLocationIDs = Set(linked)
+        }
+    }
+
+    private func togglePhoto(_ path: String) {
+        if selectedPhotoPaths.contains(path) {
+            selectedPhotoPaths.remove(path)
+        } else {
+            selectedPhotoPaths.insert(path)
+        }
+    }
+
+    private func toggleLocation(_ id: UUID) {
+        if selectedLocationIDs.contains(id) {
+            selectedLocationIDs.remove(id)
+        } else {
+            selectedLocationIDs.insert(id)
+        }
+    }
+
+    private func applySelection() {
+        switch context {
+        case .location(let id):
+            let ordered = viewModel.entry.photoPaths.filter { selectedPhotoPaths.contains($0) }
+            viewModel.updatePhotoLinks(forLocation: id, selectedPaths: ordered)
+        case .photo(let path):
+            let ordered = viewModel.entry.locations
+                .map(\.id)
+                .filter { selectedLocationIDs.contains($0) }
+            viewModel.updateLocationLinks(forPhoto: path, selectedLocationIDs: ordered)
+        }
+        dismiss()
+    }
+}
+
+private struct PhotoLinkTile: View {
+    let path: String
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button {
+            onTap()
+        } label: {
+            ZStack(alignment: .topTrailing) {
+                AsyncThumbnailImage(path: path, size: 72)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isSelected ? Color.accentColor : .white.opacity(0.9))
+                    .padding(6)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 private struct DiaryPhotoThumbnailList: View, Equatable {
     let photoPaths: [String]
     let favoritePhotoPath: String?
+    let linkedPhotoPaths: Set<String>
     let onSetFavorite: (Int) -> Void
     let onOpen: (Int) -> Void
+    let onLink: (String) -> Void
 
     static func ==(lhs: DiaryPhotoThumbnailList, rhs: DiaryPhotoThumbnailList) -> Bool {
-        lhs.photoPaths == rhs.photoPaths && lhs.favoritePhotoPath == rhs.favoritePhotoPath
+        lhs.photoPaths == rhs.photoPaths
+        && lhs.favoritePhotoPath == rhs.favoritePhotoPath
+        && lhs.linkedPhotoPaths == rhs.linkedPhotoPaths
     }
 
     var body: some View {
         ForEach(Array(photoPaths.enumerated()), id: \.offset) { index, path in
             let isFavorite = favoritePhotoPath == path
+            let isLinked = linkedPhotoPaths.contains(path)
             DiaryPhotoThumbnailItem(
                 path: path,
                 index: index,
                 isFavorite: isFavorite,
+                isLinked: isLinked,
                 onSetFavorite: onSetFavorite,
-                onOpen: onOpen
+                onOpen: onOpen,
+                onLink: onLink
             )
         }
     }
@@ -640,8 +896,10 @@ private struct DiaryPhotoThumbnailItem: View {
     let path: String
     let index: Int
     let isFavorite: Bool
+    let isLinked: Bool
     let onSetFavorite: (Int) -> Void
     let onOpen: (Int) -> Void
+    let onLink: (String) -> Void
     
     @State private var thumbnail: UIImage?
     
@@ -669,6 +927,20 @@ private struct DiaryPhotoThumbnailItem: View {
                     .symbolEffect(.bounce, value: isFavorite)
             }
             .offset(x: -8, y: -8)
+            .buttonStyle(.plain)
+        }
+        .overlay(alignment: .bottomTrailing) {
+            Button {
+                onLink(path)
+            } label: {
+                Image(systemName: "mappin.and.ellipse")
+                    .font(.caption)
+                    .foregroundStyle(isLinked ? Color.white : Color.white.opacity(0.9))
+                    .padding(6)
+                    .background(isLinked ? Color.accentColor.opacity(0.9) : Color.black.opacity(0.45),
+                                in: Circle())
+            }
+            .offset(x: 6, y: 6)
             .buttonStyle(.plain)
         }
         .onTapGesture {
