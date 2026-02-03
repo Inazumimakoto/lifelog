@@ -1190,8 +1190,8 @@ struct JournalView: View {
         let targetDate = date.startOfDay
         viewModel.selectedDate = targetDate
         let fromReview = calendarMode == .review
-        isDiaryOpeningFromReview = fromReview
-        if showingDetailPanel || fromReview {
+        isDiaryOpeningFromReview = showingDetailPanel && fromReview
+        if showingDetailPanel {
             pendingDiaryDate = targetDate
             showingDetailPanel = false
         } else {
