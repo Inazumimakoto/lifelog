@@ -9,12 +9,14 @@ import SwiftUI
 
 struct LetterListView: View {
     @EnvironmentObject var store: AppDataStore
+    @ObservedObject private var monetization = MonetizationService.shared
     @State private var showEditor = false
     @State private var editingLetter: Letter?
     @State private var letterToOpen: Letter?
     @State private var showLetterOpening = false
     @State private var hasOpenedEnvelope = false
     @State private var showWelcome = false
+    @State private var showPaywall = false
     
     @AppStorage("hasSeenLetterWelcome") private var hasSeenWelcome = false
     
@@ -31,58 +33,74 @@ struct LetterListView: View {
     }
     
     var body: some View {
-        List {
-            // 新規作成CTA（一番上）
-            Section {
-                Button {
-                    editingLetter = nil
-                    showEditor = true
-                } label: {
-                    HStack {
-                        Image(systemName: "pencil.and.outline")
-                            .font(.title2)
-                            .foregroundStyle(.orange)
-                        Text("新しい手紙を書く")
-                            .foregroundStyle(.primary)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+        Group {
+            if monetization.canUseLetters {
+                List {
+                    // 新規作成CTA（一番上）
+                    Section {
+                        Button {
+                            editingLetter = nil
+                            showEditor = true
+                        } label: {
+                            HStack {
+                                Image(systemName: "pencil.and.outline")
+                                    .font(.title2)
+                                    .foregroundStyle(.orange)
+                                Text("新しい手紙を書く")
+                                    .foregroundStyle(.primary)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    
+                    // 開封待ち（配達日を過ぎた未開封）
+                    if !deliverableLetters.isEmpty {
+                        Section {
+                            ForEach(deliverableLetters) { letter in
+                                deliverableRow(letter)
+                            }
+                        } header: {
+                            Label("開封待ち", systemImage: "envelope.badge")
+                        }
+                    }
+                    
+                    // 開封済み
+                    if !openedLetters.isEmpty {
+                        Section {
+                            ForEach(openedLetters) { letter in
+                                openedRow(letter)
+                            }
+                            .onDelete { offsets in
+                                deleteOpenedLetters(at: offsets)
+                            }
+                        } header: {
+                            Label("開封済み", systemImage: "envelope.open")
+                        }
+                    }
+                    
+                    // 空の状態（何もない場合）
+                    if deliverableLetters.isEmpty && openedLetters.isEmpty {
+                        emptyState
                     }
                 }
-            }
-            
-            // 開封待ち（配達日を過ぎた未開封）
-            if !deliverableLetters.isEmpty {
-                Section {
-                    ForEach(deliverableLetters) { letter in
-                        deliverableRow(letter)
+            } else {
+                ScrollView {
+                    PremiumLockCard(title: "未来への手紙",
+                                    message: monetization.lettersMessage(),
+                                    actionTitle: "プランを見る") {
+                        showPaywall = true
                     }
-                } header: {
-                    Label("開封待ち", systemImage: "envelope.badge")
+                    .padding()
                 }
-            }
-            
-            // 開封済み
-            if !openedLetters.isEmpty {
-                Section {
-                    ForEach(openedLetters) { letter in
-                        openedRow(letter)
-                    }
-                    .onDelete { offsets in
-                        deleteOpenedLetters(at: offsets)
-                    }
-                } header: {
-                    Label("開封済み", systemImage: "envelope.open")
-                }
-            }
-            
-            // 空の状態（何もない場合）
-            if deliverableLetters.isEmpty && openedLetters.isEmpty {
-                emptyState
             }
         }
         .navigationTitle("未来への手紙")
+        .sheet(isPresented: $showPaywall) {
+            PremiumPaywallView()
+        }
         .sheet(isPresented: $showEditor) {
             NavigationStack {
                 LetterEditorView(letter: editingLetter)
@@ -112,6 +130,7 @@ struct LetterListView: View {
             }
         }
         .onAppear {
+            guard monetization.canUseLetters else { return }
             if !hasSeenWelcome {
                 showWelcome = true
                 hasSeenWelcome = true

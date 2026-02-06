@@ -118,6 +118,7 @@ private struct DayPreviewItem: Identifiable {
 
 struct JournalView: View {
     @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var monetization = MonetizationService.shared
     private let store: AppDataStore
     @StateObject private var viewModel: JournalViewModel
     private let monthPagerHeight: CGFloat = 700
@@ -172,6 +173,8 @@ struct JournalView: View {
     @State private var didInitialSetup = false
     @State private var deferredCalendarSyncTask: _Concurrency.Task<Void, Never>?
     @State private var deferredPreloadTask: _Concurrency.Task<Void, Never>?
+    @State private var showPaywall = false
+    @State private var premiumAlertMessage: String?
     
     private let resetTrigger: Int
 
@@ -216,6 +219,9 @@ struct JournalView: View {
                     store.addTask(task)
                 }
             }
+        }
+        .sheet(isPresented: $showPaywall) {
+            PremiumPaywallView()
         }
         .sheet(isPresented: $showEventEditor) {
             NavigationStack {
@@ -290,6 +296,17 @@ struct JournalView: View {
             }
             Button("キャンセル", role: .cancel) { pendingAddDate = nil }
         }
+        .alert("プレミアム機能", isPresented: Binding(
+            get: { premiumAlertMessage != nil },
+            set: { if $0 == false { premiumAlertMessage = nil } }
+        )) {
+            Button("プランを見る") {
+                showPaywall = true
+            }
+            Button("あとで", role: .cancel) { }
+        } message: {
+            Text(premiumAlertMessage ?? "")
+        }
         .onAppear {
             if didInitialSetup == false {
                 didInitialSetup = true
@@ -348,6 +365,14 @@ struct JournalView: View {
                 reviewContentMode = .diary
             }
         }
+        .onChange(of: reviewContentMode) { _, newMode in
+            guard newMode == .map else { return }
+            guard monetization.canUseReviewMap else {
+                reviewContentMode = .diary
+                premiumAlertMessage = monetization.reviewMapMessage()
+                return
+            }
+        }
         .onChange(of: resetTrigger) { _, _ in
             // 他のタブから戻った時に「予定カレンダー」「月表示」にリセット
             if calendarMode != .schedule {
@@ -400,8 +425,14 @@ struct JournalView: View {
                 } else {
                     if reviewContentMode == .diary {
                         reviewDetail
-                    } else {
+                    } else if monetization.canUseReviewMap {
                         reviewMap
+                    } else {
+                        PremiumLockCard(title: "振り返り地図",
+                                        message: monetization.reviewMapMessage(),
+                                        actionTitle: "プランを見る") {
+                            showPaywall = true
+                        }
                     }
                 }
                 if viewModel.calendarAccessDenied {
@@ -625,8 +656,11 @@ struct JournalView: View {
 
     private var reviewModePicker: some View {
         Picker("表示切替", selection: $reviewContentMode) {
-            ForEach(ReviewContentMode.allCases) { mode in
-                Text(mode.rawValue).tag(mode)
+            Text(ReviewContentMode.diary.rawValue).tag(ReviewContentMode.diary)
+            if monetization.canUseReviewMap {
+                Text(ReviewContentMode.map.rawValue).tag(ReviewContentMode.map)
+            } else {
+                Text("地図🔒").tag(ReviewContentMode.map)
             }
         }
         .pickerStyle(.segmented)

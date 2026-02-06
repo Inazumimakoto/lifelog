@@ -10,6 +10,7 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var store: AppDataStore
     @EnvironmentObject private var deepLinkManager: DeepLinkManager
+    @ObservedObject private var monetization = MonetizationService.shared
     @ObservedObject private var deepLinkHandler = DeepLinkHandler.shared
     @State private var selection: Int = 0
     @State private var lastSelection: Int = 0
@@ -25,6 +26,8 @@ struct ContentView: View {
     
     /// 招待後に手紙を書く画面を表示
     @State private var showLetterSharingFromInvite = false
+    @State private var showPaywall = false
+    @State private var premiumAlertMessage: String?
 
     var body: some View {
         TabView(selection: $selection) {
@@ -78,6 +81,11 @@ struct ContentView: View {
         // ディープリンク: 未来への手紙の通知タップ
         .onChange(of: deepLinkManager.pendingLetterID) { _, letterID in
             guard let letterID = letterID else { return }
+            guard monetization.canUseLetters else {
+                deepLinkManager.clearPendingLetter()
+                premiumAlertMessage = monetization.lettersMessage()
+                return
+            }
             // 開封可能な手紙を検索
             if let letter = store.letters.first(where: { $0.id == letterID && $0.isDeliverable }) {
                 letterToOpen = letter
@@ -89,6 +97,11 @@ struct ContentView: View {
         // ディープリンク: 共有手紙の通知タップ
         .onChange(of: deepLinkManager.pendingSharedLetterID) { _, letterID in
             guard let letterID = letterID else { return }
+            guard monetization.canUseLetters else {
+                deepLinkManager.clearPendingSharedLetter()
+                premiumAlertMessage = monetization.lettersMessage()
+                return
+            }
             fetchSharedLetter(id: letterID)
         }
         .fullScreenCover(item: $letterToOpen) { letter in
@@ -156,6 +169,20 @@ struct ContentView: View {
                         }
                     }
             }
+        }
+        .sheet(isPresented: $showPaywall) {
+            PremiumPaywallView()
+        }
+        .alert("プレミアム機能", isPresented: Binding(
+            get: { premiumAlertMessage != nil },
+            set: { if $0 == false { premiumAlertMessage = nil } }
+        )) {
+            Button("プランを見る") {
+                showPaywall = true
+            }
+            Button("あとで", role: .cancel) { }
+        } message: {
+            Text(premiumAlertMessage ?? "")
         }
     }
     

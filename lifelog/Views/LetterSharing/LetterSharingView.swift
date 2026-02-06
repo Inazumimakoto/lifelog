@@ -10,6 +10,7 @@ import SwiftUI
 /// 大切な人への手紙機能のメイン画面
 /// 認証状態に応じてサインイン画面またはメイン機能を表示
 struct LetterSharingView: View {
+    @ObservedObject private var monetization = MonetizationService.shared
     @ObservedObject private var authService = AuthService.shared
     @ObservedObject private var pairingService = PairingService.shared
     @ObservedObject private var deepLinkHandler = DeepLinkHandler.shared
@@ -25,11 +26,19 @@ struct LetterSharingView: View {
     @State private var isGeneratingInvite = false
     @State private var preselectedFriend: PairingService.Friend?
     @State private var showingLetterEditorNoPreselect = false
+    @State private var showPaywall = false
     
     var body: some View {
         NavigationStack {
             Group {
-                if !authService.isSignedIn {
+                if !monetization.canUseLetters {
+                    PremiumLockCard(title: "大切な人への手紙",
+                                    message: monetization.lettersMessage(),
+                                    actionTitle: "プランを見る") {
+                        showPaywall = true
+                    }
+                    .padding()
+                } else if !authService.isSignedIn {
                     // 未ログイン: サインイン画面
                     LetterSignInView(onSignInComplete: {
                         // 新規ユーザーはプロフィール設定を表示
@@ -94,6 +103,9 @@ struct LetterSharingView: View {
                 Button("OK") { }
             } message: {
                 Text("手紙の内容はあなたと相手だけが読めます。\n\n運営を含め、第三者が手紙を読むことは技術的に不可能です。")
+            }
+            .sheet(isPresented: $showPaywall) {
+                PremiumPaywallView()
             }
         }
     }

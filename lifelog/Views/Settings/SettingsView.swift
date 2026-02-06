@@ -11,6 +11,7 @@ import MessageUI
 struct SettingsView: View {
     @EnvironmentObject private var store: AppDataStore
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var monetization = MonetizationService.shared
     @StateObject private var appLockService = AppLockService.shared
     @State private var showMailComposer = false
     @State private var showMailErrorAlert = false
@@ -22,6 +23,8 @@ struct SettingsView: View {
     @AppStorage("githubUsername") private var githubUsername: String = ""
     @State private var githubPAT: String = ""
     @State private var showPATHelp = false
+    @State private var showPaywall = false
+    @State private var premiumAlertMessage: String?
     @StateObject private var githubService = GitHubService.shared
     
     private var appVersion: String {
@@ -181,7 +184,7 @@ struct SettingsView: View {
             // ひみつの機能（一番下に配置）
             Section("ひみつの機能 🤫") {
                 Button {
-                    showLetterList = true
+                    openLetterFeatureIfNeeded { showLetterList = true }
                 } label: {
                     HStack {
                         Label("未来への手紙", systemImage: "envelope.fill")
@@ -193,7 +196,7 @@ struct SettingsView: View {
                 .foregroundStyle(.primary)
                 
                 Button {
-                    showLetterSharing = true
+                    openLetterFeatureIfNeeded { showLetterSharing = true }
                 } label: {
                     HStack {
                         Label("大切な人への手紙", systemImage: "envelope.badge.person.crop")
@@ -338,6 +341,28 @@ struct SettingsView: View {
         .sheet(isPresented: $showLetterSharing) {
             LetterSharingView()
         }
+        .sheet(isPresented: $showPaywall) {
+            PremiumPaywallView()
+        }
+        .alert("プレミアム機能", isPresented: Binding(
+            get: { premiumAlertMessage != nil },
+            set: { if $0 == false { premiumAlertMessage = nil } }
+        )) {
+            Button("プランを見る") {
+                showPaywall = true
+            }
+            Button("あとで", role: .cancel) { }
+        } message: {
+            Text(premiumAlertMessage ?? "")
+        }
+    }
+
+    private func openLetterFeatureIfNeeded(_ openAction: () -> Void) {
+        guard monetization.canUseLetters else {
+            premiumAlertMessage = monetization.lettersMessage()
+            return
+        }
+        openAction()
     }
 }
 

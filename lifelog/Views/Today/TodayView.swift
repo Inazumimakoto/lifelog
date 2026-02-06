@@ -10,6 +10,7 @@ import PhotosUI
 
 struct TodayView: View {
     @StateObject private var viewModel: TodayViewModel
+    @ObservedObject private var monetization = MonetizationService.shared
     @StateObject private var weatherService = WeatherService()
     @Environment(\.scenePhase) private var scenePhase
     @State private var showSettings = false
@@ -31,6 +32,7 @@ struct TodayView: View {
     private let store: AppDataStore
     @State private var didAppear = false
     @State private var calendarSyncTrigger = 0
+    @State private var showPaywall = false
 
     init(store: AppDataStore) {
         self.store = store
@@ -234,6 +236,9 @@ struct TodayView: View {
                                onSave: { updated in store.updateTask(updated) },
                                onDelete: { store.deleteTasks(withIDs: [task.id]) })
             }
+        }
+        .sheet(isPresented: $showPaywall) {
+            PremiumPaywallView()
         }
     }
 
@@ -584,8 +589,15 @@ struct TodayView: View {
     @ViewBuilder
     private var letterSection: some View {
         let deliverableLetters = store.deliverableLetters()
-        
-        if !deliverableLetters.isEmpty {
+        if monetization.canUseLetters == false {
+            if !deliverableLetters.isEmpty {
+                PremiumLockCard(title: "未来への手紙",
+                                message: monetization.lettersMessage(),
+                                actionTitle: "プランを見る") {
+                    showPaywall = true
+                }
+            }
+        } else if !deliverableLetters.isEmpty {
             VStack(spacing: 12) {
                 ForEach(deliverableLetters) { letter in
                     letterCardView(for: letter)
@@ -661,8 +673,15 @@ struct TodayView: View {
     private var sharedLetterSection: some View {
         // 未開封の共有手紙のみ表示
         let unreadLetters = receivedSharedLetters.filter { $0.status == "delivered" }
-        
-        if !unreadLetters.isEmpty {
+        if monetization.canUseLetters == false {
+            if !unreadLetters.isEmpty {
+                PremiumLockCard(title: "大切な人への手紙",
+                                message: monetization.lettersMessage(),
+                                actionTitle: "プランを見る") {
+                    showPaywall = true
+                }
+            }
+        } else if !unreadLetters.isEmpty {
             VStack(spacing: 12) {
                 ForEach(unreadLetters) { letter in
                     sharedLetterCardView(for: letter)
@@ -739,5 +758,3 @@ struct TodayView: View {
         }
     }
 }
-
-

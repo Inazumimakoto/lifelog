@@ -10,6 +10,7 @@ import SwiftUI
 struct HabitsCountdownView: View {
     @StateObject private var habitsViewModel: HabitsViewModel
     @StateObject private var anniversaryViewModel: AnniversaryViewModel
+    @ObservedObject private var monetization = MonetizationService.shared
     private let store: AppDataStore
     var resetTrigger: Int = 0
     @State private var showHabitEditor = false
@@ -22,6 +23,8 @@ struct HabitsCountdownView: View {
     @State private var showSettings = false
     @State private var showHabitReorder = false
     @State private var showAnniversaryReorder = false
+    @State private var premiumAlertMessage: String?
+    @State private var showPaywall = false
     @AppStorage("githubUsername") private var githubUsername: String = ""
     @StateObject private var githubService = GitHubService.shared
 
@@ -137,28 +140,52 @@ struct HabitsCountdownView: View {
                 AnniversaryReorderView(anniversaryViewModel: anniversaryViewModel)
             }
         }
+        .sheet(isPresented: $showPaywall) {
+            PremiumPaywallView()
+        }
+        .alert("プレミアム機能", isPresented: Binding(
+            get: { premiumAlertMessage != nil },
+            set: { if $0 == false { premiumAlertMessage = nil } }
+        )) {
+            Button("プランを見る") {
+                showPaywall = true
+            }
+            Button("あとで", role: .cancel) { }
+        } message: {
+            Text(premiumAlertMessage ?? "")
+        }
     }
 
     private var yearlyHeatmapSection: some View {
-        SectionCard(title: "今年の習慣の積み上げ") {
-            if habitsViewModel.yearlySummaries.isEmpty {
-                Text("習慣がありません。追加して1年の積み上げを可視化しましょう。")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                HabitYearHeatmapView(startDate: habitsViewModel.yearStartDate,
-                                     weekCount: habitsViewModel.yearWeekCount,
-                                     summaries: habitsViewModel.yearlySummaries,
-                                     onSelect: { summary in
-                                         selectedSummaryDate = summary.date
-                                     })
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("今年の平均達成率： \(Int((habitsViewModel.yearlyAverageRate * 100).rounded()))%")
-                    Text("今月の平均達成率： \(Int((habitsViewModel.monthlyAverageRate * 100).rounded()))%")
+        Group {
+            if monetization.canUseHabitGrass {
+                SectionCard(title: "今年の習慣の積み上げ") {
+                    if habitsViewModel.yearlySummaries.isEmpty {
+                        Text("習慣がありません。追加して1年の積み上げを可視化しましょう。")
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        HabitYearHeatmapView(startDate: habitsViewModel.yearStartDate,
+                                             weekCount: habitsViewModel.yearWeekCount,
+                                             summaries: habitsViewModel.yearlySummaries,
+                                             onSelect: { summary in
+                                                 selectedSummaryDate = summary.date
+                                             })
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("今年の平均達成率： \(Int((habitsViewModel.yearlyAverageRate * 100).rounded()))%")
+                            Text("今月の平均達成率： \(Int((habitsViewModel.monthlyAverageRate * 100).rounded()))%")
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .padding(.top, 4)
+                    }
                 }
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-                .padding(.top, 4)
+            } else {
+                PremiumLockCard(title: "今年の習慣の積み上げ",
+                                message: monetization.habitGrassMessage(),
+                                actionTitle: "プランを見る") {
+                    showPaywall = true
+                }
             }
         }
     }
@@ -191,7 +218,7 @@ struct HabitsCountdownView: View {
     private var habitsSection: some View {
         SectionCard(title: "習慣",
                     actionTitle: "追加",
-                    action: { showHabitEditor = true }) {
+                    action: { handleHabitAddTap() }) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("行をタップすると詳細。長押しで順番を入れ替えれます。")
                     .font(.caption)
@@ -222,11 +249,28 @@ struct HabitsCountdownView: View {
                                 }
                                 .buttonStyle(.plain)
                                 Spacer()
-                                MiniHabitHeatmapView(cells: habitsViewModel.miniHeatmap(for: status.habit),
-                                                     accentColor: Color(hex: status.habit.colorHex) ?? .accentColor)
-                                .frame(width: 110, height: 82)
-                                .onTapGesture {
-                                    selectedHabitForDetail = status.habit
+                                if monetization.canUseHabitGrass {
+                                    MiniHabitHeatmapView(cells: habitsViewModel.miniHeatmap(for: status.habit),
+                                                         accentColor: Color(hex: status.habit.colorHex) ?? .accentColor)
+                                    .frame(width: 110, height: 82)
+                                    .onTapGesture {
+                                        selectedHabitForDetail = status.habit
+                                    }
+                                } else {
+                                    Button {
+                                        showPaywall = true
+                                    } label: {
+                                        VStack(spacing: 6) {
+                                            Image(systemName: "lock.fill")
+                                                .foregroundStyle(.yellow)
+                                            Text("草表示")
+                                                .font(.caption2)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                        .frame(width: 110, height: 82)
+                                        .background(Color.gray.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+                                    }
+                                    .buttonStyle(.plain)
                                 }
                                 Button {
                                     editingHabit = status.habit
@@ -271,7 +315,7 @@ struct HabitsCountdownView: View {
     private var anniversarySection: some View {
         SectionCard(title: "記念日 / カウントダウン",
                     actionTitle: "追加",
-                    action: { showAnniversaryEditor = true }) {
+                    action: { handleCountdownAddTap() }) {
             Text("長押しで順番を入れ替えれます。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -503,6 +547,22 @@ extension HabitsCountdownView {
                 .frame(maxWidth: .infinity)
             }
         }
+    }
+
+    private func handleHabitAddTap() {
+        guard monetization.canAddHabit(activeHabitCount: habitsViewModel.habits.count) else {
+            premiumAlertMessage = monetization.habitLimitMessage()
+            return
+        }
+        showHabitEditor = true
+    }
+
+    private func handleCountdownAddTap() {
+        guard monetization.canAddCountdown(currentCount: anniversaryViewModel.rows.count) else {
+            premiumAlertMessage = monetization.countdownLimitMessage()
+            return
+        }
+        showAnniversaryEditor = true
     }
 }
 

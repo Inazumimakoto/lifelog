@@ -9,10 +9,12 @@ import SwiftUI
 
 struct HabitDetailView: View {
     @ObservedObject var store: AppDataStore
+    @ObservedObject private var monetization = MonetizationService.shared
     var habit: Habit
 
     @State private var highlightedDate: Date?
     @State private var showEditor = false
+    @State private var showPaywall = false
     private let calendar = Calendar.current
 
     private var currentHabit: Habit {
@@ -52,6 +54,9 @@ struct HabitDetailView: View {
                     store.updateHabit(updated)
                 }
             }
+        }
+        .sheet(isPresented: $showPaywall) {
+            PremiumPaywallView()
         }
     }
 
@@ -94,17 +99,27 @@ struct HabitDetailView: View {
     }
 
     private func heatmapSection(proxy: ScrollViewProxy) -> some View {
-        SectionCard(title: "直近の積み上げ") {
-            HabitDetailHeatmapView(cells: detailCells,
-                                   accentColor: accentColor) { date in
-                highlightedDate = date
-                withAnimation {
-                    proxy.scrollTo(date, anchor: .center)
+        Group {
+            if monetization.canUseHabitGrass {
+                SectionCard(title: "直近の積み上げ") {
+                    HabitDetailHeatmapView(cells: detailCells,
+                                           accentColor: accentColor) { date in
+                        highlightedDate = date
+                        withAnimation {
+                            proxy.scrollTo(date, anchor: .center)
+                        }
+                    }
+                    Text("右端が今日。タップした日付は下の履歴で確認・更新できます。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else {
+                PremiumLockCard(title: "直近の積み上げ",
+                                message: monetization.habitGrassMessage(),
+                                actionTitle: "プランを見る") {
+                    showPaywall = true
                 }
             }
-            Text("右端が今日。タップした日付は下の履歴で確認・更新できます。")
-                .font(.caption)
-                .foregroundStyle(.secondary)
         }
     }
 

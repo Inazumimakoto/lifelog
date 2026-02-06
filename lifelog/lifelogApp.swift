@@ -19,6 +19,7 @@ struct lifelogApp: App {
     
     @StateObject private var store = AppDataStore()
     @StateObject private var deepLinkManager = DeepLinkManager.shared
+    @StateObject private var monetizationService = MonetizationService.shared
     
     init() {
         CategoryPalette.initializeIfNeeded()
@@ -37,6 +38,9 @@ struct lifelogApp: App {
                     .onAppear {
                         // 日記リマインダーを再スケジュール（今日書いていなければ通知）
                         store.rescheduleDiaryReminderIfNeeded()
+                        _Concurrency.Task {
+                            await monetizationService.refreshStatus()
+                        }
                     }
                 
                 if !appLockService.isUnlocked && appLockService.isAppLockEnabled {
@@ -57,6 +61,7 @@ struct lifelogApp: App {
                     // 最終ログイン日時を更新（手紙の生存確認用）
                     _Concurrency.Task {
                         await AuthService.shared.updateLastLoginAt()
+                        await monetizationService.refreshStatus()
                     }
                 }
             }
