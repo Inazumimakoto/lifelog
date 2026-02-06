@@ -25,6 +25,7 @@ Updated: 2026-02-06
   - Habit registration: up to 3 active habits.
   - Countdown registration: up to 1 item.
   - Diary photo upload: up to 3 photos per day.
+  - Diary location save: unavailable.
   - Schedule calendar, diary, tasks, AI export, health: available.
 - Premium:
   - Habit grass/heatmap displays.
@@ -32,6 +33,7 @@ Updated: 2026-02-06
   - Letter to the Future.
   - Letter to Loved One (shared letters).
   - Diary photo upload: up to 10 photos per day.
+  - Diary location save.
   - Unlimited habits/countdowns.
 
 ## 5. UX Policy
@@ -68,8 +70,8 @@ Updated: 2026-02-06
 
 ## 8. Data/Behavior Rules
 - If user exceeds free cap after losing premium:
-  - Existing items remain visible/editable.
-  - Creation of new items is blocked until count is within free cap or premium restored.
+  - Items above free cap are hidden in free tier.
+  - Hidden items are restored automatically when premium is active again.
 - Storefront source of truth:
   - Apple storefront country, not GPS location.
 

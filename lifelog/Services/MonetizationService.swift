@@ -62,6 +62,10 @@ final class MonetizationService: ObservableObject {
         isPremiumUnlocked
     }
 
+    var canUseDiaryLocation: Bool {
+        isPremiumUnlocked
+    }
+
     var canUseLetters: Bool {
         isPremiumUnlocked
     }
@@ -117,6 +121,10 @@ final class MonetizationService: ObservableObject {
 
     func diaryPhotoLimitMessage() -> String {
         "海外版の無料プランでは日記写真は\(freeDiaryPhotoLimit)枚までです。プレミアムで\(premiumDiaryPhotoLimit)枚まで追加できます。"
+    }
+
+    func diaryLocationMessage() -> String {
+        "日記の場所保存はプレミアム機能です。"
     }
 
     func reviewMapMessage() -> String {

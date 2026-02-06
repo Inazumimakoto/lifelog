@@ -494,14 +494,18 @@ struct TodayView: View {
     }
 
     private var habitsSection: some View {
-        SectionCard(title: "習慣チェック") {
-            if viewModel.habitStatuses.isEmpty {
+        let visibleStatuses: [TodayViewModel.DailyHabitStatus] = monetization.isPremiumUnlocked
+            ? viewModel.habitStatuses
+            : Array(viewModel.habitStatuses.prefix(monetization.freeHabitLimit))
+        let hiddenCount = max(0, viewModel.habitStatuses.count - visibleStatuses.count)
+        return SectionCard(title: "習慣チェック") {
+            if visibleStatuses.isEmpty {
                 Text("本日分の習慣は登録されていません")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
                 LazyVStack(spacing: 12) {
-                    ForEach(viewModel.habitStatuses) { status in
+                    ForEach(visibleStatuses) { status in
                         Button {
                             withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                                 viewModel.toggleHabit(status.habit)
@@ -521,6 +525,13 @@ struct TodayView: View {
                         }
                         .buttonStyle(.plain)
                     }
+                }
+            }
+            if hiddenCount > 0 {
+                PremiumLockCard(title: "非表示の習慣があります",
+                                message: "無料プランでは\(monetization.freeHabitLimit)件まで表示されます。\(hiddenCount)件は非表示です。",
+                                actionTitle: "プランを見る") {
+                    showPaywall = true
                 }
             }
         }

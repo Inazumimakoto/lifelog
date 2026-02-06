@@ -76,6 +76,7 @@ struct PremiumPaywallView: View {
             premiumFeatureRow("未来への手紙 / 大切な人への手紙を解放")
             premiumFeatureRow("習慣とカウントダウンの登録上限を解除")
             premiumFeatureRow("日記写真の上限を3枚から10枚に拡張")
+            premiumFeatureRow("日記の場所保存を解放")
         }
     }
 

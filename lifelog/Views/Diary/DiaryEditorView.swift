@@ -413,33 +413,42 @@ struct DiaryEditorView: View {
         }
     }
 
+    @ViewBuilder
     private var locationSection: some View {
         Section("場所") {
-            // docs/requirements.md §4.4 日記: 位置情報ログ
-            if viewModel.entry.locations.isEmpty {
-                Text("訪れた場所を残しておきましょう。地図を動かしてお店やスポットを選べます。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                DiaryLocationsMapView(locations: viewModel.entry.locations)
-                    .frame(height: 120)
-                    .cornerRadius(12)
-                VStack(spacing: 8) {
-                    ForEach(viewModel.entry.locations) { location in
-                        DiaryLocationRow(location: location,
-                                         onLink: {
-                                             photoLinkContext = .location(location.id)
-                                         },
-                                         onRemove: {
-                                             viewModel.removeLocation(id: location.id)
-                                         })
+            if monetization.canUseDiaryLocation {
+                // docs/requirements.md §4.4 日記: 位置情報ログ
+                if viewModel.entry.locations.isEmpty {
+                    Text("訪れた場所を残しておきましょう。地図を動かしてお店やスポットを選べます。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    DiaryLocationsMapView(locations: viewModel.entry.locations)
+                        .frame(height: 120)
+                        .cornerRadius(12)
+                    VStack(spacing: 8) {
+                        ForEach(viewModel.entry.locations) { location in
+                            DiaryLocationRow(location: location,
+                                             onLink: {
+                                                 photoLinkContext = .location(location.id)
+                                             },
+                                             onRemove: {
+                                                 viewModel.removeLocation(id: location.id)
+                                             })
+                        }
                     }
                 }
-            }
-            Button {
-                showLocationPicker = true
-            } label: {
-                Label("場所を追加", systemImage: "mappin.and.ellipse")
+                Button {
+                    showLocationPicker = true
+                } label: {
+                    Label("場所を追加", systemImage: "mappin.and.ellipse")
+                }
+            } else {
+                PremiumLockCard(title: "場所保存",
+                                message: monetization.diaryLocationMessage(),
+                                actionTitle: "プランを見る") {
+                    showPaywall = true
+                }
             }
         }
     }

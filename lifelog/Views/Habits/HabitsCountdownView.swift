@@ -216,19 +216,21 @@ struct HabitsCountdownView: View {
     }
 
     private var habitsSection: some View {
-        SectionCard(title: "習慣",
-                    actionTitle: "追加",
-                    action: { handleHabitAddTap() }) {
+        let displayedStatuses = visibleHabitStatuses
+        let hiddenCount = hiddenHabitCount
+        return SectionCard(title: "習慣",
+                           actionTitle: "追加",
+                           action: { handleHabitAddTap() }) {
             VStack(alignment: .leading, spacing: 12) {
                 Text("行をタップすると詳細。長押しで順番を入れ替えれます。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                if habitsViewModel.statuses.isEmpty {
+                if displayedStatuses.isEmpty {
                     Text("まだ習慣がありません。追加して継続状況を可視化しましょう。")
                         .foregroundStyle(.secondary)
                         .padding(.vertical, 24)
                 } else {
-                    ForEach(Array(habitsViewModel.statuses.enumerated()), id: \.element.id) { index, status in
+                    ForEach(Array(displayedStatuses.enumerated()), id: \.element.id) { index, status in
                         VStack(alignment: .leading, spacing: 8) {
                             HStack(alignment: .top, spacing: 12) {
                                 Button {
@@ -295,17 +297,26 @@ struct HabitsCountdownView: View {
                         .dropDestination(for: String.self) { items, _ in
                             guard let draggedID = items.first,
                                   let draggedUUID = UUID(uuidString: draggedID),
-                                  let fromIndex = habitsViewModel.statuses.firstIndex(where: { $0.habit.id == draggedUUID }) else {
+                                  let fromIndex = habitsViewModel.statuses.firstIndex(where: { $0.habit.id == draggedUUID }),
+                                  let toIndex = habitsViewModel.statuses.firstIndex(where: { $0.habit.id == status.habit.id }) else {
                                 return false
                             }
-                            if fromIndex != index {
-                                habitsViewModel.moveHabit(from: IndexSet(integer: fromIndex), to: index > fromIndex ? index + 1 : index)
+                            if fromIndex != toIndex {
+                                habitsViewModel.moveHabit(from: IndexSet(integer: fromIndex),
+                                                          to: toIndex > fromIndex ? toIndex + 1 : toIndex)
                             }
                             return true
                         }
-                        if index < habitsViewModel.statuses.count - 1 {
+                        if index < displayedStatuses.count - 1 {
                             Divider()
                         }
+                    }
+                }
+                if hiddenCount > 0 {
+                    PremiumLockCard(title: "非表示の習慣があります",
+                                    message: hiddenHabitMessage(hiddenCount),
+                                    actionTitle: "プランを見る") {
+                        showPaywall = true
                     }
                 }
             }
@@ -313,17 +324,19 @@ struct HabitsCountdownView: View {
     }
 
     private var anniversarySection: some View {
-        SectionCard(title: "記念日 / カウントダウン",
-                    actionTitle: "追加",
-                    action: { handleCountdownAddTap() }) {
+        let displayedRows = visibleCountdownRows
+        let hiddenCount = hiddenCountdownCount
+        return SectionCard(title: "記念日 / カウントダウン",
+                           actionTitle: "追加",
+                           action: { handleCountdownAddTap() }) {
             Text("長押しで順番を入れ替えれます。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            if anniversaryViewModel.rows.isEmpty {
+            if displayedRows.isEmpty {
                 Text("記念日は未登録です")
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(Array(anniversaryViewModel.rows.enumerated()), id: \.element.id) { index, row in
+                ForEach(Array(displayedRows.enumerated()), id: \.element.id) { index, row in
                     VStack(alignment: .leading, spacing: 8) {
                         HStack {
                             Text(row.anniversary.title)
@@ -398,17 +411,26 @@ struct HabitsCountdownView: View {
                     .dropDestination(for: String.self) { items, _ in
                         guard let draggedID = items.first,
                               let draggedUUID = UUID(uuidString: draggedID),
-                              let fromIndex = anniversaryViewModel.rows.firstIndex(where: { $0.anniversary.id == draggedUUID }) else {
+                              let fromIndex = anniversaryViewModel.rows.firstIndex(where: { $0.anniversary.id == draggedUUID }),
+                              let toIndex = anniversaryViewModel.rows.firstIndex(where: { $0.anniversary.id == row.anniversary.id }) else {
                             return false
                         }
-                        if fromIndex != index {
-                            anniversaryViewModel.move(from: IndexSet(integer: fromIndex), to: index > fromIndex ? index + 1 : index)
+                        if fromIndex != toIndex {
+                            anniversaryViewModel.move(from: IndexSet(integer: fromIndex),
+                                                      to: toIndex > fromIndex ? toIndex + 1 : toIndex)
                         }
                         return true
                     }
-                    if index < anniversaryViewModel.rows.count - 1 {
+                    if index < displayedRows.count - 1 {
                         Divider()
                     }
+                }
+            }
+            if hiddenCount > 0 {
+                PremiumLockCard(title: "非表示のカウントダウンがあります",
+                                message: hiddenCountdownMessage(hiddenCount),
+                                actionTitle: "プランを見る") {
+                    showPaywall = true
                 }
             }
         }
@@ -508,6 +530,32 @@ extension HabitsCountdownView {
                 .foregroundStyle(.secondary)
             }
         }
+    }
+
+    private var visibleHabitStatuses: [HabitsViewModel.HabitWeekStatus] {
+        guard monetization.isPremiumUnlocked == false else { return habitsViewModel.statuses }
+        return Array(habitsViewModel.statuses.prefix(monetization.freeHabitLimit))
+    }
+
+    private var hiddenHabitCount: Int {
+        max(0, habitsViewModel.statuses.count - visibleHabitStatuses.count)
+    }
+
+    private var visibleCountdownRows: [AnniversaryViewModel.Row] {
+        guard monetization.isPremiumUnlocked == false else { return anniversaryViewModel.rows }
+        return Array(anniversaryViewModel.rows.prefix(monetization.freeCountdownLimit))
+    }
+
+    private var hiddenCountdownCount: Int {
+        max(0, anniversaryViewModel.rows.count - visibleCountdownRows.count)
+    }
+
+    private func hiddenHabitMessage(_ hiddenCount: Int) -> String {
+        "無料プランでは\(monetization.freeHabitLimit)件まで表示されます。\(hiddenCount)件は非表示です。プレミアムで再表示できます。"
+    }
+
+    private func hiddenCountdownMessage(_ hiddenCount: Int) -> String {
+        "無料プランでは\(monetization.freeCountdownLimit)件まで表示されます。\(hiddenCount)件は非表示です。プレミアムで再表示できます。"
     }
 
     private func weekRow(for status: HabitsViewModel.HabitWeekStatus) -> some View {
