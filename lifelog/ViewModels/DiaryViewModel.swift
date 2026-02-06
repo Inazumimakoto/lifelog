@@ -14,8 +14,6 @@ import SwiftUI
 @MainActor
 final class DiaryViewModel: ObservableObject {
 
-    static let maxPhotos: Int = 10
-
     struct PhotoImportSummary: Equatable {
         var addedPaths: [String] = []
         var skippedCount: Int = 0
@@ -34,6 +32,11 @@ final class DiaryViewModel: ObservableObject {
     @Published private(set) var entry: DiaryEntry
 
     private(set) var store: AppDataStore
+    private let monetization = MonetizationService.shared
+
+    var diaryPhotoLimit: Int {
+        monetization.diaryPhotoLimit
+    }
     
     /// テキスト保存用のデバウンスタスク
     private var textPersistTask: _Concurrency.Task<Void, Never>?
@@ -175,7 +178,7 @@ final class DiaryViewModel: ObservableObject {
     }
 
     func addPhoto(data: Data) {
-        guard entry.photoPaths.count < Self.maxPhotos else { return }
+        guard entry.photoPaths.count < diaryPhotoLimit else { return }
         guard let path = try? PhotoStorage.save(data: data) else { return }
         entry.photoPaths.append(path)
         persist()
@@ -191,7 +194,7 @@ final class DiaryViewModel: ObservableObject {
         guard items.isEmpty == false else { return PhotoImportSummary() }
 
         let targetDate = entry.date
-        let availableSlots = max(0, Self.maxPhotos - entry.photoPaths.count)
+        let availableSlots = max(0, diaryPhotoLimit - entry.photoPaths.count)
         if availableSlots == 0 {
             return PhotoImportSummary(addedPaths: [],
                                       skippedCount: items.count,

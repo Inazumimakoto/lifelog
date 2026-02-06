@@ -25,6 +25,9 @@ struct SettingsView: View {
     @State private var showPATHelp = false
     @State private var showPaywall = false
     @State private var premiumAlertMessage: String?
+#if DEBUG
+    private let debugAutomaticStorefront = "AUTO"
+#endif
     @StateObject private var githubService = GitHubService.shared
     
     private var appVersion: String {
@@ -254,6 +257,21 @@ struct SettingsView: View {
                         Label("PATを削除", systemImage: "trash")
                     }
                 }
+
+#if DEBUG
+                Picker("課金テスト国", selection: debugStorefrontSelectionBinding) {
+                    Text("自動").tag(debugAutomaticStorefront)
+                    Text("日本 (JP)").tag("JP")
+                    Text("米国 (US)").tag("US")
+                    Text("英国 (GB)").tag("GB")
+                }
+
+                Toggle("プレミアム強制ON", isOn: debugForcePremiumBinding)
+
+                Text("Debugビルド専用。日本にいても海外/課金状態のUIを即テストできます。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+#endif
             } header: {
                 Text("開発者向け 🧑‍💻")
             } footer: {
@@ -364,6 +382,27 @@ struct SettingsView: View {
         }
         openAction()
     }
+
+#if DEBUG
+    private var debugStorefrontSelectionBinding: Binding<String> {
+        Binding(
+            get: {
+                monetization.debugStorefrontCountryCode ?? debugAutomaticStorefront
+            },
+            set: { newValue in
+                let code: String? = (newValue == debugAutomaticStorefront) ? nil : newValue
+                monetization.applyDebugStorefrontCountryCode(code)
+            }
+        )
+    }
+
+    private var debugForcePremiumBinding: Binding<Bool> {
+        Binding(
+            get: { monetization.debugForcePremiumEntitlement },
+            set: { monetization.applyDebugForcePremiumEntitlement($0) }
+        )
+    }
+#endif
 }
 
 // メール作成用のラッパーView

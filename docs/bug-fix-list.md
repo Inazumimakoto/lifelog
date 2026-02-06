@@ -1,3 +1,42 @@
+# `Task` 型名衝突（Swift Concurrency）バグ
+
+## 問題
+
+このアプリにはドメインモデルの `Task` が存在するため、`Task { ... }` と書くと Swift Concurrency の `Task` と衝突し、`Task` 初期化エラーや型解決エラーが断続的に発生する。
+
+## 原因
+
+`Task` という同名シンボルが2種類ある。
+
+- アプリ独自モデル: `Models.Task`
+- 非同期処理: `Swift Concurrency Task`
+
+文脈によってコンパイラが誤ってモデル側を解決してしまう。
+
+## 恒久対策
+
+非同期タスクの生成・待機は **常に完全修飾** する。
+
+```swift
+// ✅ 常にこちらを使う
+_Concurrency.Task {
+    try? await _Concurrency.Task.sleep(for: .milliseconds(300))
+}
+
+// ❌ 禁止（衝突することがある）
+Task {
+    ...
+}
+```
+
+## 運用ルール
+
+- `AGENTS.md` に同ルールを明記済み。
+- 新規実装・修正時は `Task {` を使わず `_Concurrency.Task {` を使う。
+- 既存コードで衝突エラーが出た箇所は優先的に `_Concurrency.Task` に置換する。
+
+---
+
 # fullScreenCover と Optional State の同時設定バグ
 
 ## 問題
@@ -224,8 +263,8 @@ func update(text: String) {
 
 private func debouncedPersistText() {
     textPersistTask?.cancel()  // 既存のタスクをキャンセル
-    textPersistTask = Task {
-        try await Task.sleep(for: .milliseconds(500))
+    textPersistTask = _Concurrency.Task {
+        try await _Concurrency.Task.sleep(for: .milliseconds(500))
         persist()  // 0.5秒後に保存
     }
 }

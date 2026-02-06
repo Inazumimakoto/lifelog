@@ -14,6 +14,7 @@ struct DiaryEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var viewModel: DiaryViewModel
+    @ObservedObject private var monetization = MonetizationService.shared
     @ObservedObject private var tagManager = EmotionTagManager.shared
     @State private var selection: [PhotosPickerItem] = []
     @State private var draftText: String = ""
@@ -26,6 +27,7 @@ struct DiaryEditorView: View {
     @State private var diaryReminderTime: Date = Date()
     @State private var isImportingPhotos = false
     @State private var photoLinkContext: PhotoLinkContext?
+    @State private var showPaywall = false
     
     // AI採点機能
     @State private var showAIAppSelectionSheet = false
@@ -138,6 +140,9 @@ struct DiaryEditorView: View {
         }
         .sheet(isPresented: $showTagManager) {
             EmotionTagManagerView()
+        }
+        .sheet(isPresented: $showPaywall) {
+            PremiumPaywallView()
         }
         .sheet(isPresented: $showAIAppSelectionSheet) {
             AIAppSelectionSheet()
@@ -451,7 +456,8 @@ struct DiaryEditorView: View {
     }
 
     private var photosSection: some View {
-        let remainingSlots = max(0, DiaryViewModel.maxPhotos - viewModel.entry.photoPaths.count)
+        let maxPhotos = viewModel.diaryPhotoLimit
+        let remainingSlots = max(0, maxPhotos - viewModel.entry.photoPaths.count)
         return Section("写真") {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack {
@@ -490,9 +496,15 @@ struct DiaryEditorView: View {
                     .disabled(isImportingPhotos || remainingSlots == 0)
                 }
             }
-            Text("写真は最大\(DiaryViewModel.maxPhotos)枚まで追加できます。⭐️で「今日の一枚」をえらびましょう。現在 \(viewModel.entry.photoPaths.count)/\(DiaryViewModel.maxPhotos) 枚。")
+            Text("写真は最大\(maxPhotos)枚まで追加できます。⭐️で「今日の一枚」をえらびましょう。現在 \(viewModel.entry.photoPaths.count)/\(maxPhotos) 枚。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
+            if remainingSlots == 0 && monetization.isPremiumUnlocked == false {
+                Button("写真上限を解放（プレミアム）") {
+                    showPaywall = true
+                }
+                .font(.caption.weight(.semibold))
+            }
         }
     }
 
@@ -507,7 +519,7 @@ struct DiaryEditorView: View {
             lines.append("写真を追加しました（\(summary.addedCount)枚）")
         }
         if summary.skippedCount > 0 {
-            lines.append("最大\(DiaryViewModel.maxPhotos)枚までのため、\(summary.skippedCount)枚は追加できませんでした")
+            lines.append("最大\(viewModel.diaryPhotoLimit)枚までのため、\(summary.skippedCount)枚は追加できませんでした")
         }
         if summary.failedLoadCount > 0 {
             lines.append("読み込めない写真が\(summary.failedLoadCount)枚ありました")

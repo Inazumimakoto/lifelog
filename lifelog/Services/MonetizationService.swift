@@ -38,6 +38,13 @@ final class MonetizationService: ObservableObject {
 
     let freeHabitLimit = 3
     let freeCountdownLimit = 1
+    let freeDiaryPhotoLimit = 3
+    let premiumDiaryPhotoLimit = 10
+
+#if DEBUG
+    private let debugStorefrontCountryCodeKey = "debug.monetization.storefrontCountryCode"
+    private let debugForcePremiumEntitlementKey = "debug.monetization.forcePremiumEntitlement"
+#endif
 
     var isJapanStorefront: Bool {
         storefrontCountryCode.uppercased() == "JP"
@@ -57,6 +64,10 @@ final class MonetizationService: ObservableObject {
 
     var canUseLetters: Bool {
         isPremiumUnlocked
+    }
+
+    var diaryPhotoLimit: Int {
+        isPremiumUnlocked ? premiumDiaryPhotoLimit : freeDiaryPhotoLimit
     }
 
     private init() {
@@ -102,6 +113,10 @@ final class MonetizationService: ObservableObject {
 
     func countdownLimitMessage() -> String {
         "海外版の無料プランではカウントダウンは\(freeCountdownLimit)件までです。プレミアムで無制限になります。"
+    }
+
+    func diaryPhotoLimitMessage() -> String {
+        "海外版の無料プランでは日記写真は\(freeDiaryPhotoLimit)枚までです。プレミアムで\(premiumDiaryPhotoLimit)枚まで追加できます。"
     }
 
     func reviewMapMessage() -> String {
@@ -181,6 +196,13 @@ final class MonetizationService: ObservableObject {
     }
 
     private func refreshStorefrontCountry() {
+#if DEBUG
+        if let debugCode = debugStorefrontCountryCode, debugCode.isEmpty == false {
+            storefrontCountryCode = debugCode
+            return
+        }
+#endif
+
         if let code = SKPaymentQueue.default().storefront?.countryCode,
            code.isEmpty == false {
             storefrontCountryCode = code.uppercased()
@@ -199,6 +221,11 @@ final class MonetizationService: ObservableObject {
                 break
             }
         }
+#if DEBUG
+        if debugForcePremiumEntitlement {
+            premium = true
+        }
+#endif
         hasPremiumEntitlement = premium
     }
 
@@ -242,3 +269,46 @@ final class MonetizationService: ObservableObject {
 private enum MonetizationError: Error {
     case unverifiedTransaction
 }
+
+#if DEBUG
+extension MonetizationService {
+    var debugStorefrontCountryCode: String? {
+        get {
+            let value = UserDefaults.standard.string(forKey: debugStorefrontCountryCodeKey)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .uppercased()
+            guard let value, value.isEmpty == false else { return nil }
+            return value
+        }
+        set {
+            let normalized = newValue?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .uppercased()
+            if let normalized, normalized.isEmpty == false {
+                UserDefaults.standard.set(normalized, forKey: debugStorefrontCountryCodeKey)
+            } else {
+                UserDefaults.standard.removeObject(forKey: debugStorefrontCountryCodeKey)
+            }
+        }
+    }
+
+    var debugForcePremiumEntitlement: Bool {
+        get { UserDefaults.standard.bool(forKey: debugForcePremiumEntitlementKey) }
+        set { UserDefaults.standard.set(newValue, forKey: debugForcePremiumEntitlementKey) }
+    }
+
+    func applyDebugStorefrontCountryCode(_ code: String?) {
+        debugStorefrontCountryCode = code
+        _Concurrency.Task {
+            await refreshStatus()
+        }
+    }
+
+    func applyDebugForcePremiumEntitlement(_ enabled: Bool) {
+        debugForcePremiumEntitlement = enabled
+        _Concurrency.Task {
+            await refreshStatus()
+        }
+    }
+}
+#endif

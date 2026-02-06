@@ -24,12 +24,14 @@ Updated: 2026-02-06
 - Free:
   - Habit registration: up to 3 active habits.
   - Countdown registration: up to 1 item.
+  - Diary photo upload: up to 3 photos per day.
   - Schedule calendar, diary, tasks, AI export, health: available.
 - Premium:
   - Habit grass/heatmap displays.
   - Review calendar map view.
   - Letter to the Future.
   - Letter to Loved One (shared letters).
+  - Diary photo upload: up to 10 photos per day.
   - Unlimited habits/countdowns.
 
 ## 5. UX Policy

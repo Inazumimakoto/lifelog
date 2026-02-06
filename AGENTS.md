@@ -10,6 +10,7 @@ The repo root stays lean: `lifelog/` hosts the SwiftUI app and `docs/` stores re
 
 ## Coding Style & Naming Conventions
 Follow Swift’s API Design Guidelines: types in `UpperCamelCase`, methods/properties in `lowerCamelCase`, and prefer expressive parameter labels (`func loadTimeline(for date:)`). Files use 4-space indentation and keep one primary type per file. When adding a feature, mirror the existing folder pattern (e.g., `Views/Today`, `ViewModels/Today`) and annotate important sections with references back to `docs/requirements.md` or `docs/ui-guidelines.md` so future agents can trace intent. Prefer value types for models, `@MainActor` for view models touching UI state, and keep async work isolated inside services.
+- Concurrency naming rule: this app has a domain model named `Task`, so async task creation must use `_Concurrency.Task { ... }` (and `_Concurrency.Task.sleep`) to avoid symbol collisions.
 
 ## Testing Guidelines
 XCTest is the expected harness even though a `lifelogTests` target is not committed yet—create it via Xcode when adding tests. Name files after the type under test (`TodayViewModelTests`) and functions using the `testScenario_expectedOutcome` pattern. Favor deterministic fixtures by reusing the in-memory `AppDataStore` helpers and snapshotting critical timelines. Run `xcodebuild test ...` before every PR and document any intentionally skipped cases.
