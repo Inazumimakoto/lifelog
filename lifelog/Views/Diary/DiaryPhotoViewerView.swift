@@ -13,6 +13,8 @@ struct DiaryPhotoViewerView: View {
     @State private var currentIndex: Int
     @State private var showDeleteAlert = false
     @State private var chromeVisible = true
+    @State private var verticalDragOffset: CGFloat = 0
+    private let dismissDragThreshold: CGFloat = 140
 
     init(viewModel: DiaryViewModel, initialIndex: Int) {
         self._viewModel = ObservedObject(wrappedValue: viewModel)
@@ -23,47 +25,52 @@ struct DiaryPhotoViewerView: View {
     var body: some View {
         ZStack {
             Color.black
+                .opacity(backgroundOpacity)
                 .ignoresSafeArea()
 
-            if viewModel.entry.photoPaths.isEmpty == false {
-                TabView(selection: $currentIndex) {
-                    ForEach(Array(viewModel.entry.photoPaths.enumerated()), id: \.offset) { index, path in
-                        FullImagePage(path: path, chromeVisible: $chromeVisible)
-                            .tag(index)
+            ZStack {
+                if viewModel.entry.photoPaths.isEmpty == false {
+                    TabView(selection: $currentIndex) {
+                        ForEach(Array(viewModel.entry.photoPaths.enumerated()), id: \.offset) { index, path in
+                            FullImagePage(path: path, chromeVisible: $chromeVisible)
+                                .tag(index)
+                        }
                     }
+                    .tabViewStyle(.page(indexDisplayMode: .automatic))
                 }
-                .tabViewStyle(.page(indexDisplayMode: .automatic))
-            }
 
-            VStack {
-                HStack {
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.white)
-                            .padding(12)
-                            .background(.black.opacity(0.5), in: Circle())
+                VStack {
+                    HStack {
+                        Button {
+                            dismiss()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(.white)
+                                .padding(12)
+                                .background(.black.opacity(0.5), in: Circle())
+                        }
+                        Spacer()
+                        favoriteButton
+                        Button {
+                            showDeleteAlert = true
+                        } label: {
+                            Image(systemName: "trash")
+                                .font(.title2)
+                                .foregroundStyle(.white)
+                                .padding(12)
+                                .background(.black.opacity(0.5), in: Circle())
+                        }
                     }
+                    .padding([.top, .horizontal], 16)
+                    .opacity(chromeVisible ? 1 : 0)
+                    .allowsHitTesting(chromeVisible)
                     Spacer()
-                    favoriteButton
-                    Button {
-                        showDeleteAlert = true
-                    } label: {
-                        Image(systemName: "trash")
-                            .font(.title2)
-                            .foregroundStyle(.white)
-                            .padding(12)
-                            .background(.black.opacity(0.5), in: Circle())
-                    }
                 }
-                .padding([.top, .horizontal], 16)
-                .opacity(chromeVisible ? 1 : 0)
-                .allowsHitTesting(chromeVisible)
-                Spacer()
             }
+            .offset(y: verticalDragOffset)
         }
+        .simultaneousGesture(verticalDismissGesture)
         .onChange(of: viewModel.entry.photoPaths) { paths in
             guard let lastIndex = paths.indices.last else {
                 dismiss()
@@ -79,6 +86,36 @@ struct DiaryPhotoViewerView: View {
             }
             Button("キャンセル", role: .cancel) { }
         }
+    }
+
+    private var backgroundOpacity: Double {
+        let progress = min(max(verticalDragOffset / dismissDragThreshold, 0), 1)
+        return 1 - (progress * 0.45)
+    }
+
+    private var verticalDismissGesture: some Gesture {
+        DragGesture(minimumDistance: 10, coordinateSpace: .local)
+            .onChanged { value in
+                let vertical = value.translation.height
+                let horizontal = value.translation.width
+                guard vertical > 0, abs(vertical) > abs(horizontal) else { return }
+                verticalDragOffset = min(vertical, 360)
+            }
+            .onEnded { value in
+                let vertical = value.translation.height
+                let horizontal = value.translation.width
+
+                guard vertical > 0, abs(vertical) > abs(horizontal) else {
+                    resetVerticalDragOffset()
+                    return
+                }
+
+                if vertical >= dismissDragThreshold {
+                    dismiss()
+                } else {
+                    resetVerticalDragOffset()
+                }
+            }
     }
 
     private var favoriteButton: some View {
@@ -112,6 +149,13 @@ struct DiaryPhotoViewerView: View {
             dismiss()
         } else {
             currentIndex = min(currentIndex, remaining - 1)
+        }
+    }
+
+    private func resetVerticalDragOffset() {
+        guard verticalDragOffset != 0 else { return }
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
+            verticalDragOffset = 0
         }
     }
 }
