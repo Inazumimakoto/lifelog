@@ -780,10 +780,13 @@ private struct PhotoLocationLinkSheet: View {
             let diaryPaths = viewModel.entry.photoPaths
             let locationPaths = viewModel.entry.locationPhotoPaths
             if diaryPaths.isEmpty && locationPaths.isEmpty {
-                Text("写真がありません")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                VStack(spacing: 12) {
+                    Text("写真がありません")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    locationPhotoAddPicker
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 16) {
@@ -813,23 +816,7 @@ private struct PhotoLocationLinkSheet: View {
                                     togglePhoto(path)
                                 }
                             }
-                            PhotosPicker(selection: $locationSelection,
-                                         maxSelectionCount: nil,
-                                         matching: .images) {
-                                VStack {
-                                    if isImportingLocationPhotos {
-                                        ProgressView()
-                                            .progressViewStyle(.circular)
-                                    } else {
-                                        Image(systemName: "plus")
-                                            .font(.title3)
-                                        Text("追加")
-                                    }
-                                }
-                                .frame(width: 72, height: 72)
-                                .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
-                            }
-                            .disabled(isImportingLocationPhotos)
+                            locationPhotoAddPicker
                         }
                         .padding(.horizontal, 16)
                     }
@@ -837,6 +824,26 @@ private struct PhotoLocationLinkSheet: View {
                 }
             }
         }
+    }
+
+    private var locationPhotoAddPicker: some View {
+        PhotosPicker(selection: $locationSelection,
+                     maxSelectionCount: nil,
+                     matching: .images) {
+            VStack {
+                if isImportingLocationPhotos {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                } else {
+                    Image(systemName: "plus")
+                        .font(.title3)
+                    Text("追加")
+                }
+            }
+            .frame(width: 72, height: 72)
+            .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+        }
+        .disabled(isImportingLocationPhotos)
     }
 
     private var photoModeView: some View {
