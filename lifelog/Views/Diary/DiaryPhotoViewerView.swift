@@ -31,7 +31,7 @@ struct DiaryPhotoViewerView: View {
             ZStack {
                 if viewModel.entry.photoPaths.isEmpty == false {
                     TabView(selection: $currentIndex) {
-                        ForEach(Array(viewModel.entry.photoPaths.enumerated()), id: \.offset) { index, path in
+                        ForEach(Array(viewModel.entry.photoPaths.enumerated()), id: \.element) { index, path in
                             FullImagePage(path: path, chromeVisible: $chromeVisible)
                                 .tag(index)
                         }
@@ -189,7 +189,9 @@ private struct FullImagePage: View {
                 chromeVisible.toggle()
             }
         }
-        .task {
+        .task(id: path) {
+            image = nil
+            isLoading = true
             image = await PhotoStorage.loadFullImage(at: path)
             isLoading = false
         }
