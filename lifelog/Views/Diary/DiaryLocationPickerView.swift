@@ -13,7 +13,6 @@ import Combine
 struct DiaryLocationPickerView: View {
     @Binding private var isPresented: Bool
     @StateObject private var viewModel: DiaryLocationPickerViewModel
-    @State private var selectedPlace: NearbyPlace?
     @FocusState private var isSearchFocused: Bool
 
     private let onSelect: (DiaryLocation) -> Void
@@ -30,22 +29,14 @@ struct DiaryLocationPickerView: View {
         NavigationStack {
             VStack(spacing: 0) {
                 searchBar
-                Map(position: $viewModel.cameraPosition,
-                    interactionModes: .all,
-                    selection: $selectedPlace) {
-                    ForEach(viewModel.nearbyPlaces) { place in
-                        Marker(place.mapItem.name ?? "名称不明",
-                               coordinate: place.mapItem.placemark.coordinate)
-                            .tag(place)
-                    }
-                }
-                .overlay {
-                    Image(systemName: "mappin.circle.fill")
-                        .font(.title)
-                        .foregroundStyle(.red)
-                        .shadow(radius: 2)
-                        .allowsHitTesting(false)
-                }
+                DiaryLocationMapView(region: viewModel.mapRegion,
+                                     onRegionDidChange: { region in
+                                         viewModel.updateRegion(region)
+                                     },
+                                     onSelectMapItem: { mapItem in
+                                         onSelect(DiaryLocation(mapItem: mapItem))
+                                         isPresented = false
+                                     })
                 .overlay(alignment: .topTrailing) {
                     if viewModel.canSearchThisArea {
                         Button("このエリアを検索") {
@@ -55,15 +46,6 @@ struct DiaryLocationPickerView: View {
                         .padding(.top, 8)
                         .padding(.trailing, 12)
                     }
-                }
-                .onChange(of: selectedPlace) { _, newValue in
-                    guard let place = newValue else { return }
-                    onSelect(DiaryLocation(mapItem: place.mapItem))
-                    isPresented = false
-                    selectedPlace = nil
-                }
-                .onMapCameraChange(frequency: .onEnd) { context in
-                    viewModel.updateRegion(context.region)
                 }
                 .frame(height: 280)
 
@@ -182,7 +164,6 @@ struct DiaryLocationPickerView: View {
 
 @MainActor
 private final class DiaryLocationPickerViewModel: ObservableObject {
-    @Published var cameraPosition: MapCameraPosition
     @Published private(set) var nearbyPlaces: [NearbyPlace] = []
     @Published private(set) var centerLabel: String?
     @Published private(set) var isLoading: Bool = false
@@ -204,7 +185,6 @@ private final class DiaryLocationPickerViewModel: ObservableObject {
                                         span: MKCoordinateSpan(latitudeDelta: 0.02,
                                                                longitudeDelta: 0.02))
         mapRegion = region
-        cameraPosition = .region(region)
         updateCenter(centerCoordinate)
     }
 
@@ -240,7 +220,6 @@ private final class DiaryLocationPickerViewModel: ObservableObject {
         let region = MKCoordinateRegion(center: coordinate,
                                         span: MKCoordinateSpan(latitudeDelta: 0.01,
                                                                longitudeDelta: 0.01))
-        cameraPosition = .region(region)
         updateRegion(region)
     }
 
@@ -292,7 +271,7 @@ private final class DiaryLocationPickerViewModel: ObservableObject {
                 let response = try await performSearch(request)
                 let items = response.mapItems
                 await MainActor.run {
-                    self.searchResults = items.map { NearbyPlace(mapItem: $0) }
+                    self.searchResults = self.deduplicatedPlaces(from: items.map { NearbyPlace(mapItem: $0) })
                     self.isSearching = false
                     self.hasSearched = true
                     self.isSearchAreaDirty = false
@@ -318,7 +297,7 @@ private final class DiaryLocationPickerViewModel: ObservableObject {
         do {
             let response = try await performSearch(request)
             let items = response.mapItems
-            nearbyPlaces = items.map { NearbyPlace(mapItem: $0) }
+            nearbyPlaces = deduplicatedPlaces(from: items.map { NearbyPlace(mapItem: $0) })
         } catch {
             nearbyPlaces = []
         }
@@ -340,6 +319,21 @@ private final class DiaryLocationPickerViewModel: ObservableObject {
         } catch {
             centerLabel = nil
         }
+    }
+
+    private func deduplicatedPlaces(from places: [NearbyPlace]) -> [NearbyPlace] {
+        var seenKeys: Set<String> = []
+        var deduplicated: [NearbyPlace] = []
+        for place in places {
+            let coordinate = place.coordinate
+            let key = "\(place.name)|\(coordinate.latitude)|\(coordinate.longitude)"
+            if seenKeys.contains(key) {
+                continue
+            }
+            seenKeys.insert(key)
+            deduplicated.append(place)
+        }
+        return deduplicated
     }
 
     private func performSearch(_ request: MKLocalSearch.Request) async throws -> MKLocalSearch.Response {
@@ -366,6 +360,91 @@ private final class DiaryLocationPickerViewModel: ObservableObject {
                 }
             }
         }
+    }
+}
+
+private struct DiaryLocationMapView: UIViewRepresentable {
+    let region: MKCoordinateRegion
+    let onRegionDidChange: (MKCoordinateRegion) -> Void
+    let onSelectMapItem: (MKMapItem) -> Void
+
+    func makeUIView(context: Context) -> MKMapView {
+        let mapView = MKMapView(frame: .zero)
+        mapView.delegate = context.coordinator
+        mapView.selectableMapFeatures = .pointsOfInterest
+
+        let configuration = MKStandardMapConfiguration(elevationStyle: .flat)
+        configuration.pointOfInterestFilter = .includingAll
+        mapView.preferredConfiguration = configuration
+
+        mapView.setRegion(region, animated: false)
+        return mapView
+    }
+
+    func updateUIView(_ mapView: MKMapView, context: Context) {
+        context.coordinator.onRegionDidChange = onRegionDidChange
+        context.coordinator.onSelectMapItem = onSelectMapItem
+
+        guard mapView.region.isApproximatelyEqual(to: region) == false else {
+            return
+        }
+        context.coordinator.pendingProgrammaticRegion = region
+        mapView.setRegion(region, animated: false)
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onRegionDidChange: onRegionDidChange,
+                    onSelectMapItem: onSelectMapItem)
+    }
+
+    final class Coordinator: NSObject, MKMapViewDelegate {
+        var onRegionDidChange: (MKCoordinateRegion) -> Void
+        var onSelectMapItem: (MKMapItem) -> Void
+        var pendingProgrammaticRegion: MKCoordinateRegion?
+
+        init(onRegionDidChange: @escaping (MKCoordinateRegion) -> Void,
+             onSelectMapItem: @escaping (MKMapItem) -> Void) {
+            self.onRegionDidChange = onRegionDidChange
+            self.onSelectMapItem = onSelectMapItem
+        }
+
+        func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
+            if let pendingRegion = pendingProgrammaticRegion,
+               mapView.region.isApproximatelyEqual(to: pendingRegion) {
+                pendingProgrammaticRegion = nil
+                return
+            }
+            onRegionDidChange(mapView.region)
+        }
+
+        func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
+            guard let featureAnnotation = annotation as? MKMapFeatureAnnotation else {
+                return
+            }
+            let request = MKMapItemRequest(mapFeatureAnnotation: featureAnnotation)
+            _Concurrency.Task { [weak self] in
+                guard let self else { return }
+                do {
+                    let mapItem = try await request.mapItem
+                    await MainActor.run {
+                        self.onSelectMapItem(mapItem)
+                    }
+                } catch {
+                    // Ignore selection failures from non-resolvable features.
+                }
+            }
+        }
+    }
+}
+
+private extension MKCoordinateRegion {
+    func isApproximatelyEqual(to other: MKCoordinateRegion,
+                              centerTolerance: CLLocationDegrees = 0.00005,
+                              spanTolerance: CLLocationDegrees = 0.0002) -> Bool {
+        abs(center.latitude - other.center.latitude) <= centerTolerance &&
+        abs(center.longitude - other.center.longitude) <= centerTolerance &&
+        abs(span.latitudeDelta - other.span.latitudeDelta) <= spanTolerance &&
+        abs(span.longitudeDelta - other.span.longitudeDelta) <= spanTolerance
     }
 }
 
