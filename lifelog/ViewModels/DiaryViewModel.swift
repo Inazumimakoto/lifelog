@@ -290,12 +290,11 @@ final class DiaryViewModel: ObservableObject {
         for index in sortedOffsets {
             guard entry.photoPaths.indices.contains(index) else { continue }
             let path = entry.photoPaths[index]
-            PhotoStorage.delete(at: path)
-            removePhotoLinks(for: path)
             if entry.favoritePhotoPath == path {
                 entry.favoritePhotoPath = nil
             }
             entry.photoPaths.remove(at: index)
+            removePhotoAssetIfUnreferenced(path)
         }
         persist()
     }
@@ -305,9 +304,8 @@ final class DiaryViewModel: ObservableObject {
         for index in sortedOffsets {
             guard entry.locationPhotoPaths.indices.contains(index) else { continue }
             let path = entry.locationPhotoPaths[index]
-            PhotoStorage.delete(at: path)
-            removePhotoLinks(for: path)
             entry.locationPhotoPaths.remove(at: index)
+            removePhotoAssetIfUnreferenced(path)
         }
         persist()
     }
@@ -382,6 +380,13 @@ final class DiaryViewModel: ObservableObject {
                 entry.locations[index].photoPaths = filtered
             }
         }
+    }
+
+    private func removePhotoAssetIfUnreferenced(_ path: String) {
+        guard entry.photoPaths.contains(path) == false,
+              entry.locationPhotoPaths.contains(path) == false else { return }
+        PhotoStorage.delete(at: path)
+        removePhotoLinks(for: path)
     }
 
     private func pruneLocationPhotoLinks(availablePaths: Set<String>) {
