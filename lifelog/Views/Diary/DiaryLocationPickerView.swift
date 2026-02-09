@@ -41,6 +41,7 @@ struct DiaryLocationPickerView: View {
                 searchBar
                 DiaryLocationMapView(region: viewModel.mapRegion,
                                      mapCommandID: viewModel.mapCommandID,
+                                     searchResults: viewModel.searchResults,
                                      savedLocations: viewModel.visibleSavedLocations,
                                      showSavedLocations: showSavedLocationsOnMap,
                                      onRegionDidChange: { region in
@@ -504,10 +505,12 @@ private final class DiaryLocationPickerViewModel: NSObject, ObservableObject {
                 let response = try await performSearch(request)
                 let items = response.mapItems
                 await MainActor.run {
-                    self.searchResults = self.deduplicatedPlaces(from: items.map { NearbyPlace(mapItem: $0) })
+                    let results = self.deduplicatedPlaces(from: items.map { NearbyPlace(mapItem: $0) })
+                    self.searchResults = results
                     self.isSearching = false
                     self.hasSearched = true
                     self.isSearchAreaDirty = false
+                    self.focusOnSearchResultsIfNeeded(results)
                 }
             } catch {
                 await MainActor.run {
@@ -567,6 +570,46 @@ private final class DiaryLocationPickerViewModel: NSObject, ObservableObject {
             deduplicated.append(place)
         }
         return deduplicated
+    }
+
+    private func focusOnSearchResultsIfNeeded(_ places: [NearbyPlace]) {
+        guard let region = regionFittingSearchResults(places) else { return }
+        mapRegion = region
+        mapCommandID &+= 1
+        updateCenter(region.center)
+    }
+
+    private func regionFittingSearchResults(_ places: [NearbyPlace]) -> MKCoordinateRegion? {
+        guard let first = places.first else {
+            return nil
+        }
+
+        if places.count == 1 {
+            return MKCoordinateRegion(center: first.coordinate,
+                                      span: MKCoordinateSpan(latitudeDelta: 0.03,
+                                                             longitudeDelta: 0.03))
+        }
+
+        var minLatitude = first.coordinate.latitude
+        var maxLatitude = first.coordinate.latitude
+        var minLongitude = first.coordinate.longitude
+        var maxLongitude = first.coordinate.longitude
+
+        for place in places.dropFirst() {
+            let coordinate = place.coordinate
+            minLatitude = min(minLatitude, coordinate.latitude)
+            maxLatitude = max(maxLatitude, coordinate.latitude)
+            minLongitude = min(minLongitude, coordinate.longitude)
+            maxLongitude = max(maxLongitude, coordinate.longitude)
+        }
+
+        let center = CLLocationCoordinate2D(latitude: (minLatitude + maxLatitude) / 2,
+                                            longitude: (minLongitude + maxLongitude) / 2)
+        let latitudeDelta = min(max((maxLatitude - minLatitude) * 1.35, 0.025), 1.2)
+        let longitudeDelta = min(max((maxLongitude - minLongitude) * 1.35, 0.025), 1.2)
+        return MKCoordinateRegion(center: center,
+                                  span: MKCoordinateSpan(latitudeDelta: latitudeDelta,
+                                                         longitudeDelta: longitudeDelta))
     }
 
     private func distance(from source: CLLocationCoordinate2D,
@@ -682,6 +725,7 @@ extension DiaryLocationPickerViewModel: CLLocationManagerDelegate {
 private struct DiaryLocationMapView: UIViewRepresentable {
     let region: MKCoordinateRegion
     let mapCommandID: Int
+    let searchResults: [NearbyPlace]
     let savedLocations: [SavedDiaryLocation]
     let showSavedLocations: Bool
     let onRegionDidChange: (MKCoordinateRegion) -> Void
@@ -705,6 +749,8 @@ private struct DiaryLocationMapView: UIViewRepresentable {
         context.coordinator.onRegionDidChange = onRegionDidChange
         context.coordinator.onSelectMapItem = onSelectMapItem
         context.coordinator.onSelectSavedLocation = onSelectSavedLocation
+        context.coordinator.syncSearchResultAnnotations(on: mapView,
+                                                        places: searchResults)
         context.coordinator.syncSavedLocationAnnotations(on: mapView,
                                                          locations: showSavedLocations ? savedLocations : [])
         if context.coordinator.lastAppliedMapCommandID != mapCommandID {
@@ -726,6 +772,7 @@ private struct DiaryLocationMapView: UIViewRepresentable {
         var onSelectSavedLocation: (SavedDiaryLocation) -> Void
         var pendingProgrammaticRegion: MKCoordinateRegion?
         var lastAppliedMapCommandID: Int = -1
+        private var searchResultAnnotationsByID: [String: SearchResultAnnotation] = [:]
         private var savedLocationAnnotationsByID: [String: SavedLocationAnnotation] = [:]
 
         init(onRegionDidChange: @escaping (MKCoordinateRegion) -> Void,
@@ -756,6 +803,27 @@ private struct DiaryLocationMapView: UIViewRepresentable {
             }
         }
 
+        func syncSearchResultAnnotations(on mapView: MKMapView,
+                                         places: [NearbyPlace]) {
+            let nextIDs = Set(places.map(searchResultID(for:)))
+            let staleIDs = searchResultAnnotationsByID.keys.filter { nextIDs.contains($0) == false }
+            for id in staleIDs {
+                if let annotation = searchResultAnnotationsByID.removeValue(forKey: id) {
+                    mapView.removeAnnotation(annotation)
+                }
+            }
+            for place in places {
+                let id = searchResultID(for: place)
+                if let existing = searchResultAnnotationsByID[id] {
+                    existing.update(with: place)
+                } else {
+                    let annotation = SearchResultAnnotation(place: place)
+                    searchResultAnnotationsByID[id] = annotation
+                    mapView.addAnnotation(annotation)
+                }
+            }
+        }
+
         func mapView(_ mapView: MKMapView, regionDidChangeAnimated animated: Bool) {
             if let pendingRegion = pendingProgrammaticRegion,
                mapView.region.isApproximatelyEqual(to: pendingRegion) {
@@ -766,6 +834,21 @@ private struct DiaryLocationMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, viewFor annotation: MKAnnotation) -> MKAnnotationView? {
+            if let searchAnnotation = annotation as? SearchResultAnnotation {
+                let reuseIdentifier = "SearchResultAnnotationView"
+                let view: MKMarkerAnnotationView
+                if let dequeued = mapView.dequeueReusableAnnotationView(withIdentifier: reuseIdentifier) as? MKMarkerAnnotationView {
+                    view = dequeued
+                    view.annotation = searchAnnotation
+                } else {
+                    view = MKMarkerAnnotationView(annotation: searchAnnotation,
+                                                 reuseIdentifier: reuseIdentifier)
+                }
+                view.canShowCallout = false
+                view.displayPriority = .required
+                return view
+            }
+
             guard let savedAnnotation = annotation as? SavedLocationAnnotation else {
                 return nil
             }
@@ -782,6 +865,12 @@ private struct DiaryLocationMapView: UIViewRepresentable {
         }
 
         func mapView(_ mapView: MKMapView, didSelect annotation: MKAnnotation) {
+            if let searchAnnotation = annotation as? SearchResultAnnotation {
+                onSelectMapItem(searchAnnotation.place.mapItem)
+                mapView.deselectAnnotation(searchAnnotation, animated: false)
+                return
+            }
+
             if let savedAnnotation = annotation as? SavedLocationAnnotation {
                 onSelectSavedLocation(savedAnnotation.location)
                 mapView.deselectAnnotation(savedAnnotation, animated: false)
@@ -802,6 +891,36 @@ private struct DiaryLocationMapView: UIViewRepresentable {
                     // Ignore selection failures from non-resolvable features.
                 }
             }
+        }
+
+        private func searchResultID(for place: NearbyPlace) -> String {
+            if let mapItemURL = place.mapItem.url?.absoluteString, mapItemURL.isEmpty == false {
+                return "mapitem:\(mapItemURL)"
+            }
+            let coordinate = place.coordinate
+            return "\(place.name)|\(String(format: "%.6f", coordinate.latitude))|\(String(format: "%.6f", coordinate.longitude))"
+        }
+    }
+
+    private final class SearchResultAnnotation: NSObject, MKAnnotation {
+        var place: NearbyPlace
+        @objc dynamic var coordinate: CLLocationCoordinate2D
+        var title: String? {
+            place.name
+        }
+        var subtitle: String? {
+            place.address
+        }
+
+        init(place: NearbyPlace) {
+            self.place = place
+            coordinate = place.coordinate
+            super.init()
+        }
+
+        func update(with place: NearbyPlace) {
+            self.place = place
+            coordinate = place.coordinate
         }
     }
 
