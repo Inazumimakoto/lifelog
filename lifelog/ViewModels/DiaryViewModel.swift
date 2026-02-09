@@ -119,7 +119,7 @@ final class DiaryViewModel: ObservableObject {
     }
 
     func addLocation(_ location: DiaryLocation) {
-        guard entry.locations.contains(location) == false else { return }
+        guard entry.locations.contains(where: { Self.isSameLocation($0, location) }) == false else { return }
         entry.locations.append(location)
         syncPrimaryLocation()
         persist()
@@ -373,6 +373,19 @@ final class DiaryViewModel: ObservableObject {
             entry.latitude = nil
             entry.longitude = nil
         }
+    }
+
+    private static func isSameLocation(_ lhs: DiaryLocation, _ rhs: DiaryLocation) -> Bool {
+        locationIdentity(for: lhs) == locationIdentity(for: rhs)
+    }
+
+    private static func locationIdentity(for location: DiaryLocation) -> String {
+        if let mapItemURL = location.mapItemURL, mapItemURL.isEmpty == false {
+            return "mapitem:\(mapItemURL)"
+        }
+        let lat = (location.latitude * 10_000).rounded() / 10_000
+        let lon = (location.longitude * 10_000).rounded() / 10_000
+        return "coord:\(lat),\(lon)"
     }
     
     // MARK: - Debounce Methods

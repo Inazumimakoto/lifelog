@@ -166,7 +166,8 @@ struct DiaryEditorView: View {
             }
         }) {
             DiaryLocationPickerView(isPresented: $showLocationPicker,
-                                    initialCoordinate: locationSeedCoordinate) { location in
+                                    initialCoordinate: locationSeedCoordinate,
+                                    pastEntries: viewModel.store.diaryEntries) { location in
                 pendingLocationSelection = location
             }
             .presentationDetents([.large])

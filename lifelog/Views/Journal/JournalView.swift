@@ -2373,9 +2373,12 @@ private struct ReviewLocationGroupBuilder {
     }
 
     static func makeKey(for location: DiaryLocation) -> String {
+        if let mapItemURL = location.mapItemURL, mapItemURL.isEmpty == false {
+            return "mapitem:\(mapItemURL)"
+        }
         let lat = (location.latitude * 10_000).rounded() / 10_000
         let lon = (location.longitude * 10_000).rounded() / 10_000
-        return "\(location.name)|\(lat)|\(lon)"
+        return "coord:\(lat),\(lon)"
     }
 
     mutating func add(date: Date, photoPaths: [String]) {
