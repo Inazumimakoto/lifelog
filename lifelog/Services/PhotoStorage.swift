@@ -172,19 +172,35 @@ struct PhotoStorage {
         queue.qualityOfService = .userInitiated  // 高優先度
         return queue
     }()
+
+    private static let backgroundPrefetchQueue: OperationQueue = {
+        let queue = OperationQueue()
+        queue.maxConcurrentOperationCount = 2  // UI負荷を抑えるため控えめに並列化
+        queue.qualityOfService = .utility
+        return queue
+    }()
     
     static func prefetchThumbnails(paths: [String]) {
-        for path in paths {
+        enqueueThumbnailPrefetch(paths: paths, on: prefetchQueue)
+    }
+
+    static func prefetchThumbnailsInBackground(paths: [String]) {
+        enqueueThumbnailPrefetch(paths: paths, on: backgroundPrefetchQueue)
+    }
+
+    private static func enqueueThumbnailPrefetch(paths: [String], on queue: OperationQueue) {
+        var seen = Set<String>()
+        for path in paths where seen.insert(path).inserted {
             // 既にキャッシュにあればスキップ
             if PhotoThumbnailCache.shared.thumbnail(for: path) != nil {
                 continue
             }
-            
+
             // 並列でキューに追加
-            prefetchQueue.addOperation {
+            queue.addOperation {
                 let url = photosDirectory.appendingPathComponent(path)
                 guard let uiImage = UIImage(contentsOfFile: url.path) else { return }
-                
+
                 let thumbnail = resizeImage(uiImage, to: thumbnailSize)
                 PhotoThumbnailCache.shared.setThumbnail(thumbnail, for: path)
             }

@@ -173,6 +173,7 @@ struct JournalView: View {
     @State private var didInitialSetup = false
     @State private var deferredCalendarSyncTask: _Concurrency.Task<Void, Never>?
     @State private var deferredPreloadTask: _Concurrency.Task<Void, Never>?
+    private let backgroundReviewPhotoPrefetchLimit = 24
     @State private var showPaywall = false
     @State private var premiumAlertMessage: String?
     
@@ -356,6 +357,9 @@ struct JournalView: View {
             _Concurrency.Task {
                 await viewModel.syncExternalCalendarsIfNeeded(anchorDate: newAnchor)
             }
+            if calendarMode != .review {
+                scheduleDeferredPreload()
+            }
         }
         .onChange(of: calendarMode) { _, newMode in
             if newMode == .review {
@@ -363,6 +367,7 @@ struct JournalView: View {
                 selectedReviewDate = viewModel.selectedDate
                 reviewPhotoIndex = preferredPhotoIndex(for: store.entry(for: selectedReviewDate ?? viewModel.selectedDate))
                 reviewContentMode = .diary
+                prefetchPhotosForMonths(around: viewModel.monthAnchor, monthRadius: 0)
             }
         }
         .onChange(of: reviewContentMode) { _, newMode in
@@ -1038,22 +1043,43 @@ struct JournalView: View {
     }
     
     // 前後の月も含めてプリフェッチ
-    private func prefetchPhotosForMonths(around anchor: Date) {
+    private func prefetchPhotosForMonths(
+        around anchor: Date,
+        monthRadius: Int = 1,
+        maxPaths: Int? = nil,
+        background: Bool = false
+    ) {
+        guard monthRadius >= 0 else { return }
         let calendar = Calendar.current
         var allPaths: [String] = []
+        var seen = Set<String>()
         
         // 前月・今月・次月の3ヶ月分
-        for offset in -1...1 {
+        for offset in (-monthRadius...monthRadius) {
             if let monthDate = calendar.date(byAdding: .month, value: offset, to: anchor) {
                 let days = viewModel.calendarDays(for: monthDate)
-                let paths = days.compactMap { $0.diary?.favoritePhotoPath }
-                allPaths.append(contentsOf: paths)
+                for path in days.compactMap({ reviewThumbnailPath(for: $0.diary) }) where seen.insert(path).inserted {
+                    allPaths.append(path)
+                }
             }
+        }
+
+        if let maxPaths {
+            allPaths = Array(allPaths.prefix(maxPaths))
         }
         
         if !allPaths.isEmpty {
-            PhotoStorage.prefetchThumbnails(paths: allPaths)
+            if background {
+                PhotoStorage.prefetchThumbnailsInBackground(paths: allPaths)
+            } else {
+                PhotoStorage.prefetchThumbnails(paths: allPaths)
+            }
         }
+    }
+
+    private func reviewThumbnailPath(for diary: DiaryEntry?) -> String? {
+        guard let diary else { return nil }
+        return diary.favoritePhotoPath ?? diary.photoPaths.first
     }
 
     private var reviewDetail: some View {
@@ -1656,8 +1682,17 @@ struct JournalView: View {
     private func scheduleDeferredPreload() {
         deferredPreloadTask?.cancel()
         deferredPreloadTask = _Concurrency.Task {
-            try? await _Concurrency.Task.sleep(nanoseconds: 200_000_000)
+            try? await _Concurrency.Task.sleep(nanoseconds: 250_000_000)
             viewModel.preloadMonths(around: viewModel.monthAnchor, radius: 1)
+            // まず当月は優先先読みして、振り返り切り替え直後の表示を速くする
+            prefetchPhotosForMonths(around: viewModel.monthAnchor, monthRadius: 0)
+            // 周辺月は軽量先読みで徐々に温める
+            prefetchPhotosForMonths(
+                around: viewModel.monthAnchor,
+                monthRadius: 1,
+                maxPaths: backgroundReviewPhotoPrefetchLimit,
+                background: true
+            )
         }
     }
 
@@ -3059,7 +3094,7 @@ private struct ReviewDayCell: View {
             onTap()
         }
         .task {
-            if let path = day.diary?.favoritePhotoPath {
+            if let path = day.diary?.favoritePhotoPath ?? day.diary?.photoPaths.first {
                 thumbnail = await PhotoStorage.loadThumbnail(at: path)
             }
         }
