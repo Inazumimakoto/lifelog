@@ -14,7 +14,7 @@ struct DiaryLocationPickerView: View {
     @Binding private var isPresented: Bool
     @StateObject private var viewModel: DiaryLocationPickerViewModel
     @State private var showSavedLocationsOnMap: Bool = false
-    @State private var isCenterActionDialogPresented: Bool = false
+    @State private var pendingMapSelection: DiaryLocation?
     @State private var pendingCustomLocation: EditableLocationDraft?
     @State private var customLocationName: String = ""
     @State private var isSearchSectionExpanded: Bool = true
@@ -47,10 +47,10 @@ struct DiaryLocationPickerView: View {
                                          viewModel.updateRegion(region)
                                      },
                                      onSelectMapItem: { mapItem in
-                                         addAndDismiss(DiaryLocation(mapItem: mapItem))
+                                         requestMapSelectionConfirmation(DiaryLocation(mapItem: mapItem))
                                      },
                                      onSelectSavedLocation: { location in
-                                         addAndDismiss(location.location)
+                                         requestMapSelectionConfirmation(location.location)
                                      })
                 .overlay(alignment: .topTrailing) {
                     if viewModel.canSearchThisArea {
@@ -91,7 +91,7 @@ struct DiaryLocationPickerView: View {
                 }
                 .overlay(alignment: .bottom) {
                     Button {
-                        isCenterActionDialogPresented = true
+                        presentNameEditorForCenter()
                     } label: {
                         Label("中央を登録", systemImage: "plus.circle.fill")
                             .font(.subheadline.weight(.semibold))
@@ -221,16 +221,20 @@ struct DiaryLocationPickerView: View {
                     }
                 }
             }
-            .confirmationDialog("中央の場所を追加",
-                                isPresented: $isCenterActionDialogPresented,
-                                titleVisibility: .visible) {
-                Button("この場所を追加") {
-                    addAndDismiss(viewModel.centerLocation())
-                }
-                Button("名前をつけて追加") {
-                    presentNameEditorForCenter()
-                }
-                Button("キャンセル", role: .cancel) {}
+            .onAppear {
+                viewModel.requestCurrentLocationIfNeeded()
+            }
+            .sheet(item: $pendingMapSelection) { location in
+                MapSelectionConfirmSheet(location: location,
+                                         onCancel: {
+                                             pendingMapSelection = nil
+                                         },
+                                         onAdd: { selectedLocation in
+                                             pendingMapSelection = nil
+                                             addAndDismiss(selectedLocation)
+                                         })
+                .presentationDetents([.height(300), .medium])
+                .presentationDragIndicator(.visible)
             }
             .sheet(item: $pendingCustomLocation) { draft in
                 NavigationStack {
@@ -293,6 +297,10 @@ struct DiaryLocationPickerView: View {
         customLocationName = initialName
     }
 
+    private func requestMapSelectionConfirmation(_ location: DiaryLocation) {
+        pendingMapSelection = location
+    }
+
     private var searchBar: some View {
         HStack(spacing: 8) {
             Image(systemName: "magnifyingglass")
@@ -337,8 +345,56 @@ private struct EditableLocationDraft: Identifiable {
     let initialName: String
 }
 
+private struct MapSelectionConfirmSheet: View {
+    let location: DiaryLocation
+    let onCancel: () -> Void
+    let onAdd: (DiaryLocation) -> Void
+
+    private var addressText: String {
+        let trimmed = location.address?.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (trimmed?.isEmpty == false) ? trimmed! : "住所情報なし"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("この場所を追加しますか？")
+                .font(.headline)
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text(location.name)
+                    .font(.title3.weight(.bold))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.85)
+                Text(addressText)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                Text("緯度 \(String(format: "%.5f", location.latitude)) / 経度 \(String(format: "%.5f", location.longitude))")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+
+            Spacer(minLength: 0)
+
+            HStack(spacing: 10) {
+                Button("キャンセル", action: onCancel)
+                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity)
+                Button("追加") {
+                    onAdd(location)
+                }
+                .buttonStyle(.borderedProminent)
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .padding(16)
+    }
+}
+
 @MainActor
-private final class DiaryLocationPickerViewModel: ObservableObject {
+private final class DiaryLocationPickerViewModel: NSObject, ObservableObject {
     @Published private(set) var nearbyPlaces: [NearbyPlace] = []
     @Published private(set) var savedLocations: [SavedDiaryLocation] = []
     @Published private(set) var centerLabel: String?
@@ -355,10 +411,13 @@ private final class DiaryLocationPickerViewModel: ObservableObject {
     private var searchTask: _Concurrency.Task<Void, Never>?
     private var queryTask: _Concurrency.Task<Void, Never>?
     private let geocoder = CLGeocoder()
+    private let locationManager = CLLocationManager()
     private let mapSavedLocationLimit = 80
     private let recentSavedLocationLimit = 10
     private let refreshMinimumDistance: CLLocationDistance = 40
     private var lastLoadedCoordinate: CLLocationCoordinate2D?
+    private var hasRequestedCurrentLocation = false
+    private var hasAppliedCurrentLocation = false
 
     init(centerCoordinate: CLLocationCoordinate2D,
          pastEntries: [DiaryEntry]) {
@@ -368,7 +427,29 @@ private final class DiaryLocationPickerViewModel: ObservableObject {
                                         span: MKCoordinateSpan(latitudeDelta: 0.02,
                                                                longitudeDelta: 0.02))
         mapRegion = region
+        super.init()
+        locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
         updateCenter(centerCoordinate)
+    }
+
+    func requestCurrentLocationIfNeeded() {
+        guard hasRequestedCurrentLocation == false else { return }
+        hasRequestedCurrentLocation = true
+        if let currentCoordinate = locationManager.location?.coordinate {
+            applyInitialCurrentLocation(currentCoordinate)
+            return
+        }
+        switch locationManager.authorizationStatus {
+        case .authorizedAlways, .authorizedWhenInUse:
+            locationManager.requestLocation()
+        case .notDetermined:
+            locationManager.requestWhenInUseAuthorization()
+        case .restricted, .denied:
+            break
+        @unknown default:
+            break
+        }
     }
 
     func updateCenter(_ coordinate: CLLocationCoordinate2D) {
@@ -557,6 +638,12 @@ private final class DiaryLocationPickerViewModel: ObservableObject {
         return distance(from: lastLoadedCoordinate, to: coordinate) >= refreshMinimumDistance
     }
 
+    private func applyInitialCurrentLocation(_ coordinate: CLLocationCoordinate2D) {
+        guard hasAppliedCurrentLocation == false else { return }
+        hasAppliedCurrentLocation = true
+        focus(on: coordinate)
+    }
+
     private static func buildSavedLocations(from entries: [DiaryEntry]) -> [SavedDiaryLocation] {
         struct AggregatedLocation {
             var location: DiaryLocation
@@ -618,6 +705,29 @@ private final class DiaryLocationPickerViewModel: ObservableObject {
                 }
             }
         }
+    }
+}
+
+extension DiaryLocationPickerViewModel: CLLocationManagerDelegate {
+    nonisolated func locationManager(_ manager: CLLocationManager,
+                                     didChangeAuthorization status: CLAuthorizationStatus) {
+        guard status == .authorizedWhenInUse || status == .authorizedAlways else {
+            return
+        }
+        manager.requestLocation()
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager,
+                                     didUpdateLocations locations: [CLLocation]) {
+        guard let coordinate = locations.last?.coordinate else { return }
+        _Concurrency.Task { [weak self] in
+            await self?.applyInitialCurrentLocation(coordinate)
+        }
+    }
+
+    nonisolated func locationManager(_ manager: CLLocationManager,
+                                     didFailWithError error: Error) {
+        // Keep seeded region when current location is unavailable.
     }
 }
 
