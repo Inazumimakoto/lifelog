@@ -779,7 +779,8 @@ private struct PhotoLocationLinkSheet: View {
                     .padding(.top, 8)
             }
             let diaryPaths = viewModel.entry.photoPaths
-            let locationPaths = viewModel.entry.locationPhotoPaths
+            let linkedLocationPaths = Set(currentLocation?.photoPaths ?? [])
+            let locationPaths = viewModel.entry.locationPhotoPaths.filter { linkedLocationPaths.contains($0) }
             if diaryPaths.isEmpty && locationPaths.isEmpty {
                 VStack(spacing: 12) {
                     Text("写真がありません")
@@ -906,7 +907,8 @@ private struct PhotoLocationLinkSheet: View {
         switch context {
         case .location(let id):
             if let location = viewModel.entry.locations.first(where: { $0.id == id }) {
-                selectedPhotoPaths = Set(location.photoPaths)
+                let availablePaths = Set(viewModel.entry.photoPaths + viewModel.entry.locationPhotoPaths)
+                selectedPhotoPaths = Set(location.photoPaths.filter { availablePaths.contains($0) })
             }
         case .photo(let path):
             let linked = viewModel.entry.locations

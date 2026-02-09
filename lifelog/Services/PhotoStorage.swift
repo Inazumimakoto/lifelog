@@ -94,6 +94,12 @@ struct PhotoStorage {
         PhotoThumbnailCache.shared.setFullImage(uiImage, for: path)
         return Image(uiImage: uiImage)
     }
+
+    // MARK: - Load Raw Data
+    static func loadData(at path: String) -> Data? {
+        let url = photosDirectory.appendingPathComponent(path)
+        return try? Data(contentsOf: url, options: .mappedIfSafe)
+    }
     
     // MARK: - Load Thumbnail (Async)
     static func loadThumbnail(at path: String) async -> UIImage? {

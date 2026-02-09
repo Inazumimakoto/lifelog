@@ -10,6 +10,7 @@ import CoreLocation
 import Combine
 import PhotosUI
 import SwiftUI
+import CryptoKit
 
 @MainActor
 final class DiaryViewModel: ObservableObject {
@@ -205,11 +206,21 @@ final class DiaryViewModel: ObservableObject {
         let usableItems = Array(items.prefix(availableSlots))
         var summary = PhotoImportSummary()
         summary.skippedCount = max(0, items.count - usableItems.count)
+        let locationPhotoDigestIndex = makeLocationPhotoDigestIndex()
         
         for item in usableItems {
             do {
                 guard let data = try await item.loadTransferable(type: Data.self) else {
                     summary.failedLoadCount += 1
+                    continue
+                }
+                if let existingPath = matchedLocationPhotoPath(for: data,
+                                                               digestIndex: locationPhotoDigestIndex) {
+                    if entry.photoPaths.contains(existingPath) || summary.addedPaths.contains(existingPath) {
+                        summary.skippedCount += 1
+                    } else {
+                        summary.addedPaths.append(existingPath)
+                    }
                     continue
                 }
                 do {
@@ -337,6 +348,26 @@ final class DiaryViewModel: ObservableObject {
 
     private func orderedPhotoPaths(from selection: Set<String>) -> [String] {
         allPhotoPathsInOrder.filter { selection.contains($0) }
+    }
+
+    private func makeLocationPhotoDigestIndex() -> [String: [String]] {
+        var index: [String: [String]] = [:]
+        for path in entry.locationPhotoPaths {
+            guard let data = PhotoStorage.loadData(at: path) else { continue }
+            let digest = sha256DigestHex(data: data)
+            index[digest, default: []].append(path)
+        }
+        return index
+    }
+
+    private func matchedLocationPhotoPath(for data: Data,
+                                          digestIndex: [String: [String]]) -> String? {
+        let digest = sha256DigestHex(data: data)
+        return digestIndex[digest]?.first
+    }
+
+    private func sha256DigestHex(data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
     private var allPhotoPathsInOrder: [String] {
