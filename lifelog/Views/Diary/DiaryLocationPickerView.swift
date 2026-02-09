@@ -224,17 +224,13 @@ struct DiaryLocationPickerView: View {
             .onAppear {
                 viewModel.requestCurrentLocationIfNeeded()
             }
-            .sheet(item: $pendingMapSelection) { location in
-                MapSelectionConfirmSheet(location: location,
-                                         onCancel: {
-                                             pendingMapSelection = nil
-                                         },
-                                         onAdd: { selectedLocation in
-                                             pendingMapSelection = nil
-                                             addAndDismiss(selectedLocation)
-                                         })
-                .presentationDetents([.height(300), .medium])
-                .presentationDragIndicator(.visible)
+            .alert(item: $pendingMapSelection) { location in
+                Alert(title: Text(location.name),
+                      message: nil,
+                      primaryButton: .cancel(Text("キャンセル")),
+                      secondaryButton: .default(Text("追加")) {
+                          addAndDismiss(location)
+                      })
             }
             .sheet(item: $pendingCustomLocation) { draft in
                 NavigationStack {
@@ -343,54 +339,6 @@ private struct EditableLocationDraft: Identifiable {
     let address: String?
     let mapItemURL: String?
     let initialName: String
-}
-
-private struct MapSelectionConfirmSheet: View {
-    let location: DiaryLocation
-    let onCancel: () -> Void
-    let onAdd: (DiaryLocation) -> Void
-
-    private var addressText: String {
-        let trimmed = location.address?.trimmingCharacters(in: .whitespacesAndNewlines)
-        return (trimmed?.isEmpty == false) ? trimmed! : "住所情報なし"
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("この場所を追加しますか？")
-                .font(.headline)
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text(location.name)
-                    .font(.title3.weight(.bold))
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
-                Text(addressText)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Text("緯度 \(String(format: "%.5f", location.latitude)) / 経度 \(String(format: "%.5f", location.longitude))")
-                    .font(.caption.monospacedDigit())
-                    .foregroundStyle(.secondary)
-            }
-            .padding(12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
-
-            Spacer(minLength: 0)
-
-            HStack(spacing: 10) {
-                Button("キャンセル", action: onCancel)
-                    .buttonStyle(.bordered)
-                    .frame(maxWidth: .infinity)
-                Button("追加") {
-                    onAdd(location)
-                }
-                .buttonStyle(.borderedProminent)
-                .frame(maxWidth: .infinity)
-            }
-        }
-        .padding(16)
-    }
 }
 
 @MainActor
