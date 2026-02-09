@@ -1821,10 +1821,16 @@ private struct CalendarDetailPanel: View {
                                             Text(event.title)
                                                 .font(.body.weight(.semibold))
                                             // リマインダー設定済みインジケーター（イベント個別またはカテゴリ設定）
-                                            if hasReminder(for: event) {
-                                                Image(systemName: "bell.fill")
-                                                    .font(.caption)
-                                                    .foregroundStyle(.secondary)
+                                            if let reminderLabel = ReminderDisplay.eventReminderLabel(for: event) {
+                                                HStack(spacing: 3) {
+                                                    Image(systemName: "bell.fill")
+                                                        .font(.caption)
+                                                        .foregroundStyle(.secondary)
+                                                    Text(reminderLabel)
+                                                        .font(.caption2)
+                                                        .foregroundStyle(.secondary)
+                                                        .lineLimit(1)
+                                                }
                                             }
                                         }
                                         Label(eventTimeLabel(for: event), systemImage: "clock")
@@ -2072,20 +2078,6 @@ private struct CalendarDetailPanel: View {
         CategoryPalette.color(for: category)
     }
     
-    private func hasReminder(for event: CalendarEvent) -> Bool {
-        // 個別イベントのリマインダー設定
-        if event.reminderMinutes != nil || event.reminderDate != nil {
-            return true
-        }
-        // カテゴリの通知設定（親トグルがオンの場合のみ）
-        if NotificationSettingsManager.shared.isEventCategoryNotificationEnabled,
-           let setting = NotificationSettingsManager.shared.getSetting(for: event.calendarName),
-           setting.enabled {
-            return true
-        }
-        return false
-    }
-
     private func eventTimeLabel(for event: CalendarEvent) -> String {
         if event.isAllDay {
             let calendar = Calendar.current

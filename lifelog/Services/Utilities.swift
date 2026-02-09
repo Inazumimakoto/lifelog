@@ -189,6 +189,55 @@ extension Date: Identifiable {
     public var id: TimeInterval { timeIntervalSince1970 }
 }
 
+enum ReminderDisplay {
+    static func eventReminderDate(for event: CalendarEvent) -> Date? {
+        if let minutes = event.reminderMinutes, minutes > 0 {
+            return event.startDate.addingTimeInterval(-Double(minutes * 60))
+        }
+
+        if let reminderDate = event.reminderDate {
+            return reminderDate
+        }
+
+        guard NotificationSettingsManager.shared.isEventCategoryNotificationEnabled else {
+            return nil
+        }
+
+        let setting = NotificationSettingsManager.shared.getSetting(for: event.calendarName)
+            ?? CategoryNotificationSetting(categoryName: event.calendarName)
+        guard setting.enabled else { return nil }
+
+        if setting.useRelativeTime {
+            return event.startDate.addingTimeInterval(-Double(setting.minutesBefore * 60))
+        }
+
+        return Calendar.current.date(
+            bySettingHour: setting.hour,
+            minute: setting.minute,
+            second: 0,
+            of: event.startDate
+        ) ?? event.startDate
+    }
+
+    static func eventReminderLabel(for event: CalendarEvent) -> String? {
+        guard let reminderDate = eventReminderDate(for: event) else { return nil }
+        return reminderTimeLabel(for: reminderDate, referenceDate: event.startDate)
+    }
+
+    static func taskReminderLabel(for task: Task) -> String? {
+        guard let reminderDate = task.reminderDate else { return nil }
+        let referenceDate = task.startDate ?? task.endDate ?? reminderDate
+        return reminderTimeLabel(for: reminderDate, referenceDate: referenceDate)
+    }
+
+    private static func reminderTimeLabel(for reminderDate: Date, referenceDate: Date) -> String {
+        if Calendar.current.isDate(reminderDate, inSameDayAs: referenceDate) {
+            return reminderDate.formattedTime()
+        }
+        return DateFormatter.memoPadDateTime.string(from: reminderDate)
+    }
+}
+
 extension Collection where Element == HabitRecord {
     func record(for habit: Habit, on date: Date) -> HabitRecord? {
         first { $0.habitID == habit.id && Calendar.current.isDate($0.date, inSameDayAs: date) }

@@ -321,10 +321,16 @@ struct TodayView: View {
                                         Text(event.title)
                                             .font(.body.weight(.semibold))
                                         // リマインダー設定済みインジケーター
-                                        if event.reminderMinutes != nil || event.reminderDate != nil {
-                                            Image(systemName: "bell.fill")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
+                                        if let reminderLabel = ReminderDisplay.eventReminderLabel(for: event) {
+                                            HStack(spacing: 3) {
+                                                Image(systemName: "bell.fill")
+                                                    .font(.caption)
+                                                    .foregroundStyle(.secondary)
+                                                Text(reminderLabel)
+                                                    .font(.caption2)
+                                                    .foregroundStyle(.secondary)
+                                                    .lineLimit(1)
+                                            }
                                         }
                                     }
                                     Label(eventTimeLabel(event), systemImage: "clock")

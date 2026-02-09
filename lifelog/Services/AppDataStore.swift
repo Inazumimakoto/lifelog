@@ -413,6 +413,50 @@ final class AppDataStore: ObservableObject {
         rescheduleExternalEventNotifications()
     }
 
+    func reapplyEventCategoryNotificationSettings(
+        previousSettings: [CategoryNotificationSetting],
+        currentSettings: [CategoryNotificationSetting],
+        previousParentEnabled: Bool,
+        parentEnabled: Bool
+    ) {
+        let previousMap = Dictionary(uniqueKeysWithValues: previousSettings.map { ($0.categoryName, $0) })
+        let currentMap = Dictionary(uniqueKeysWithValues: currentSettings.map { ($0.categoryName, $0) })
+
+        var hasEventChanges = false
+
+        for index in calendarEvents.indices {
+            let event = calendarEvents[index]
+            let previousSetting = previousMap[event.calendarName]
+            let currentSetting = currentMap[event.calendarName]
+            let previousDefault = previousParentEnabled
+                ? eventCategoryDefaultReminderStrategy(for: event, setting: previousSetting)
+                : nil
+            let currentDefault = parentEnabled
+                ? eventCategoryDefaultReminderStrategy(for: event, setting: currentSetting)
+                : nil
+
+            let explicitStrategy = explicitReminderStrategy(for: event)
+
+            // 旧デフォルト由来の通知だけを追従更新し、個別変更は維持する
+            guard reminderStrategy(explicitStrategy, matches: previousDefault) else {
+                continue
+            }
+
+            if reminderStrategy(explicitStrategy, matches: currentDefault) {
+                continue
+            }
+
+            applyReminderStrategy(currentDefault, to: &calendarEvents[index])
+            hasEventChanges = true
+        }
+
+        if hasEventChanges {
+            persistCalendarEvents()
+        }
+
+        reapplyEventCategoryNotificationSettings()
+    }
+
     func reapplyTaskPriorityNotificationSettings(
         previousSettings: [PriorityNotificationSetting],
         currentSettings: [PriorityNotificationSetting],
@@ -1283,11 +1327,8 @@ final class AppDataStore: ObservableObject {
     }
 
     private func effectiveReminderStrategy(for event: CalendarEvent) -> EventReminderStrategy? {
-        if let minutes = event.reminderMinutes, minutes > 0 {
-            return .relative(minutesBefore: minutes)
-        }
-        if let reminderDate = event.reminderDate {
-            return .absolute(reminderDate: reminderDate)
+        if let explicit = explicitReminderStrategy(for: event) {
+            return explicit
         }
 
         guard NotificationSettingsManager.shared.isEventCategoryNotificationEnabled else {
@@ -1295,8 +1336,21 @@ final class AppDataStore: ObservableObject {
         }
 
         let setting = NotificationSettingsManager.shared.getOrCreateSetting(for: event.calendarName)
-        guard setting.enabled else { return nil }
+        return eventCategoryDefaultReminderStrategy(for: event, setting: setting)
+    }
 
+    private func explicitReminderStrategy(for event: CalendarEvent) -> EventReminderStrategy? {
+        if let minutes = event.reminderMinutes, minutes > 0 {
+            return .relative(minutesBefore: minutes)
+        }
+        if let reminderDate = event.reminderDate {
+            return .absolute(reminderDate: reminderDate)
+        }
+        return nil
+    }
+
+    private func eventCategoryDefaultReminderStrategy(for event: CalendarEvent, setting: CategoryNotificationSetting?) -> EventReminderStrategy? {
+        guard let setting, setting.enabled else { return nil }
         if setting.useRelativeTime {
             return .relative(minutesBefore: setting.minutesBefore)
         }
@@ -1308,6 +1362,33 @@ final class AppDataStore: ObservableObject {
             of: event.startDate
         ) ?? event.startDate
         return .absolute(reminderDate: reminderDate)
+    }
+
+    private func applyReminderStrategy(_ strategy: EventReminderStrategy?, to event: inout CalendarEvent) {
+        switch strategy {
+        case .relative(let minutesBefore):
+            event.reminderMinutes = minutesBefore
+            event.reminderDate = nil
+        case .absolute(let reminderDate):
+            event.reminderMinutes = nil
+            event.reminderDate = reminderDate
+        case nil:
+            event.reminderMinutes = nil
+            event.reminderDate = nil
+        }
+    }
+
+    private func reminderStrategy(_ lhs: EventReminderStrategy?, matches rhs: EventReminderStrategy?) -> Bool {
+        switch (lhs, rhs) {
+        case (nil, nil):
+            return true
+        case let (.relative(lhsMinutes), .relative(rhsMinutes)):
+            return lhsMinutes == rhsMinutes
+        case let (.absolute(lhsDate), .absolute(rhsDate)):
+            return Calendar.current.compare(lhsDate, to: rhsDate, toGranularity: .minute) == .orderedSame
+        default:
+            return false
+        }
     }
 
     private func rescheduleExternalEventNotifications() {

@@ -21,6 +21,7 @@ struct NotificationSettingsView: View {
     
     // カテゴリ・優先度設定
     @State private var categorySettings: [CategoryNotificationSetting] = []
+    @State private var previousCategorySettings: [CategoryNotificationSetting] = []
     @State private var prioritySettings: [PriorityNotificationSetting] = []
     @State private var previousPrioritySettings: [PriorityNotificationSetting] = []
     @State private var hasLoaded: Bool = false
@@ -77,8 +78,14 @@ struct NotificationSettingsView: View {
                 await AuthService.shared.updateLetterNotificationEnabled(enabled)
             }
         }
-        .onChange(of: eventCategoryNotificationEnabled) { _, _ in
-            store.reapplyEventCategoryNotificationSettings()
+        .onChange(of: eventCategoryNotificationEnabled) { oldValue, newValue in
+            store.reapplyEventCategoryNotificationSettings(
+                previousSettings: previousCategorySettings,
+                currentSettings: categorySettings,
+                previousParentEnabled: oldValue,
+                parentEnabled: newValue
+            )
+            previousCategorySettings = categorySettings
         }
         .onChange(of: taskPriorityNotificationEnabled) { oldValue, newValue in
             store.reapplyTaskPriorityNotificationSettings(
@@ -174,9 +181,16 @@ struct NotificationSettingsView: View {
                         }
                     }
                     .padding(.vertical, 4)
-                    .onChange(of: setting) { _, newValue in
+                    .onChange(of: setting) { _, _ in
+                        let oldSettings = previousCategorySettings
                         saveCategorySettings()
-                        store.reapplyEventCategoryNotificationSettings()
+                        store.reapplyEventCategoryNotificationSettings(
+                            previousSettings: oldSettings,
+                            currentSettings: categorySettings,
+                            previousParentEnabled: eventCategoryNotificationEnabled,
+                            parentEnabled: eventCategoryNotificationEnabled
+                        )
+                        previousCategorySettings = categorySettings
                     }
                 }
             }
@@ -212,7 +226,7 @@ struct NotificationSettingsView: View {
                         }
                     }
                     .padding(.vertical, 4)
-                    .onChange(of: setting) { _, newValue in
+                    .onChange(of: setting) { _, _ in
                         let oldSettings = previousPrioritySettings
                         savePrioritySettings()
                         store.reapplyTaskPriorityNotificationSettings(
@@ -281,6 +295,7 @@ struct NotificationSettingsView: View {
         let allCategories = CategoryPalette.allCategoryNames()
         let existingSettings = NotificationSettingsManager.shared.ensureCategorySettings(for: allCategories)
         categorySettings = existingSettings.sorted { $0.categoryName < $1.categoryName }
+        previousCategorySettings = categorySettings
 
         prioritySettings = NotificationSettingsManager.shared.getPrioritySettings()
         previousPrioritySettings = prioritySettings

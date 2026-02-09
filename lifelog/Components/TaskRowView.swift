@@ -45,10 +45,16 @@ struct TaskRowView: View {
                             .strikethrough(task.isCompleted, color: .primary.opacity(0.6))
                             .foregroundStyle(task.isCompleted ? .secondary : .primary)
                         // リマインダー設定済みインジケーター
-                        if task.reminderDate != nil {
-                            Image(systemName: "bell.fill")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
+                        if let reminderLabel = ReminderDisplay.taskReminderLabel(for: task) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "bell.fill")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(reminderLabel)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                            }
                         }
                         Spacer()
                         Circle()
