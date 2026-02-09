@@ -89,6 +89,36 @@ class NotificationSettingsManager {
     func getSetting(for category: String) -> CategoryNotificationSetting? {
         return getCategorySettings().first { $0.categoryName == category }
     }
+
+    @discardableResult
+    func getOrCreateSetting(for category: String) -> CategoryNotificationSetting {
+        if let existing = getSetting(for: category) {
+            return existing
+        }
+
+        var settings = getCategorySettings()
+        let newSetting = CategoryNotificationSetting(categoryName: category)
+        settings.append(newSetting)
+        saveCategorySettings(settings)
+        return newSetting
+    }
+
+    @discardableResult
+    func ensureCategorySettings(for categories: [String]) -> [CategoryNotificationSetting] {
+        var settings = getCategorySettings()
+        var changed = false
+
+        for category in categories where settings.contains(where: { $0.categoryName == category }) == false {
+            settings.append(CategoryNotificationSetting(categoryName: category))
+            changed = true
+        }
+
+        if changed {
+            saveCategorySettings(settings)
+        }
+
+        return settings
+    }
     
     func updateSetting(for category: String, enabled: Bool? = nil, minutesBefore: Int? = nil) {
         var settings = getCategorySettings()

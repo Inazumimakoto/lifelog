@@ -8,6 +8,8 @@
 import SwiftUI
 
 struct NotificationSettingsView: View {
+    @EnvironmentObject private var store: AppDataStore
+
     // 日記リマインダー設定
     @AppStorage("diaryReminderEnabled") private var diaryReminderEnabled: Bool = false
     @AppStorage("diaryReminderHour") private var diaryReminderHour: Int = 21
@@ -73,6 +75,9 @@ struct NotificationSettingsView: View {
             _Concurrency.Task {
                 await AuthService.shared.updateLetterNotificationEnabled(enabled)
             }
+        }
+        .onChange(of: eventCategoryNotificationEnabled) { _, _ in
+            store.reapplyEventCategoryNotificationSettings()
         }
     }
     
@@ -162,6 +167,7 @@ struct NotificationSettingsView: View {
                     .padding(.vertical, 4)
                     .onChange(of: setting) { _, newValue in
                         saveCategorySettings()
+                        store.reapplyEventCategoryNotificationSettings()
                     }
                 }
             }
@@ -255,19 +261,12 @@ struct NotificationSettingsView: View {
     }
     
     private func loadSettings() {
-        // Load category settings, ensuring all current categories are included
         let allCategories = CategoryPalette.allCategoryNames()
-        var existingSettings = NotificationSettingsManager.shared.getCategorySettings()
-        
-        for category in allCategories {
-            if !existingSettings.contains(where: { $0.categoryName == category }) {
-                existingSettings.append(CategoryNotificationSetting(categoryName: category))
-            }
-        }
+        let existingSettings = NotificationSettingsManager.shared.ensureCategorySettings(for: allCategories)
         categorySettings = existingSettings.sorted { $0.categoryName < $1.categoryName }
-        
-        // Load priority settings
+
         prioritySettings = NotificationSettingsManager.shared.getPrioritySettings()
+        store.reapplyEventCategoryNotificationSettings()
     }
     
     private func saveCategorySettings() {
@@ -291,4 +290,5 @@ struct NotificationSettingsView: View {
     NavigationStack {
         NotificationSettingsView()
     }
+    .environmentObject(AppDataStore())
 }

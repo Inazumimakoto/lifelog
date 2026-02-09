@@ -142,6 +142,8 @@ final class AppDataStore: ObservableObject {
         let storedRange: ExternalCalendarRange? = Self.loadValue(forKey: Self.externalCalendarRangeDefaultsKey, defaultValue: nil)
         self.externalCalendarRange = storedRange
 
+        reapplyEventCategoryNotificationSettings()
+
         #if DEBUG
         seedSampleDataIfNeeded()
         #endif
@@ -319,6 +321,7 @@ final class AppDataStore: ObservableObject {
             persistExternalCalendarRange()
         }
         persistExternalCalendarEvents()
+        rescheduleExternalEventNotifications()
     }
 
     func currentExternalCalendarRange() -> ExternalCalendarRange? {
@@ -398,6 +401,16 @@ final class AppDataStore: ObservableObject {
         }
         appState.calendarCategoryLinks[index].categoryId = categoryName
         persistAppState()
+    }
+
+    func reapplyEventCategoryNotificationSettings() {
+        let categories = Set((calendarEvents + externalCalendarEvents).map(\.calendarName))
+        _ = NotificationSettingsManager.shared.ensureCategorySettings(for: Array(categories))
+
+        for event in calendarEvents {
+            scheduleEventNotification(event)
+        }
+        rescheduleExternalEventNotifications()
     }
 
     // MARK: - Task CRUD
@@ -1213,20 +1226,120 @@ final class AppDataStore: ObservableObject {
         persist(externalCalendarRange, forKey: Self.externalCalendarRangeDefaultsKey)
     }
 
+    private enum EventReminderStrategy {
+        case relative(minutesBefore: Int)
+        case absolute(reminderDate: Date)
+    }
+
+    private func effectiveReminderStrategy(for event: CalendarEvent) -> EventReminderStrategy? {
+        if let minutes = event.reminderMinutes, minutes > 0 {
+            return .relative(minutesBefore: minutes)
+        }
+        if let reminderDate = event.reminderDate {
+            return .absolute(reminderDate: reminderDate)
+        }
+
+        guard NotificationSettingsManager.shared.isEventCategoryNotificationEnabled else {
+            return nil
+        }
+
+        let setting = NotificationSettingsManager.shared.getOrCreateSetting(for: event.calendarName)
+        guard setting.enabled else { return nil }
+
+        if setting.useRelativeTime {
+            return .relative(minutesBefore: setting.minutesBefore)
+        }
+
+        let reminderDate = Calendar.current.date(
+            bySettingHour: setting.hour,
+            minute: setting.minute,
+            second: 0,
+            of: event.startDate
+        ) ?? event.startDate
+        return .absolute(reminderDate: reminderDate)
+    }
+
+    private func rescheduleExternalEventNotifications() {
+        NotificationService.shared.cancelAllReminders(ofType: .externalEvent)
+
+        let now = Date()
+        let maxScheduledExternalReminders = 48
+
+        struct PendingExternalReminder {
+            let event: CalendarEvent
+            let strategy: EventReminderStrategy
+            let fireDate: Date
+        }
+
+        let candidates: [PendingExternalReminder] = externalCalendarEvents.compactMap { event in
+            guard let strategy = effectiveReminderStrategy(for: event) else { return nil }
+
+            let fireDate: Date
+            switch strategy {
+            case .relative(let minutesBefore):
+                fireDate = event.startDate.addingTimeInterval(-Double(minutesBefore * 60))
+            case .absolute(let reminderDate):
+                fireDate = reminderDate
+            }
+
+            guard fireDate > now else { return nil }
+            return PendingExternalReminder(event: event, strategy: strategy, fireDate: fireDate)
+        }
+
+        for candidate in candidates
+            .sorted(by: { $0.fireDate < $1.fireDate })
+            .prefix(maxScheduledExternalReminders) {
+            let externalEventKey = externalEventReminderKey(for: candidate.event)
+            switch candidate.strategy {
+            case .relative(let minutesBefore):
+                NotificationService.shared.scheduleExternalEventReminder(
+                    externalEventKey: externalEventKey,
+                    title: candidate.event.title,
+                    startDate: candidate.event.startDate,
+                    minutesBefore: minutesBefore
+                )
+            case .absolute(let reminderDate):
+                NotificationService.shared.scheduleExternalEventReminderAtDate(
+                    externalEventKey: externalEventKey,
+                    title: candidate.event.title,
+                    reminderDate: reminderDate
+                )
+            }
+        }
+    }
+
+    private func externalEventReminderKey(for event: CalendarEvent) -> String {
+        let source = event.sourceCalendarIdentifier ?? "unknown"
+        let start = Int(event.startDate.timeIntervalSince1970)
+        let end = Int(event.endDate.timeIntervalSince1970)
+        let signature = "\(event.id.uuidString)|\(source)|\(start)|\(end)|\(event.isAllDay)|\(event.title)"
+        return stableHash(signature)
+    }
+
+    private func stableHash(_ value: String) -> String {
+        var hash: UInt64 = 1469598103934665603
+        for byte in value.utf8 {
+            hash ^= UInt64(byte)
+            hash = hash &* 1099511628211
+        }
+        return String(hash, radix: 16)
+    }
+
     private func scheduleEventNotification(_ event: CalendarEvent) {
         // キャンセルしてから再スケジュール
         NotificationService.shared.cancelEventReminder(eventId: event.id)
-        
-        if let minutes = event.reminderMinutes, minutes > 0 {
-            // 相対時間（X分前）
+
+        guard let strategy = effectiveReminderStrategy(for: event) else { return }
+
+        switch strategy {
+        case .relative(let minutesBefore):
             NotificationService.shared.scheduleEventReminder(
                 eventId: event.id,
                 title: event.title,
                 startDate: event.startDate,
-                minutesBefore: minutes
+                minutesBefore: minutesBefore
             )
-        } else if let reminderDate = event.reminderDate {
-            // 絶対日時指定
+        case .absolute(let reminderDate):
             NotificationService.shared.scheduleEventReminderAtDate(
                 eventId: event.id,
                 title: event.title,

@@ -46,7 +46,9 @@ class CalendarEventEditorFormState: ObservableObject {
         // カテゴリ別通知設定を読み込み（新規作成時のみ適用）
         let initialCategory = event?.calendarName ?? CategoryPalette.defaultCategoryName
         let categoryEnabled = UserDefaults.standard.bool(forKey: "eventCategoryNotificationEnabled")
-        let categorySetting = NotificationSettingsManager.shared.getSetting(for: initialCategory)
+        let categorySetting = categoryEnabled
+            ? NotificationSettingsManager.shared.getOrCreateSetting(for: initialCategory)
+            : nil
         
         let hasReminderValue: Bool
         let defaultMinutes: Int

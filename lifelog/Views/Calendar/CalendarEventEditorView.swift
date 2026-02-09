@@ -160,21 +160,18 @@ struct CalendarEventEditorView: View {
             guard originalEvent == nil else { return }
             let categoryEnabled = UserDefaults.standard.bool(forKey: "eventCategoryNotificationEnabled")
             guard categoryEnabled else { return }
-            
-            if let setting = NotificationSettingsManager.shared.getSetting(for: newCategory) {
-                formState.hasReminder = setting.enabled
-                if setting.enabled {
-                    formState.useRelativeReminder = setting.useRelativeTime
-                    if setting.useRelativeTime {
-                        formState.reminderMinutes = setting.minutesBefore
-                        formState.reminderDate = formState.startDate.addingTimeInterval(-Double(setting.minutesBefore * 60))
-                    } else {
-                        let cal = Calendar.current
-                        formState.reminderDate = cal.date(bySettingHour: setting.hour, minute: setting.minute, second: 0, of: formState.startDate) ?? formState.startDate
-                    }
+
+            let setting = NotificationSettingsManager.shared.getOrCreateSetting(for: newCategory)
+            formState.hasReminder = setting.enabled
+            if setting.enabled {
+                formState.useRelativeReminder = setting.useRelativeTime
+                if setting.useRelativeTime {
+                    formState.reminderMinutes = setting.minutesBefore
+                    formState.reminderDate = formState.startDate.addingTimeInterval(-Double(setting.minutesBefore * 60))
+                } else {
+                    let cal = Calendar.current
+                    formState.reminderDate = cal.date(bySettingHour: setting.hour, minute: setting.minute, second: 0, of: formState.startDate) ?? formState.startDate
                 }
-            } else {
-                formState.hasReminder = false
             }
         }
         .sheet(isPresented: $isShowingCategorySelection) {

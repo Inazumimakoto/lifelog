@@ -330,16 +330,7 @@ struct SettingsView: View {
             }
         }
         .sheet(isPresented: $showNotificationSettings) {
-            NavigationStack {
-                NotificationSettingsView()
-                    .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("閉じる") {
-                                showNotificationSettings = false
-                            }
-                        }
-                    }
-            }
+            NotificationSettingsSheet(isPresented: $showNotificationSettings)
         }
         .sheet(isPresented: $showHelp) {
             HelpView()
@@ -435,6 +426,23 @@ struct MailComposerView: UIViewControllerRepresentable {
         
         func mailComposeController(_ controller: MFMailComposeViewController, didFinishWith result: MFMailComposeResult, error: Error?) {
             controller.dismiss(animated: true)
+        }
+    }
+}
+
+private struct NotificationSettingsSheet: View {
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        NavigationStack {
+            NotificationSettingsView()
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("閉じる") {
+                            isPresented = false
+                        }
+                    }
+                }
         }
     }
 }

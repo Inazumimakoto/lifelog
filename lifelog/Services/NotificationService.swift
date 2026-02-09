@@ -11,6 +11,7 @@ import UserNotifications
 /// 通知タイプの識別子
 enum NotificationType: String {
     case event = "event"
+    case externalEvent = "external-event"
     case task = "task"
     case anniversary = "anniversary"
     case diary = "diary"
@@ -96,6 +97,53 @@ class NotificationService {
     func cancelEventReminder(eventId: UUID) {
         let identifier = "\(NotificationType.event.rawValue)-\(eventId.uuidString)"
         center.removePendingNotificationRequests(withIdentifiers: [identifier])
+    }
+
+    /// 外部予定の通知をスケジュール
+    func scheduleExternalEventReminder(externalEventKey: String, title: String, startDate: Date, minutesBefore: Int) {
+        guard minutesBefore > 0 else { return }
+
+        let notificationDate = startDate.addingTimeInterval(-Double(minutesBefore * 60))
+        guard notificationDate > Date() else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "予定のリマインダー"
+        content.body = title
+        content.sound = .default
+
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: notificationDate)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+
+        let identifier = "\(NotificationType.externalEvent.rawValue)-\(externalEventKey)"
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+
+        center.add(request) { error in
+            if let error = error {
+                print("外部予定通知スケジュールエラー: \(error)")
+            }
+        }
+    }
+
+    /// 外部予定の通知をスケジュール（日時指定）
+    func scheduleExternalEventReminderAtDate(externalEventKey: String, title: String, reminderDate: Date) {
+        guard reminderDate > Date() else { return }
+
+        let content = UNMutableNotificationContent()
+        content.title = "予定のリマインダー"
+        content.body = title
+        content.sound = .default
+
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: reminderDate)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+
+        let identifier = "\(NotificationType.externalEvent.rawValue)-\(externalEventKey)"
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+
+        center.add(request) { error in
+            if let error = error {
+                print("外部予定通知スケジュールエラー: \(error)")
+            }
+        }
     }
     
     // MARK: - タスクリマインダー
