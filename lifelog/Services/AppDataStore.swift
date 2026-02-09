@@ -413,6 +413,57 @@ final class AppDataStore: ObservableObject {
         rescheduleExternalEventNotifications()
     }
 
+    func reapplyTaskPriorityNotificationSettings(
+        previousSettings: [PriorityNotificationSetting],
+        currentSettings: [PriorityNotificationSetting],
+        previousParentEnabled: Bool,
+        parentEnabled: Bool
+    ) {
+        let previousMap = Dictionary(uniqueKeysWithValues: previousSettings.map { ($0.priority, $0) })
+        let currentMap = Dictionary(uniqueKeysWithValues: currentSettings.map { ($0.priority, $0) })
+
+        var changedTaskIDs: [UUID] = []
+
+        for index in tasks.indices {
+            let task = tasks[index]
+            let priorityKey = task.priority.rawValue
+            let previousSetting = previousMap[priorityKey]
+            let currentSetting = currentMap[priorityKey]
+
+            let previousDefault = previousParentEnabled
+                ? taskPriorityDefaultReminderDate(for: task, setting: previousSetting)
+                : nil
+            let currentDefault = parentEnabled
+                ? taskPriorityDefaultReminderDate(for: task, setting: currentSetting)
+                : nil
+
+            // 旧デフォルト由来の通知だけを追従更新し、個別変更は維持する
+            guard reminderDate(tasks[index].reminderDate, matches: previousDefault) else {
+                continue
+            }
+
+            if reminderDate(tasks[index].reminderDate, matches: currentDefault) {
+                continue
+            }
+
+            tasks[index].reminderDate = currentDefault
+            changedTaskIDs.append(tasks[index].id)
+            scheduleTaskNotification(tasks[index])
+        }
+
+        guard changedTaskIDs.isEmpty == false else { return }
+
+        persistTasks()
+        for taskID in changedTaskIDs {
+            let descriptor = FetchDescriptor<SDTask>(predicate: #Predicate { $0.id == taskID })
+            if let existing = try? modelContext.fetch(descriptor).first,
+               let task = tasks.first(where: { $0.id == taskID }) {
+                existing.reminderDate = task.reminderDate
+            }
+        }
+        try? modelContext.save()
+    }
+
     // MARK: - Task CRUD
 
     func addTask(_ task: Task) {
@@ -1357,6 +1408,24 @@ final class AppDataStore: ObservableObject {
                 title: task.title,
                 reminderDate: reminderDate
             )
+        }
+    }
+
+    private func taskPriorityDefaultReminderDate(for task: Task, setting: PriorityNotificationSetting?) -> Date? {
+        guard let setting, setting.enabled else { return nil }
+        let baseDate = task.startDate ?? task.endDate
+        guard let baseDate else { return nil }
+        return Calendar.current.date(bySettingHour: setting.hour, minute: setting.minute, second: 0, of: baseDate)
+    }
+
+    private func reminderDate(_ lhs: Date?, matches rhs: Date?) -> Bool {
+        switch (lhs, rhs) {
+        case (nil, nil):
+            return true
+        case let (lhs?, rhs?):
+            return Calendar.current.compare(lhs, to: rhs, toGranularity: .minute) == .orderedSame
+        default:
+            return false
         }
     }
 

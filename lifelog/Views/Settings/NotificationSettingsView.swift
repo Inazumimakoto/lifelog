@@ -22,6 +22,7 @@ struct NotificationSettingsView: View {
     // カテゴリ・優先度設定
     @State private var categorySettings: [CategoryNotificationSetting] = []
     @State private var prioritySettings: [PriorityNotificationSetting] = []
+    @State private var previousPrioritySettings: [PriorityNotificationSetting] = []
     @State private var hasLoaded: Bool = false
     
     private let reminderOptions: [(String, Int)] = [
@@ -78,6 +79,14 @@ struct NotificationSettingsView: View {
         }
         .onChange(of: eventCategoryNotificationEnabled) { _, _ in
             store.reapplyEventCategoryNotificationSettings()
+        }
+        .onChange(of: taskPriorityNotificationEnabled) { oldValue, newValue in
+            store.reapplyTaskPriorityNotificationSettings(
+                previousSettings: previousPrioritySettings,
+                currentSettings: prioritySettings,
+                previousParentEnabled: oldValue,
+                parentEnabled: newValue
+            )
         }
     }
     
@@ -204,7 +213,15 @@ struct NotificationSettingsView: View {
                     }
                     .padding(.vertical, 4)
                     .onChange(of: setting) { _, newValue in
+                        let oldSettings = previousPrioritySettings
                         savePrioritySettings()
+                        store.reapplyTaskPriorityNotificationSettings(
+                            previousSettings: oldSettings,
+                            currentSettings: prioritySettings,
+                            previousParentEnabled: taskPriorityNotificationEnabled,
+                            parentEnabled: taskPriorityNotificationEnabled
+                        )
+                        previousPrioritySettings = prioritySettings
                     }
                 }
             }
@@ -266,6 +283,7 @@ struct NotificationSettingsView: View {
         categorySettings = existingSettings.sorted { $0.categoryName < $1.categoryName }
 
         prioritySettings = NotificationSettingsManager.shared.getPrioritySettings()
+        previousPrioritySettings = prioritySettings
         store.reapplyEventCategoryNotificationSettings()
     }
     
