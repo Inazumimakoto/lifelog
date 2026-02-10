@@ -62,6 +62,9 @@ class NotificationSettingsManager {
     private let prioritySettingsKey = "priorityNotificationSettings"
     private let eventNotificationEnabledKey = "eventCategoryNotificationEnabled"
     private let taskNotificationEnabledKey = "taskPriorityNotificationEnabled"
+    private let todayOverviewNotificationEnabledKey = "todayOverviewNotificationEnabled"
+    private let todayOverviewNotificationHourKey = "todayOverviewNotificationHour"
+    private let todayOverviewNotificationMinuteKey = "todayOverviewNotificationMinute"
     
     private init() {}
     
@@ -146,6 +149,33 @@ class NotificationSettingsManager {
     var isTaskPriorityNotificationEnabled: Bool {
         get { UserDefaults.standard.bool(forKey: taskNotificationEnabledKey) }
         set { UserDefaults.standard.set(newValue, forKey: taskNotificationEnabledKey) }
+    }
+
+    // MARK: - Today Overview Notification Settings
+
+    var isTodayOverviewNotificationEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: todayOverviewNotificationEnabledKey) }
+        set { UserDefaults.standard.set(newValue, forKey: todayOverviewNotificationEnabledKey) }
+    }
+
+    var todayOverviewNotificationHour: Int {
+        get {
+            if UserDefaults.standard.object(forKey: todayOverviewNotificationHourKey) == nil {
+                return 8
+            }
+            return UserDefaults.standard.integer(forKey: todayOverviewNotificationHourKey)
+        }
+        set { UserDefaults.standard.set(newValue, forKey: todayOverviewNotificationHourKey) }
+    }
+
+    var todayOverviewNotificationMinute: Int {
+        get {
+            if UserDefaults.standard.object(forKey: todayOverviewNotificationMinuteKey) == nil {
+                return 0
+            }
+            return UserDefaults.standard.integer(forKey: todayOverviewNotificationMinuteKey)
+        }
+        set { UserDefaults.standard.set(newValue, forKey: todayOverviewNotificationMinuteKey) }
     }
     
     func getPrioritySettings() -> [PriorityNotificationSetting] {

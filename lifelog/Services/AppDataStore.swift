@@ -144,6 +144,7 @@ final class AppDataStore: ObservableObject {
         self.externalCalendarRange = storedRange
 
         reapplyEventCategoryNotificationSettings()
+        rescheduleTodayOverviewReminderIfNeeded()
 
         #if DEBUG
         seedSampleDataIfNeeded()
@@ -297,6 +298,7 @@ final class AppDataStore: ObservableObject {
         calendarEvents.append(event)
         persistCalendarEvents()
         scheduleEventNotification(event)
+        rescheduleTodayOverviewReminderIfNeeded()
     }
 
     func updateCalendarEvent(_ event: CalendarEvent) {
@@ -305,6 +307,7 @@ final class AppDataStore: ObservableObject {
         calendarEvents[index] = event
         persistCalendarEvents()
         scheduleEventNotification(event)
+        rescheduleTodayOverviewReminderIfNeeded()
     }
 
     func deleteCalendarEvent(_ eventID: UUID) {
@@ -312,6 +315,7 @@ final class AppDataStore: ObservableObject {
         calendarEvents.removeAll { $0.id == eventID }
         persistCalendarEvents()
         NotificationService.shared.cancelEventReminder(eventId: eventID)
+        rescheduleTodayOverviewReminderIfNeeded()
     }
 
     func updateExternalCalendarEvents(_ events: [CalendarEvent], range: ExternalCalendarRange? = nil) {
@@ -323,6 +327,7 @@ final class AppDataStore: ObservableObject {
         }
         persistExternalCalendarEvents()
         rescheduleExternalEventNotifications()
+        rescheduleTodayOverviewReminderIfNeeded()
     }
 
     func currentExternalCalendarRange() -> ExternalCalendarRange? {
@@ -520,6 +525,7 @@ final class AppDataStore: ObservableObject {
         try? modelContext.save()
         
         scheduleTaskNotification(task)
+        rescheduleTodayOverviewReminderIfNeeded()
     }
 
     func updateTask(_ task: Task) {
@@ -535,6 +541,7 @@ final class AppDataStore: ObservableObject {
         }
         
         scheduleTaskNotification(task)
+        rescheduleTodayOverviewReminderIfNeeded()
     }
 
     func deleteTasks(at offsets: IndexSet) {
@@ -556,6 +563,7 @@ final class AppDataStore: ObservableObject {
              }
         }
         try? modelContext.save()
+        rescheduleTodayOverviewReminderIfNeeded()
     }
 
     func deleteTasks(withIDs ids: [UUID]) {
@@ -572,6 +580,7 @@ final class AppDataStore: ObservableObject {
              }
         }
         try? modelContext.save()
+        rescheduleTodayOverviewReminderIfNeeded()
     }
 
     func toggleTaskCompletion(_ taskID: UUID) {
@@ -587,6 +596,7 @@ final class AppDataStore: ObservableObject {
              existing.completedAt = tasks[index].completedAt
              try? modelContext.save()
         }
+        rescheduleTodayOverviewReminderIfNeeded()
     }
 
     // MARK: - Diary CRUD
@@ -1072,6 +1082,89 @@ final class AppDataStore: ObservableObject {
         }
     }
 
+    // MARK: - 今日の予定・タスク通知設定
+
+    private var todayOverviewNotificationEnabled: Bool {
+        NotificationSettingsManager.shared.isTodayOverviewNotificationEnabled
+    }
+
+    private var todayOverviewNotificationHour: Int {
+        NotificationSettingsManager.shared.todayOverviewNotificationHour
+    }
+
+    private var todayOverviewNotificationMinute: Int {
+        NotificationSettingsManager.shared.todayOverviewNotificationMinute
+    }
+
+    func updateTodayOverviewReminder(enabled: Bool, hour: Int, minute: Int) {
+        NotificationSettingsManager.shared.isTodayOverviewNotificationEnabled = enabled
+        NotificationSettingsManager.shared.todayOverviewNotificationHour = hour
+        NotificationSettingsManager.shared.todayOverviewNotificationMinute = minute
+        rescheduleTodayOverviewReminderIfNeeded()
+    }
+
+    func rescheduleTodayOverviewReminderIfNeeded(referenceDate: Date = Date()) {
+        guard todayOverviewNotificationEnabled else {
+            NotificationService.shared.cancelTodayOverviewReminder()
+            return
+        }
+
+        let calendar = Calendar.current
+        var fireDate = calendar.date(
+            bySettingHour: todayOverviewNotificationHour,
+            minute: todayOverviewNotificationMinute,
+            second: 0,
+            of: referenceDate
+        ) ?? referenceDate
+
+        if fireDate <= referenceDate {
+            fireDate = calendar.date(byAdding: .day, value: 1, to: fireDate) ?? fireDate
+        }
+
+        let targetDate = calendar.startOfDay(for: fireDate)
+        let eventTitles = events(on: targetDate).map(\.title)
+        let taskTitles = tasks
+            .filter { !$0.isCompleted && isTask($0, scheduledOn: targetDate) }
+            .sorted(by: { lhs, rhs in
+                if lhs.priority.rawValue != rhs.priority.rawValue {
+                    return lhs.priority.rawValue > rhs.priority.rawValue
+                }
+                let lhsDate = lhs.startDate ?? lhs.endDate ?? .distantFuture
+                let rhsDate = rhs.startDate ?? rhs.endDate ?? .distantFuture
+                if lhsDate != rhsDate {
+                    return lhsDate < rhsDate
+                }
+                return lhs.title < rhs.title
+            })
+            .map(\.title)
+
+        let body = todayOverviewBody(eventTitles: eventTitles, taskTitles: taskTitles)
+        NotificationService.shared.scheduleTodayOverviewReminder(fireDate: fireDate, body: body)
+    }
+
+    private func todayOverviewBody(eventTitles: [String], taskTitles: [String]) -> String {
+        let eventSummary = summarizedTitles(eventTitles, limit: 3)
+        let taskSummary = summarizedTitles(taskTitles, limit: 3)
+        return "予定: \(eventSummary) ／ タスク: \(taskSummary)"
+    }
+
+    private func summarizedTitles(_ titles: [String], limit: Int) -> String {
+        let normalizedTitles = titles
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+
+        guard normalizedTitles.isEmpty == false else {
+            return "なし"
+        }
+
+        let listedTitles = Array(normalizedTitles.prefix(limit))
+        let remainderCount = normalizedTitles.count - listedTitles.count
+        if remainderCount > 0 {
+            return "\(listedTitles.joined(separator: "、")) ほか\(remainderCount)件"
+        }
+        return listedTitles.joined(separator: "、")
+    }
+
     // MARK: - Letter to the Future
 
     /// ホームに表示すべき手紙を取得
@@ -1519,6 +1612,17 @@ final class AppDataStore: ObservableObject {
         default:
             return false
         }
+    }
+
+    private func isTask(_ task: Task, scheduledOn date: Date) -> Bool {
+        let calendar = Calendar.current
+        let start = task.startDate ?? task.endDate
+        let end = task.endDate ?? task.startDate
+        guard let anchor = start ?? end else { return false }
+        let normalizedStart = calendar.startOfDay(for: start ?? anchor)
+        let normalizedEnd = calendar.startOfDay(for: end ?? anchor)
+        let target = calendar.startOfDay(for: date)
+        return normalizedStart...normalizedEnd ~= target
     }
 
     private func scheduleAnniversaryNotification(_ anniversary: Anniversary) {

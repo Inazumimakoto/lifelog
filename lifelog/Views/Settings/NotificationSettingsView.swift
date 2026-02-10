@@ -14,6 +14,11 @@ struct NotificationSettingsView: View {
     @AppStorage("diaryReminderEnabled") private var diaryReminderEnabled: Bool = false
     @AppStorage("diaryReminderHour") private var diaryReminderHour: Int = 21
     @AppStorage("diaryReminderMinute") private var diaryReminderMinute: Int = 0
+
+    // 今日の予定・タスク通知
+    @AppStorage("todayOverviewNotificationEnabled") private var todayOverviewNotificationEnabled: Bool = false
+    @AppStorage("todayOverviewNotificationHour") private var todayOverviewNotificationHour: Int = 8
+    @AppStorage("todayOverviewNotificationMinute") private var todayOverviewNotificationMinute: Int = 0
     
     // 予定・タスク通知の親トグル
     @AppStorage("eventCategoryNotificationEnabled") private var eventCategoryNotificationEnabled: Bool = false
@@ -41,6 +46,9 @@ struct NotificationSettingsView: View {
         Form {
             // 日記リマインダーセクション
             diaryReminderSection
+
+            // 今日の予定・タスク通知セクション
+            todayOverviewSection
             
             // 未来への手紙セクション
             letterSection
@@ -70,6 +78,19 @@ struct NotificationSettingsView: View {
         .onChange(of: diaryReminderMinute) { _, _ in
             if diaryReminderEnabled {
                 updateDiaryReminder(enabled: true)
+            }
+        }
+        .onChange(of: todayOverviewNotificationEnabled) { _, enabled in
+            updateTodayOverviewReminder(enabled: enabled)
+        }
+        .onChange(of: todayOverviewNotificationHour) { _, _ in
+            if todayOverviewNotificationEnabled {
+                updateTodayOverviewReminder(enabled: true)
+            }
+        }
+        .onChange(of: todayOverviewNotificationMinute) { _, _ in
+            if todayOverviewNotificationEnabled {
+                updateTodayOverviewReminder(enabled: true)
             }
         }
         .onChange(of: letterNotificationEnabled) { _, enabled in
@@ -128,6 +149,26 @@ struct NotificationSettingsView: View {
                 .foregroundStyle(.secondary)
         } header: {
             Text("手紙")
+        }
+    }
+
+    private var todayOverviewSection: some View {
+        Section {
+            Toggle("今日の予定・タスク通知", isOn: $todayOverviewNotificationEnabled)
+
+            if todayOverviewNotificationEnabled {
+                DatePicker(
+                    "通知時刻",
+                    selection: todayOverviewTimeBinding,
+                    displayedComponents: .hourAndMinute
+                )
+            }
+
+            Text("指定時刻に、その日の予定と未完了タスクをまとめて通知します。本文には予定名・タスク名を含みます。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        } header: {
+            Text("今日の予定・タスク")
         }
     }
     
@@ -281,6 +322,22 @@ struct NotificationSettingsView: View {
             }
         )
     }
+
+    private var todayOverviewTimeBinding: Binding<Date> {
+        Binding<Date>(
+            get: {
+                var components = DateComponents()
+                components.hour = todayOverviewNotificationHour
+                components.minute = todayOverviewNotificationMinute
+                return Calendar.current.date(from: components) ?? Date()
+            },
+            set: { newDate in
+                let components = Calendar.current.dateComponents([.hour, .minute], from: newDate)
+                todayOverviewNotificationHour = components.hour ?? 8
+                todayOverviewNotificationMinute = components.minute ?? 0
+            }
+        )
+    }
     
     // MARK: - Helpers
     
@@ -316,6 +373,14 @@ struct NotificationSettingsView: View {
         } else {
             NotificationService.shared.cancelDiaryReminder()
         }
+    }
+
+    private func updateTodayOverviewReminder(enabled: Bool) {
+        store.updateTodayOverviewReminder(
+            enabled: enabled,
+            hour: todayOverviewNotificationHour,
+            minute: todayOverviewNotificationMinute
+        )
     }
 }
 

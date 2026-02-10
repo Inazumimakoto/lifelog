@@ -15,6 +15,7 @@ enum NotificationType: String {
     case task = "task"
     case anniversary = "anniversary"
     case diary = "diary"
+    case todayOverview = "today-overview"
 }
 
 /// ローカル通知を管理するサービス
@@ -258,6 +259,7 @@ class NotificationService {
     // MARK: - 日記リマインダー
     
     private let diaryReminderIdentifier = "diary-daily-reminder"
+    private let todayOverviewReminderIdentifier = "today-overview-reminder"
     
     /// 日記リマインダーをスケジュール（翌日以降の次の通知時刻）
     func scheduleDiaryReminder(hour: Int, minute: Int) {
@@ -298,6 +300,35 @@ class NotificationService {
     /// 日記リマインダーをキャンセル
     func cancelDiaryReminder() {
         center.removePendingNotificationRequests(withIdentifiers: [diaryReminderIdentifier])
+    }
+
+    // MARK: - 今日の予定・タスク通知
+
+    /// 今日の予定・タスク通知をスケジュール（次回1件のみ）
+    func scheduleTodayOverviewReminder(fireDate: Date, body: String) {
+        guard fireDate > Date() else { return }
+
+        cancelTodayOverviewReminder()
+
+        let content = UNMutableNotificationContent()
+        content.title = "今日の予定・タスク"
+        content.body = body
+        content.sound = .default
+
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
+        let request = UNNotificationRequest(identifier: todayOverviewReminderIdentifier, content: content, trigger: trigger)
+
+        center.add(request) { error in
+            if let error = error {
+                print("今日の予定・タスク通知スケジュールエラー: \(error)")
+            }
+        }
+    }
+
+    /// 今日の予定・タスク通知をキャンセル
+    func cancelTodayOverviewReminder() {
+        center.removePendingNotificationRequests(withIdentifiers: [todayOverviewReminderIdentifier])
     }
     
     // MARK: - 全通知管理

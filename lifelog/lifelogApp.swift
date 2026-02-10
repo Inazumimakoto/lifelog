@@ -38,6 +38,7 @@ struct lifelogApp: App {
                     .onAppear {
                         // 日記リマインダーを再スケジュール（今日書いていなければ通知）
                         store.rescheduleDiaryReminderIfNeeded()
+                        store.rescheduleTodayOverviewReminderIfNeeded()
                         _Concurrency.Task {
                             await monetizationService.refreshStatus()
                         }
@@ -57,6 +58,8 @@ struct lifelogApp: App {
                     if appLockService.isAppLockEnabled && !appLockService.isUnlocked {
                         appLockService.authenticate()
                     }
+
+                    store.rescheduleTodayOverviewReminderIfNeeded()
                     
                     // 最終ログイン日時を更新（手紙の生存確認用）
                     _Concurrency.Task {
