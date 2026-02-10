@@ -2562,6 +2562,7 @@ private struct ReviewMapPhotoViewer: View {
     @State private var currentIndex: Int
     @State private var chromeVisible = true
     @State private var verticalDragOffset: CGFloat = 0
+    @State private var isCurrentPhotoZoomed = false
     private let dismissDragThreshold: CGFloat = 140
 
     init(paths: [String], initialIndex: Int) {
@@ -2580,11 +2581,14 @@ private struct ReviewMapPhotoViewer: View {
                 if paths.isEmpty == false {
                     TabView(selection: $currentIndex) {
                         ForEach(Array(paths.enumerated()), id: \.offset) { index, path in
-                            ReviewMapFullImagePage(path: path, chromeVisible: $chromeVisible)
+                            ReviewMapFullImagePage(path: path,
+                                                   chromeVisible: $chromeVisible,
+                                                   isZoomed: zoomStateBinding(for: index))
                                 .tag(index)
                         }
                     }
                     .tabViewStyle(.page(indexDisplayMode: .automatic))
+                    .background(PagingTabViewScrollControl(isScrollEnabled: isCurrentPhotoZoomed == false))
                 }
 
                 VStack {
@@ -2609,6 +2613,9 @@ private struct ReviewMapPhotoViewer: View {
             .offset(y: verticalDragOffset)
         }
         .simultaneousGesture(verticalDismissGesture)
+        .onChange(of: currentIndex) { _, _ in
+            isCurrentPhotoZoomed = false
+        }
     }
 
     private var backgroundOpacity: Double {
@@ -2619,12 +2626,17 @@ private struct ReviewMapPhotoViewer: View {
     private var verticalDismissGesture: some Gesture {
         DragGesture(minimumDistance: 10, coordinateSpace: .local)
             .onChanged { value in
+                guard isCurrentPhotoZoomed == false else { return }
                 let vertical = value.translation.height
                 let horizontal = value.translation.width
                 guard vertical > 0, abs(vertical) > abs(horizontal) else { return }
                 verticalDragOffset = min(vertical, 360)
             }
             .onEnded { value in
+                guard isCurrentPhotoZoomed == false else {
+                    resetVerticalDragOffset()
+                    return
+                }
                 let vertical = value.translation.height
                 let horizontal = value.translation.width
 
@@ -2647,11 +2659,21 @@ private struct ReviewMapPhotoViewer: View {
             verticalDragOffset = 0
         }
     }
+
+    private func zoomStateBinding(for index: Int) -> Binding<Bool> {
+        Binding(get: {
+            currentIndex == index ? isCurrentPhotoZoomed : false
+        }, set: { newValue in
+            guard currentIndex == index else { return }
+            isCurrentPhotoZoomed = newValue
+        })
+    }
 }
 
 private struct ReviewMapFullImagePage: View {
     let path: String
     @Binding var chromeVisible: Bool
+    @Binding var isZoomed: Bool
 
     @State private var image: UIImage?
     @State private var isLoading = true
@@ -2659,10 +2681,12 @@ private struct ReviewMapFullImagePage: View {
     var body: some View {
         Group {
             if let image = image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                ZoomableImageScrollView(image: image, isZoomed: $isZoomed) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        chromeVisible.toggle()
+                    }
+                }
+                .id(path)
             } else if isLoading {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
@@ -2671,13 +2695,13 @@ private struct ReviewMapFullImagePage: View {
             }
         }
         .background(Color.black)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                chromeVisible.toggle()
-            }
+        .onDisappear {
+            isZoomed = false
         }
-        .task {
+        .task(id: path) {
+            image = nil
+            isLoading = true
+            isZoomed = false
             image = await PhotoStorage.loadFullImage(at: path)
             isLoading = false
         }

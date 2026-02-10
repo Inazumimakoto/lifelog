@@ -14,6 +14,7 @@ struct DiaryPhotoViewerView: View {
     @State private var showDeleteAlert = false
     @State private var chromeVisible = true
     @State private var verticalDragOffset: CGFloat = 0
+    @State private var isCurrentPhotoZoomed = false
     private let dismissDragThreshold: CGFloat = 140
     private let onIndexChanged: ((Int) -> Void)?
 
@@ -34,11 +35,14 @@ struct DiaryPhotoViewerView: View {
                 if viewModel.entry.photoPaths.isEmpty == false {
                     TabView(selection: $currentIndex) {
                         ForEach(Array(viewModel.entry.photoPaths.enumerated()), id: \.element) { index, path in
-                            FullImagePage(path: path, chromeVisible: $chromeVisible)
+                            FullImagePage(path: path,
+                                          chromeVisible: $chromeVisible,
+                                          isZoomed: zoomStateBinding(for: index))
                                 .tag(index)
                         }
                     }
                     .tabViewStyle(.page(indexDisplayMode: .automatic))
+                    .background(PagingTabViewScrollControl(isScrollEnabled: isCurrentPhotoZoomed == false))
                 }
 
                 VStack {
@@ -83,6 +87,7 @@ struct DiaryPhotoViewerView: View {
             }
         }
         .onChange(of: currentIndex) { _, newValue in
+            isCurrentPhotoZoomed = false
             onIndexChanged?(newValue)
         }
         .onAppear {
@@ -104,12 +109,17 @@ struct DiaryPhotoViewerView: View {
     private var verticalDismissGesture: some Gesture {
         DragGesture(minimumDistance: 10, coordinateSpace: .local)
             .onChanged { value in
+                guard isCurrentPhotoZoomed == false else { return }
                 let vertical = value.translation.height
                 let horizontal = value.translation.width
                 guard vertical > 0, abs(vertical) > abs(horizontal) else { return }
                 verticalDragOffset = min(vertical, 360)
             }
             .onEnded { value in
+                guard isCurrentPhotoZoomed == false else {
+                    resetVerticalDragOffset()
+                    return
+                }
                 let vertical = value.translation.height
                 let horizontal = value.translation.width
 
@@ -166,12 +176,22 @@ struct DiaryPhotoViewerView: View {
             verticalDragOffset = 0
         }
     }
+
+    private func zoomStateBinding(for index: Int) -> Binding<Bool> {
+        Binding(get: {
+            currentIndex == index ? isCurrentPhotoZoomed : false
+        }, set: { newValue in
+            guard currentIndex == index else { return }
+            isCurrentPhotoZoomed = newValue
+        })
+    }
 }
 
 // 非同期でフルサイズ画像を読み込むページ
 private struct FullImagePage: View {
     let path: String
     @Binding var chromeVisible: Bool
+    @Binding var isZoomed: Bool
     
     @State private var image: UIImage?
     @State private var isLoading = true
@@ -179,10 +199,12 @@ private struct FullImagePage: View {
     var body: some View {
         Group {
             if let image = image {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                ZoomableImageScrollView(image: image, isZoomed: $isZoomed) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        chromeVisible.toggle()
+                    }
+                }
+                .id(path)
             } else if isLoading {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle(tint: .white))
@@ -191,15 +213,13 @@ private struct FullImagePage: View {
             }
         }
         .background(Color.black)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.2)) {
-                chromeVisible.toggle()
-            }
+        .onDisappear {
+            isZoomed = false
         }
         .task(id: path) {
             image = nil
             isLoading = true
+            isZoomed = false
             image = await PhotoStorage.loadFullImage(at: path)
             isLoading = false
         }
