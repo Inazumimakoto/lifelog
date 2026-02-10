@@ -761,6 +761,10 @@ private struct PhotoLocationLinkSheet: View {
                         isImportingLocationPhotos = false
                         if summary.addedCount > 0 {
                             selectedPhotoPaths.formUnion(summary.addedPaths)
+                            // 追加分のみを既存リンクへ追記（上書きしない）
+                            if case .location(let locationID) = context {
+                                viewModel.addPhotoLinks(forLocation: locationID, paths: summary.addedPaths)
+                            }
                         }
                         onImportSummary(summary)
                     }

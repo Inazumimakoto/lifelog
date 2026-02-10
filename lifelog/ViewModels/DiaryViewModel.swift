@@ -139,6 +139,18 @@ final class DiaryViewModel: ObservableObject {
         persist()
     }
 
+    /// 既存リンクを維持したまま、指定写真だけを場所へ追加リンクする。
+    /// インポート直後の追記用途（上書きによる意図しない解除を避ける）。
+    func addPhotoLinks(forLocation locationID: UUID, paths: [String]) {
+        guard let index = entry.locations.firstIndex(where: { $0.id == locationID }) else { return }
+        guard paths.isEmpty == false else { return }
+        let merged = Set(entry.locations[index].photoPaths).union(paths)
+        let ordered = orderedPhotoPaths(from: merged)
+        guard ordered != entry.locations[index].photoPaths else { return }
+        entry.locations[index].photoPaths = ordered
+        persist()
+    }
+
     func updateLocationLinks(forPhoto path: String, selectedLocationIDs: [UUID]) {
         let targetIDs = Set(selectedLocationIDs)
         var didChange = false
