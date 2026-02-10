@@ -34,6 +34,7 @@ final class AppDataStore: ObservableObject {
     // MARK: - Cache
     private var eventsCache: [Date: [CalendarEvent]] = [:]
     private var externalCalendarRange: ExternalCalendarRange? = nil
+    private var externalReminderRescheduleGeneration: UInt = 0
 
     // MARK: - Legacy Persistence Keys
     private static let tasksDefaultsKey = "Tasks_Storage_V1"
@@ -1392,8 +1393,6 @@ final class AppDataStore: ObservableObject {
     }
 
     private func rescheduleExternalEventNotifications() {
-        NotificationService.shared.cancelAllReminders(ofType: .externalEvent)
-
         let now = Date()
         let maxScheduledExternalReminders = 48
 
@@ -1418,24 +1417,36 @@ final class AppDataStore: ObservableObject {
             return PendingExternalReminder(event: event, strategy: strategy, fireDate: fireDate)
         }
 
-        for candidate in candidates
+        let remindersToSchedule = candidates
             .sorted(by: { $0.fireDate < $1.fireDate })
-            .prefix(maxScheduledExternalReminders) {
-            let externalEventKey = externalEventReminderKey(for: candidate.event)
-            switch candidate.strategy {
-            case .relative(let minutesBefore):
-                NotificationService.shared.scheduleExternalEventReminder(
-                    externalEventKey: externalEventKey,
-                    title: candidate.event.title,
-                    startDate: candidate.event.startDate,
-                    minutesBefore: minutesBefore
-                )
-            case .absolute(let reminderDate):
-                NotificationService.shared.scheduleExternalEventReminderAtDate(
-                    externalEventKey: externalEventKey,
-                    title: candidate.event.title,
-                    reminderDate: reminderDate
-                )
+            .prefix(maxScheduledExternalReminders)
+
+        externalReminderRescheduleGeneration &+= 1
+        let generation = externalReminderRescheduleGeneration
+
+        NotificationService.shared.cancelAllReminders(ofType: .externalEvent) { [weak self] in
+            DispatchQueue.main.async {
+                guard let self else { return }
+                guard self.externalReminderRescheduleGeneration == generation else { return }
+
+                for candidate in remindersToSchedule {
+                    let externalEventKey = self.externalEventReminderKey(for: candidate.event)
+                    switch candidate.strategy {
+                    case .relative(let minutesBefore):
+                        NotificationService.shared.scheduleExternalEventReminder(
+                            externalEventKey: externalEventKey,
+                            title: candidate.event.title,
+                            startDate: candidate.event.startDate,
+                            minutesBefore: minutesBefore
+                        )
+                    case .absolute(let reminderDate):
+                        NotificationService.shared.scheduleExternalEventReminderAtDate(
+                            externalEventKey: externalEventKey,
+                            title: candidate.event.title,
+                            reminderDate: reminderDate
+                        )
+                    }
+                }
             }
         }
     }

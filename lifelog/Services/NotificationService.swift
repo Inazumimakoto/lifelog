@@ -303,12 +303,13 @@ class NotificationService {
     // MARK: - 全通知管理
     
     /// 特定タイプの全通知をキャンセル
-    func cancelAllReminders(ofType type: NotificationType) {
+    func cancelAllReminders(ofType type: NotificationType, completion: (() -> Void)? = nil) {
         center.getPendingNotificationRequests { requests in
             let identifiers = requests
                 .filter { $0.identifier.hasPrefix(type.rawValue) }
                 .map { $0.identifier }
             self.center.removePendingNotificationRequests(withIdentifiers: identifiers)
+            completion?()
         }
     }
 }
