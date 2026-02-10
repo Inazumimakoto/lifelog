@@ -15,9 +15,11 @@ struct DiaryPhotoViewerView: View {
     @State private var chromeVisible = true
     @State private var verticalDragOffset: CGFloat = 0
     private let dismissDragThreshold: CGFloat = 140
+    private let onIndexChanged: ((Int) -> Void)?
 
-    init(viewModel: DiaryViewModel, initialIndex: Int) {
+    init(viewModel: DiaryViewModel, initialIndex: Int, onIndexChanged: ((Int) -> Void)? = nil) {
         self._viewModel = ObservedObject(wrappedValue: viewModel)
+        self.onIndexChanged = onIndexChanged
         let clampedIndex = max(0, min(initialIndex, max(0, viewModel.entry.photoPaths.count - 1)))
         _currentIndex = State(initialValue: clampedIndex)
     }
@@ -79,6 +81,12 @@ struct DiaryPhotoViewerView: View {
             if currentIndex > lastIndex {
                 currentIndex = lastIndex
             }
+        }
+        .onChange(of: currentIndex) { _, newValue in
+            onIndexChanged?(newValue)
+        }
+        .onAppear {
+            onIndexChanged?(currentIndex)
         }
         .alert("この写真を削除しますか？", isPresented: $showDeleteAlert) {
             Button("削除", role: .destructive) {

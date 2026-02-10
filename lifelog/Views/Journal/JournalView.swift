@@ -209,7 +209,10 @@ struct JournalView: View {
         }
         .fullScreenCover(item: $reviewPhotoViewerDate) { date in
             DiaryPhotoViewerView(viewModel: makeDiaryViewModel(for: date),
-                                 initialIndex: reviewPhotoViewerIndex)
+                                 initialIndex: reviewPhotoViewerIndex,
+                                 onIndexChanged: { newIndex in
+                                     reviewPhotoViewerIndex = newIndex
+                                 })
         }
         .toolbar {
             journalToolbar
@@ -3009,7 +3012,10 @@ private struct ReviewDetailPanel: View {
         }
         .fullScreenCover(isPresented: $showPhotoViewer) {
             DiaryPhotoViewerView(viewModel: DiaryViewModel(store: store, date: date),
-                                 initialIndex: selectedPhotoIndex)
+                                 initialIndex: selectedPhotoIndex,
+                                 onIndexChanged: { newIndex in
+                                     selectedPhotoIndex = newIndex
+                                 })
         }
     }
     
@@ -3034,6 +3040,7 @@ private struct ReviewDayCell: View {
     
     @State private var thumbnail: UIImage?
     
+    private var thumbnailPath: String? { day.diary?.favoritePhotoPath ?? day.diary?.photoPaths.first }
     private var hasPhoto: Bool { thumbnail != nil }
     private var moodEmoji: String? { day.diary?.mood?.emoji }
     private var shouldShowMood: Bool { showMoodOnReviewCalendar && moodEmoji != nil }
@@ -3093,10 +3100,13 @@ private struct ReviewDayCell: View {
         .onTapGesture {
             onTap()
         }
-        .task {
-            if let path = day.diary?.favoritePhotoPath ?? day.diary?.photoPaths.first {
-                thumbnail = await PhotoStorage.loadThumbnail(at: path)
+        .task(id: thumbnailPath) {
+            guard let path = thumbnailPath else {
+                thumbnail = nil
+                return
             }
+            thumbnail = nil
+            thumbnail = await PhotoStorage.loadThumbnail(at: path)
         }
     }
 }

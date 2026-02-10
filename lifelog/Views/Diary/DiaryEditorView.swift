@@ -136,7 +136,11 @@ struct DiaryEditorView: View {
             }
         }
         .fullScreenCover(item: $selectedPhoto) { selection in
-            DiaryPhotoViewerView(viewModel: viewModel, initialIndex: selection.index)
+            DiaryPhotoViewerView(viewModel: viewModel,
+                                 initialIndex: selection.index,
+                                 onIndexChanged: { newIndex in
+                                     selectedPhoto?.index = newIndex
+                                 })
         }
         .sheet(isPresented: $showTagManager) {
             EmotionTagManagerView()
@@ -676,13 +680,8 @@ private struct DiaryLocationRow: View {
 }
 
 private struct PhotoSelection: Identifiable {
-    let id: Int
-    let index: Int
-    
-    init(index: Int) {
-        self.id = index
-        self.index = index
-    }
+    let id = UUID()
+    var index: Int
 }
 
 private enum PhotoLinkContext: Identifiable {
