@@ -50,6 +50,9 @@ final class PhotoThumbnailCache {
 struct PhotoStorage {
     private static let directoryName = "DiaryPhotos"
     private static let thumbnailSize: CGFloat = 200  // サムネイルサイズ
+    private static let assetIdentifierFilename = "PhotoAssetIdentifiers.json"
+    private static let assetIdentifierQueue = DispatchQueue(label: "PhotoStorage.AssetIdentifierQueue")
+    private static var cachedAssetIdentifierMap: [String: String]?
 
     private static var photosDirectory: URL = {
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
@@ -62,25 +65,56 @@ struct PhotoStorage {
         return dir
     }()
 
+    private static var assetIdentifierFileURL: URL {
+        photosDirectory.appendingPathComponent(assetIdentifierFilename)
+    }
+
     // MARK: - Save
-    static func save(data: Data) throws -> String {
+    static func save(data: Data, sourceAssetIdentifier: String? = nil) throws -> String {
         let filename = UUID().uuidString + ".jpg"
         let url = photosDirectory.appendingPathComponent(filename)
         try data.write(to: url, options: .atomic)
+        if let sourceAssetIdentifier, sourceAssetIdentifier.isEmpty == false {
+            setAssetIdentifier(sourceAssetIdentifier, for: filename)
+        }
         return filename
     }
 
     // MARK: - Save (Async)
-    static func saveAsync(data: Data) async throws -> String {
+    static func saveAsync(data: Data, sourceAssetIdentifier: String? = nil) async throws -> String {
         try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    let path = try save(data: data)
+                    let path = try save(data: data, sourceAssetIdentifier: sourceAssetIdentifier)
                     continuation.resume(returning: path)
                 } catch {
                     continuation.resume(throwing: error)
                 }
             }
+        }
+    }
+
+    static func assetIdentifierIndex(for paths: [String]) -> [String: [String]] {
+        assetIdentifierQueue.sync {
+            let map = loadAssetIdentifierMapUnlocked()
+            var index: [String: [String]] = [:]
+            for path in paths {
+                guard let identifier = map[path] else { continue }
+                index[identifier, default: []].append(path)
+            }
+            return index
+        }
+    }
+
+    static func assetIdentifierMap(for paths: [String]) -> [String: String] {
+        assetIdentifierQueue.sync {
+            let map = loadAssetIdentifierMapUnlocked()
+            var result: [String: String] = [:]
+            for path in paths {
+                guard let identifier = map[path] else { continue }
+                result[path] = identifier
+            }
+            return result
         }
     }
 
@@ -211,11 +245,47 @@ struct PhotoStorage {
     static func delete(at path: String) {
         let url = photosDirectory.appendingPathComponent(path)
         try? FileManager.default.removeItem(at: url)
+        removeAssetIdentifier(for: path)
     }
 
     static func fileExists(for path: String) -> Bool {
         let url = photosDirectory.appendingPathComponent(path)
         return FileManager.default.fileExists(atPath: url.path)
+    }
+
+    private static func loadAssetIdentifierMapUnlocked() -> [String: String] {
+        if let cachedAssetIdentifierMap {
+            return cachedAssetIdentifierMap
+        }
+        guard let data = try? Data(contentsOf: assetIdentifierFileURL),
+              let decoded = try? JSONDecoder().decode([String: String].self, from: data) else {
+            cachedAssetIdentifierMap = [:]
+            return [:]
+        }
+        cachedAssetIdentifierMap = decoded
+        return decoded
+    }
+
+    private static func persistAssetIdentifierMapUnlocked(_ map: [String: String]) {
+        cachedAssetIdentifierMap = map
+        guard let data = try? JSONEncoder().encode(map) else { return }
+        try? data.write(to: assetIdentifierFileURL, options: .atomic)
+    }
+
+    private static func setAssetIdentifier(_ identifier: String, for path: String) {
+        assetIdentifierQueue.sync {
+            var map = loadAssetIdentifierMapUnlocked()
+            map[path] = identifier
+            persistAssetIdentifierMapUnlocked(map)
+        }
+    }
+
+    private static func removeAssetIdentifier(for path: String) {
+        assetIdentifierQueue.sync {
+            var map = loadAssetIdentifierMapUnlocked()
+            guard map.removeValue(forKey: path) != nil else { return }
+            persistAssetIdentifierMapUnlocked(map)
+        }
     }
 }
 

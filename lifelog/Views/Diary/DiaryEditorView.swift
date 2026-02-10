@@ -523,7 +523,7 @@ struct DiaryEditorView: View {
     }
 
     private var linkedPhotoPaths: Set<String> {
-        Set(viewModel.entry.locations.flatMap { $0.photoPaths })
+        viewModel.linkedDiaryPhotoPaths()
     }
 
     private func showPhotoImportToast(_ summary: DiaryViewModel.PhotoImportSummary) {
@@ -916,10 +916,7 @@ private struct PhotoLocationLinkSheet: View {
                 selectedPhotoPaths = Set(location.photoPaths.filter { availablePaths.contains($0) })
             }
         case .photo(let path):
-            let linked = viewModel.entry.locations
-                .filter { $0.photoPaths.contains(path) }
-                .map(\.id)
-            selectedLocationIDs = Set(linked)
+            selectedLocationIDs = viewModel.linkedLocationIDs(forPhoto: path)
         }
     }
 

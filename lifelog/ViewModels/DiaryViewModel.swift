@@ -11,6 +11,7 @@ import Combine
 import PhotosUI
 import SwiftUI
 import CryptoKit
+import UIKit
 
 @MainActor
 final class DiaryViewModel: ObservableObject {
@@ -153,12 +154,17 @@ final class DiaryViewModel: ObservableObject {
 
     func updateLocationLinks(forPhoto path: String, selectedLocationIDs: [UUID]) {
         let targetIDs = Set(selectedLocationIDs)
+        let identityByPath = makePhotoIdentityMap(paths: Set(entry.locations.flatMap(\.photoPaths)).union([path]))
+        let selectedIdentity = identityByPath[path]
         var didChange = false
         for index in entry.locations.indices {
             let locationID = entry.locations[index].id
             let contains = entry.locations[index].photoPaths.contains(path)
+            let hasEquivalent = selectedIdentity != nil && entry.locations[index].photoPaths.contains {
+                identityByPath[$0] == selectedIdentity
+            }
             if targetIDs.contains(locationID) {
-                if contains == false {
+                if contains == false && hasEquivalent == false {
                     entry.locations[index].photoPaths.append(path)
                     didChange = true
                 }
@@ -175,6 +181,37 @@ final class DiaryViewModel: ObservableObject {
         if didChange {
             persist()
         }
+    }
+
+    func linkedDiaryPhotoPaths() -> Set<String> {
+        let directLinkedPaths = Set(entry.locations.flatMap(\.photoPaths))
+        guard directLinkedPaths.isEmpty == false else { return [] }
+        let targetPaths = Set(entry.photoPaths)
+        let identityByPath = makePhotoIdentityMap(paths: targetPaths.union(directLinkedPaths))
+        let linkedIdentitySet = Set(directLinkedPaths.compactMap { identityByPath[$0] })
+        return Set(entry.photoPaths.filter { path in
+            if directLinkedPaths.contains(path) {
+                return true
+            }
+            guard let identity = identityByPath[path] else { return false }
+            return linkedIdentitySet.contains(identity)
+        })
+    }
+
+    func linkedLocationIDs(forPhoto path: String) -> Set<UUID> {
+        let directMatches = Set(entry.locations.filter { $0.photoPaths.contains(path) }.map(\.id))
+        let allLocationPaths = Set(entry.locations.flatMap(\.photoPaths))
+        let identityByPath = makePhotoIdentityMap(paths: allLocationPaths.union([path]))
+        guard let targetIdentity = identityByPath[path] else {
+            return directMatches
+        }
+        var linkedIDs = directMatches
+        for location in entry.locations where linkedIDs.contains(location.id) == false {
+            if location.photoPaths.contains(where: { identityByPath[$0] == targetIdentity }) {
+                linkedIDs.insert(location.id)
+            }
+        }
+        return linkedIDs
     }
 
     func recentLocationCoordinate() -> CLLocationCoordinate2D? {
@@ -218,7 +255,9 @@ final class DiaryViewModel: ObservableObject {
         let usableItems = Array(items.prefix(availableSlots))
         var summary = PhotoImportSummary()
         summary.skippedCount = max(0, items.count - usableItems.count)
+        let locationPhotoAssetIdentifierIndex = makeLocationPhotoAssetIdentifierIndex()
         let locationPhotoDigestIndex = makeLocationPhotoDigestIndex()
+        let locationPhotoVisualDigestIndex = makeLocationPhotoVisualDigestIndex()
         
         for item in usableItems {
             do {
@@ -226,8 +265,11 @@ final class DiaryViewModel: ObservableObject {
                     summary.failedLoadCount += 1
                     continue
                 }
-                if let existingPath = matchedLocationPhotoPath(for: data,
-                                                               digestIndex: locationPhotoDigestIndex) {
+                if let existingPath = matchedLocationPhotoPath(for: item,
+                                                               data: data,
+                                                               assetIdentifierIndex: locationPhotoAssetIdentifierIndex,
+                                                               digestIndex: locationPhotoDigestIndex,
+                                                               visualDigestIndex: locationPhotoVisualDigestIndex) {
                     if entry.photoPaths.contains(existingPath) || summary.addedPaths.contains(existingPath) {
                         summary.skippedCount += 1
                     } else {
@@ -236,7 +278,8 @@ final class DiaryViewModel: ObservableObject {
                     continue
                 }
                 do {
-                    let path = try await PhotoStorage.saveAsync(data: data)
+                    let path = try await PhotoStorage.saveAsync(data: data,
+                                                                sourceAssetIdentifier: item.itemIdentifier)
                     summary.addedPaths.append(path)
                 } catch {
                     summary.failedSaveCount += 1
@@ -273,7 +316,8 @@ final class DiaryViewModel: ObservableObject {
                     continue
                 }
                 do {
-                    let path = try await PhotoStorage.saveAsync(data: data)
+                    let path = try await PhotoStorage.saveAsync(data: data,
+                                                                sourceAssetIdentifier: item.itemIdentifier)
                     summary.addedPaths.append(path)
                 } catch {
                     summary.failedSaveCount += 1
@@ -370,14 +414,86 @@ final class DiaryViewModel: ObservableObject {
         return index
     }
 
-    private func matchedLocationPhotoPath(for data: Data,
-                                          digestIndex: [String: [String]]) -> String? {
+    private func makeLocationPhotoAssetIdentifierIndex() -> [String: [String]] {
+        PhotoStorage.assetIdentifierIndex(for: entry.locationPhotoPaths)
+    }
+
+    private func makePhotoIdentityMap(paths: Set<String>) -> [String: String] {
+        guard paths.isEmpty == false else { return [:] }
+        let pathList = Array(paths)
+        let assetIdentifierByPath = PhotoStorage.assetIdentifierMap(for: pathList)
+        var identityByPath: [String: String] = [:]
+        for path in pathList {
+            if let identifier = assetIdentifierByPath[path], identifier.isEmpty == false {
+                identityByPath[path] = "asset:\(identifier)"
+                continue
+            }
+            guard let data = PhotoStorage.loadData(at: path) else { continue }
+            if let visualDigest = normalizedImageDigestHex(data: data), visualDigest.isEmpty == false {
+                identityByPath[path] = "visual:\(visualDigest)"
+                continue
+            }
+            identityByPath[path] = "digest:\(sha256DigestHex(data: data))"
+        }
+        return identityByPath
+    }
+
+    /// フォーマット差分（メタデータ/再エンコード）を吸収するための画像内容ベース索引。
+    private func makeLocationPhotoVisualDigestIndex() -> [String: [String]] {
+        var index: [String: [String]] = [:]
+        for path in entry.locationPhotoPaths {
+            guard let data = PhotoStorage.loadData(at: path),
+                  let digest = normalizedImageDigestHex(data: data) else { continue }
+            index[digest, default: []].append(path)
+        }
+        return index
+    }
+
+    private func matchedLocationPhotoPath(for item: PhotosPickerItem,
+                                          data: Data,
+                                          assetIdentifierIndex: [String: [String]],
+                                          digestIndex: [String: [String]],
+                                          visualDigestIndex: [String: [String]]) -> String? {
+        if let itemIdentifier = item.itemIdentifier,
+           let matched = assetIdentifierIndex[itemIdentifier]?.first {
+            return matched
+        }
         let digest = sha256DigestHex(data: data)
-        return digestIndex[digest]?.first
+        if let matched = digestIndex[digest]?.first {
+            return matched
+        }
+        guard let visualDigest = normalizedImageDigestHex(data: data) else { return nil }
+        return visualDigestIndex[visualDigest]?.first
     }
 
     private func sha256DigestHex(data: Data) -> String {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    /// 画像を一定サイズへ正規化した後にハッシュ化し、エンコード差分に強い識別子を作る。
+    private func normalizedImageDigestHex(data: Data) -> String? {
+        guard let image = UIImage(data: data) else { return nil }
+        let targetSize = CGSize(width: 256, height: 256)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        format.opaque = true
+        let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
+        let rendered = renderer.image { _ in
+            UIColor.black.setFill()
+            UIRectFill(CGRect(origin: .zero, size: targetSize))
+            let drawRect = aspectFitRect(for: image.size, in: CGRect(origin: .zero, size: targetSize))
+            image.draw(in: drawRect)
+        }
+        guard let normalizedData = rendered.pngData() else { return nil }
+        return sha256DigestHex(data: normalizedData)
+    }
+
+    private func aspectFitRect(for imageSize: CGSize, in bounds: CGRect) -> CGRect {
+        guard imageSize.width > 0, imageSize.height > 0 else { return bounds }
+        let scale = min(bounds.width / imageSize.width, bounds.height / imageSize.height)
+        let size = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
+        let origin = CGPoint(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2)
+        return CGRect(origin: origin, size: size)
     }
 
     private var allPhotoPathsInOrder: [String] {
