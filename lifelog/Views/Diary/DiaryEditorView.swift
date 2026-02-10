@@ -779,7 +779,9 @@ private struct PhotoLocationLinkSheet: View {
             }
             let diaryPaths = viewModel.entry.photoPaths
             let linkedLocationPaths = Set(currentLocation?.photoPaths ?? [])
-            let locationPaths = viewModel.entry.locationPhotoPaths.filter { linkedLocationPaths.contains($0) }
+            // 編集中（未確定）の選択も表示に反映して、追加直後の確認を可能にする
+            let previewLinkedLocationPaths = linkedLocationPaths.union(selectedPhotoPaths)
+            let locationPaths = viewModel.entry.locationPhotoPaths.filter { previewLinkedLocationPaths.contains($0) }
             if diaryPaths.isEmpty && locationPaths.isEmpty {
                 VStack(spacing: 12) {
                     Text("写真がありません")
