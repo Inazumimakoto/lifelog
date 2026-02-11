@@ -742,7 +742,10 @@ struct JournalView: View {
                 viewModel.setMonthAnchor(anchor)
                 DispatchQueue.main.async { self.isSyncingMonthPager = false }
             }
-            extendMonthPagerIfNeeded(at: newSelection)
+            // スクロールアニメーション完了後にページャー拡張
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                extendMonthPagerIfNeeded(at: newSelection)
+            }
             
             // 振り返りモードの場合、前後月含めてプリフェッチ
             if calendarMode == .review {
@@ -763,7 +766,7 @@ struct JournalView: View {
                 monthDayCell(day, itemLimit: itemLimit)
             }
         }
-        .animation(.easeInOut, value: viewModel.selectedDate)
+        // .animation removed: グリッド全体へのアニメーション伝播を防止（スクロールのカクつき対策）
     }
 
     @ViewBuilder
@@ -898,7 +901,10 @@ struct JournalView: View {
             } else if Calendar.current.isDate(anchor, inSameDayAs: viewModel.selectedDate) == false {
                 // Do nothing to keep the selected date
             }
-            extendWeekPagerIfNeeded(at: newSelection)
+            // スクロールアニメーション完了後にページャー拡張
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                extendWeekPagerIfNeeded(at: newSelection)
+            }
         }
     }
 
@@ -955,7 +961,7 @@ struct JournalView: View {
                 weekDayCell(date, itemLimit: itemLimit)
             }
         }
-        .animation(.easeInOut, value: viewModel.selectedDate)
+        // .animation removed: グリッド全体へのアニメーション伝播を防止（スクロールのカクつき対策）
     }
 
     @ViewBuilder
@@ -1181,24 +1187,15 @@ struct JournalView: View {
         let diary = store.entry(for: date)
         let photoPaths = diary?.photoPaths ?? []
         let preferredIndex = preferredPhotoIndex(for: diary)
-        let photoSelection = Binding(
-            get: { reviewPhotoIndex },
-            set: { newValue in
-                reviewPhotoIndex = newValue
-            }
-        )
         return ReviewDetailPanel(
             date: date,
             store: store,
             diary: diary,
             photoPaths: photoPaths,
             preferredIndex: preferredIndex,
-            photoSelection: photoSelection,
             reviewPhotoViewerIndex: $reviewPhotoViewerIndex,
             pendingPhotoViewerDate: $pendingPhotoViewerDate,
             showingDetailPanel: $showingDetailPanel,
-            didInitReviewPhotoIndex: $didInitReviewPhotoIndex,
-            reviewPhotoIndex: $reviewPhotoIndex,
             onOpenDiary: { openDiaryEditor(for: $0) }
         )
     }
@@ -1333,18 +1330,20 @@ struct JournalView: View {
         TabView(selection: $detailPagerSelection) {
             ForEach(Array(detailPagerAnchors.enumerated()), id: \.offset) { index, anchor in
                 let snapshot = calendarSnapshot(for: anchor)
-                let content: AnyView = calendarMode == .schedule
-                ? AnyView(
-                    CalendarDetailPanel(snapshot: snapshot,
-                                        store: store,
-                                        includeAddButtons: includeAddButtons,
-                                        showHeader: showHeader,
-                                        onToggleTask: { toggleTask($0) },
-                                        onToggleHabit: { toggleHabit($0, on: snapshot.date) },
-                                        onOpenDiary: { openDiaryEditor(for: $0) })
-                )
-                : AnyView(reviewDetailCard(for: anchor))
-                content.tag(index)
+                Group {
+                    if calendarMode == .schedule {
+                        CalendarDetailPanel(snapshot: snapshot,
+                                            store: store,
+                                            includeAddButtons: includeAddButtons,
+                                            showHeader: showHeader,
+                                            onToggleTask: { toggleTask($0) },
+                                            onToggleHabit: { toggleHabit($0, on: snapshot.date) },
+                                            onOpenDiary: { openDiaryEditor(for: $0) })
+                    } else {
+                        reviewDetailCard(for: anchor)
+                    }
+                }
+                .tag(index)
             }
         }
         .tabViewStyle(.page(indexDisplayMode: .never))
@@ -1353,14 +1352,16 @@ struct JournalView: View {
         .onChange(of: detailPagerSelection) { _, newSelection in
             guard detailPagerAnchors.indices.contains(newSelection) else { return }
             let date = detailPagerAnchors[newSelection]
-            if date.startOfDay != viewModel.selectedDate.startOfDay {
-                isSyncingDetailPager = true
-                viewModel.selectedDate = date
-            }
-            extendDetailPagerIfNeeded(at: newSelection)
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                self.isSyncingDetailPager = false
+            // スクロールアニメーション完了後に副作用を実行
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+                if date.startOfDay != viewModel.selectedDate.startOfDay {
+                    isSyncingDetailPager = true
+                    viewModel.selectedDate = date
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        self.isSyncingDetailPager = false
+                    }
+                }
+                extendDetailPagerIfNeeded(at: newSelection)
             }
         }
         .id(ScrollTarget.detailPanel)
@@ -2901,42 +2902,35 @@ private struct ReviewDetailPanel: View {
     let diary: DiaryEntry?
     let photoPaths: [String]
     let preferredIndex: Int
-    @Binding var photoSelection: Int
     @Binding var reviewPhotoViewerIndex: Int
     @Binding var pendingPhotoViewerDate: Date?
     @Binding var showingDetailPanel: Bool
-    @Binding var didInitReviewPhotoIndex: Bool
-    @Binding var reviewPhotoIndex: Int
     let onOpenDiary: (Date) -> Void
     
     @State private var diaryEditorDate: Date?
     @State private var showPhotoViewer = false
     @State private var selectedPhotoIndex = 0
+    @State private var localPhotoIndex: Int = 0
     
     init(date: Date,
          store: AppDataStore,
          diary: DiaryEntry?,
          photoPaths: [String],
          preferredIndex: Int,
-         photoSelection: Binding<Int>,
          reviewPhotoViewerIndex: Binding<Int>,
          pendingPhotoViewerDate: Binding<Date?>,
          showingDetailPanel: Binding<Bool>,
-         didInitReviewPhotoIndex: Binding<Bool>,
-         reviewPhotoIndex: Binding<Int>,
          onOpenDiary: @escaping (Date) -> Void) {
         self.date = date
         self.store = store
         self.diary = diary
         self.photoPaths = photoPaths
         self.preferredIndex = preferredIndex
-        self._photoSelection = photoSelection
         self._reviewPhotoViewerIndex = reviewPhotoViewerIndex
         self._pendingPhotoViewerDate = pendingPhotoViewerDate
         self._showingDetailPanel = showingDetailPanel
-        self._didInitReviewPhotoIndex = didInitReviewPhotoIndex
-        self._reviewPhotoIndex = reviewPhotoIndex
         self.onOpenDiary = onOpenDiary
+        _localPhotoIndex = State(initialValue: preferredIndex)
     }
 
     private func locationLabel(for entry: DiaryEntry) -> String? {
@@ -2955,20 +2949,23 @@ private struct ReviewDetailPanel: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             if let diary, photoPaths.isEmpty == false {
-                TabView(selection: $photoSelection) {
-                    ForEach(Array(photoPaths.enumerated()), id: \.offset) { index, path in
-                        DetailPanelPhotoPage(
-                            path: path,
-                            index: index,
-                            onTap: {
-                                selectedPhotoIndex = index
-                                showPhotoViewer = true
-                            }
-                        )
-                        .tag(index)
+                // ScrollView(.horizontal) + scrollTargetBehavior でネストされた TabView を回避
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 0) {
+                        ForEach(Array(photoPaths.enumerated()), id: \.offset) { index, path in
+                            DetailPanelPhotoPage(
+                                path: path,
+                                index: index,
+                                onTap: {
+                                    selectedPhotoIndex = index
+                                    showPhotoViewer = true
+                                }
+                            )
+                            .containerRelativeFrame(.horizontal)
+                        }
                     }
                 }
-                .tabViewStyle(.page(indexDisplayMode: .automatic))
+                .scrollTargetBehavior(.paging)
                 .frame(height: 240)
             }
             if let diary {
@@ -3018,16 +3015,6 @@ private struct ReviewDetailPanel: View {
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-        .onAppear {
-            // お気に入り写真があればそれを表示
-            let maxIndex = max(photoPaths.count - 1, 0)
-            let initial = min(preferredIndex, maxIndex)
-            photoSelection = max(0, initial)
-        }
-        .onChange(of: photoPaths) { paths in
-            let maxIndex = max(paths.count - 1, 0)
-            reviewPhotoIndex = min(reviewPhotoIndex, maxIndex)
-        }
         .sheet(item: $diaryEditorDate) { editorDate in
             NavigationStack {
                 DiaryEditorView(store: store, date: editorDate)
