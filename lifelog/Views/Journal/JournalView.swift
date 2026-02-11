@@ -2948,25 +2948,52 @@ private struct ReviewDetailPanel: View {
     
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if let diary, photoPaths.isEmpty == false {
+            if photoPaths.isEmpty == false {
                 // ScrollView(.horizontal) + scrollTargetBehavior でネストされた TabView を回避
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 0) {
-                        ForEach(Array(photoPaths.enumerated()), id: \.offset) { index, path in
-                            DetailPanelPhotoPage(
-                                path: path,
-                                index: index,
-                                onTap: {
-                                    selectedPhotoIndex = index
-                                    showPhotoViewer = true
-                                }
-                            )
-                            .containerRelativeFrame(.horizontal)
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 0) {
+                            ForEach(Array(photoPaths.enumerated()), id: \.offset) { index, path in
+                                DetailPanelPhotoPage(
+                                    path: path,
+                                    index: index,
+                                    onTap: {
+                                        selectedPhotoIndex = index
+                                        showPhotoViewer = true
+                                    }
+                                )
+                                .containerRelativeFrame(.horizontal)
+                                .id(index)
+                            }
                         }
                     }
+                    .scrollTargetBehavior(.paging)
+                    .frame(height: 240)
+                    .onAppear {
+                        let initialIndex = clampedIndex(preferredIndex)
+                        selectedPhotoIndex = initialIndex
+                        localPhotoIndex = initialIndex
+                        scrollToIndex(initialIndex, using: proxy)
+                    }
+                    .onChange(of: date) { _, _ in
+                        let initialIndex = clampedIndex(preferredIndex)
+                        selectedPhotoIndex = initialIndex
+                        localPhotoIndex = initialIndex
+                        scrollToIndex(initialIndex, using: proxy)
+                    }
+                    .onChange(of: preferredIndex) { _, newValue in
+                        let targetIndex = clampedIndex(newValue)
+                        selectedPhotoIndex = targetIndex
+                        localPhotoIndex = targetIndex
+                        scrollToIndex(targetIndex, using: proxy)
+                    }
+                    .onChange(of: photoPaths) { _, _ in
+                        let targetIndex = clampedIndex(localPhotoIndex)
+                        selectedPhotoIndex = targetIndex
+                        localPhotoIndex = targetIndex
+                        scrollToIndex(targetIndex, using: proxy)
+                    }
                 }
-                .scrollTargetBehavior(.paging)
-                .frame(height: 240)
             }
             if let diary {
                 if let mood = diary.mood {
@@ -3038,6 +3065,18 @@ private struct ReviewDetailPanel: View {
         case 4: return "🙂"
         case 5: return "💪"
         default: return "😐"
+        }
+    }
+
+    private func clampedIndex(_ index: Int) -> Int {
+        guard photoPaths.isEmpty == false else { return 0 }
+        return min(max(index, 0), photoPaths.count - 1)
+    }
+
+    private func scrollToIndex(_ index: Int, using proxy: ScrollViewProxy) {
+        guard photoPaths.indices.contains(index) else { return }
+        DispatchQueue.main.async {
+            proxy.scrollTo(index, anchor: .center)
         }
     }
 }
