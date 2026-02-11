@@ -25,6 +25,12 @@ struct SettingsView: View {
     @State private var showPATHelp = false
     @State private var showPaywall = false
     @State private var premiumAlertMessage: String?
+    @State private var showOptimizeConfirm = false
+    @State private var isOptimizing = false
+    @State private var optimizeCurrent: Int = 0
+    @State private var optimizeTotal: Int = 0
+    @State private var optimizeResult: String?
+    @State private var currentStorageSize: Int64 = 0
 #if DEBUG
     private let debugAutomaticStorefront = "AUTO"
 #endif
@@ -66,6 +72,31 @@ struct SettingsView: View {
                     }
                 }
                 .foregroundStyle(.primary)
+            }
+            
+            // ストレージ
+            Section {
+                Button {
+                    showOptimizeConfirm = true
+                } label: {
+                    HStack {
+                        Label("ストレージ最適化", systemImage: "arrow.triangle.2.circlepath.doc.on.clipboard")
+                        Spacer()
+                        if currentStorageSize > 0 {
+                            Text(ByteCountFormatter.string(fromByteCount: currentStorageSize, countStyle: .file))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .foregroundStyle(.primary)
+                .disabled(isOptimizing)
+            } header: {
+                Text("ストレージ")
+            } footer: {
+                Text("写真をJPEG圧縮して容量を削減します（解像度は変わりません）")
             }
             
             // ヘルプ
@@ -364,6 +395,46 @@ struct SettingsView: View {
         } message: {
             Text(premiumAlertMessage ?? "")
         }
+        .alert("ストレージ最適化", isPresented: $showOptimizeConfirm) {
+            Button("最適化する") {
+                startOptimization()
+            }
+            Button("キャンセル", role: .cancel) { }
+        } message: {
+            Text("既存の写真をJPEG圧縮して容量を削減します。解像度は変わりません。この処理は数分かかる場合があります。")
+        }
+        .alert("最適化完了", isPresented: Binding(
+            get: { optimizeResult != nil },
+            set: { if $0 == false { optimizeResult = nil } }
+        )) {
+            Button("OK") { }
+        } message: {
+            Text(optimizeResult ?? "")
+        }
+        .overlay {
+            if isOptimizing {
+                ZStack {
+                    Color.black.opacity(0.4)
+                        .ignoresSafeArea()
+                    VStack(spacing: 16) {
+                        ProgressView()
+                            .scaleEffect(1.5)
+                        Text("写真を最適化中...")
+                            .font(.headline)
+                        if optimizeTotal > 0 {
+                            Text("\(optimizeCurrent) / \(optimizeTotal)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .padding(32)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+                }
+            }
+        }
+        .onAppear {
+            currentStorageSize = PhotoStorage.totalStorageSize()
+        }
     }
 
     private func openLetterFeatureIfNeeded(_ openAction: () -> Void) {
@@ -372,6 +443,39 @@ struct SettingsView: View {
             return
         }
         openAction()
+    }
+
+    private func startOptimization() {
+        isOptimizing = true
+        optimizeCurrent = 0
+        optimizeTotal = 0
+        
+        // Use qualified name to avoid conflict with `Models.Task`
+        _Concurrency.Task { @MainActor in
+            let sizeBefore = PhotoStorage.totalStorageSize()
+            
+            _ = await PhotoStorage.optimizeExistingPhotos { current, total, _ in
+                // Use _Concurrency.Task to avoid shadowing by Models.Task
+                _Concurrency.Task { @MainActor in
+                    self.optimizeCurrent = current
+                    self.optimizeTotal = total
+                }
+            }
+            
+            let sizeAfter = PhotoStorage.totalStorageSize()
+            let saved = max(0, sizeBefore - sizeAfter)
+            
+            self.isOptimizing = false
+            self.currentStorageSize = sizeAfter
+            
+            if saved > 0 {
+                let savedStr = ByteCountFormatter.string(fromByteCount: saved, countStyle: .file)
+                let afterStr = ByteCountFormatter.string(fromByteCount: sizeAfter, countStyle: .file)
+                self.optimizeResult = "\(savedStr) 削減しました（現在: \(afterStr)）"
+            } else {
+                self.optimizeResult = "すでに最適化済みです"
+            }
+        }
     }
 
 #if DEBUG

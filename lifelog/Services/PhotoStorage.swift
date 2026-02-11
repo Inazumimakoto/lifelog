@@ -50,6 +50,7 @@ final class PhotoThumbnailCache {
 struct PhotoStorage {
     private static let directoryName = "DiaryPhotos"
     private static let thumbnailSize: CGFloat = 200  // サムネイルサイズ
+    private static let jpegCompressionQuality: CGFloat = 0.8  // JPEG圧縮品質
     private static let assetIdentifierFilename = "PhotoAssetIdentifiers.json"
     private static let assetIdentifierQueue = DispatchQueue(label: "PhotoStorage.AssetIdentifierQueue")
     private static var cachedAssetIdentifierMap: [String: String]?
@@ -73,7 +74,16 @@ struct PhotoStorage {
     static func save(data: Data, sourceAssetIdentifier: String? = nil) throws -> String {
         let filename = UUID().uuidString + ".jpg"
         let url = photosDirectory.appendingPathComponent(filename)
-        try data.write(to: url, options: .atomic)
+        // JPEG 0.8で再エンコードして容量削減（解像度は維持）
+        let dataToWrite: Data
+        if let uiImage = UIImage(data: data),
+           let compressed = uiImage.jpegData(compressionQuality: jpegCompressionQuality) {
+            dataToWrite = compressed
+        } else {
+            // UIImage化できない場合は元データをそのまま保存
+            dataToWrite = data
+        }
+        try dataToWrite.write(to: url, options: .atomic)
         if let sourceAssetIdentifier, sourceAssetIdentifier.isEmpty == false {
             setAssetIdentifier(sourceAssetIdentifier, for: filename)
         }
@@ -286,6 +296,64 @@ struct PhotoStorage {
             guard map.removeValue(forKey: path) != nil else { return }
             persistAssetIdentifierMapUnlocked(map)
         }
+    }
+    // MARK: - Optimize Existing Photos
+    /// 既存の全写真をJPEG 0.8で再エンコードしてストレージを最適化する
+    /// - Parameter progress: (処理済み枚数, 総枚数, 削減バイト数) を報告するコールバック
+    /// - Returns: 合計削減バイト数
+    @discardableResult
+    static func optimizeExistingPhotos(progress: @escaping (Int, Int, Int64) -> Void) async -> Int64 {
+        await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .utility).async {
+                let fileManager = FileManager.default
+                let dir = photosDirectory
+                guard let files = try? fileManager.contentsOfDirectory(atPath: dir.path) else {
+                    continuation.resume(returning: 0)
+                    return
+                }
+                
+                let jpgFiles = files.filter { $0.hasSuffix(".jpg") || $0.hasSuffix(".jpeg") }
+                let total = jpgFiles.count
+                var totalSaved: Int64 = 0
+                
+                for (index, filename) in jpgFiles.enumerated() {
+                    let fileURL = dir.appendingPathComponent(filename)
+                    guard let originalData = try? Data(contentsOf: fileURL),
+                          let uiImage = UIImage(data: originalData),
+                          let compressed = uiImage.jpegData(compressionQuality: jpegCompressionQuality) else {
+                        progress(index + 1, total, totalSaved)
+                        continue
+                    }
+                    
+                    // 再エンコード後のほうが小さい場合のみ上書き
+                    let saved = Int64(originalData.count) - Int64(compressed.count)
+                    if saved > 0 {
+                        try? compressed.write(to: fileURL, options: .atomic)
+                        totalSaved += saved
+                    }
+                    
+                    progress(index + 1, total, totalSaved)
+                }
+                
+                continuation.resume(returning: totalSaved)
+            }
+        }
+    }
+
+    /// DiaryPhotos ディレクトリの合計サイズ（バイト）を返す
+    static func totalStorageSize() -> Int64 {
+        let fileManager = FileManager.default
+        let dir = photosDirectory
+        guard let files = try? fileManager.contentsOfDirectory(atPath: dir.path) else { return 0 }
+        var total: Int64 = 0
+        for filename in files {
+            let path = dir.appendingPathComponent(filename).path
+            if let attrs = try? fileManager.attributesOfItem(atPath: path),
+               let size = attrs[.size] as? Int64 {
+                total += size
+            }
+        }
+        return total
     }
 }
 
