@@ -561,8 +561,7 @@ private final class DiaryLocationPickerViewModel: NSObject, ObservableObject {
         var seenKeys: Set<String> = []
         var deduplicated: [NearbyPlace] = []
         for place in places {
-            let coordinate = place.coordinate
-            let key = "\(place.name)|\(coordinate.latitude)|\(coordinate.longitude)"
+            let key = place.annotationKey
             if seenKeys.contains(key) {
                 continue
             }
@@ -894,11 +893,7 @@ private struct DiaryLocationMapView: UIViewRepresentable {
         }
 
         private func searchResultID(for place: NearbyPlace) -> String {
-            if let mapItemURL = place.mapItem.url?.absoluteString, mapItemURL.isEmpty == false {
-                return "mapitem:\(mapItemURL)"
-            }
-            let coordinate = place.coordinate
-            return "\(place.name)|\(String(format: "%.6f", coordinate.latitude))|\(String(format: "%.6f", coordinate.longitude))"
+            place.annotationKey
         }
     }
 
@@ -1186,6 +1181,16 @@ private struct NearbyPlace: Identifiable, Hashable {
                      placemark.subThoroughfare]
         let result = parts.compactMap { $0 }.joined()
         return result.isEmpty ? placemark.title : result
+    }
+
+    /// Key used for both list de-duplication and map annotations.
+    /// Keep this independent from mapItem.url because chain stores can share one URL.
+    var annotationKey: String {
+        let coordinate = mapItem.placemark.coordinate
+        let name = self.name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let address = (self.address ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        let mapItemURL = mapItem.url?.absoluteString ?? ""
+        return "\(name)|\(address)|\(coordinate.latitude)|\(coordinate.longitude)|\(mapItemURL)"
     }
 }
 
