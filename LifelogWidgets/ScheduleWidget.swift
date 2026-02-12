@@ -285,9 +285,13 @@ struct ScheduleWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
     let entry: ScheduleProvider.Entry
 
+    private var isCompact: Bool {
+        family == .systemSmall
+    }
+
     private var eventLimit: Int {
         switch family {
-        case .systemSmall: return 2
+        case .systemSmall: return 3
         case .systemMedium: return 3
         default: return 5
         }
@@ -322,7 +326,7 @@ struct ScheduleWidgetEntryView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: isCompact ? 4 : 6) {
             header
             if hasContent {
                 rows
@@ -339,7 +343,7 @@ struct ScheduleWidgetEntryView: View {
 
     private var header: some View {
         Text(ScheduleWidgetFormatter.headerDate.string(from: entry.date))
-            .font(.system(size: family == .systemSmall ? 16 : 17, weight: .bold, design: .rounded))
+            .font(.system(size: family == .systemSmall ? 15 : 17, weight: .bold, design: .rounded))
             .lineLimit(1)
             .minimumScaleFactor(0.75)
     }
@@ -370,25 +374,37 @@ struct ScheduleWidgetEntryView: View {
             Circle()
                 .fill(ScheduleCategoryPalette.color(for: event.categoryName))
                 .frame(width: 6, height: 6)
-                .padding(.top, 5)
+                .padding(.top, isCompact ? 4 : 5)
 
-            VStack(alignment: .leading, spacing: 1) {
-                Text(event.title)
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+            if isCompact {
+                Text(eventTimeLabel(event))
+                    .font(.system(size: 9, weight: .medium, design: .rounded).monospacedDigit())
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
-                    .minimumScaleFactor(0.85)
-                HStack(spacing: 3) {
-                    Image(systemName: "clock")
-                        .font(.system(size: 8, weight: .semibold))
-                    Text(eventTimeLabel(event))
-                        .font(.system(size: 10, weight: .regular, design: .rounded).monospacedDigit())
+                    .fixedSize(horizontal: true, vertical: false)
+                Text(event.title)
+                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            } else {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(event.title)
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.85)
+                    HStack(spacing: 3) {
+                        Image(systemName: "clock")
+                            .font(.system(size: 8, weight: .semibold))
+                        Text(eventTimeLabel(event))
+                            .font(.system(size: 10, weight: .regular, design: .rounded).monospacedDigit())
+                    }
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
                 }
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
             }
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, isCompact ? 2 : 3)
     }
 
     private func taskRow(_ task: ScheduleTaskItem) -> some View {
@@ -402,7 +418,7 @@ struct ScheduleWidgetEntryView: View {
                 .minimumScaleFactor(0.85)
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, isCompact ? 2 : 3)
     }
 
     private var rowDivider: some View {
@@ -450,7 +466,7 @@ struct ScheduleWidgetEntryView: View {
 
     private func summaryLine(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 11, weight: .semibold, design: .rounded))
+            .font(.system(size: isCompact ? 10 : 11, weight: .semibold, design: .rounded))
             .foregroundStyle(.secondary)
     }
 }
