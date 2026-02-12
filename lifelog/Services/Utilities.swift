@@ -272,6 +272,7 @@ enum CategoryPalette {
 
     private static let storageKey = "CategoryPalette_Categories_V3"
     private static let defaults = UserDefaults.standard
+    private static let sharedDefaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier)
 
     private static let defaultCategories: [String: String] = [
         "仕事": "orange", "趣味": "green", "旅行": "blue"
@@ -339,16 +340,24 @@ enum CategoryPalette {
     }
 
     private static func allCategoriesMapping() -> [String: String] {
-        if let data = defaults.data(forKey: storageKey),
+        if let data = sharedDefaults?.data(forKey: storageKey),
            let decoded = try? JSONDecoder().decode([String: String].self, from: data) {
             return decoded
         }
+
+        if let data = defaults.data(forKey: storageKey),
+           let decoded = try? JSONDecoder().decode([String: String].self, from: data) {
+            sharedDefaults?.set(data, forKey: storageKey)
+            return decoded
+        }
+
         return defaultCategories
     }
 
     private static func persist(map: [String: String]) {
         if let data = try? JSONEncoder().encode(map) {
             defaults.set(data, forKey: storageKey)
+            sharedDefaults?.set(data, forKey: storageKey)
         }
     }
 

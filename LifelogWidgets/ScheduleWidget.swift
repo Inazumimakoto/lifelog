@@ -16,6 +16,7 @@ struct ScheduleEventItem: Identifiable {
     let startDate: Date
     let endDate: Date
     let isAllDay: Bool
+    let categoryName: String
 }
 
 struct ScheduleTaskItem: Identifiable {
@@ -31,6 +32,8 @@ struct ScheduleEntry: TimelineEntry {
 }
 
 struct ScheduleProvider: TimelineProvider {
+    private static let externalCalendarEventsDefaultsKey = "ExternalCalendarEvents_Storage_V1"
+
     func placeholder(in context: Context) -> ScheduleEntry {
         ScheduleEntry(
             date: Date(),
@@ -40,7 +43,8 @@ struct ScheduleProvider: TimelineProvider {
                     title: "10:00 チームMTG",
                     startDate: Date(),
                     endDate: Date().addingTimeInterval(60 * 60),
-                    isAllDay: false
+                    isAllDay: false,
+                    categoryName: "仕事"
                 )
             ],
             tasks: [
@@ -76,6 +80,23 @@ struct ScheduleProvider: TimelineProvider {
 
     @MainActor
     private func fetchEvents(on date: Date) -> [ScheduleEventItem] {
+        let internalEvents = fetchInternalEvents(on: date)
+        let externalEvents = fetchExternalEvents(on: date)
+        let merged = (internalEvents + externalEvents).reduce(into: [UUID: ScheduleEventItem]()) { result, item in
+            if let existing = result[item.id] {
+                result[item.id] = existing.startDate <= item.startDate ? existing : item
+            } else {
+                result[item.id] = item
+            }
+        }
+        return merged.values.sorted {
+            if $0.startDate != $1.startDate { return $0.startDate < $1.startDate }
+            return $0.title < $1.title
+        }
+    }
+
+    @MainActor
+    private func fetchInternalEvents(on date: Date) -> [ScheduleEventItem] {
         do {
             let context = PersistenceController.shared.container.mainContext
             let calendar = Calendar.current
@@ -93,12 +114,40 @@ struct ScheduleProvider: TimelineProvider {
                     title: $0.title,
                     startDate: $0.startDate,
                     endDate: $0.endDate,
-                    isAllDay: $0.isAllDay
+                    isAllDay: $0.isAllDay,
+                    categoryName: $0.calendarName
                 )
             }
         } catch {
             return []
         }
+    }
+
+    private func fetchExternalEvents(on date: Date) -> [ScheduleEventItem] {
+        let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier) ?? UserDefaults.standard
+        guard let data = defaults.data(forKey: Self.externalCalendarEventsDefaultsKey) else { return [] }
+        guard let externalEvents = try? JSONDecoder().decode([CalendarEvent].self, from: data) else { return [] }
+
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: date)
+        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return [] }
+
+        return externalEvents
+            .filter { $0.startDate < dayEnd && $0.endDate > dayStart }
+            .sorted {
+                if $0.startDate != $1.startDate { return $0.startDate < $1.startDate }
+                return $0.title < $1.title
+            }
+            .map {
+                ScheduleEventItem(
+                    id: $0.id,
+                    title: $0.title,
+                    startDate: $0.startDate,
+                    endDate: $0.endDate,
+                    isAllDay: $0.isAllDay,
+                    categoryName: $0.calendarName
+                )
+            }
     }
 
     @MainActor
@@ -146,17 +195,10 @@ struct ScheduleProvider: TimelineProvider {
 }
 
 private enum ScheduleWidgetFormatter {
-    static let date: DateFormatter = {
+    static let headerDate: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "M月d日"
-        return formatter
-    }()
-
-    static let weekday: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "EEEE"
+        formatter.dateFormat = "MM/dd (E)"
         return formatter
     }()
 
@@ -168,6 +210,77 @@ private enum ScheduleWidgetFormatter {
     }()
 }
 
+private enum ScheduleCategoryPalette {
+    static let storageKey = "CategoryPalette_Categories_V3"
+    static let fallbackMap: [String: String] = [
+        "仕事": "orange",
+        "趣味": "green",
+        "旅行": "blue"
+    ]
+
+    static func color(for categoryName: String) -> Color {
+        let normalizedName = categoryName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let map = currentMap()
+        guard let token = map[normalizedName] else {
+            return .accentColor
+        }
+        return parseColorToken(token) ?? .accentColor
+    }
+
+    private static func currentMap() -> [String: String] {
+        let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier) ?? UserDefaults.standard
+        guard let data = defaults.data(forKey: storageKey) else {
+            return fallbackMap
+        }
+        guard let decoded = try? JSONDecoder().decode([String: String].self, from: data) else {
+            return fallbackMap
+        }
+        return decoded
+    }
+
+    private static func parseColorToken(_ token: String) -> Color? {
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let uiColor = UIColor(hex: trimmed) {
+            return Color(uiColor: uiColor)
+        }
+
+        switch trimmed.lowercased() {
+        case "red": return .red
+        case "orange": return .orange
+        case "yellow": return .yellow
+        case "green": return .green
+        case "mint": return .mint
+        case "teal": return .teal
+        case "cyan": return .cyan
+        case "blue": return .blue
+        case "indigo": return .indigo
+        case "purple": return .purple
+        case "pink": return .pink
+        case "brown": return .brown
+        case "gray", "grey": return .gray
+        default: return nil
+        }
+    }
+}
+
+private extension UIColor {
+    convenience init?(hex: String) {
+        var normalized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalized.hasPrefix("#") {
+            normalized.removeFirst()
+        }
+
+        guard normalized.count == 6, let raw = UInt64(normalized, radix: 16) else {
+            return nil
+        }
+
+        let red = CGFloat((raw & 0xFF0000) >> 16) / 255.0
+        let green = CGFloat((raw & 0x00FF00) >> 8) / 255.0
+        let blue = CGFloat(raw & 0x0000FF) / 255.0
+        self.init(red: red, green: green, blue: blue, alpha: 1.0)
+    }
+}
+
 struct ScheduleWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
     let entry: ScheduleProvider.Entry
@@ -176,7 +289,7 @@ struct ScheduleWidgetEntryView: View {
         switch family {
         case .systemSmall: return 2
         case .systemMedium: return 3
-        default: return 6
+        default: return 5
         }
     }
 
@@ -184,107 +297,134 @@ struct ScheduleWidgetEntryView: View {
         switch family {
         case .systemSmall: return 2
         case .systemMedium: return 3
-        default: return 6
+        default: return 5
         }
     }
 
+    private var visibleEvents: [ScheduleEventItem] {
+        Array(entry.events.prefix(eventLimit))
+    }
+
+    private var visibleTasks: [ScheduleTaskItem] {
+        Array(entry.tasks.prefix(taskLimit))
+    }
+
+    private var hiddenEventCount: Int {
+        max(0, entry.events.count - visibleEvents.count)
+    }
+
+    private var hiddenTaskCount: Int {
+        max(0, entry.tasks.count - visibleTasks.count)
+    }
+
+    private var hasContent: Bool {
+        visibleEvents.isEmpty == false || visibleTasks.isEmpty == false
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 6) {
             header
-            sectionHeader(title: "予定", icon: "calendar")
-            eventSection
-            sectionHeader(title: "未完了タスク", icon: "checklist")
-            taskSection
+            if hasContent {
+                rows
+                overflowSummary
+            } else {
+                emptyLine("予定・タスクはありません")
+            }
             Spacer(minLength: 0)
         }
         .foregroundStyle(.primary)
-        .padding(14)
+        .padding(family == .systemSmall ? 8 : 10)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var header: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 6) {
-            Text(ScheduleWidgetFormatter.date.string(from: entry.date))
-                .font(.system(size: 18, weight: .bold, design: .rounded))
-            Text(ScheduleWidgetFormatter.weekday.string(from: entry.date))
-                .font(.system(size: 13, weight: .semibold, design: .rounded))
+        Text(ScheduleWidgetFormatter.headerDate.string(from: entry.date))
+            .font(.system(size: family == .systemSmall ? 16 : 17, weight: .bold, design: .rounded))
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
+    }
+
+    private var rows: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if visibleEvents.isEmpty == false {
+                ForEach(Array(visibleEvents.enumerated()), id: \.element.id) { index, event in
+                    eventRow(event)
+                    if index < visibleEvents.count - 1 || visibleTasks.isEmpty == false {
+                        rowDivider
+                    }
+                }
+            }
+            if visibleTasks.isEmpty == false {
+                ForEach(Array(visibleTasks.enumerated()), id: \.element.id) { index, task in
+                    taskRow(task)
+                    if index < visibleTasks.count - 1 {
+                        rowDivider
+                    }
+                }
+            }
+        }
+    }
+
+    private func eventRow(_ event: ScheduleEventItem) -> some View {
+        HStack(alignment: .top, spacing: 7) {
+            Circle()
+                .fill(ScheduleCategoryPalette.color(for: event.categoryName))
+                .frame(width: 6, height: 6)
+                .padding(.top, 5)
+
+            VStack(alignment: .leading, spacing: 1) {
+                Text(event.title)
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                HStack(spacing: 3) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 8, weight: .semibold))
+                    Text(eventTimeLabel(event))
+                        .font(.system(size: 10, weight: .regular, design: .rounded).monospacedDigit())
+                }
                 .foregroundStyle(.secondary)
+                .lineLimit(1)
+            }
             Spacer(minLength: 0)
         }
+        .padding(.vertical, 3)
     }
 
-    private func sectionHeader(title: String, icon: String) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: icon)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.secondary)
-            Text(title)
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
-                .foregroundStyle(.secondary)
+    private func taskRow(_ task: ScheduleTaskItem) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: "circle")
+                .font(.system(size: 10, weight: .regular))
+                .foregroundStyle(priorityColor(for: task.priority))
+            Text(task.title)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+            Spacer(minLength: 0)
         }
+        .padding(.vertical, 3)
     }
 
-    private var eventSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if entry.events.isEmpty {
-                emptyLine("予定はありません")
-            } else {
-                ForEach(entry.events.prefix(eventLimit)) { event in
-                    HStack(alignment: .firstTextBaseline, spacing: 6) {
-                        Text(event.isAllDay ? "終日" : timeLabel(for: event))
-                            .font(.system(size: 10, weight: .semibold, design: .rounded))
-                            .foregroundStyle(.secondary)
-                        Text(event.title)
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 4)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color(uiColor: .secondarySystemBackground))
-                    )
-                }
-                let overflow = entry.events.count - eventLimit
-                if overflow > 0 {
-                    summaryLine("他\(overflow)件")
-                }
+    private var rowDivider: some View {
+        Divider()
+            .padding(.leading, 13)
+    }
+
+    private var overflowSummary: some View {
+        HStack(spacing: 8) {
+            if hiddenEventCount > 0 {
+                summaryLine("+予定\(hiddenEventCount)")
+            }
+            if hiddenTaskCount > 0 {
+                summaryLine("+タスク\(hiddenTaskCount)")
             }
         }
     }
 
-    private var taskSection: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            if entry.tasks.isEmpty {
-                emptyLine("未完了タスクはありません")
-            } else {
-                ForEach(entry.tasks.prefix(taskLimit)) { task in
-                    HStack(spacing: 6) {
-                        Circle()
-                            .fill(priorityColor(for: task.priority))
-                            .frame(width: 6, height: 6)
-                        Text(task.title)
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
-                            .lineLimit(1)
-                        Spacer(minLength: 0)
-                    }
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 4)
-                    .background(
-                        RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color(uiColor: .secondarySystemBackground))
-                    )
-                }
-                let overflow = entry.tasks.count - taskLimit
-                if overflow > 0 {
-                    summaryLine("他\(overflow)件")
-                }
-            }
+    private func eventTimeLabel(_ event: ScheduleEventItem) -> String {
+        if event.isAllDay {
+            return "終日"
         }
-    }
-
-    private func timeLabel(for event: ScheduleEventItem) -> String {
         let start = ScheduleWidgetFormatter.time.string(from: event.startDate)
         let end = ScheduleWidgetFormatter.time.string(from: event.endDate)
         return "\(start)-\(end)"
