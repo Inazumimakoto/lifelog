@@ -90,7 +90,7 @@
 ### 📈 Code Stats
 
 <p align="center">
-  📝 総行数: <strong>49,143</strong> &nbsp;•&nbsp; � Swiftコード: <strong>33,805</strong> &nbsp;•&nbsp; �📦 最大ファイル: <strong>JournalView.swift</strong> (3,521 行)
+  📝 総行数: <strong>50,317</strong> &nbsp;•&nbsp; � Swiftコード: <strong>34,968</strong> &nbsp;•&nbsp; �📦 最大ファイル: <strong>JournalView.swift</strong> (3,530 行)
 </p>
 
 <sub>Stats 自動更新</sub>
