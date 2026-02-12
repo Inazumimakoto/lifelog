@@ -403,7 +403,7 @@ struct ScheduleWidgetEntryView: View {
 
     private var header: some View {
         Text(ScheduleWidgetFormatter.headerDate.string(from: entry.date))
-            .font(.system(size: family == .systemSmall ? 16 : 17, weight: .bold, design: .rounded))
+            .font(.system(size: family == .systemSmall ? 16 : (family == .systemMedium ? 16 : 17), weight: .bold, design: .rounded))
             .lineLimit(1)
     }
 
@@ -437,13 +437,13 @@ struct ScheduleWidgetEntryView: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 Text(event.title)
-                    .font(.system(size: family == .systemSmall ? 12 : 13, weight: .semibold, design: .rounded))
+                    .font(.system(size: family == .systemSmall ? 12 : (family == .systemMedium ? 12 : 13), weight: .semibold, design: .rounded))
                     .lineLimit(1)
                 HStack(spacing: 3) {
                     Image(systemName: "clock")
                         .font(.system(size: 8, weight: .semibold))
                     Text(eventTimeLabel(event))
-                        .font(.system(size: family == .systemSmall ? 10 : 11, weight: .regular, design: .rounded).monospacedDigit())
+                        .font(.system(size: family == .systemSmall ? 10 : (family == .systemMedium ? 10 : 11), weight: .regular, design: .rounded).monospacedDigit())
                 }
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -459,7 +459,7 @@ struct ScheduleWidgetEntryView: View {
                 .font(.system(size: 10, weight: .regular))
                 .foregroundStyle(priorityColor(for: task.priority))
             Text(task.title)
-                .font(.system(size: family == .systemSmall ? 12 : 13, weight: .semibold, design: .rounded))
+                .font(.system(size: family == .systemSmall ? 12 : (family == .systemMedium ? 12 : 13), weight: .semibold, design: .rounded))
                 .lineLimit(1)
             Spacer(minLength: 0)
         }
@@ -500,14 +500,14 @@ struct ScheduleWidgetEntryView: View {
 
     private func emptyLine(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: family == .systemSmall ? 11.5 : 13, weight: .regular, design: .rounded))
+            .font(.system(size: family == .systemSmall ? 11.5 : (family == .systemMedium ? 11.5 : 13), weight: .regular, design: .rounded))
             .foregroundStyle(.secondary)
             .lineLimit(1)
     }
 
     private func summaryLine(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: family == .systemSmall ? 11 : 12, weight: .semibold, design: .rounded))
+            .font(.system(size: family == .systemSmall ? 11 : (family == .systemMedium ? 11 : 12), weight: .semibold, design: .rounded))
             .foregroundStyle(.secondary)
             .lineLimit(1)
     }
