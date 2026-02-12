@@ -2,101 +2,24 @@
 //  HabitWidget.swift
 //  LifelogWidgets
 //
-//  Created for Widget Implementation
+//  Rebuilt for scalable weekly habit matrix
 //
 
 import WidgetKit
 import SwiftUI
 import SwiftData
 
-struct HabitProvider: TimelineProvider {
-    func placeholder(in context: Context) -> HabitEntry {
-        HabitEntry(date: Date(), habits: [])
-    }
-
-    func getSnapshot(in context: Context, completion: @escaping (HabitEntry) -> ()) {
-        _Concurrency.Task { @MainActor in
-            let entry = HabitEntry(date: Date(), habits: fetchHabits())
-            completion(entry)
-        }
-    }
-
-    func getTimeline(in context: Context, completion: @escaping (Timeline<HabitEntry>) -> ()) {
-        _Concurrency.Task { @MainActor in
-            let entry = HabitEntry(date: Date(), habits: fetchHabits())
-            
-            // Refresh at end of day or often enough to catch app updates (e.g., 30 mins)
-            let currentDate = Date()
-            let nextUpdateDate = Calendar.current.date(byAdding: .minute, value: 30, to: currentDate)!
-            
-            let timeline = Timeline(entries: [entry], policy: .after(nextUpdateDate))
-            completion(timeline)
-        }
-    }
-
-    @MainActor
-    private func fetchHabits() -> [HabitWidgetModel] {
-        do {
-            let context = PersistenceController.shared.container.mainContext
-            
-            // 1. Fetch active habits
-            var descriptor = FetchDescriptor<SDHabit>(
-                predicate: #Predicate<SDHabit> { !$0.isArchived },
-                sortBy: [SortDescriptor(\.orderIndex)]
-            )
-            let habits = try context.fetch(descriptor)
-            
-            // 2. Check completion for today
-            let today = Calendar.current.startOfDay(for: Date())
-            let activeHabits = habits.filter { $0.scheduleIsActive(on: today) }
-            
-            var results: [HabitWidgetModel] = []
-            
-            // Get records for this week (Sun-Sat)
-            let calendar = Calendar.current
-            let startOfWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: today))!
-            
-            for habit in activeHabits.prefix(3) {
-                var completions: [Bool] = []
-                for i in 0..<7 {
-                    if let day = calendar.date(byAdding: .day, value: i, to: startOfWeek) {
-                        let habitID = habit.id
-                        // We can't easily access records relationship here because SDHabit definition didn't include explicit @Relationship(inverse:) in my snippet
-                        // Wait, I didn't add @Relationship to SDHabit.
-                        // I have to query SDHabitRecord directly.
-                        
-                        let recordsDesc = FetchDescriptor<SDHabitRecord>(
-                            predicate: #Predicate { $0.habitID == habitID }
-                        )
-                        let records = (try? context.fetch(recordsDesc)) ?? []
-                        let isCompleted = records.contains { calendar.isDate($0.date, inSameDayAs: day) }
-                        completions.append(isCompleted)
-                    } else {
-                        completions.append(false)
-                    }
-                }
-                
-                results.append(HabitWidgetModel(
-                    id: habit.id,
-                    iconName: habit.iconName,
-                    colorHex: habit.colorHex,
-                    completions: completions
-                ))
-            }
-            
-            return results
-        } catch {
-            // Error during fetch - return empty
-            return []
-        }
-    }
+private struct HabitCompletionKey: Hashable {
+    let habitID: UUID
+    let day: Date
 }
 
 struct HabitWidgetModel: Identifiable {
     let id: UUID
+    let title: String
     let iconName: String
     let colorHex: String
-    let completions: [Bool] // 7 days (Mon-Sun or Sun-Sat)
+    let completions: [Bool] // Sun...Sat (7 cells)
 }
 
 struct HabitEntry: TimelineEntry {
@@ -104,84 +27,287 @@ struct HabitEntry: TimelineEntry {
     let habits: [HabitWidgetModel]
 }
 
-struct HabitWidgetEntryView : View {
-    var entry: HabitProvider.Entry
+struct HabitProvider: TimelineProvider {
+    private static var widgetCalendar: Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "ja_JP")
+        calendar.firstWeekday = 1 // Sunday start
+        return calendar
+    }
+
+    func placeholder(in context: Context) -> HabitEntry {
+        HabitEntry(
+            date: Date(),
+            habits: [
+                HabitWidgetModel(
+                    id: UUID(),
+                    title: "運動",
+                    iconName: "figure.run",
+                    colorHex: "#22C55E",
+                    completions: [true, false, true, false, true, false, false]
+                ),
+                HabitWidgetModel(
+                    id: UUID(),
+                    title: "読書",
+                    iconName: "book",
+                    colorHex: "#3B82F6",
+                    completions: [false, true, true, true, false, false, false]
+                )
+            ]
+        )
+    }
+
+    func getSnapshot(in context: Context, completion: @escaping (HabitEntry) -> Void) {
+        _Concurrency.Task { @MainActor in
+            completion(HabitEntry(date: Date(), habits: fetchHabits()))
+        }
+    }
+
+    func getTimeline(in context: Context, completion: @escaping (Timeline<HabitEntry>) -> Void) {
+        _Concurrency.Task { @MainActor in
+            let now = Date()
+            let entry = HabitEntry(date: now, habits: fetchHabits())
+            let next = Calendar.current.date(byAdding: .minute, value: 30, to: now) ?? now.addingTimeInterval(60 * 30)
+            completion(Timeline(entries: [entry], policy: .after(next)))
+        }
+    }
+
+    @MainActor
+    private func fetchHabits() -> [HabitWidgetModel] {
+        do {
+            let context = PersistenceController.shared.container.mainContext
+            let habitsDesc = FetchDescriptor<SDHabit>(
+                predicate: #Predicate<SDHabit> { !$0.isArchived },
+                sortBy: [SortDescriptor(\.orderIndex)]
+            )
+            let habits = try context.fetch(habitsDesc)
+            guard habits.isEmpty == false else { return [] }
+
+            let calendar = Self.widgetCalendar
+            let today = calendar.startOfDay(for: Date())
+            let weekStart = startOfWeek(containing: today, calendar: calendar)
+            let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? weekStart
+
+            let recordsDesc = FetchDescriptor<SDHabitRecord>(
+                predicate: #Predicate<SDHabitRecord> {
+                    $0.isCompleted && $0.date >= weekStart && $0.date < weekEnd
+                }
+            )
+            let records = try context.fetch(recordsDesc)
+            let completed = Set(
+                records.map {
+                    HabitCompletionKey(
+                        habitID: $0.habitID,
+                        day: calendar.startOfDay(for: $0.date)
+                    )
+                }
+            )
+
+            return habits.map { habit in
+                let weekCompletions = (0..<7).map { offset in
+                    let day = calendar.date(byAdding: .day, value: offset, to: weekStart) ?? weekStart
+                    return completed.contains(HabitCompletionKey(habitID: habit.id, day: calendar.startOfDay(for: day)))
+                }
+
+                return HabitWidgetModel(
+                    id: habit.id,
+                    title: habit.title,
+                    iconName: habit.iconName,
+                    colorHex: habit.colorHex,
+                    completions: weekCompletions
+                )
+            }
+        } catch {
+            return []
+        }
+    }
+
+    private func startOfWeek(containing date: Date, calendar: Calendar) -> Date {
+        let day = calendar.startOfDay(for: date)
+        let weekday = calendar.component(.weekday, from: day)
+        let shift = (weekday - calendar.firstWeekday + 7) % 7
+        return calendar.date(byAdding: .day, value: -shift, to: day) ?? day
+    }
+}
+
+private struct HabitWidgetLayoutMetrics {
+    let family: WidgetFamily
+    let habitCount: Int
+    let size: CGSize
+
+    var horizontalPadding: CGFloat {
+        family == .systemSmall ? 6 : 8
+    }
+
+    var verticalPadding: CGFloat {
+        family == .systemSmall ? 6 : 8
+    }
+
+    var leadingColumnWidth: CGFloat {
+        family == .systemSmall ? 16 : 20
+    }
+
+    var columnSpacing: CGFloat {
+        family == .systemSmall ? 3 : 4
+    }
+
+    var sectionSpacing: CGFloat {
+        family == .systemSmall ? 4 : 6
+    }
+
+    var rowSpacing: CGFloat {
+        if habitCount >= 10 { return 1 }
+        return family == .systemSmall ? 2 : 3
+    }
+
+    var headerHeight: CGFloat {
+        family == .systemSmall ? 12 : 14
+    }
+
+    var dayFontSize: CGFloat {
+        family == .systemSmall ? 8.5 : 9.5
+    }
+
+    var emptyFontSize: CGFloat {
+        family == .systemSmall ? 10 : 11
+    }
+
+    var rowHeight: CGFloat {
+        let contentHeight = size.height
+            - (verticalPadding * 2)
+            - sectionSpacing
+            - headerHeight
+            - (rowSpacing * CGFloat(max(habitCount - 1, 0)))
+        return max(6, floor(contentHeight / CGFloat(max(habitCount, 1))))
+    }
+
+    var iconSize: CGFloat {
+        max(7, min(rowHeight * 0.62, family == .systemSmall ? 12 : 14))
+    }
+
+    var checkSize: CGFloat {
+        max(6, min(rowHeight * 0.72, family == .systemSmall ? 12 : 14))
+    }
+}
+
+private struct HabitCheckCell: View {
+    let isCompleted: Bool
+    let color: Color
+    let colorScheme: ColorScheme
+    let size: CGFloat
+
+    private var checkmarkColor: Color {
+        colorScheme == .dark ? .black : .white
+    }
 
     var body: some View {
-        VStack(spacing: 8) {
-            // Header Days (M T W T F S S)
-            HStack {
-                Spacer().frame(width: 24) // Icon spacing
-                ForEach(["月", "火", "水", "木", "金", "土", "日"], id: \.self) { day in
-                    Text(day)
-                        .font(.caption2)
-                        .frame(maxWidth: .infinity)
-                        .foregroundColor(.secondary)
-                }
+        ZStack {
+            Circle()
+                .strokeBorder(Color.secondary.opacity(0.35), lineWidth: max(0.8, size * 0.09))
+            if isCompleted {
+                Circle()
+                    .fill(color)
+                Image(systemName: "checkmark")
+                    .font(.system(size: size * 0.55, weight: .bold))
+                    .foregroundStyle(checkmarkColor)
             }
-            
+        }
+        .frame(width: size, height: size)
+    }
+}
 
-            
-            if entry.habits.isEmpty {
-                Spacer()
-                Text("習慣がありません")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                Spacer()
-            } else {
-                ForEach(entry.habits) { habit in
-                    HStack {
-                        // Icon
-                        Image(systemName: habit.iconName)
-                            .font(.caption)
-                            .foregroundColor(Color(hex: habit.colorHex))
-                            .frame(width: 24)
-                        
-                        // Dots
-                        ForEach(0..<7) { index in
-                            if index < habit.completions.count {
-                                Circle()
-                                    .strokeBorder(Color.secondary.opacity(0.3), lineWidth: 1)
-                                    .background(Circle().fill(habit.completions[index] ? Color(hex: habit.colorHex) : Color.clear))
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 20)
-                            } else {
-                                Circle().frame(maxWidth: .infinity).hidden()
-                            }
+struct HabitWidgetEntryView: View {
+    @Environment(\.widgetFamily) private var family
+    @Environment(\.colorScheme) private var colorScheme
+    var entry: HabitProvider.Entry
+
+    private let dayLabels = ["日", "月", "火", "水", "木", "金", "土"]
+
+    var body: some View {
+        GeometryReader { proxy in
+            let metrics = HabitWidgetLayoutMetrics(
+                family: family,
+                habitCount: max(entry.habits.count, 1),
+                size: proxy.size
+            )
+
+            VStack(alignment: .leading, spacing: metrics.sectionSpacing) {
+                dayHeader(metrics: metrics)
+
+                if entry.habits.isEmpty {
+                    Text("習慣がありません")
+                        .font(.system(size: metrics.emptyFontSize, weight: .regular, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+                } else {
+                    VStack(alignment: .leading, spacing: metrics.rowSpacing) {
+                        ForEach(entry.habits) { habit in
+                            habitRow(habit: habit, metrics: metrics)
                         }
                     }
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.horizontal, metrics.horizontalPadding)
+            .padding(.vertical, metrics.verticalPadding)
         }
-        .padding()
+    }
+
+    private func dayHeader(metrics: HabitWidgetLayoutMetrics) -> some View {
+        HStack(spacing: metrics.columnSpacing) {
+            Spacer().frame(width: metrics.leadingColumnWidth)
+            ForEach(dayLabels, id: \.self) { day in
+                Text(day)
+                    .font(.system(size: metrics.dayFontSize, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+            }
+        }
+        .frame(height: metrics.headerHeight)
+    }
+
+    private func habitRow(habit: HabitWidgetModel, metrics: HabitWidgetLayoutMetrics) -> some View {
+        HStack(spacing: metrics.columnSpacing) {
+            Image(systemName: habit.iconName)
+                .font(.system(size: metrics.iconSize, weight: .semibold))
+                .foregroundStyle(Color(hex: habit.colorHex) ?? .accentColor)
+                .frame(width: metrics.leadingColumnWidth, height: metrics.rowHeight)
+
+            ForEach(0..<7, id: \.self) { index in
+                let completed = index < habit.completions.count ? habit.completions[index] : false
+                HabitCheckCell(
+                    isCompleted: completed,
+                    color: Color(hex: habit.colorHex) ?? .accentColor,
+                    colorScheme: colorScheme,
+                    size: metrics.checkSize
+                )
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .frame(height: metrics.rowHeight)
     }
 }
 
-// Color Hex Helper for Widget
-extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let a, r, g, b: UInt64
-        switch hex.count {
-        case 3: // RGB (12-bit)
-            (a, r, g, b) = (255, (int >> 8) * 17, (int >> 4 & 0xF) * 17, (int & 0xF) * 17)
-        case 6: // RGB (24-bit)
-            (a, r, g, b) = (255, int >> 16, int >> 8 & 0xFF, int & 0xFF)
-        case 8: // ARGB (32-bit)
-            (a, r, g, b) = (int >> 24, int >> 16 & 0xFF, int >> 8 & 0xFF, int & 0xFF)
+private extension Color {
+    init?(hex: String) {
+        let sanitized = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        guard let value = UInt64(sanitized, radix: 16) else { return nil }
+
+        let r, g, b: Double
+        switch sanitized.count {
+        case 3:
+            r = Double((value >> 8) & 0xF) / 15
+            g = Double((value >> 4) & 0xF) / 15
+            b = Double(value & 0xF) / 15
+        case 6:
+            r = Double((value >> 16) & 0xFF) / 255
+            g = Double((value >> 8) & 0xFF) / 255
+            b = Double(value & 0xFF) / 255
         default:
-            (a, r, g, b) = (1, 1, 1, 0)
+            return nil
         }
 
-        self.init(
-            .sRGB,
-            red: Double(r) / 255,
-            green: Double(g) / 255,
-            blue:  Double(b) / 255,
-            opacity: Double(a) / 255
-        )
+        self.init(red: r, green: g, blue: b)
     }
 }
 
@@ -190,17 +316,17 @@ struct HabitWidget: Widget {
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: HabitProvider()) { entry in
-             if #available(iOS 17.0, *) {
+            if #available(iOS 17.0, *) {
                 HabitWidgetEntryView(entry: entry)
-                    .containerBackground(.fill.tertiary, for: .widget)
+                    .containerBackground(Color(uiColor: .systemBackground), for: .widget)
             } else {
                 HabitWidgetEntryView(entry: entry)
-                    .padding()
-                    .background()
+                    .background(Color(uiColor: .systemBackground))
             }
         }
-        .configurationDisplayName("週間習慣トラッカー")
-        .description("今週の習慣の達成状況を一目で確認できます。")
-        .supportedFamilies([.systemMedium])
+        .configurationDisplayName("週間習慣チェック")
+        .description("日〜土の習慣チェックを一覧表示します。")
+        .supportedFamilies([.systemSmall, .systemMedium])
+        .contentMarginsDisabled()
     }
 }
