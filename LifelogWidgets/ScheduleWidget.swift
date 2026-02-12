@@ -285,10 +285,6 @@ struct ScheduleWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
     let entry: ScheduleProvider.Entry
 
-    private var isCompact: Bool {
-        family == .systemSmall
-    }
-
     private var eventLimit: Int {
         switch family {
         case .systemSmall: return 3
@@ -326,7 +322,7 @@ struct ScheduleWidgetEntryView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: isCompact ? 4 : 6) {
+        VStack(alignment: .leading, spacing: 4) {
             header
             if hasContent {
                 rows
@@ -343,7 +339,7 @@ struct ScheduleWidgetEntryView: View {
 
     private var header: some View {
         Text(ScheduleWidgetFormatter.headerDate.string(from: entry.date))
-            .font(.system(size: family == .systemSmall ? 15 : 17, weight: .bold, design: .rounded))
+            .font(.system(size: family == .systemSmall ? 14 : 16, weight: .bold, design: .rounded))
             .lineLimit(1)
             .minimumScaleFactor(0.75)
     }
@@ -374,37 +370,25 @@ struct ScheduleWidgetEntryView: View {
             Circle()
                 .fill(ScheduleCategoryPalette.color(for: event.categoryName))
                 .frame(width: 6, height: 6)
-                .padding(.top, isCompact ? 4 : 5)
+                .padding(.top, 4)
 
-            if isCompact {
-                Text(eventTimeLabel(event))
-                    .font(.system(size: 9, weight: .medium, design: .rounded).monospacedDigit())
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .fixedSize(horizontal: true, vertical: false)
+            VStack(alignment: .leading, spacing: 0) {
                 Text(event.title)
-                    .font(.system(size: 11, weight: .semibold, design: .rounded))
+                    .font(.system(size: family == .systemSmall ? 10.5 : 12, weight: .semibold, design: .rounded))
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
-            } else {
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(event.title)
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.85)
-                    HStack(spacing: 3) {
-                        Image(systemName: "clock")
-                            .font(.system(size: 8, weight: .semibold))
-                        Text(eventTimeLabel(event))
-                            .font(.system(size: 10, weight: .regular, design: .rounded).monospacedDigit())
-                    }
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                HStack(spacing: 3) {
+                    Image(systemName: "clock")
+                        .font(.system(size: 7, weight: .semibold))
+                    Text(eventTimeLabel(event))
+                        .font(.system(size: family == .systemSmall ? 8.5 : 10, weight: .regular, design: .rounded).monospacedDigit())
                 }
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
             }
             Spacer(minLength: 0)
         }
-        .padding(.vertical, isCompact ? 2 : 3)
+        .padding(.vertical, family == .systemSmall ? 1 : 2)
     }
 
     private func taskRow(_ task: ScheduleTaskItem) -> some View {
@@ -413,17 +397,17 @@ struct ScheduleWidgetEntryView: View {
                 .font(.system(size: 10, weight: .regular))
                 .foregroundStyle(priorityColor(for: task.priority))
             Text(task.title)
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .font(.system(size: family == .systemSmall ? 10.5 : 12, weight: .semibold, design: .rounded))
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
             Spacer(minLength: 0)
         }
-        .padding(.vertical, isCompact ? 2 : 3)
+        .padding(.vertical, family == .systemSmall ? 1 : 2)
     }
 
     private var rowDivider: some View {
         Divider()
-            .padding(.leading, 13)
+            .padding(.leading, 12)
     }
 
     private var overflowSummary: some View {
@@ -466,7 +450,7 @@ struct ScheduleWidgetEntryView: View {
 
     private func summaryLine(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: isCompact ? 10 : 11, weight: .semibold, design: .rounded))
+            .font(.system(size: family == .systemSmall ? 9 : 11, weight: .semibold, design: .rounded))
             .foregroundStyle(.secondary)
     }
 }
