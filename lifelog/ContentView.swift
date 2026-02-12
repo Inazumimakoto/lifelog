@@ -6,12 +6,16 @@
 //
 
 import SwiftUI
+import WidgetKit
 
 struct ContentView: View {
     @EnvironmentObject private var store: AppDataStore
     @EnvironmentObject private var deepLinkManager: DeepLinkManager
     @ObservedObject private var monetization = MonetizationService.shared
     @ObservedObject private var deepLinkHandler = DeepLinkHandler.shared
+    @StateObject private var appLockService = AppLockService.shared
+    @AppStorage("isMemoTextHidden") private var isMemoTextHidden: Bool = false
+    @AppStorage("requiresMemoOpenAuthentication") private var requiresMemoOpenAuthentication: Bool = false
     @State private var selection: Int = 0
     @State private var lastSelection: Int = 0
     @State private var calendarResetTrigger: Int = 0
@@ -28,6 +32,8 @@ struct ContentView: View {
     @State private var showLetterSharingFromInvite = false
     @State private var showPaywall = false
     @State private var premiumAlertMessage: String?
+    @State private var showMemoEditorFromWidget = false
+    @State private var isHandlingWidgetDestination = false
 
     var body: some View {
         TabView(selection: $selection) {
@@ -184,6 +190,26 @@ struct ContentView: View {
         } message: {
             Text(premiumAlertMessage ?? "")
         }
+        .onAppear {
+            syncMemoPrivacySettingsToSharedDefaults()
+            handleWidgetDestinationIfNeeded(deepLinkManager.pendingWidgetDestination)
+        }
+        .onChange(of: isMemoTextHidden) { _, _ in
+            syncMemoPrivacySettingsToSharedDefaults()
+            WidgetCenter.shared.reloadTimelines(ofKind: "MemoWidget")
+        }
+        .onChange(of: requiresMemoOpenAuthentication) { _, _ in
+            syncMemoPrivacySettingsToSharedDefaults()
+            WidgetCenter.shared.reloadTimelines(ofKind: "MemoWidget")
+        }
+        .onChange(of: deepLinkManager.pendingWidgetDestination) { _, destination in
+            handleWidgetDestinationIfNeeded(destination)
+        }
+        .fullScreenCover(isPresented: $showMemoEditorFromWidget) {
+            NavigationStack {
+                MemoEditorView(store: store)
+            }
+        }
     }
     
     private func fetchSharedLetter(id: String) {
@@ -206,6 +232,34 @@ struct ContentView: View {
                 }
             }
         }
+    }
+
+    private func handleWidgetDestinationIfNeeded(_ destination: DeepLinkManager.WidgetDestination?) {
+        guard let destination, !isHandlingWidgetDestination else { return }
+
+        deepLinkManager.clearPendingWidgetDestination()
+        isHandlingWidgetDestination = true
+
+        _Concurrency.Task { @MainActor in
+            defer { isHandlingWidgetDestination = false }
+
+            switch destination {
+            case .memo:
+                if isMemoTextHidden, requiresMemoOpenAuthentication {
+                    let isAuthorized = await appLockService.authenticateForSensitiveAction(reason: "メモを開くには認証が必要です")
+                    guard isAuthorized else { return }
+                }
+
+                selection = 0
+                showMemoEditorFromWidget = true
+            }
+        }
+    }
+
+    private func syncMemoPrivacySettingsToSharedDefaults() {
+        let shared = UserDefaults(suiteName: PersistenceController.appGroupIdentifier) ?? UserDefaults.standard
+        shared.set(isMemoTextHidden, forKey: "isMemoTextHidden")
+        shared.set(requiresMemoOpenAuthentication, forKey: "requiresMemoOpenAuthentication")
     }
 
     @ViewBuilder

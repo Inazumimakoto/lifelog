@@ -38,9 +38,11 @@ struct lifelogApp: App {
                     .environment(\.locale, Locale(identifier: "ja_JP"))
                     .onAppear {
                         // 日記リマインダーを再スケジュール（今日書いていなければ通知）
+                        syncMemoPrivacySettingsToSharedDefaults()
                         store.rescheduleDiaryReminderIfNeeded()
                         store.rescheduleTodayOverviewReminderIfNeeded()
                         WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
+                        WidgetCenter.shared.reloadTimelines(ofKind: "MemoWidget")
                         _Concurrency.Task {
                             await monetizationService.refreshStatus()
                         }
@@ -61,8 +63,10 @@ struct lifelogApp: App {
                         appLockService.authenticate()
                     }
 
+                    syncMemoPrivacySettingsToSharedDefaults()
                     store.rescheduleTodayOverviewReminderIfNeeded()
                     WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
+                    WidgetCenter.shared.reloadTimelines(ofKind: "MemoWidget")
                     
                     // 最終ログイン日時を更新（手紙の生存確認用）
                     _Concurrency.Task {
@@ -73,8 +77,22 @@ struct lifelogApp: App {
             }
             // Universal Links (招待リンク) のハンドリング
             .onOpenURL { url in
+                if deepLinkManager.handleWidgetURL(url) {
+                    return
+                }
                 DeepLinkHandler.shared.handleURL(url)
             }
         }
+    }
+
+    private func syncMemoPrivacySettingsToSharedDefaults() {
+        let shared = UserDefaults(suiteName: PersistenceController.appGroupIdentifier) ?? UserDefaults.standard
+        let standard = UserDefaults.standard
+
+        let isMemoTextHidden = standard.bool(forKey: "isMemoTextHidden")
+        let requiresMemoOpenAuthentication = standard.bool(forKey: "requiresMemoOpenAuthentication")
+
+        shared.set(isMemoTextHidden, forKey: "isMemoTextHidden")
+        shared.set(requiresMemoOpenAuthentication, forKey: "requiresMemoOpenAuthentication")
     }
 }

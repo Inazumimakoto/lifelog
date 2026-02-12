@@ -9,21 +9,47 @@ import WidgetKit
 import SwiftUI
 import SwiftData
 
+private enum MemoWidgetPrivacy {
+    private static let hiddenKey = "isMemoTextHidden"
+    private static let authKey = "requiresMemoOpenAuthentication"
+
+    static func current() -> (isHidden: Bool, requiresOpenAuth: Bool) {
+        let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier) ?? UserDefaults.standard
+        return (
+            isHidden: defaults.bool(forKey: hiddenKey),
+            requiresOpenAuth: defaults.bool(forKey: authKey)
+        )
+    }
+}
+
+private struct MemoWidgetData {
+    let text: String
+    let updatedAt: Date?
+    let isHidden: Bool
+    let requiresOpenAuth: Bool
+}
+
 struct MemoProvider: TimelineProvider {
     func placeholder(in context: Context) -> MemoEntry {
-        MemoEntry(date: Date(), text: "メモの内容がここに表示されます。")
+        MemoEntry(
+            date: Date(),
+            text: "買い物メモ\n・牛乳\n・キッチンペーパー",
+            updatedAt: Date(),
+            isHidden: false,
+            requiresOpenAuth: false
+        )
     }
 
     func getSnapshot(in context: Context, completion: @escaping (MemoEntry) -> ()) {
         _Concurrency.Task { @MainActor in
-            let entry = MemoEntry(date: Date(), text: fetchMemo())
+            let entry = loadEntry(at: Date())
             completion(entry)
         }
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<MemoEntry>) -> ()) {
         _Concurrency.Task { @MainActor in
-            let entry = MemoEntry(date: Date(), text: fetchMemo())
+            let entry = loadEntry(at: Date())
             
             // Refresh every 15 mins or on app open (OS managed)
             let nextUpdateDate = Calendar.current.date(byAdding: .minute, value: 15, to: Date())!
@@ -33,14 +59,45 @@ struct MemoProvider: TimelineProvider {
     }
 
     @MainActor
-    private func fetchMemo() -> String {
+    private func loadEntry(at date: Date) -> MemoEntry {
+        let memo = fetchMemo()
+        return MemoEntry(
+            date: date,
+            text: memo.text,
+            updatedAt: memo.updatedAt,
+            isHidden: memo.isHidden,
+            requiresOpenAuth: memo.requiresOpenAuth
+        )
+    }
+
+    @MainActor
+    private func fetchMemo() -> MemoWidgetData {
+        let privacy = MemoWidgetPrivacy.current()
         do {
             let descriptor = FetchDescriptor<SDMemoPad>()
             // Use the shared container which has the proper full schema
             let memos = try PersistenceController.shared.container.mainContext.fetch(descriptor)
-            return memos.first?.text ?? "メモはありません"
+            guard let memo = memos.first else {
+                return MemoWidgetData(
+                    text: "",
+                    updatedAt: nil,
+                    isHidden: privacy.isHidden,
+                    requiresOpenAuth: privacy.requiresOpenAuth
+                )
+            }
+            return MemoWidgetData(
+                text: memo.text,
+                updatedAt: memo.lastUpdatedAt,
+                isHidden: privacy.isHidden,
+                requiresOpenAuth: privacy.requiresOpenAuth
+            )
         } catch {
-            return "読み込みエラー"
+            return MemoWidgetData(
+                text: "読み込みエラー",
+                updatedAt: nil,
+                isHidden: privacy.isHidden,
+                requiresOpenAuth: privacy.requiresOpenAuth
+            )
         }
     }
 }
@@ -48,46 +105,146 @@ struct MemoProvider: TimelineProvider {
 struct MemoEntry: TimelineEntry {
     let date: Date
     let text: String
+    let updatedAt: Date?
+    let isHidden: Bool
+    let requiresOpenAuth: Bool
+}
+
+private enum MemoWidgetFormatter {
+    static let updatedAt: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "M/d HH:mm"
+        return formatter
+    }()
 }
 
 struct MemoWidgetEntryView : View {
+    @Environment(\.widgetFamily) private var family
     var entry: MemoProvider.Entry
 
-    var body: some View {
-        VStack(alignment: .leading) {
-            Text("Memo")
-                .font(.caption)
-                .foregroundColor(.secondary)
-            
-            Divider()
-            
-            Text(entry.text)
-                .font(.body)
-                .frame(maxWidth: .infinity, alignment: .topLeading)
-                .padding(.top, 4)
-            
-            Spacer()
+    private var normalizedText: String {
+        if entry.isHidden {
+            return "メモ本文は非表示です。"
         }
-        .padding()
+        let trimmed = entry.text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            return "メモはありません"
+        }
+        return trimmed
+    }
+
+    private var textLineLimit: Int {
+        switch family {
+        case .systemSmall: return 6
+        case .systemMedium: return 8
+        default: return 12
+        }
+    }
+
+    private var bodyFont: Font {
+        switch family {
+        case .systemSmall:
+            return .system(size: 12, weight: .medium, design: .rounded)
+        case .systemMedium:
+            return .system(size: 13, weight: .medium, design: .rounded)
+        default:
+            return .system(size: 15, weight: .medium, design: .rounded)
+        }
+    }
+
+    private var horizontalPadding: CGFloat {
+        switch family {
+        case .systemSmall: return 11
+        case .systemMedium: return 12
+        default: return 14
+        }
+    }
+
+    private var verticalPadding: CGFloat {
+        switch family {
+        case .systemSmall: return 10
+        case .systemMedium: return 11
+        default: return 14
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            header
+
+            Text(normalizedText)
+                .font(bodyFont)
+                .foregroundStyle(
+                    normalizedText == "メモはありません" || entry.isHidden ? .secondary : .primary
+                )
+                .lineLimit(textLineLimit)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+            if entry.isHidden && entry.requiresOpenAuth {
+                HStack(spacing: 4) {
+                    Image(systemName: "lock.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                    Text("タップ後に認証して開く")
+                        .font(.system(size: 10, weight: .regular, design: .rounded))
+                }
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+            }
+
+            if family == .systemSmall, let updatedAt = entry.updatedAt {
+                Text("更新 \(MemoWidgetFormatter.updatedAt.string(from: updatedAt))")
+                    .font(.system(size: 9.5, weight: .regular, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+        }
+        .padding(.horizontal, horizontalPadding)
+        .padding(.vertical, verticalPadding)
+    }
+
+    private var header: some View {
+        HStack(alignment: .center, spacing: 6) {
+            Image(systemName: "note.text")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.secondary)
+
+            Text("メモ")
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundStyle(.secondary)
+
+            Spacer(minLength: 0)
+
+            if family != .systemSmall, let updatedAt = entry.updatedAt {
+                Text(MemoWidgetFormatter.updatedAt.string(from: updatedAt))
+                    .font(.system(size: 10, weight: .regular, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+        }
     }
 }
 
 struct MemoWidget: Widget {
     let kind: String = "MemoWidget"
+    private let destinationURL = URL(string: "lifelog://memo")!
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: MemoProvider()) { entry in
             if #available(iOS 17.0, *) {
                 MemoWidgetEntryView(entry: entry)
-                    .containerBackground(.fill.tertiary, for: .widget)
+                    .containerBackground(Color(uiColor: .systemBackground), for: .widget)
+                    .widgetURL(destinationURL)
             } else {
                 MemoWidgetEntryView(entry: entry)
-                    .padding()
-                    .background()
+                    .background(Color(uiColor: .systemBackground))
+                    .widgetURL(destinationURL)
             }
         }
         .configurationDisplayName("メモ")
-        .description("メモパッドの内容を表示します。")
+        .description("メモ内容を表示します。タップでメモ編集を開けます。")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
     }
 }
