@@ -20,6 +20,7 @@ struct DiaryEditorView: View {
     @State private var draftText: String = ""
     @State private var showLocationPicker = false
     @State private var pendingLocationSelection: DiaryLocation?
+    @State private var locationTagEditorContext: LocationTagEditorContext?
     @State private var selectedPhoto: PhotoSelection?
     @State private var showTagManager = false
     @State private var isTagSectionExpanded = false
@@ -165,7 +166,10 @@ struct DiaryEditorView: View {
         }
         .sheet(isPresented: $showLocationPicker, onDismiss: {
             if let pendingLocationSelection {
-                viewModel.addLocation(pendingLocationSelection)
+                if let locationID = viewModel.addLocation(pendingLocationSelection) {
+                    locationTagEditorContext = LocationTagEditorContext(locationID: locationID,
+                                                                        isPromptForNewLocation: true)
+                }
                 self.pendingLocationSelection = nil
             }
         }) {
@@ -181,6 +185,26 @@ struct DiaryEditorView: View {
                 showPhotoImportToast(summary)
             })
                 .presentationDetents([.medium, .large])
+        }
+        .sheet(item: $locationTagEditorContext) { context in
+            if let location = viewModel.entry.locations.first(where: { $0.id == context.locationID }) {
+                LocationVisitTagPickerSheet(locationName: location.name,
+                                           selectedTags: location.visitTags,
+                                           store: viewModel.store,
+                                           isPromptForNewLocation: context.isPromptForNewLocation,
+                                           onSave: { tags in
+                                               viewModel.updateVisitTags(for: context.locationID, tags: tags)
+                                           },
+                                           onGlobalRename: { oldName, newName in
+                                               viewModel.applyVisitTagRename(oldName: oldName, newName: newName)
+                                           },
+                                           onGlobalDelete: { deletedName in
+                                               viewModel.applyVisitTagDeletion(name: deletedName)
+                                           })
+                    .presentationDetents([.medium, .large])
+            } else {
+                Color.clear
+            }
         }
         .onChange(of: devPCPrompt) { _, newValue in
             if !newValue.isEmpty {
@@ -437,6 +461,10 @@ struct DiaryEditorView: View {
                                              onLink: {
                                                  photoLinkContext = .location(location.id)
                                              },
+                                             onEditTags: {
+                                                 locationTagEditorContext = LocationTagEditorContext(locationID: location.id,
+                                                                                                     isPromptForNewLocation: false)
+                                             },
                                              onRemove: {
                                                  viewModel.removeLocation(id: location.id)
                                              })
@@ -625,10 +653,12 @@ private struct DiaryLocationsMapView: View, Equatable {
 private struct DiaryLocationRow: View {
     let location: DiaryLocation
     let onLink: () -> Void
+    let onEditTags: () -> Void
     let onRemove: () -> Void
 
     var body: some View {
         let photoCount = location.photoPaths.count
+        let tagCount = location.visitTags.count
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
@@ -656,12 +686,40 @@ private struct DiaryLocationRow: View {
                 }
                 .buttonStyle(.plain)
                 Button {
+                    onEditTags()
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "tag")
+                        Text(tagCount == 0 ? "タグ" : "タグ \(tagCount)")
+                    }
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(tagCount == 0 ? .secondary : .primary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color(.secondarySystemBackground), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                Button {
                     onRemove()
                 } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
+            }
+            if location.visitTags.isEmpty == false {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(location.visitTags, id: \.self) { tag in
+                            Text(tag)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color(.tertiarySystemBackground), in: Capsule())
+                        }
+                    }
+                }
             }
             if location.photoPaths.isEmpty == false {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -676,6 +734,424 @@ private struct DiaryLocationRow: View {
         }
         .padding(10)
         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+private struct LocationTagEditorContext: Identifiable {
+    let locationID: UUID
+    let isPromptForNewLocation: Bool
+    var id: String { locationID.uuidString }
+}
+
+private struct LocationVisitTagPickerSheet: View {
+    let locationName: String
+    @ObservedObject var store: AppDataStore
+    let isPromptForNewLocation: Bool
+    let onSave: ([String]) -> Void
+    let onGlobalRename: (String, String) -> Void
+    let onGlobalDelete: (String) -> Void
+    
+    @Environment(\.dismiss) private var dismiss
+    @State private var workingTags: [String]
+    @State private var draftTagName: String = ""
+    @State private var messageText: String?
+    @State private var showTagManager = false
+    
+    init(locationName: String,
+         selectedTags: [String],
+         store: AppDataStore,
+         isPromptForNewLocation: Bool,
+         onSave: @escaping ([String]) -> Void,
+         onGlobalRename: @escaping (String, String) -> Void,
+         onGlobalDelete: @escaping (String) -> Void) {
+        self.locationName = locationName
+        _store = ObservedObject(wrappedValue: store)
+        self.isPromptForNewLocation = isPromptForNewLocation
+        self.onSave = onSave
+        self.onGlobalRename = onGlobalRename
+        self.onGlobalDelete = onGlobalDelete
+        _workingTags = State(initialValue: Self.normalizedTags(selectedTags))
+    }
+    
+    private var maxTags: Int { AppDataStore.maxLocationVisitTagsPerVisit }
+    private var maxTagLength: Int { AppDataStore.maxLocationVisitTagNameLength }
+    private var orderedDefinitions: [LocationVisitTagDefinition] {
+        store.locationVisitTagDefinitions.sorted { $0.sortOrder < $1.sortOrder }
+    }
+    
+    var body: some View {
+        NavigationStack {
+            listContent
+            .navigationTitle("訪問タグ")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完了") {
+                        onSave(Self.normalizedTags(workingTags))
+                        dismiss()
+                    }
+                }
+            }
+            .sheet(isPresented: $showTagManager) {
+                LocationVisitTagManagerView(store: store,
+                                            onTagRenamed: { oldName, newName in
+                                                applyRename(oldName: oldName, newName: newName)
+                                                onGlobalRename(oldName, newName)
+                                            },
+                                            onTagDeleted: { deletedName in
+                                                applyDeletion(name: deletedName)
+                                                onGlobalDelete(deletedName)
+                                            })
+            }
+            .alert("タグ", isPresented: isMessageAlertPresented) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text(messageText ?? "")
+            }
+        }
+    }
+
+    private var isMessageAlertPresented: Binding<Bool> {
+        Binding(
+            get: { messageText != nil },
+            set: { newValue in
+                if newValue == false {
+                    messageText = nil
+                }
+            }
+        )
+    }
+
+    private var listContent: some View {
+        List {
+            promptSection
+            selectedTagsSection
+            selectableTagsSection
+            addTagSection
+            manageSection
+        }
+    }
+
+    @ViewBuilder
+    private var promptSection: some View {
+        if isPromptForNewLocation {
+            Section {
+                Text("「\(locationName)」にタグを付けます。あとから変更もできます。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private var selectedTagsSection: some View {
+        Section("選択中 (\(workingTags.count)/\(maxTags))") {
+            if workingTags.isEmpty {
+                Text("未タグ")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(workingTags, id: \.self) { tag in
+                            Text(tag)
+                                .font(.caption.weight(.semibold))
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color(.secondarySystemBackground), in: Capsule())
+                        }
+                    }
+                    .padding(.vertical, 4)
+                }
+            }
+        }
+    }
+
+    private var selectableTagsSection: some View {
+        Section("タグを選択") {
+            ForEach(orderedDefinitions) { definition in
+                Button {
+                    toggleTag(definition.name)
+                } label: {
+                    HStack {
+                        Text(definition.name)
+                        Spacer()
+                        if containsTag(named: definition.name) {
+                            Image(systemName: "checkmark")
+                                .foregroundStyle(Color.accentColor)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private var addTagSection: some View {
+        Section("タグを追加") {
+            HStack(spacing: 8) {
+                TextField("新しいタグ名", text: $draftTagName)
+                Button("追加") {
+                    createTag()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(draftTagName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            Text("タグ名は\(maxTagLength)文字以内。絵文字も使えます。")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private var manageSection: some View {
+        Section {
+            Button("タグ管理") {
+                showTagManager = true
+            }
+        }
+    }
+    
+    private func toggleTag(_ name: String) {
+        if let index = indexOfTag(named: name) {
+            workingTags.remove(at: index)
+            return
+        }
+        guard workingTags.count < maxTags else {
+            messageText = "1つの場所訪問には最大\(maxTags)件まで設定できます。"
+            return
+        }
+        workingTags.append(name)
+        workingTags = Self.normalizedTags(workingTags)
+    }
+    
+    private func createTag() {
+        do {
+            let created = try store.createLocationVisitTag(named: draftTagName)
+            draftTagName = ""
+            if containsTag(named: created.name) == false {
+                toggleTag(created.name)
+            }
+        } catch {
+            messageText = (error as? AppDataStore.LocationVisitTagError)?.errorDescription ?? "タグの追加に失敗しました。"
+        }
+    }
+    
+    private func containsTag(named name: String) -> Bool {
+        indexOfTag(named: name) != nil
+    }
+    
+    private func indexOfTag(named name: String) -> Int? {
+        let key = Self.normalizedTagKey(name)
+        return workingTags.firstIndex { Self.normalizedTagKey($0) == key }
+    }
+    
+    private func applyRename(oldName: String, newName: String) {
+        for index in workingTags.indices where Self.isSameTagName(workingTags[index], oldName) {
+            workingTags[index] = newName
+        }
+        workingTags = Self.normalizedTags(workingTags)
+    }
+    
+    private func applyDeletion(name: String) {
+        workingTags.removeAll { Self.isSameTagName($0, name) }
+        workingTags = Self.normalizedTags(workingTags)
+    }
+    
+    private static func normalizedTags(_ tags: [String]) -> [String] {
+        var seen: Set<String> = []
+        var normalized: [String] = []
+        for raw in tags {
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.isEmpty == false else { continue }
+            let key = normalizedTagKey(trimmed)
+            guard seen.contains(key) == false else { continue }
+            seen.insert(key)
+            normalized.append(trimmed)
+            if normalized.count >= AppDataStore.maxLocationVisitTagsPerVisit {
+                break
+            }
+        }
+        return normalized
+    }
+    
+    private static func normalizedTagKey(_ name: String) -> String {
+        name
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+    }
+    
+    private static func isSameTagName(_ lhs: String, _ rhs: String) -> Bool {
+        normalizedTagKey(lhs) == normalizedTagKey(rhs)
+    }
+}
+
+private struct LocationVisitTagManagerView: View {
+    @ObservedObject var store: AppDataStore
+    let onTagRenamed: (String, String) -> Void
+    let onTagDeleted: (String) -> Void
+    
+    @Environment(\.dismiss) private var dismiss
+    @State private var draftTagName: String = ""
+    @State private var messageText: String?
+    @State private var renameTarget: LocationVisitTagDefinition?
+    @State private var renameDraft: String = ""
+    @State private var deleteTarget: LocationVisitTagDefinition?
+    @State private var deleteAffectedCount: Int = 0
+    
+    private var orderedDefinitions: [LocationVisitTagDefinition] {
+        store.locationVisitTagDefinitions.sorted { $0.sortOrder < $1.sortOrder }
+    }
+    
+    var body: some View {
+        NavigationStack {
+            List {
+                Section("タグ一覧") {
+                    ForEach(orderedDefinitions) { definition in
+                        HStack(spacing: 8) {
+                            Image(systemName: "line.3.horizontal")
+                                .foregroundStyle(.tertiary)
+                            Text(definition.name)
+                            Spacer()
+                            Button {
+                                renameDraft = definition.name
+                                renameTarget = definition
+                            } label: {
+                                Image(systemName: "pencil")
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.secondary)
+                            Button(role: .destructive) {
+                                deleteTarget = definition
+                                deleteAffectedCount = affectedVisitCount(for: definition.name)
+                            } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .onMove { source, destination in
+                        store.moveLocationVisitTag(from: source, to: destination)
+                    }
+                }
+                
+                Section("タグを追加") {
+                    HStack(spacing: 8) {
+                        TextField("新しいタグ名", text: $draftTagName)
+                        Button("追加") {
+                            do {
+                                _ = try store.createLocationVisitTag(named: draftTagName)
+                                draftTagName = ""
+                            } catch {
+                                messageText = (error as? AppDataStore.LocationVisitTagError)?.errorDescription ?? "タグの追加に失敗しました。"
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(draftTagName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+                
+                Section {
+                    Button("初期タグを追加") {
+                        let added = store.reAddDefaultLocationVisitTags()
+                        if added == 0 {
+                            messageText = "追加できる初期タグはありません。"
+                        } else {
+                            messageText = "初期タグを\(added)件追加しました。"
+                        }
+                    }
+                }
+            }
+            .navigationTitle("訪問タグ管理")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("閉じる") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    EditButton()
+                }
+            }
+            .alert("タグ名を変更", isPresented: Binding(get: {
+                renameTarget != nil
+            }, set: { newValue in
+                if newValue == false {
+                    renameTarget = nil
+                }
+            }), actions: {
+                TextField("タグ名", text: $renameDraft)
+                Button("キャンセル", role: .cancel) {
+                    renameTarget = nil
+                }
+                Button("保存") {
+                    guard let target = renameTarget else { return }
+                    let oldName = target.name
+                    do {
+                        try store.renameLocationVisitTag(id: target.id, to: renameDraft)
+                        onTagRenamed(oldName, renameDraft.trimmingCharacters(in: .whitespacesAndNewlines))
+                        renameTarget = nil
+                    } catch {
+                        messageText = (error as? AppDataStore.LocationVisitTagError)?.errorDescription ?? "タグ名の変更に失敗しました。"
+                    }
+                }
+            }, message: {
+                Text("タグ名は\(AppDataStore.maxLocationVisitTagNameLength)文字以内です。")
+            })
+            .alert("タグを削除", isPresented: Binding(get: {
+                deleteTarget != nil
+            }, set: { newValue in
+                if newValue == false {
+                    deleteTarget = nil
+                }
+            }), actions: {
+                Button("キャンセル", role: .cancel) {
+                    deleteTarget = nil
+                }
+                Button("削除", role: .destructive) {
+                    guard let target = deleteTarget else { return }
+                    _ = store.deleteLocationVisitTag(id: target.id)
+                    onTagDeleted(target.name)
+                    deleteTarget = nil
+                }
+            }, message: {
+                let name = deleteTarget?.name ?? ""
+                Text("「\(name)」を全訪問(\(deleteAffectedCount)件)から削除します。")
+            })
+            .alert("タグ", isPresented: Binding(get: {
+                messageText != nil
+            }, set: { newValue in
+                if newValue == false {
+                    messageText = nil
+                }
+            }), actions: {
+                Button("OK", role: .cancel) { }
+            }, message: {
+                Text(messageText ?? "")
+            })
+        }
+    }
+    
+    private func affectedVisitCount(for tagName: String) -> Int {
+        let key = normalizedTagKey(tagName)
+        var count = 0
+        for entry in store.diaryEntries {
+            for location in entry.locations {
+                if location.visitTags.contains(where: { normalizedTagKey($0) == key }) {
+                    count += 1
+                }
+            }
+        }
+        return count
+    }
+    
+    private func normalizedTagKey(_ name: String) -> String {
+        name
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
     }
 }
 

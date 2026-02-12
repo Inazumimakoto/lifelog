@@ -30,6 +30,7 @@ final class AppDataStore: ObservableObject {
     @Published private(set) var letters: [Letter] = []
     @Published private(set) var sharedLetters: [SharedLetter] = []  // 他ユーザーからの手紙
     @Published private(set) var appState: AppState = AppState()
+    @Published private(set) var locationVisitTagDefinitions: [LocationVisitTagDefinition] = []
     
     // MARK: - Cache
     private var eventsCache: [Date: [CalendarEvent]] = [:]
@@ -48,9 +49,37 @@ final class AppDataStore: ObservableObject {
     private static let memoPadDefaultsKey = "MemoPad_Storage_V1"
     private static let appStateDefaultsKey = "AppState_Storage_V1"
     private static let healthSummariesDefaultsKey = "HealthSummaries_Storage_V1"
+    private static let locationVisitTagsDefaultsKey = "LocationVisitTags_Storage_V1"
+    private static let locationVisitTagsSeededDefaultsKey = "LocationVisitTagsSeeded_Storage_V1"
+    private static let defaultLocationVisitTagNames: [String] = [
+        "ご飯", "カフェ", "仕事", "勉強", "買い物", "旅行", "観光", "運動", "用事", "友人", "家族", "デート"
+    ]
 
     // MARK: - SwiftData Context
     private let modelContext: ModelContext
+    
+    static let maxLocationVisitTagsPerVisit = 8
+    static let maxLocationVisitTagNameLength = 15
+    
+    enum LocationVisitTagError: LocalizedError {
+        case emptyName
+        case nameTooLong(max: Int)
+        case duplicateName
+        case tagNotFound
+        
+        var errorDescription: String? {
+            switch self {
+            case .emptyName:
+                return "タグ名を入力してください。"
+            case .nameTooLong(let max):
+                return "タグ名は\(max)文字以内で入力してください。"
+            case .duplicateName:
+                return "同じ名前のタグが既にあります。"
+            case .tagNotFound:
+                return "対象のタグが見つかりませんでした。"
+            }
+        }
+    }
 
     // MARK: - Init
 
@@ -142,6 +171,9 @@ final class AppDataStore: ObservableObject {
         self.externalCalendarEvents = Self.loadValue(forKey: Self.externalCalendarEventsDefaultsKey, defaultValue: [])
         let storedRange: ExternalCalendarRange? = Self.loadValue(forKey: Self.externalCalendarRangeDefaultsKey, defaultValue: nil)
         self.externalCalendarRange = storedRange
+        self.locationVisitTagDefinitions = Self.loadValue(forKey: Self.locationVisitTagsDefaultsKey, defaultValue: [])
+        normalizeLocationVisitTagOrderIfNeeded()
+        seedDefaultLocationVisitTagsIfNeeded()
 
         reapplyEventCategoryNotificationSettings()
         rescheduleTodayOverviewReminderIfNeeded()
@@ -606,9 +638,7 @@ final class AppDataStore: ObservableObject {
     }
 
     func upsert(entry: DiaryEntry) {
-        var normalized = entry
-        normalized.mood = normalized.mood ?? .neutral
-        normalized.conditionScore = normalized.conditionScore ?? 3
+        let normalized = normalizeDiaryEntry(entry)
         if let index = diaryEntries.firstIndex(where: { $0.id == normalized.id }) {
             diaryEntries[index] = normalized
         } else {
@@ -622,16 +652,86 @@ final class AppDataStore: ObservableObject {
         if isToday && diaryReminderEnabled && hasContent {
             NotificationService.shared.cancelDiaryReminder()
         }
-        
-        let entryID = normalized.id
-        let descriptor = FetchDescriptor<SDDiaryEntry>(predicate: #Predicate { $0.id == entryID })
-        if let existing = try? modelContext.fetch(descriptor).first {
-             existing.update(from: normalized)
-        } else {
-             let newItem = SDDiaryEntry(domain: normalized)
-             modelContext.insert(newItem)
-        }
+        syncDiaryEntryToSwiftData(normalized)
         try? modelContext.save()
+    }
+    
+    // MARK: - Location Visit Tags
+    
+    func createLocationVisitTag(named rawName: String) throws -> LocationVisitTagDefinition {
+        let name = try validatedLocationVisitTagName(rawName)
+        let definition = LocationVisitTagDefinition(name: name,
+                                                    sortOrder: locationVisitTagDefinitions.count)
+        locationVisitTagDefinitions.append(definition)
+        persistLocationVisitTags()
+        return definition
+    }
+    
+    func renameLocationVisitTag(id: UUID, to rawName: String) throws {
+        guard let index = locationVisitTagDefinitions.firstIndex(where: { $0.id == id }) else {
+            throw LocationVisitTagError.tagNotFound
+        }
+        let newName = try validatedLocationVisitTagName(rawName, excluding: id)
+        let oldName = locationVisitTagDefinitions[index].name
+        guard isSameTagName(oldName, newName) == false else { return }
+        locationVisitTagDefinitions[index].name = newName
+        persistLocationVisitTags()
+        
+        let changedEntries = applyVisitTagMutation { tags in
+            var didChange = false
+            for i in tags.indices where isSameTagName(tags[i], oldName) {
+                tags[i] = newName
+                didChange = true
+            }
+            return didChange
+        }
+        syncDiaryEntriesToSwiftData(changedEntries)
+    }
+    
+    @discardableResult
+    func deleteLocationVisitTag(id: UUID) -> Int {
+        guard let index = locationVisitTagDefinitions.firstIndex(where: { $0.id == id }) else {
+            return 0
+        }
+        let deletedName = locationVisitTagDefinitions[index].name
+        locationVisitTagDefinitions.remove(at: index)
+        normalizeLocationVisitTagOrderIfNeeded()
+        persistLocationVisitTags()
+        
+        var affectedVisitCount = 0
+        let changedEntries = applyVisitTagMutation { tags in
+            let before = tags.count
+            tags.removeAll { isSameTagName($0, deletedName) }
+            if tags.count != before {
+                affectedVisitCount += 1
+                return true
+            }
+            return false
+        }
+        syncDiaryEntriesToSwiftData(changedEntries)
+        return affectedVisitCount
+    }
+    
+    func moveLocationVisitTag(from source: IndexSet, to destination: Int) {
+        locationVisitTagDefinitions.move(fromOffsets: source, toOffset: destination)
+        normalizeLocationVisitTagOrderIfNeeded()
+        persistLocationVisitTags()
+    }
+    
+    @discardableResult
+    func reAddDefaultLocationVisitTags() -> Int {
+        var addedCount = 0
+        for name in Self.defaultLocationVisitTagNames where containsLocationVisitTag(named: name) == false {
+            let definition = LocationVisitTagDefinition(name: name,
+                                                        sortOrder: locationVisitTagDefinitions.count)
+            locationVisitTagDefinitions.append(definition)
+            addedCount += 1
+        }
+        if addedCount > 0 {
+            normalizeLocationVisitTagOrderIfNeeded()
+            persistLocationVisitTags()
+        }
+        return addedCount
     }
 
     // MARK: - Habits
@@ -1346,8 +1446,147 @@ final class AppDataStore: ObservableObject {
             var normalized = entry
             normalized.mood = normalized.mood ?? .neutral
             normalized.conditionScore = normalized.conditionScore ?? 3
+            for index in normalized.locations.indices {
+                normalized.locations[index].visitTags = Self.normalizedVisitTags(normalized.locations[index].visitTags)
+            }
             return normalized
         }
+    }
+    
+    private func normalizeDiaryEntry(_ entry: DiaryEntry) -> DiaryEntry {
+        var normalized = entry
+        normalized.mood = normalized.mood ?? .neutral
+        normalized.conditionScore = normalized.conditionScore ?? 3
+        for index in normalized.locations.indices {
+            normalized.locations[index].visitTags = Self.normalizedVisitTags(normalized.locations[index].visitTags)
+        }
+        return normalized
+    }
+    
+    private static func normalizedTagKey(_ rawName: String) -> String {
+        rawName
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+    }
+    
+    private static func normalizedVisitTags(_ tags: [String],
+                                            limit: Int? = nil) -> [String] {
+        let maxAllowedTags = limit ?? maxLocationVisitTagsPerVisit
+        var seen: Set<String> = []
+        var normalized: [String] = []
+        for raw in tags {
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.isEmpty == false else { continue }
+            let key = normalizedTagKey(trimmed)
+            guard seen.contains(key) == false else { continue }
+            seen.insert(key)
+            normalized.append(trimmed)
+            if normalized.count >= maxAllowedTags {
+                break
+            }
+        }
+        return normalized
+    }
+    
+    private func syncDiaryEntryToSwiftData(_ entry: DiaryEntry) {
+        let entryID = entry.id
+        let descriptor = FetchDescriptor<SDDiaryEntry>(predicate: #Predicate { $0.id == entryID })
+        if let existing = try? modelContext.fetch(descriptor).first {
+            existing.update(from: entry)
+        } else {
+            let newItem = SDDiaryEntry(domain: entry)
+            modelContext.insert(newItem)
+        }
+    }
+    
+    private func syncDiaryEntriesToSwiftData(_ entries: [DiaryEntry]) {
+        guard entries.isEmpty == false else { return }
+        for entry in entries {
+            syncDiaryEntryToSwiftData(entry)
+        }
+        try? modelContext.save()
+    }
+    
+    private func applyVisitTagMutation(_ mutate: (inout [String]) -> Bool) -> [DiaryEntry] {
+        var changedEntries: [DiaryEntry] = []
+        for entryIndex in diaryEntries.indices {
+            var entryChanged = false
+            for locationIndex in diaryEntries[entryIndex].locations.indices {
+                var tags = diaryEntries[entryIndex].locations[locationIndex].visitTags
+                guard mutate(&tags) else { continue }
+                diaryEntries[entryIndex].locations[locationIndex].visitTags = Self.normalizedVisitTags(tags)
+                entryChanged = true
+            }
+            if entryChanged {
+                diaryEntries[entryIndex] = normalizeDiaryEntry(diaryEntries[entryIndex])
+                changedEntries.append(diaryEntries[entryIndex])
+            }
+        }
+        if changedEntries.isEmpty == false {
+            persistDiaryEntries()
+        }
+        return changedEntries
+    }
+    
+    private func validatedLocationVisitTagName(_ rawName: String,
+                                               excluding id: UUID? = nil) throws -> String {
+        let trimmed = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else {
+            throw LocationVisitTagError.emptyName
+        }
+        guard trimmed.count <= Self.maxLocationVisitTagNameLength else {
+            throw LocationVisitTagError.nameTooLong(max: Self.maxLocationVisitTagNameLength)
+        }
+        guard containsLocationVisitTag(named: trimmed, excluding: id) == false else {
+            throw LocationVisitTagError.duplicateName
+        }
+        return trimmed
+    }
+    
+    private func containsLocationVisitTag(named name: String, excluding id: UUID? = nil) -> Bool {
+        let target = Self.normalizedTagKey(name)
+        return locationVisitTagDefinitions.contains {
+            guard $0.id != id else { return false }
+            return Self.normalizedTagKey($0.name) == target
+        }
+    }
+    
+    private func isSameTagName(_ lhs: String, _ rhs: String) -> Bool {
+        Self.normalizedTagKey(lhs) == Self.normalizedTagKey(rhs)
+    }
+    
+    private func seedDefaultLocationVisitTagsIfNeeded() {
+        let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier) ?? UserDefaults.standard
+        let hasSeeded = defaults.bool(forKey: Self.locationVisitTagsSeededDefaultsKey)
+        guard hasSeeded == false else { return }
+        
+        if locationVisitTagDefinitions.isEmpty {
+            locationVisitTagDefinitions = Self.defaultLocationVisitTagNames.enumerated().map { index, name in
+                LocationVisitTagDefinition(name: name, sortOrder: index)
+            }
+            persistLocationVisitTags()
+        }
+        defaults.set(true, forKey: Self.locationVisitTagsSeededDefaultsKey)
+    }
+    
+    private func normalizeLocationVisitTagOrderIfNeeded() {
+        let sorted = locationVisitTagDefinitions.sorted { lhs, rhs in
+            if lhs.sortOrder != rhs.sortOrder {
+                return lhs.sortOrder < rhs.sortOrder
+            }
+            if lhs.createdAt != rhs.createdAt {
+                return lhs.createdAt < rhs.createdAt
+            }
+            return lhs.name < rhs.name
+        }
+        let normalized = sorted.enumerated().map { index, tag in
+            var mutable = tag
+            mutable.sortOrder = index
+            return mutable
+        }
+        guard normalized != locationVisitTagDefinitions else { return }
+        locationVisitTagDefinitions = normalized
+        persistLocationVisitTags()
     }
 
     private func persist<T: Encodable>(_ value: T, forKey key: String) {
@@ -1364,6 +1603,10 @@ final class AppDataStore: ObservableObject {
 
     private func persistDiaryEntries() {
         persist(diaryEntries, forKey: Self.diaryDefaultsKey)
+    }
+    
+    private func persistLocationVisitTags() {
+        persist(locationVisitTagDefinitions, forKey: Self.locationVisitTagsDefaultsKey)
     }
 
     private func persistHabits() {

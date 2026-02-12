@@ -1100,6 +1100,9 @@ struct JournalView: View {
 
     private var reviewMap: some View {
         ReviewMapView(groups: reviewMapGroups(for: reviewMapPeriod),
+                      orderedTags: store.locationVisitTagDefinitions
+                        .sorted { $0.sortOrder < $1.sortOrder }
+                        .map(\.name),
                       period: $reviewMapPeriod,
                       onOpenDiary: { openDiaryEditor(for: $0) })
     }
@@ -1152,19 +1155,21 @@ struct JournalView: View {
             for location in locations {
                 results.append(ReviewLocationEntry(date: entryDate,
                                                    location: location,
-                                                   photoPaths: location.photoPaths))
+                                                   photoPaths: location.photoPaths,
+                                                   tags: location.visitTags))
             }
         }
         var grouped: [String: ReviewLocationGroupBuilder] = [:]
         for entry in results {
             let key = ReviewLocationGroupBuilder.makeKey(for: entry.location)
             if var existing = grouped[key] {
-                existing.add(date: entry.date, photoPaths: entry.photoPaths)
+                existing.add(date: entry.date, photoPaths: entry.photoPaths, tags: entry.tags)
                 grouped[key] = existing
             } else {
                 grouped[key] = ReviewLocationGroupBuilder(location: entry.location,
                                                           date: entry.date,
-                                                          photoPaths: entry.photoPaths)
+                                                          photoPaths: entry.photoPaths,
+                                                          tags: entry.tags)
             }
         }
         return grouped.values
@@ -2351,11 +2356,13 @@ private struct ReviewLocationEntry: Identifiable, Hashable {
     let date: Date
     let location: DiaryLocation
     let photoPaths: [String]
+    let tags: [String]
 
-    init(date: Date, location: DiaryLocation, photoPaths: [String]) {
+    init(date: Date, location: DiaryLocation, photoPaths: [String], tags: [String]) {
         self.date = date
         self.location = location
         self.photoPaths = photoPaths
+        self.tags = tags
         self.id = "\(date.timeIntervalSince1970)-\(location.id.uuidString)"
     }
 }
@@ -2364,11 +2371,13 @@ private struct ReviewLocationVisit: Identifiable, Hashable {
     let id: String
     let date: Date
     let photoPaths: [String]
+    let tags: [String]
 
-    init(date: Date, photoPaths: [String]) {
+    init(date: Date, photoPaths: [String], tags: [String]) {
         let normalized = date.startOfDay
         self.date = normalized
         self.photoPaths = photoPaths
+        self.tags = tags
         self.id = "\(normalized.timeIntervalSince1970)"
     }
 }
@@ -2384,6 +2393,19 @@ private struct ReviewLocationGroup: Identifiable, Hashable {
     var uniqueDates: [Date] {
         visits.map(\.date)
     }
+    var allTags: [String] {
+        var seen: Set<String> = []
+        var ordered: [String] = []
+        for tag in visits.flatMap(\.tags) {
+            let key = tag
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            guard seen.contains(key) == false else { continue }
+            seen.insert(key)
+            ordered.append(tag)
+        }
+        return ordered
+    }
     var count: Int { uniqueDates.count }
     var latestDate: Date { uniqueDates.first ?? Date.distantPast }
     var dateSummary: String {
@@ -2394,13 +2416,13 @@ private struct ReviewLocationGroup: Identifiable, Hashable {
 private struct ReviewLocationGroupBuilder {
     let id: String
     let location: DiaryLocation
-    var visitPhotos: [Date: [String]]
+    var visitSnapshots: [Date: ReviewLocationVisitSnapshot]
 
-    init(location: DiaryLocation, date: Date, photoPaths: [String]) {
+    init(location: DiaryLocation, date: Date, photoPaths: [String], tags: [String]) {
         self.location = location
         self.id = Self.makeKey(for: location)
-        self.visitPhotos = [:]
-        add(date: date, photoPaths: photoPaths)
+        self.visitSnapshots = [:]
+        add(date: date, photoPaths: photoPaths, tags: tags)
     }
 
     static func makeKey(for location: DiaryLocation) -> String {
@@ -2412,22 +2434,41 @@ private struct ReviewLocationGroupBuilder {
         return "coord:\(lat),\(lon)"
     }
 
-    mutating func add(date: Date, photoPaths: [String]) {
+    mutating func add(date: Date, photoPaths: [String], tags: [String]) {
         let keyDate = date.startOfDay
-        if var existing = visitPhotos[keyDate] {
-            for path in photoPaths where existing.contains(path) == false {
-                existing.append(path)
+        if var existing = visitSnapshots[keyDate] {
+            for path in photoPaths where existing.photoPaths.contains(path) == false {
+                existing.photoPaths.append(path)
             }
-            visitPhotos[keyDate] = existing
+            for tag in tags where existing.containsTag(tag) == false {
+                existing.tags.append(tag)
+            }
+            visitSnapshots[keyDate] = existing
         } else {
-            visitPhotos[keyDate] = photoPaths
+            visitSnapshots[keyDate] = ReviewLocationVisitSnapshot(photoPaths: photoPaths, tags: tags)
         }
     }
 
     var visits: [ReviewLocationVisit] {
-        visitPhotos
-            .map { ReviewLocationVisit(date: $0.key, photoPaths: $0.value) }
+        visitSnapshots
+            .map { ReviewLocationVisit(date: $0.key, photoPaths: $0.value.photoPaths, tags: $0.value.tags) }
             .sorted { $0.date > $1.date }
+    }
+}
+
+private struct ReviewLocationVisitSnapshot: Hashable {
+    var photoPaths: [String]
+    var tags: [String]
+    
+    func containsTag(_ tag: String) -> Bool {
+        let key = tagKey(tag)
+        return tags.contains { tagKey($0) == key }
+    }
+    
+    private func tagKey(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
     }
 }
 
@@ -2515,6 +2556,20 @@ private struct ReviewMapVisitRow: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
+            if visit.tags.isEmpty == false {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(visit.tags, id: \.self) { tag in
+                            Text(tag)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color(.tertiarySystemBackground), in: Capsule())
+                        }
+                    }
+                }
+            }
             if visit.photoPaths.isEmpty {
                 Text("写真なし")
                     .font(.subheadline)
@@ -2711,6 +2766,7 @@ private struct ReviewMapFullImagePage: View {
 
 private struct ReviewMapView: View {
     let groups: [ReviewLocationGroup]
+    let orderedTags: [String]
     @Binding var period: ReviewMapPeriod
     let onOpenDiary: (Date) -> Void
 
@@ -2718,16 +2774,20 @@ private struct ReviewMapView: View {
     @State private var selectedGroup: ReviewLocationGroup?
     @State private var detailGroup: ReviewLocationGroup?
     @State private var hasAppliedRegion = false
+    @State private var selectedTagFilters: [String] = []
+    @State private var showTagFilterSheet = false
 
     private static let defaultRegion = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 36.2048, longitude: 138.2529),
                                                           span: MKCoordinateSpan(latitudeDelta: 12, longitudeDelta: 12))
+    private static let untaggedFilterToken = "__untagged__"
+    private static let untaggedFilterLabel = "未タグ"
 
     var body: some View {
         VStack(spacing: 12) {
             Map(position: $cameraPosition,
                 interactionModes: .all,
                 selection: $selectedGroup) {
-                ForEach(groups) { group in
+                ForEach(filteredGroups) { group in
                     Annotation(group.name, coordinate: group.coordinate) {
                         VStack(spacing: 0) {
                             HStack(spacing: 4) {
@@ -2756,6 +2816,11 @@ private struct ReviewMapView: View {
                     .padding(.top, 8)
                     .padding(.trailing, 12)
             }
+            .overlay(alignment: .topLeading) {
+                tagFilterOverlay
+                    .padding(.top, 8)
+                    .padding(.leading, 12)
+            }
             .onChange(of: selectedGroup) { _, newValue in
                 guard let group = newValue else { return }
                 detailGroup = group
@@ -2770,9 +2835,12 @@ private struct ReviewMapView: View {
             .onChange(of: groups) { _, _ in
                 applyRegion(force: true)
             }
+            .onChange(of: selectedTagFilters) { _, _ in
+                applyRegion(force: true)
+            }
             .frame(minHeight: 420)
 
-            if groups.isEmpty {
+            if filteredGroups.isEmpty {
                 emptyState
             } else {
                 listSheet
@@ -2785,6 +2853,13 @@ private struct ReviewMapView: View {
                 detailGroup = nil
             })
             .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showTagFilterSheet) {
+            ReviewMapTagFilterSheet(tags: availableFilterTags,
+                                    selectedFilters: $selectedTagFilters,
+                                    untaggedToken: Self.untaggedFilterToken,
+                                    untaggedLabel: Self.untaggedFilterLabel)
+                .presentationDetents([.medium, .large])
         }
     }
 
@@ -2809,13 +2884,55 @@ private struct ReviewMapView: View {
         }
         .buttonStyle(.plain)
     }
+    
+    private var tagFilterOverlay: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Button {
+                showTagFilterSheet = true
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                    Text(selectedTagFilters.isEmpty ? "絞り込み" : "タグ \(selectedTagFilters.count)")
+                }
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(.ultraThinMaterial, in: Capsule())
+                .overlay(Capsule().stroke(.white.opacity(0.15), lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+            
+            if selectedTagFilters.isEmpty == false {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(selectedFilterLabels, id: \.self) { label in
+                            Text(label)
+                                .font(.caption2.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 5)
+                                .background(.ultraThinMaterial, in: Capsule())
+                        }
+                        Button("クリア") {
+                            selectedTagFilters = []
+                        }
+                        .font(.caption2.weight(.semibold))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 5)
+                        .background(.ultraThinMaterial, in: Capsule())
+                    }
+                }
+                .frame(maxWidth: 260)
+            }
+        }
+    }
 
     private var emptyState: some View {
         VStack(spacing: 8) {
             Image(systemName: "mappin.slash")
                 .font(.title2)
                 .foregroundStyle(.secondary)
-            Text("この期間の場所はありません")
+            Text(emptyStateMessage)
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
@@ -2833,7 +2950,7 @@ private struct ReviewMapView: View {
                 .padding(.top, 8)
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    ForEach(groups) { group in
+                    ForEach(filteredGroups) { group in
                         Button {
                             detailGroup = group
                         } label: {
@@ -2846,6 +2963,12 @@ private struct ReviewMapView: View {
                                     Text(group.dateSummary)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
+                                    if group.allTags.isEmpty == false {
+                                        Text(group.allTags.prefix(3).joined(separator: " / "))
+                                            .font(.caption2)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(1)
+                                    }
                                 }
                                 Spacer()
                                 Image(systemName: "chevron.right")
@@ -2868,9 +2991,70 @@ private struct ReviewMapView: View {
 
     private func applyRegion(force: Bool) {
         guard force || hasAppliedRegion == false else { return }
-        let region = regionForEntries(groups)
+        let region = regionForEntries(filteredGroups)
         cameraPosition = .region(region)
         hasAppliedRegion = true
+    }
+    
+    private var filteredGroups: [ReviewLocationGroup] {
+        guard selectedTagFilters.isEmpty == false else {
+            return groups
+        }
+        return groups.compactMap { group in
+            let matchedVisits = group.visits.filter(visitMatchesFilter)
+            guard matchedVisits.isEmpty == false else { return nil }
+            return ReviewLocationGroup(id: group.id, location: group.location, visits: matchedVisits)
+        }
+    }
+    
+    private var availableFilterTags: [String] {
+        var seen: Set<String> = []
+        var merged: [String] = []
+        func append(_ name: String) {
+            let key = normalizedTagKey(name)
+            guard seen.contains(key) == false else { return }
+            seen.insert(key)
+            merged.append(name)
+        }
+        for tag in orderedTags {
+            append(tag)
+        }
+        for group in groups {
+            for tag in group.allTags {
+                append(tag)
+            }
+        }
+        return merged
+    }
+    
+    private var selectedFilterLabels: [String] {
+        selectedTagFilters.map { $0 == Self.untaggedFilterToken ? Self.untaggedFilterLabel : $0 }
+    }
+    
+    private var emptyStateMessage: String {
+        if groups.isEmpty {
+            return "この期間の場所はありません"
+        }
+        return "選択中タグに一致する場所はありません"
+    }
+    
+    private func visitMatchesFilter(_ visit: ReviewLocationVisit) -> Bool {
+        guard selectedTagFilters.isEmpty == false else { return true }
+        let includesUntagged = selectedTagFilters.contains(Self.untaggedFilterToken)
+        if includesUntagged && visit.tags.isEmpty {
+            return true
+        }
+        let selectedKeys = Set(selectedTagFilters
+            .filter { $0 != Self.untaggedFilterToken }
+            .map(normalizedTagKey))
+        guard selectedKeys.isEmpty == false else { return false }
+        return visit.tags.contains { selectedKeys.contains(normalizedTagKey($0)) }
+    }
+    
+    private func normalizedTagKey(_ name: String) -> String {
+        name
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
     }
 
     private func regionForEntries(_ items: [ReviewLocationGroup]) -> MKCoordinateRegion {
@@ -2892,6 +3076,100 @@ private struct ReviewMapView: View {
         return MKCoordinateRegion(center: center,
                                   span: MKCoordinateSpan(latitudeDelta: latDelta,
                                                          longitudeDelta: lonDelta))
+    }
+}
+
+private struct ReviewMapTagFilterSheet: View {
+    let tags: [String]
+    @Binding var selectedFilters: [String]
+    let untaggedToken: String
+    let untaggedLabel: String
+    
+    @Environment(\.dismiss) private var dismiss
+    
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    Text("複数選択時は OR 条件（どれか一致）で絞り込みます。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                
+                Section("タグ") {
+                    filterRow(label: untaggedLabel, token: untaggedToken)
+                    ForEach(tags, id: \.self) { tag in
+                        filterRow(label: tag, token: tag)
+                    }
+                }
+            }
+            .navigationTitle("地図タグ絞り込み")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("閉じる") {
+                        dismiss()
+                    }
+                }
+                ToolbarItem(placement: .topBarLeading) {
+                    Button("クリア") {
+                        selectedFilters = []
+                    }
+                    .disabled(selectedFilters.isEmpty)
+                }
+            }
+        }
+    }
+    
+    private func filterRow(label: String, token: String) -> some View {
+        Button {
+            toggle(token)
+        } label: {
+            HStack {
+                Text(label)
+                Spacer()
+                if contains(token) {
+                    Image(systemName: "checkmark")
+                        .foregroundStyle(Color.accentColor)
+                }
+            }
+        }
+    }
+    
+    private func contains(_ token: String) -> Bool {
+        if token == untaggedToken {
+            return selectedFilters.contains(untaggedToken)
+        }
+        let key = normalizedTagKey(token)
+        return selectedFilters.contains {
+            $0 != untaggedToken && normalizedTagKey($0) == key
+        }
+    }
+    
+    private func toggle(_ token: String) {
+        if token == untaggedToken {
+            if let index = selectedFilters.firstIndex(of: untaggedToken) {
+                selectedFilters.remove(at: index)
+            } else {
+                selectedFilters.append(untaggedToken)
+            }
+            return
+        }
+        
+        let key = normalizedTagKey(token)
+        if let index = selectedFilters.firstIndex(where: {
+            $0 != untaggedToken && normalizedTagKey($0) == key
+        }) {
+            selectedFilters.remove(at: index)
+        } else {
+            selectedFilters.append(token)
+        }
+    }
+    
+    private func normalizedTagKey(_ name: String) -> String {
+        name
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
     }
 }
 

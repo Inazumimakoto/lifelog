@@ -223,6 +223,7 @@ struct DiaryLocation: Identifiable, Codable, Hashable {
     var longitude: Double
     var mapItemURL: String?
     var photoPaths: [String]
+    var visitTags: [String]
 
     init(id: UUID = UUID(),
          name: String,
@@ -230,7 +231,8 @@ struct DiaryLocation: Identifiable, Codable, Hashable {
          latitude: Double,
          longitude: Double,
          mapItemURL: String?,
-         photoPaths: [String] = []) {
+         photoPaths: [String] = [],
+         visitTags: [String] = []) {
         self.id = id
         self.name = name
         self.address = address
@@ -238,6 +240,7 @@ struct DiaryLocation: Identifiable, Codable, Hashable {
         self.longitude = longitude
         self.mapItemURL = mapItemURL
         self.photoPaths = photoPaths
+        self.visitTags = visitTags
     }
 
     var coordinate: CLLocationCoordinate2D {
@@ -245,7 +248,7 @@ struct DiaryLocation: Identifiable, Codable, Hashable {
     }
 
     enum CodingKeys: String, CodingKey {
-        case id, name, address, latitude, longitude, mapItemURL, photoPaths
+        case id, name, address, latitude, longitude, mapItemURL, photoPaths, visitTags
     }
 
     init(from decoder: Decoder) throws {
@@ -257,6 +260,7 @@ struct DiaryLocation: Identifiable, Codable, Hashable {
         longitude = try container.decode(Double.self, forKey: .longitude)
         mapItemURL = try container.decodeIfPresent(String.self, forKey: .mapItemURL)
         photoPaths = try container.decodeIfPresent([String].self, forKey: .photoPaths) ?? []
+        visitTags = try container.decodeIfPresent([String].self, forKey: .visitTags) ?? []
     }
 
     func encode(to encoder: Encoder) throws {
@@ -268,6 +272,24 @@ struct DiaryLocation: Identifiable, Codable, Hashable {
         try container.encode(longitude, forKey: .longitude)
         try container.encodeIfPresent(mapItemURL, forKey: .mapItemURL)
         try container.encode(photoPaths, forKey: .photoPaths)
+        try container.encode(visitTags, forKey: .visitTags)
+    }
+}
+
+struct LocationVisitTagDefinition: Identifiable, Codable, Hashable {
+    let id: UUID
+    var name: String
+    var sortOrder: Int
+    var createdAt: Date
+
+    init(id: UUID = UUID(),
+         name: String,
+         sortOrder: Int,
+         createdAt: Date = Date()) {
+        self.id = id
+        self.name = name
+        self.sortOrder = sortOrder
+        self.createdAt = createdAt
     }
 }
 

@@ -120,17 +120,65 @@ final class DiaryViewModel: ObservableObject {
         persist()
     }
 
-    func addLocation(_ location: DiaryLocation) {
-        guard entry.locations.contains(where: { Self.isSameLocation($0, location) }) == false else { return }
+    @discardableResult
+    func addLocation(_ location: DiaryLocation) -> UUID? {
+        guard entry.locations.contains(where: { Self.isSameLocation($0, location) }) == false else { return nil }
         entry.locations.append(location)
         syncPrimaryLocation()
         persist()
+        return location.id
     }
 
     func removeLocation(id: UUID) {
         entry.locations.removeAll { $0.id == id }
         syncPrimaryLocation()
         persist()
+    }
+    
+    func visitTags(for locationID: UUID) -> [String] {
+        guard let location = entry.locations.first(where: { $0.id == locationID }) else { return [] }
+        return location.visitTags
+    }
+    
+    func updateVisitTags(for locationID: UUID, tags: [String]) {
+        guard let index = entry.locations.firstIndex(where: { $0.id == locationID }) else { return }
+        let normalized = Self.normalizedVisitTags(tags)
+        guard entry.locations[index].visitTags != normalized else { return }
+        entry.locations[index].visitTags = normalized
+        persist()
+    }
+    
+    func applyVisitTagRename(oldName: String, newName: String) {
+        var didChange = false
+        for index in entry.locations.indices {
+            var tags = entry.locations[index].visitTags
+            var locationChanged = false
+            for tagIndex in tags.indices where Self.isSameTagName(tags[tagIndex], oldName) {
+                tags[tagIndex] = newName
+                locationChanged = true
+            }
+            if locationChanged {
+                entry.locations[index].visitTags = Self.normalizedVisitTags(tags)
+                didChange = true
+            }
+        }
+        if didChange {
+            persist()
+        }
+    }
+    
+    func applyVisitTagDeletion(name: String) {
+        var didChange = false
+        for index in entry.locations.indices {
+            let before = entry.locations[index].visitTags
+            let filtered = before.filter { Self.isSameTagName($0, name) == false }
+            guard filtered.count != before.count else { continue }
+            entry.locations[index].visitTags = filtered
+            didChange = true
+        }
+        if didChange {
+            persist()
+        }
     }
 
     func updatePhotoLinks(forLocation locationID: UUID, selectedPaths: [String]) {
@@ -550,6 +598,33 @@ final class DiaryViewModel: ObservableObject {
         let lat = (location.latitude * 10_000).rounded() / 10_000
         let lon = (location.longitude * 10_000).rounded() / 10_000
         return "coord:\(lat),\(lon)"
+    }
+    
+    private static func normalizedVisitTags(_ tags: [String]) -> [String] {
+        var seen: Set<String> = []
+        var normalized: [String] = []
+        for raw in tags {
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard trimmed.isEmpty == false else { continue }
+            let key = normalizedTagKey(trimmed)
+            guard seen.contains(key) == false else { continue }
+            seen.insert(key)
+            normalized.append(trimmed)
+            if normalized.count >= AppDataStore.maxLocationVisitTagsPerVisit {
+                break
+            }
+        }
+        return normalized
+    }
+    
+    private static func normalizedTagKey(_ name: String) -> String {
+        name
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+    }
+    
+    private static func isSameTagName(_ lhs: String, _ rhs: String) -> Bool {
+        normalizedTagKey(lhs) == normalizedTagKey(rhs)
     }
     
     // MARK: - Debounce Methods

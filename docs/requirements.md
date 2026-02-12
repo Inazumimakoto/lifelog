@@ -55,6 +55,19 @@
 - 入力: テキスト (初期値は空)、写真(最大 50 枚、PhotosPicker から取得し Documents 保存)、気分スコア(1~5)、体調(5段階・絵文字)、位置情報 (地図を動かして複数スポットを選択・保存)
 - 体調/気分/睡眠/歩数の相関を Health 画面にグラフとして表示
 
+#### 4.4.1 訪問タグ（場所訪問コンテキスト）
+- タグは「場所そのもの」ではなく「その日その場所の訪問」に付与する（同一店舗でも日付ごとに意味を分ける）。
+- 1訪問あたり複数タグを付与可能。上限は 8 件。
+- タグ初期値（初回のみ自動作成）: ご飯 / カフェ / 仕事 / 勉強 / 買い物 / 旅行 / 観光 / 運動 / 用事 / 友人 / 家族 / デート
+- ユーザーは自由タグを追加可能。プリセットも自由タグも同一管理（編集・並び替え・削除可能）。
+- タグ名ルール: 1〜15文字、前後空白を除去、同名重複禁止。絵文字は許可。
+- タグ名変更は全訪問データへ一括反映する。
+- タグ削除は全訪問データから削除する（削除件数付き確認ダイアログを表示）。
+- 場所追加直後にタグ選択シートを表示し、日記編集画面の場所行から後編集も可能にする。
+- 振り返り地図のタグフィルタは OR 条件（選択タグのいずれか一致）で判定する。
+- 「未タグ」フィルタを提供し、他タグとの同時選択時も OR 条件で扱う。
+- 振り返り地図のUIは常時タグ全表示しない。上部は「絞り込み」導線 + 選択中タグのみ表示し、詳細選択はシートで行う。
+
 ### 4.5 カレンダー詳細 (Bujo)
 - 週 / 月切替 (週は週次カレンダー + タイムライン、月は従来表示)
 - 週タイムライン: 時間軸整列、重なり解消、下部に日詳細 (月表示と同じ内容)
@@ -95,6 +108,8 @@
 | --- | --- |
 | Task | id(UUID), title, detail, dueDate, priority(Int 1~3), isCompleted |
 | DiaryEntry | id, date, text, mood(Int 1~5), conditionScore, photoPaths([String]), locations([DiaryLocation]), locationName, latitude, longitude |
+| DiaryLocation | id, name, address, latitude, longitude, mapItemURL, photoPaths([String]), visitTags([String]) |
+| LocationTagDefinition | id, name, sortOrder, createdAt |
 | Habit | id, title, iconName, colorHex, schedule(HabitSchedule) |
 | HabitRecord | id, habitID, date, isCompleted |
 | Anniversary | id, title, targetDate, type(countdown/since), repeatsYearly |
