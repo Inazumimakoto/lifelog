@@ -22,6 +22,8 @@ struct SettingsView: View {
     @State private var showLetterSharing = false
     @AppStorage("isDiaryTextHidden") private var isDiaryTextHidden: Bool = false
     @AppStorage("requiresDiaryOpenAuthentication") private var requiresDiaryOpenAuthentication: Bool = false
+    @AppStorage("isMemoTextHidden") private var isMemoTextHidden: Bool = false
+    @AppStorage("requiresMemoOpenAuthentication") private var requiresMemoOpenAuthentication: Bool = false
     @AppStorage("githubUsername") private var githubUsername: String = ""
     @State private var githubPAT: String = ""
     @State private var showPATHelp = false
@@ -44,49 +46,7 @@ struct SettingsView: View {
     
     var body: some View {
         Form {
-            // アプリ内設定
-            Section("アプリ設定") {
-                Button {
-                    showCalendarSettings = true
-                } label: {
-                    HStack {
-                        Label("カレンダー連携", systemImage: "arrow.triangle.2.circlepath")
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .foregroundStyle(.primary)
-                
-                Toggle(isOn: $appLockService.isAppLockEnabled) {
-                    Label("アプリロック", systemImage: "lock.fill")
-                        .foregroundStyle(.primary)
-                }
-
-                Toggle(isOn: $isDiaryTextHidden) {
-                    Label("日記本文を非表示", systemImage: "eye.slash")
-                        .foregroundStyle(.primary)
-                }
-
-                if isDiaryTextHidden {
-                    Toggle(isOn: $requiresDiaryOpenAuthentication) {
-                        Label("日記を開くときに認証", systemImage: "lock.shield")
-                            .foregroundStyle(.primary)
-                    }
-                }
-                
-                Button {
-                    showNotificationSettings = true
-                } label: {
-                    HStack {
-                        Label("通知設定", systemImage: "bell.fill")
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .foregroundStyle(.primary)
-            }
+            appSettingsSection
             
             // ストレージ
             Section {
@@ -330,6 +290,11 @@ struct SettingsView: View {
                 requiresDiaryOpenAuthentication = false
             }
         }
+        .onChange(of: isMemoTextHidden) { _, newValue in
+            if newValue == false {
+                requiresMemoOpenAuthentication = false
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("閉じる") {
@@ -453,6 +418,63 @@ struct SettingsView: View {
         }
         .onAppear {
             currentStorageSize = PhotoStorage.totalStorageSize()
+        }
+    }
+
+    private var appSettingsSection: some View {
+        Section("アプリ設定") {
+            Button {
+                showCalendarSettings = true
+            } label: {
+                HStack {
+                    Label("カレンダー連携", systemImage: "arrow.triangle.2.circlepath")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .foregroundStyle(.primary)
+            
+            Toggle(isOn: $appLockService.isAppLockEnabled) {
+                Label("アプリロック", systemImage: "lock.fill")
+                    .foregroundStyle(.primary)
+            }
+
+            Toggle(isOn: $isDiaryTextHidden) {
+                Label("日記本文を非表示", systemImage: "eye.slash")
+                    .foregroundStyle(.primary)
+            }
+
+            if isDiaryTextHidden {
+                Toggle(isOn: $requiresDiaryOpenAuthentication) {
+                    Label("日記を開くときに認証", systemImage: "lock.shield")
+                        .foregroundStyle(.primary)
+                }
+            }
+
+            Toggle(isOn: $isMemoTextHidden) {
+                Label("メモ本文を非表示", systemImage: "eye.slash")
+                    .foregroundStyle(.primary)
+            }
+
+            if isMemoTextHidden {
+                Toggle(isOn: $requiresMemoOpenAuthentication) {
+                    Label("メモを開くときに認証", systemImage: "lock.shield")
+                        .foregroundStyle(.primary)
+                }
+            }
+            
+            Button {
+                showNotificationSettings = true
+            } label: {
+                HStack {
+                    Label("通知設定", systemImage: "bell.fill")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .foregroundStyle(.primary)
         }
     }
 

@@ -122,6 +122,8 @@ struct JournalView: View {
     @StateObject private var appLockService = AppLockService.shared
     @AppStorage("isDiaryTextHidden") private var isDiaryTextHidden: Bool = false
     @AppStorage("requiresDiaryOpenAuthentication") private var requiresDiaryOpenAuthentication: Bool = false
+    @AppStorage("isMemoTextHidden") private var isMemoTextHidden: Bool = false
+    @AppStorage("requiresMemoOpenAuthentication") private var requiresMemoOpenAuthentication: Bool = false
     private let store: AppDataStore
     @StateObject private var viewModel: JournalViewModel
     private let monthPagerHeight: CGFloat = 700
@@ -1282,6 +1284,18 @@ struct JournalView: View {
         return await appLockService.authenticateForSensitiveAction(reason: "日記を開くには認証が必要です")
     }
 
+    private func openMemoEditor() {
+        _Concurrency.Task { @MainActor in
+            guard await authorizeMemoAccessIfNeeded() else { return }
+            showMemoEditor = true
+        }
+    }
+
+    private func authorizeMemoAccessIfNeeded() async -> Bool {
+        guard isMemoTextHidden, requiresMemoOpenAuthentication else { return true }
+        return await appLockService.authenticateForSensitiveAction(reason: "メモを開くには認証が必要です")
+    }
+
     private func handleQuickAction(on date: Date) {
         viewModel.selectedDate = date
         pendingAddDate = date
@@ -1722,7 +1736,7 @@ struct JournalView: View {
     private var journalToolbar: some ToolbarContent {
         ToolbarItemGroup(placement: .topBarTrailing) {
             Button {
-                showMemoEditor = true
+                openMemoEditor()
             } label: {
                 Image(systemName: "note.text")
             }

@@ -16,6 +16,8 @@ struct TodayView: View {
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("isDiaryTextHidden") private var isDiaryTextHidden: Bool = false
     @AppStorage("requiresDiaryOpenAuthentication") private var requiresDiaryOpenAuthentication: Bool = false
+    @AppStorage("isMemoTextHidden") private var isMemoTextHidden: Bool = false
+    @AppStorage("requiresMemoOpenAuthentication") private var requiresMemoOpenAuthentication: Bool = false
     @State private var showSettings = false
     @State private var showTaskManager = false
     @State private var showEventManager = false
@@ -128,7 +130,7 @@ struct TodayView: View {
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button {
-                    showMemoEditor = true
+                    openMemoEditor()
                 } label: {
                     Image(systemName: "note.text")
                 }
@@ -264,6 +266,18 @@ struct TodayView: View {
     private func authorizeDiaryAccessIfNeeded() async -> Bool {
         guard isDiaryTextHidden, requiresDiaryOpenAuthentication else { return true }
         return await appLockService.authenticateForSensitiveAction(reason: "日記を開くには認証が必要です")
+    }
+
+    private func openMemoEditor() {
+        _Concurrency.Task { @MainActor in
+            guard await authorizeMemoAccessIfNeeded() else { return }
+            showMemoEditor = true
+        }
+    }
+
+    private func authorizeMemoAccessIfNeeded() async -> Bool {
+        guard isMemoTextHidden, requiresMemoOpenAuthentication else { return true }
+        return await appLockService.authenticateForSensitiveAction(reason: "メモを開くには認証が必要です")
     }
 
     private var header: some View {
@@ -481,7 +495,7 @@ struct TodayView: View {
                         .font(.headline)
                     Spacer()
                     Button {
-                        showMemoEditor = true
+                        openMemoEditor()
                     } label: {
                         Image(systemName: "square.and.pencil")
                             .foregroundStyle(.secondary)
@@ -495,9 +509,15 @@ struct TodayView: View {
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 } else {
-                    Text(trimmed)
-                        .lineLimit(4)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    if isMemoTextHidden {
+                        Text("メモ本文は非表示です。")
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        Text(trimmed)
+                            .lineLimit(4)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
                 }
 
                 if let lastUpdated = viewModel.memoPad.lastUpdatedAt {
@@ -510,7 +530,7 @@ struct TodayView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture {
-            showMemoEditor = true
+            openMemoEditor()
         }
     }
 
