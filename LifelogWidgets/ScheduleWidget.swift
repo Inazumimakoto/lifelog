@@ -285,28 +285,79 @@ struct ScheduleWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
     let entry: ScheduleProvider.Entry
 
-    private var eventLimit: Int {
+    private var maxVisibleRows: Int {
         switch family {
-        case .systemSmall: return 3
-        case .systemMedium: return 3
-        default: return 5
+        case .systemSmall, .systemMedium:
+            return 5
+        default:
+            return 8
         }
     }
 
-    private var taskLimit: Int {
+    private var preferredEventRows: Int {
         switch family {
-        case .systemSmall: return 2
-        case .systemMedium: return 3
-        default: return 5
+        case .systemSmall, .systemMedium:
+            return 3
+        default:
+            return 5
         }
+    }
+
+    private var preferredTaskRows: Int {
+        switch family {
+        case .systemSmall, .systemMedium:
+            return 2
+        default:
+            return 5
+        }
+    }
+
+    private func allocatedCounts(maxRows: Int) -> (events: Int, tasks: Int) {
+        var eventCount = min(entry.events.count, preferredEventRows, maxRows)
+        var taskCount = min(entry.tasks.count, preferredTaskRows, maxRows - eventCount)
+
+        var remaining = maxRows - eventCount - taskCount
+        if remaining > 0 {
+            let eventRemainder = max(0, entry.events.count - eventCount)
+            let eventExtra = min(remaining, eventRemainder)
+            eventCount += eventExtra
+            remaining -= eventExtra
+        }
+        if remaining > 0 {
+            let taskRemainder = max(0, entry.tasks.count - taskCount)
+            let taskExtra = min(remaining, taskRemainder)
+            taskCount += taskExtra
+        }
+
+        if entry.events.isEmpty == false && entry.tasks.isEmpty == false {
+            if eventCount == 0 && taskCount > 0 {
+                eventCount = 1
+                taskCount = max(0, taskCount - 1)
+            } else if taskCount == 0 && eventCount > 0 {
+                taskCount = 1
+                eventCount = max(0, eventCount - 1)
+            }
+        }
+
+        return (events: eventCount, tasks: taskCount)
+    }
+
+    private var visibleCounts: (events: Int, tasks: Int) {
+        let full = allocatedCounts(maxRows: maxVisibleRows)
+        let hiddenWhenFull = max(0, entry.events.count - full.events) + max(0, entry.tasks.count - full.tasks)
+
+        if hiddenWhenFull > 0, family != .systemLarge {
+            return allocatedCounts(maxRows: max(0, maxVisibleRows - 1))
+        }
+        return full
     }
 
     private var visibleEvents: [ScheduleEventItem] {
-        Array(entry.events.prefix(eventLimit))
+        Array(entry.events.prefix(visibleCounts.events))
     }
 
     private var visibleTasks: [ScheduleTaskItem] {
-        Array(entry.tasks.prefix(taskLimit))
+        Array(entry.tasks.prefix(visibleCounts.tasks))
     }
 
     private var hiddenEventCount: Int {
@@ -315,6 +366,18 @@ struct ScheduleWidgetEntryView: View {
 
     private var hiddenTaskCount: Int {
         max(0, entry.tasks.count - visibleTasks.count)
+    }
+
+    private var overflowSummaryText: String? {
+        var parts: [String] = []
+        if hiddenEventCount > 0 {
+            parts.append("+予定\(hiddenEventCount)件")
+        }
+        if hiddenTaskCount > 0 {
+            parts.append("+タスク\(hiddenTaskCount)件")
+        }
+        guard parts.isEmpty == false else { return nil }
+        return parts.joined(separator: " ")
     }
 
     private var hasContent: Bool {
@@ -333,15 +396,15 @@ struct ScheduleWidgetEntryView: View {
             Spacer(minLength: 0)
         }
         .foregroundStyle(.primary)
-        .padding(family == .systemSmall ? 8 : 10)
+        .padding(.vertical, family == .systemSmall ? 7 : 8)
+        .padding(.horizontal, family == .systemSmall ? 8 : 9)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private var header: some View {
         Text(ScheduleWidgetFormatter.headerDate.string(from: entry.date))
-            .font(.system(size: family == .systemSmall ? 14 : 16, weight: .bold, design: .rounded))
+            .font(.system(size: family == .systemSmall ? 16 : 17, weight: .bold, design: .rounded))
             .lineLimit(1)
-            .minimumScaleFactor(0.75)
     }
 
     private var rows: some View {
@@ -374,14 +437,13 @@ struct ScheduleWidgetEntryView: View {
 
             VStack(alignment: .leading, spacing: 0) {
                 Text(event.title)
-                    .font(.system(size: family == .systemSmall ? 10.5 : 12, weight: .semibold, design: .rounded))
+                    .font(.system(size: family == .systemSmall ? 12 : 13, weight: .semibold, design: .rounded))
                     .lineLimit(1)
-                    .minimumScaleFactor(0.8)
                 HStack(spacing: 3) {
                     Image(systemName: "clock")
-                        .font(.system(size: 7, weight: .semibold))
+                        .font(.system(size: 8, weight: .semibold))
                     Text(eventTimeLabel(event))
-                        .font(.system(size: family == .systemSmall ? 8.5 : 10, weight: .regular, design: .rounded).monospacedDigit())
+                        .font(.system(size: family == .systemSmall ? 10 : 11, weight: .regular, design: .rounded).monospacedDigit())
                 }
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -397,9 +459,8 @@ struct ScheduleWidgetEntryView: View {
                 .font(.system(size: 10, weight: .regular))
                 .foregroundStyle(priorityColor(for: task.priority))
             Text(task.title)
-                .font(.system(size: family == .systemSmall ? 10.5 : 12, weight: .semibold, design: .rounded))
+                .font(.system(size: family == .systemSmall ? 12 : 13, weight: .semibold, design: .rounded))
                 .lineLimit(1)
-                .minimumScaleFactor(0.85)
             Spacer(minLength: 0)
         }
         .padding(.vertical, family == .systemSmall ? 1 : 2)
@@ -410,14 +471,10 @@ struct ScheduleWidgetEntryView: View {
             .padding(.leading, 12)
     }
 
+    @ViewBuilder
     private var overflowSummary: some View {
-        HStack(spacing: 8) {
-            if hiddenEventCount > 0 {
-                summaryLine("+予定\(hiddenEventCount)")
-            }
-            if hiddenTaskCount > 0 {
-                summaryLine("+タスク\(hiddenTaskCount)")
-            }
+        if let summary = overflowSummaryText {
+            summaryLine(summary)
         }
     }
 
@@ -443,15 +500,16 @@ struct ScheduleWidgetEntryView: View {
 
     private func emptyLine(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 11, weight: .regular, design: .rounded))
+            .font(.system(size: family == .systemSmall ? 11.5 : 13, weight: .regular, design: .rounded))
             .foregroundStyle(.secondary)
             .lineLimit(1)
     }
 
     private func summaryLine(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: family == .systemSmall ? 9 : 11, weight: .semibold, design: .rounded))
+            .font(.system(size: family == .systemSmall ? 11 : 12, weight: .semibold, design: .rounded))
             .foregroundStyle(.secondary)
+            .lineLimit(1)
     }
 }
 
@@ -471,5 +529,6 @@ struct ScheduleWidget: Widget {
         .configurationDisplayName("今日の予定とタスク")
         .description("日付・曜日・当日の予定・未完了タスクを表示します。")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .contentMarginsDisabled()
     }
 }
