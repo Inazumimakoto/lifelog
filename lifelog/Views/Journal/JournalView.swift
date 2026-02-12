@@ -119,6 +119,9 @@ private struct DayPreviewItem: Identifiable {
 struct JournalView: View {
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var monetization = MonetizationService.shared
+    @StateObject private var appLockService = AppLockService.shared
+    @AppStorage("isDiaryTextHidden") private var isDiaryTextHidden: Bool = false
+    @AppStorage("requiresDiaryOpenAuthentication") private var requiresDiaryOpenAuthentication: Bool = false
     private let store: AppDataStore
     @StateObject private var viewModel: JournalViewModel
     private let monthPagerHeight: CGFloat = 700
@@ -1196,6 +1199,7 @@ struct JournalView: View {
             date: date,
             store: store,
             diary: diary,
+            isDiaryTextHidden: isDiaryTextHidden,
             photoPaths: photoPaths,
             preferredIndex: preferredIndex,
             reviewPhotoViewerIndex: $reviewPhotoViewerIndex,
@@ -1257,17 +1261,25 @@ struct JournalView: View {
     }
 
     private func openDiaryEditor(for date: Date) {
-        let targetDate = date.startOfDay
-        viewModel.selectedDate = targetDate
-        let fromReview = calendarMode == .review
-        isDiaryOpeningFromReview = showingDetailPanel && fromReview
-        if showingDetailPanel {
-            pendingDiaryDate = targetDate
-            showingDetailPanel = false
-        } else {
-            pendingDiaryDate = nil
-            diaryEditorDate = targetDate
+        _Concurrency.Task { @MainActor in
+            guard await authorizeDiaryAccessIfNeeded() else { return }
+            let targetDate = date.startOfDay
+            viewModel.selectedDate = targetDate
+            let fromReview = calendarMode == .review
+            isDiaryOpeningFromReview = showingDetailPanel && fromReview
+            if showingDetailPanel {
+                pendingDiaryDate = targetDate
+                showingDetailPanel = false
+            } else {
+                pendingDiaryDate = nil
+                diaryEditorDate = targetDate
+            }
         }
+    }
+
+    private func authorizeDiaryAccessIfNeeded() async -> Bool {
+        guard isDiaryTextHidden, requiresDiaryOpenAuthentication else { return true }
+        return await appLockService.authenticateForSensitiveAction(reason: "日記を開くには認証が必要です")
     }
 
     private func handleQuickAction(on date: Date) {
@@ -1339,6 +1351,7 @@ struct JournalView: View {
                     if calendarMode == .schedule {
                         CalendarDetailPanel(snapshot: snapshot,
                                             store: store,
+                                            isDiaryTextHidden: isDiaryTextHidden,
                                             includeAddButtons: includeAddButtons,
                                             showHeader: showHeader,
                                             onToggleTask: { toggleTask($0) },
@@ -1816,6 +1829,7 @@ private enum ScrollTarget: String {
 private struct CalendarDetailPanel: View {
     let snapshot: CalendarDetailSnapshot
     let store: AppDataStore
+    let isDiaryTextHidden: Bool
     var includeAddButtons: Bool
     var showHeader: Bool = false
     var onToggleTask: (Task) -> Void
@@ -1977,8 +1991,14 @@ private struct CalendarDetailPanel: View {
                     VStack(alignment: .leading, spacing: 8) {
                         if let entry = snapshot.diaryEntry, entry.text.isEmpty == false {
                             VStack(alignment: .leading, spacing: 6) {
-                                Text(entry.text)
-                                    .font(.body)
+                                if isDiaryTextHidden {
+                                    Text("日記本文は非表示です。")
+                                        .font(.body)
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    Text(entry.text)
+                                        .font(.body)
+                                }
                                 if let condition = entry.conditionScore {
                                     Text("体調 \(conditionLabel(for: condition))")
                                         .font(.caption)
@@ -3178,6 +3198,7 @@ private struct ReviewDetailPanel: View {
     let date: Date
     let store: AppDataStore
     let diary: DiaryEntry?
+    let isDiaryTextHidden: Bool
     let photoPaths: [String]
     let preferredIndex: Int
     @Binding var reviewPhotoViewerIndex: Int
@@ -3193,6 +3214,7 @@ private struct ReviewDetailPanel: View {
     init(date: Date,
          store: AppDataStore,
          diary: DiaryEntry?,
+         isDiaryTextHidden: Bool,
          photoPaths: [String],
          preferredIndex: Int,
          reviewPhotoViewerIndex: Binding<Int>,
@@ -3202,6 +3224,7 @@ private struct ReviewDetailPanel: View {
         self.date = date
         self.store = store
         self.diary = diary
+        self.isDiaryTextHidden = isDiaryTextHidden
         self.photoPaths = photoPaths
         self.preferredIndex = preferredIndex
         self._reviewPhotoViewerIndex = reviewPhotoViewerIndex
@@ -3293,9 +3316,16 @@ private struct ReviewDetailPanel: View {
                         .foregroundStyle(.primary)
                 }
                 if diary.text.isEmpty == false {
-                    Text(diary.text)
-                        .font(.body)
-                        .lineLimit(1)
+                    if isDiaryTextHidden {
+                        Text("日記本文は非表示です。")
+                            .font(.body)
+                            .lineLimit(1)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(diary.text)
+                            .font(.body)
+                            .lineLimit(1)
+                    }
                 }
                 Button {
                     onOpenDiary(date)

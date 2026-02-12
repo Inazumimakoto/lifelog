@@ -20,6 +20,8 @@ struct SettingsView: View {
     @State private var showHelp = false
     @State private var showLetterList = false
     @State private var showLetterSharing = false
+    @AppStorage("isDiaryTextHidden") private var isDiaryTextHidden: Bool = false
+    @AppStorage("requiresDiaryOpenAuthentication") private var requiresDiaryOpenAuthentication: Bool = false
     @AppStorage("githubUsername") private var githubUsername: String = ""
     @State private var githubPAT: String = ""
     @State private var showPATHelp = false
@@ -59,6 +61,18 @@ struct SettingsView: View {
                 Toggle(isOn: $appLockService.isAppLockEnabled) {
                     Label("アプリロック", systemImage: "lock.fill")
                         .foregroundStyle(.primary)
+                }
+
+                Toggle(isOn: $isDiaryTextHidden) {
+                    Label("日記本文を非表示", systemImage: "eye.slash")
+                        .foregroundStyle(.primary)
+                }
+
+                if isDiaryTextHidden {
+                    Toggle(isOn: $requiresDiaryOpenAuthentication) {
+                        Label("日記を開くときに認証", systemImage: "lock.shield")
+                            .foregroundStyle(.primary)
+                    }
                 }
                 
                 Button {
@@ -311,6 +325,11 @@ struct SettingsView: View {
         }
         .navigationTitle("設定")
         .navigationBarTitleDisplayMode(.inline)
+        .onChange(of: isDiaryTextHidden) { _, newValue in
+            if newValue == false {
+                requiresDiaryOpenAuthentication = false
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("閉じる") {

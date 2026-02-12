@@ -12,7 +12,10 @@ struct TodayView: View {
     @StateObject private var viewModel: TodayViewModel
     @ObservedObject private var monetization = MonetizationService.shared
     @StateObject private var weatherService = WeatherService()
+    @StateObject private var appLockService = AppLockService.shared
     @Environment(\.scenePhase) private var scenePhase
+    @AppStorage("isDiaryTextHidden") private var isDiaryTextHidden: Bool = false
+    @AppStorage("requiresDiaryOpenAuthentication") private var requiresDiaryOpenAuthentication: Bool = false
     @State private var showSettings = false
     @State private var showTaskManager = false
     @State private var showEventManager = false
@@ -249,6 +252,18 @@ struct TodayView: View {
         }
         didAppear = true
         await viewModel.syncExternalCalendarsIfNeeded()
+    }
+
+    private func openDiaryEditor() {
+        _Concurrency.Task { @MainActor in
+            guard await authorizeDiaryAccessIfNeeded() else { return }
+            showDiaryEditor = true
+        }
+    }
+
+    private func authorizeDiaryAccessIfNeeded() async -> Bool {
+        guard isDiaryTextHidden, requiresDiaryOpenAuthentication else { return true }
+        return await appLockService.authenticateForSensitiveAction(reason: "日記を開くには認証が必要です")
     }
 
     private var header: some View {
@@ -557,15 +572,21 @@ struct TodayView: View {
         SectionCard(title: "日記") {
             VStack(alignment: .leading, spacing: 8) {
                 if let entry = viewModel.diaryEntry, entry.text.isEmpty == false {
-                    Text(entry.text)
-                        .font(.body)
-                        .lineLimit(3)
+                    if isDiaryTextHidden {
+                        Text("日記本文は非表示です。")
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(entry.text)
+                            .font(.body)
+                            .lineLimit(3)
+                    }
                 } else {
                     Text("まだ記録がありません。今日感じたことを書き残しましょう。")
                         .foregroundStyle(.secondary)
                 }
                 Button {
-                    showDiaryEditor = true
+                    openDiaryEditor()
                 } label: {
                     Text("日記を開く")
                         .font(.headline)

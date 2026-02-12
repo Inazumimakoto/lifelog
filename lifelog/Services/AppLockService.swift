@@ -20,27 +20,26 @@ class AppLockService: ObservableObject {
     private init() {}
     
     func authenticate() {
+        _Concurrency.Task {
+            let success = await authenticateForSensitiveAction(reason: "アプリのロックを解除します")
+            // 失敗時（キャンセルなど）はロック画面のまま
+            self.isUnlocked = success
+        }
+    }
+
+    /// Face ID / Touch ID / パスコードで保護操作の認証を行う
+    func authenticateForSensitiveAction(reason: String) async -> Bool {
         let context = LAContext()
         var error: NSError?
-        
-        // パスコードまたは生体認証が利用可能か確認
-        if context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) {
-            let reason = "アプリのロックを解除します"
-            
-            context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, authenticationError in
-                DispatchQueue.main.async {
-                    if success {
-                        self.isUnlocked = true
-                    } else {
-                        // 失敗時（キャンセルなど）は何もしない、ロック画面のまま
-                        self.isUnlocked = false
-                    }
-                }
+        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else {
+            // 認証手段未設定時は閉じ込め防止のため通す
+            return true
+        }
+
+        return await withCheckedContinuation { continuation in
+            context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, _ in
+                continuation.resume(returning: success)
             }
-        } else {
-            // 生体認証などが設定されていない場合は、ロック機能自体を無効にするか、パスコードフォールバック
-            // ここでは簡易的にロック解除とする（閉じ込め防止）
-            self.isUnlocked = true
         }
     }
     
