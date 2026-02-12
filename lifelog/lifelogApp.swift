@@ -9,6 +9,7 @@ import SwiftUI
 import UserNotifications
 import FirebaseCore
 import FirebaseMessaging
+import WidgetKit
 
 
 
@@ -39,6 +40,7 @@ struct lifelogApp: App {
                         // 日記リマインダーを再スケジュール（今日書いていなければ通知）
                         store.rescheduleDiaryReminderIfNeeded()
                         store.rescheduleTodayOverviewReminderIfNeeded()
+                        WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
                         _Concurrency.Task {
                             await monetizationService.refreshStatus()
                         }
@@ -60,6 +62,7 @@ struct lifelogApp: App {
                     }
 
                     store.rescheduleTodayOverviewReminderIfNeeded()
+                    WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
                     
                     // 最終ログイン日時を更新（手紙の生存確認用）
                     _Concurrency.Task {

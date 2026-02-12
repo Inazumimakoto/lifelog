@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import WidgetKit
 
 extension Color {
     init?(hex: String) {
@@ -301,8 +302,8 @@ enum CategoryPalette {
 
     static func color(for name: String) -> Color {
         let key = normalized(name)
-        if let colorHex = allCategoriesMapping()[key],
-           let color = Color(hex: colorHex) {
+        if let token = allCategoriesMapping()[key],
+           let color = parseColorToken(token) {
             return color
         }
         return .accentColor
@@ -358,6 +359,7 @@ enum CategoryPalette {
         if let data = try? JSONEncoder().encode(map) {
             defaults.set(data, forKey: storageKey)
             sharedDefaults?.set(data, forKey: storageKey)
+            WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
         }
     }
 
@@ -367,5 +369,29 @@ enum CategoryPalette {
 
     static var defaultCategoryName: String {
         allCategories().first?.name ?? "仕事"
+    }
+
+    private static func parseColorToken(_ token: String) -> Color? {
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let color = Color(hex: trimmed) {
+            return color
+        }
+
+        switch trimmed.lowercased() {
+        case "red": return .red
+        case "orange": return .orange
+        case "yellow": return .yellow
+        case "green": return .green
+        case "mint": return .mint
+        case "teal": return .teal
+        case "cyan": return .cyan
+        case "blue": return .blue
+        case "indigo": return .indigo
+        case "purple": return .purple
+        case "pink": return .pink
+        case "brown": return .brown
+        case "gray", "grey": return .gray
+        default: return nil
+        }
     }
 }
