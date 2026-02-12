@@ -602,8 +602,13 @@ struct TodayView: View {
                             .lineLimit(3)
                     }
                 } else {
-                    Text("まだ記録がありません。今日感じたことを書き残しましょう。")
-                        .foregroundStyle(.secondary)
+                    if isDiaryTextHidden {
+                        Text("日記本文は非表示です。")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text("まだ記録がありません。今日感じたことを書き残しましょう。")
+                            .foregroundStyle(.secondary)
+                    }
                 }
                 Button {
                     openDiaryEditor()

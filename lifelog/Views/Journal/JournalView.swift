@@ -2028,7 +2028,11 @@ private struct CalendarDetailPanel: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 14))
                         } else {
-                            placeholder("まだ日記は追加されていません")
+                            if isDiaryTextHidden {
+                                placeholder("日記本文は非表示です。")
+                            } else {
+                                placeholder("まだ日記は追加されていません")
+                            }
                         }
                         Button {
                             onOpenDiary(snapshot.date)
@@ -3349,8 +3353,13 @@ private struct ReviewDetailPanel: View {
                 }
                 .buttonStyle(.borderedProminent)
             } else {
-                Text("この日の日記はまだありません。")
-                    .foregroundStyle(.secondary)
+                if isDiaryTextHidden {
+                    Text("日記本文は非表示です。")
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text("この日の日記はまだありません。")
+                        .foregroundStyle(.secondary)
+                }
                 Button {
                     onOpenDiary(date)
                 } label: {

@@ -500,19 +500,19 @@
 				CODE_SIGN_ENTITLEMENTS = LifelogWidgetsExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 44;
 				DEVELOPMENT_TEAM = V7XG8HDQL4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LifelogWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = LifelogWidgets;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.8.0;
+				MARKETING_VERSION = 1.12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.inazumimakoto.lifelog.LifelogWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -535,19 +535,19 @@
 				CODE_SIGN_ENTITLEMENTS = LifelogWidgetsExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 44;
 				DEVELOPMENT_TEAM = V7XG8HDQL4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LifelogWidgets/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = LifelogWidgets;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
-				IPHONEOS_DEPLOYMENT_TARGET = 26.1;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.8.0;
+				MARKETING_VERSION = 1.12.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.inazumimakoto.lifelog.LifelogWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

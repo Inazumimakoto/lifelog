@@ -7,6 +7,7 @@
 
 import Foundation
 import SwiftUI
+import WidgetKit
 
 extension Color {
     init?(hex: String) {
@@ -272,6 +273,7 @@ enum CategoryPalette {
 
     private static let storageKey = "CategoryPalette_Categories_V3"
     private static let defaults = UserDefaults.standard
+    private static let sharedDefaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier)
 
     private static let defaultCategories: [String: String] = [
         "仕事": "orange", "趣味": "green", "旅行": "blue"
@@ -300,8 +302,8 @@ enum CategoryPalette {
 
     static func color(for name: String) -> Color {
         let key = normalized(name)
-        if let colorHex = allCategoriesMapping()[key],
-           let color = Color(hex: colorHex) {
+        if let token = allCategoriesMapping()[key],
+           let color = parseColorToken(token) {
             return color
         }
         return .accentColor
@@ -339,16 +341,25 @@ enum CategoryPalette {
     }
 
     private static func allCategoriesMapping() -> [String: String] {
-        if let data = defaults.data(forKey: storageKey),
+        if let data = sharedDefaults?.data(forKey: storageKey),
            let decoded = try? JSONDecoder().decode([String: String].self, from: data) {
             return decoded
         }
+
+        if let data = defaults.data(forKey: storageKey),
+           let decoded = try? JSONDecoder().decode([String: String].self, from: data) {
+            sharedDefaults?.set(data, forKey: storageKey)
+            return decoded
+        }
+
         return defaultCategories
     }
 
     private static func persist(map: [String: String]) {
         if let data = try? JSONEncoder().encode(map) {
             defaults.set(data, forKey: storageKey)
+            sharedDefaults?.set(data, forKey: storageKey)
+            WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
         }
     }
 
@@ -358,5 +369,29 @@ enum CategoryPalette {
 
     static var defaultCategoryName: String {
         allCategories().first?.name ?? "仕事"
+    }
+
+    private static func parseColorToken(_ token: String) -> Color? {
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let color = Color(hex: trimmed) {
+            return color
+        }
+
+        switch trimmed.lowercased() {
+        case "red": return .red
+        case "orange": return .orange
+        case "yellow": return .yellow
+        case "green": return .green
+        case "mint": return .mint
+        case "teal": return .teal
+        case "cyan": return .cyan
+        case "blue": return .blue
+        case "indigo": return .indigo
+        case "purple": return .purple
+        case "pink": return .pink
+        case "brown": return .brown
+        case "gray", "grey": return .gray
+        default: return nil
+        }
     }
 }
