@@ -409,15 +409,14 @@ struct ScheduleWidgetEntryView: View {
         let taskCountText = "未完\(entry.tasks.count)件"
 
         if let firstEvent = entry.events.first {
+            let timeText: String = firstEvent.isAllDay ? "終日" : ScheduleWidgetFormatter.time.string(from: firstEvent.startDate)
             return (
-                Text(Image(systemName: "calendar"))
-                + Text(" \(eventTimeLabel(firstEvent)) \(firstEvent.title) | \(taskCountText)")
+                Text("\(timeText) \(firstEvent.title) | \(taskCountText)")
             )
             .lineLimit(1)
         } else {
             return (
-                Text(Image(systemName: "calendar"))
-                + Text(" 予定なし | \(taskCountText)")
+                Text("予定なし | \(taskCountText)")
             )
             .lineLimit(1)
         }
