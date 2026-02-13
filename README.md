@@ -90,7 +90,7 @@
 ### 📈 Code Stats
 
 <p align="center">
-  📝 総行数: <strong>51,436</strong> &nbsp;•&nbsp; � Swiftコード: <strong>35,736</strong> &nbsp;•&nbsp; �📦 最大ファイル: <strong>JournalView.swift</strong> (3,530 行)
+  📝 総行数: <strong>51,464</strong> &nbsp;•&nbsp; � Swiftコード: <strong>35,736</strong> &nbsp;•&nbsp; �📦 最大ファイル: <strong>JournalView.swift</strong> (3,530 行)
 </p>
 
 <sub>Stats 自動更新</sub>
@@ -106,9 +106,9 @@
 | `LifelogWidgets` | 2,258 |
 | `lifelog.xcodeproj` | 847 |
 | `assets` | 688 |
-| `(root)` | 520 |
+| `(root)` | 537 |
 | `public` | 163 |
-| `.github` | 121 |
+| `.github` | 132 |
 <!-- dir-loc-end -->
 
 
