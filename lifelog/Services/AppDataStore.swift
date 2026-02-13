@@ -442,6 +442,44 @@ final class AppDataStore: ObservableObject {
         persistAppState()
     }
 
+    func renameCalendarCategory(from oldName: String, to newName: String) {
+        let source = oldName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let target = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard source.isEmpty == false, target.isEmpty == false, source != target else { return }
+
+        eventsCache.removeAll()
+
+        var hasInternalChanges = false
+        for index in calendarEvents.indices where calendarEvents[index].calendarName == source {
+            calendarEvents[index].calendarName = target
+            hasInternalChanges = true
+        }
+        if hasInternalChanges {
+            persistCalendarEvents()
+        }
+
+        var hasExternalChanges = false
+        for index in externalCalendarEvents.indices where externalCalendarEvents[index].calendarName == source {
+            externalCalendarEvents[index].calendarName = target
+            hasExternalChanges = true
+        }
+        if hasExternalChanges {
+            persistExternalCalendarEvents()
+        }
+
+        var hasLinkChanges = false
+        for index in appState.calendarCategoryLinks.indices where appState.calendarCategoryLinks[index].categoryId == source {
+            appState.calendarCategoryLinks[index].categoryId = target
+            hasLinkChanges = true
+        }
+        if hasLinkChanges {
+            persistAppState()
+        }
+
+        NotificationSettingsManager.shared.renameCategorySetting(oldName: source, newName: target)
+        reapplyEventCategoryNotificationSettings()
+    }
+
     func reapplyEventCategoryNotificationSettings() {
         let categories = Set((calendarEvents + externalCalendarEvents).map(\.calendarName))
         _ = NotificationSettingsManager.shared.ensureCategorySettings(for: Array(categories))

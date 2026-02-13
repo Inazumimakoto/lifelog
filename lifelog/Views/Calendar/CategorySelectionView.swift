@@ -9,6 +9,7 @@ import SwiftUI
 
 struct CategorySelectionView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: AppDataStore
     @Binding var selectedCategory: String
     var noneLabel: String?
     
@@ -206,6 +207,7 @@ struct CategorySelectionView: View {
         let trimmed = editingCategoryName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
         CategoryPalette.renameCategory(oldName: original.name, newName: trimmed, colorName: editingCategoryColor)
+        store.renameCalendarCategory(from: original.name, to: trimmed)
         refreshCategories()
         if selectedCategory == original.name {
             selectedCategory = trimmed

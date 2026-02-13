@@ -122,6 +122,32 @@ class NotificationSettingsManager {
 
         return settings
     }
+
+    func renameCategorySetting(oldName: String, newName: String) {
+        let source = oldName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let target = newName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard source.isEmpty == false, target.isEmpty == false, source != target else { return }
+
+        var settings = getCategorySettings()
+        guard let oldIndex = settings.firstIndex(where: { $0.categoryName == source }) else { return }
+        let previous = settings[oldIndex]
+        settings.remove(at: oldIndex)
+
+        if settings.contains(where: { $0.categoryName == target }) == false {
+            settings.append(
+                CategoryNotificationSetting(
+                    categoryName: target,
+                    enabled: previous.enabled,
+                    useRelativeTime: previous.useRelativeTime,
+                    minutesBefore: previous.minutesBefore,
+                    hour: previous.hour,
+                    minute: previous.minute
+                )
+            )
+        }
+
+        saveCategorySettings(settings)
+    }
     
     func updateSetting(for category: String, enabled: Bool? = nil, minutesBefore: Int? = nil) {
         var settings = getCategorySettings()
