@@ -15,16 +15,11 @@ struct HabitEditorView: View {
 
     @State private var title = ""
     @State private var iconName = "sun.max.fill"
-    @State private var colorHex = "#F97316"
+    @State private var colorHex = AppColorPalette.defaultHex
     @State private var scheduleOption: HabitScheduleOption = .daily
     @State private var customDays: Set<Weekday> = []
     @State private var showDeleteConfirmation = false
 
-    private let palette: [String] = [
-        "#F97316", "#F43F5E", "#EC4899", "#8B5CF6",
-        "#3B82F6", "#0EA5E9", "#10B981", "#22C55E",
-        "#84CC16", "#EAB308", "#EF4444", "#94A3B8"
-    ]
     private let iconsByCategory: [IconCategory] = [
         IconCategory(title: "ライフスタイル", symbols: ["sun.max.fill", "moon.stars.fill", "sparkles", "flame.fill", "drop.fill"]),
         IconCategory(title: "健康", symbols: ["heart.fill", "lungs.fill", "hare.fill", "figure.walk", "figure.run"]),
@@ -41,7 +36,7 @@ struct HabitEditorView: View {
         self.onDelete = onDelete
         _title = State(initialValue: habit?.title ?? "")
         _iconName = State(initialValue: habit?.iconName ?? "sun.max.fill")
-        _colorHex = State(initialValue: habit?.colorHex ?? "#F97316")
+        _colorHex = State(initialValue: habit?.colorHex ?? AppColorPalette.defaultHex)
         if let habitSchedule = habit?.schedule {
             switch habitSchedule {
             case .daily:
@@ -92,9 +87,9 @@ struct HabitEditorView: View {
                     Text("カラーを選択")
                         .font(.subheadline)
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
-                        ForEach(palette, id: \.self) { hex in
+                        ForEach(AppColorPalette.presets, id: \.self) { hex in
                             Circle()
-                                .fill(Color(hex: hex) ?? .accentColor)
+                                .fill(AppColorPalette.color(for: hex))
                                 .frame(width: 28, height: 28)
                                 .overlay(
                                     Circle()
@@ -105,6 +100,10 @@ struct HabitEditorView: View {
                                 }
                         }
                     }
+                    ColorPicker("自由に色を選ぶ", selection: colorPickerSelection, supportsOpacity: false)
+                    Text(colorHex)
+                        .font(.caption.monospaced())
+                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -185,6 +184,17 @@ struct HabitEditorView: View {
             }
             Button("キャンセル", role: .cancel) { }
         }
+    }
+
+    private var colorPickerSelection: Binding<Color> {
+        Binding(
+            get: { AppColorPalette.color(for: colorHex) },
+            set: { selected in
+                if let hex = selected.cgColor?.hexString {
+                    colorHex = hex
+                }
+            }
+        )
     }
 }
 

@@ -14,10 +14,10 @@ struct CategorySelectionView: View {
     
     @State private var allCategories: [CategoryPalette.CustomCategory]
     @State private var newCategoryName: String = ""
-    @State private var newCategoryColor: String = CategoryPalette.colorChoices.first ?? "#F97316"
+    @State private var newCategoryColor: String = CategoryPalette.colorChoices.first ?? AppColorPalette.defaultHex
     @State private var editingCategory: CategoryPalette.CustomCategory?
     @State private var editingCategoryName: String = ""
-    @State private var editingCategoryColor: String = CategoryPalette.colorChoices.first ?? "#F97316"
+    @State private var editingCategoryColor: String = CategoryPalette.colorChoices.first ?? AppColorPalette.defaultHex
     @State private var isShowingAddCategory = false
 
     init(selectedCategory: Binding<String>, noneLabel: String? = nil) {
@@ -108,6 +108,7 @@ struct CategorySelectionView: View {
                 Section("新しいカテゴリ") {
                     TextField("カテゴリ名", text: $newCategoryName)
                     colorSwatchGrid(selection: $newCategoryColor)
+                    ColorPicker("自由に色を選ぶ", selection: colorPickerSelection(for: $newCategoryColor), supportsOpacity: false)
                 }
             }
             .navigationTitle("カテゴリを追加")
@@ -136,6 +137,7 @@ struct CategorySelectionView: View {
                             editingCategoryColor = category.colorName
                         }
                     colorSwatchGrid(selection: $editingCategoryColor)
+                    ColorPicker("自由に色を選ぶ", selection: colorPickerSelection(for: $editingCategoryColor), supportsOpacity: false)
                 }
             }
             .navigationTitle("カテゴリを編集")
@@ -154,21 +156,29 @@ struct CategorySelectionView: View {
     }
 
     private func colorSwatchGrid(selection: Binding<String>) -> some View {
-        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
-            ForEach(CategoryPalette.colorChoices, id: \.self) { hex in
-                Circle()
-                    .fill(Color(hex: hex) ?? .accentColor)
-                    .frame(width: 28, height: 28)
-                    .overlay(
-                        Circle()
-                            .stroke(selection.wrappedValue == hex ? Color.primary : Color.clear, lineWidth: 2)
-                    )
-                    .onTapGesture {
-                        selection.wrappedValue = hex
-                    }
+        VStack(alignment: .leading, spacing: 6) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
+                ForEach(CategoryPalette.colorChoices, id: \.self) { hex in
+                    Circle()
+                        .fill(AppColorPalette.color(for: hex))
+                        .frame(width: 28, height: 28)
+                        .overlay(
+                            Circle()
+                                .stroke(
+                                    isSameColorToken(selection.wrappedValue, hex) ? Color.primary : Color.clear,
+                                    lineWidth: 2
+                                )
+                        )
+                        .onTapGesture {
+                            selection.wrappedValue = hex
+                        }
+                }
             }
+            .padding(.vertical)
+            Text(selection.wrappedValue)
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
         }
-        .padding(.vertical)
     }
 
     private func addCategory() {
@@ -205,5 +215,21 @@ struct CategorySelectionView: View {
 
     private func refreshCategories() {
         allCategories = CategoryPalette.allCategories()
+    }
+
+    private func colorPickerSelection(for selection: Binding<String>) -> Binding<Color> {
+        Binding(
+            get: { AppColorPalette.color(for: selection.wrappedValue) },
+            set: { selected in
+                if let hex = selected.cgColor?.hexString {
+                    selection.wrappedValue = hex
+                }
+            }
+        )
+    }
+
+    private func isSameColorToken(_ lhs: String, _ rhs: String) -> Bool {
+        lhs.trimmingCharacters(in: .whitespacesAndNewlines)
+            .caseInsensitiveCompare(rhs.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
     }
 }

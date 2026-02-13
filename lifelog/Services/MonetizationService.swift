@@ -19,6 +19,8 @@ final class MonetizationService: ObservableObject {
         "com.inazumimakoto.lifelog.premium.yearly"
     ]
     private let lifetimeProductID = "com.inazumimakoto.lifelog.premium.lifetime"
+    // Temporary release mode: all premium features are unlocked and billing is disabled.
+    private let isBillingTemporarilyDisabled = true
 
     private var allPremiumProductIDs: Set<String> {
         var ids = subscriptionProductIDs
@@ -50,8 +52,12 @@ final class MonetizationService: ObservableObject {
         storefrontCountryCode.uppercased() == "JP"
     }
 
+    var isBillingDisabled: Bool {
+        isBillingTemporarilyDisabled
+    }
+
     var isPremiumUnlocked: Bool {
-        isJapanStorefront || hasPremiumEntitlement
+        isBillingDisabled || isJapanStorefront || hasPremiumEntitlement
     }
 
     var canUseHabitGrass: Bool {
@@ -90,6 +96,13 @@ final class MonetizationService: ObservableObject {
         isRefreshingStatus = true
         errorMessage = nil
         refreshStorefrontCountry()
+        if isBillingDisabled {
+            hasPremiumEntitlement = true
+            availableProducts = []
+            hasLoadedProducts = true
+            isRefreshingStatus = false
+            return
+        }
         await refreshEntitlements()
         if isJapanStorefront == false {
             await loadProductsIfNeeded(force: false)
@@ -140,6 +153,12 @@ final class MonetizationService: ObservableObject {
     }
 
     func loadProductsIfNeeded(force: Bool) async {
+        if isBillingDisabled {
+            availableProducts = []
+            hasLoadedProducts = true
+            return
+        }
+
         if isJapanStorefront {
             availableProducts = []
             // Keep products disabled in JP while allowing non-JP to fetch later.
@@ -167,6 +186,10 @@ final class MonetizationService: ObservableObject {
     }
 
     func purchase(_ product: Product) async -> Bool {
+        if isBillingDisabled {
+            return true
+        }
+
         do {
             let result = try await product.purchase()
             switch result {
@@ -190,6 +213,10 @@ final class MonetizationService: ObservableObject {
     }
 
     func restorePurchases() async -> Bool {
+        if isBillingDisabled {
+            return true
+        }
+
         do {
             try await AppStore.sync()
             await refreshEntitlements()
@@ -221,6 +248,11 @@ final class MonetizationService: ObservableObject {
     }
 
     private func refreshEntitlements() async {
+        if isBillingDisabled {
+            hasPremiumEntitlement = true
+            return
+        }
+
         var premium = false
         for await entitlement in Transaction.currentEntitlements {
             guard case .verified(let transaction) = entitlement else { continue }
@@ -263,6 +295,12 @@ final class MonetizationService: ObservableObject {
     }
 
     private func startTransactionListener() {
+        if isBillingDisabled {
+            transactionUpdatesTask?.cancel()
+            transactionUpdatesTask = nil
+            return
+        }
+
         transactionUpdatesTask = _Concurrency.Task {
             for await update in Transaction.updates {
                 if case .verified(let transaction) = update {
