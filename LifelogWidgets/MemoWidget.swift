@@ -220,21 +220,19 @@ struct MemoWidgetEntryView : View {
         var leftLines: [String] = []
         var rightLines: [String] = []
         var leftWeight = 0
-        var rightWeight = 0
+        let leftCapacity = mediumPrimaryColumnCapacity
+        var isRightColumnStarted = false
 
         for line in lines {
             let weight = estimatedLineWeight(line)
-            if leftWeight <= rightWeight {
+            let canFitLeft = isRightColumnStarted == false && (leftLines.isEmpty || leftWeight + weight <= leftCapacity)
+            if canFitLeft {
                 leftLines.append(line)
                 leftWeight += weight
             } else {
+                isRightColumnStarted = true
                 rightLines.append(line)
-                rightWeight += weight
             }
-        }
-
-        if rightLines.isEmpty {
-            return splitSingleLineForMedium(text)
         }
 
         return (
@@ -246,7 +244,7 @@ struct MemoWidgetEntryView : View {
     private func estimatedLineWeight(_ line: String) -> Int {
         let visible = line.trimmingCharacters(in: .whitespaces)
         guard visible.isEmpty == false else { return 1 }
-        let approxCharactersPerRow = 11
+        let approxCharactersPerRow = mediumApproxCharactersPerRow
         return max(1, Int(ceil(Double(visible.count) / Double(approxCharactersPerRow))))
     }
 
@@ -256,28 +254,42 @@ struct MemoWidgetEntryView : View {
             return (left: text, right: "")
         }
 
-        let midpoint = chars.count / 2
+        let target = min(chars.count - 1, mediumPrimaryColumnCapacity * mediumApproxCharactersPerRow)
         let window = 20
-        let lower = max(1, midpoint - window)
-        let upper = min(chars.count - 1, midpoint + window)
+        let lower = max(1, target - window)
+        let upper = min(chars.count - 1, target + window)
         let boundaryCharacters = CharacterSet(charactersIn: " 、。,.!?:;/-")
 
-        if let boundary = (lower...upper).first(where: { index in
+        if let forwardBoundary = (target...upper).first(where: { index in
             let scalar = String(chars[index]).unicodeScalars.first
             guard let scalar else { return false }
             return boundaryCharacters.contains(scalar)
         }) {
             return (
-                left: String(chars[0..<boundary]),
-                right: String(chars[boundary..<chars.count])
+                left: String(chars[0..<forwardBoundary]),
+                right: String(chars[forwardBoundary..<chars.count])
+            )
+        }
+
+        if let backwardBoundary = stride(from: target, through: lower, by: -1).first(where: { index in
+            let scalar = String(chars[index]).unicodeScalars.first
+            guard let scalar else { return false }
+            return boundaryCharacters.contains(scalar)
+        }) {
+            return (
+                left: String(chars[0..<backwardBoundary]),
+                right: String(chars[backwardBoundary..<chars.count])
             )
         }
 
         return (
-            left: String(chars[0..<midpoint]),
-            right: String(chars[midpoint..<chars.count])
+            left: String(chars[0..<target]),
+            right: String(chars[target..<chars.count])
         )
     }
+
+    private var mediumApproxCharactersPerRow: Int { 11 }
+    private var mediumPrimaryColumnCapacity: Int { 12 }
 
     private var header: some View {
         HStack(alignment: .center, spacing: 3) {
