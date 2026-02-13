@@ -29,28 +29,30 @@ struct ScheduleEntry: TimelineEntry {
     let date: Date
     let events: [ScheduleEventItem]
     let tasks: [ScheduleTaskItem]
+    let nextInlineEvent: ScheduleEventItem?
 }
 
 struct ScheduleProvider: TimelineProvider {
     private static let externalCalendarEventsDefaultsKey = "ExternalCalendarEvents_Storage_V1"
 
     func placeholder(in context: Context) -> ScheduleEntry {
-        ScheduleEntry(
+        let sampleEvent = ScheduleEventItem(
+            id: UUID(),
+            title: "10:00 チームMTG",
+            startDate: Date(),
+            endDate: Date().addingTimeInterval(60 * 60),
+            isAllDay: false,
+            categoryName: "仕事"
+        )
+
+        return ScheduleEntry(
             date: Date(),
-            events: [
-                ScheduleEventItem(
-                    id: UUID(),
-                    title: "10:00 チームMTG",
-                    startDate: Date(),
-                    endDate: Date().addingTimeInterval(60 * 60),
-                    isAllDay: false,
-                    categoryName: "仕事"
-                )
-            ],
+            events: [sampleEvent],
             tasks: [
                 ScheduleTaskItem(id: UUID(), title: "週次レポート提出", priority: .high),
                 ScheduleTaskItem(id: UUID(), title: "買い物メモ整理", priority: .medium)
-            ]
+            ],
+            nextInlineEvent: sampleEvent
         )
     }
 
@@ -71,17 +73,27 @@ struct ScheduleProvider: TimelineProvider {
 
     @MainActor
     private func loadEntry(for date: Date) -> ScheduleEntry {
-        ScheduleEntry(
+        let todayEvents = fetchEvents(on: date)
+        return ScheduleEntry(
             date: date,
-            events: fetchEvents(on: date),
-            tasks: fetchTasks(on: date)
+            events: todayEvents,
+            tasks: fetchTasks(on: date),
+            nextInlineEvent: fetchNextInlineEvent(from: date)
         )
     }
 
     @MainActor
     private func fetchEvents(on date: Date) -> [ScheduleEventItem] {
-        let internalEvents = fetchInternalEvents(on: date)
-        let externalEvents = fetchExternalEvents(on: date)
+        let calendar = Calendar.current
+        let dayStart = calendar.startOfDay(for: date)
+        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return [] }
+        return fetchEvents(from: dayStart, to: dayEnd)
+    }
+
+    @MainActor
+    private func fetchEvents(from rangeStart: Date, to rangeEnd: Date) -> [ScheduleEventItem] {
+        let internalEvents = fetchInternalEvents(from: rangeStart, to: rangeEnd)
+        let externalEvents = fetchExternalEvents(from: rangeStart, to: rangeEnd)
         let merged = (internalEvents + externalEvents).reduce(into: [UUID: ScheduleEventItem]()) { result, item in
             if let existing = result[item.id] {
                 result[item.id] = existing.startDate <= item.startDate ? existing : item
@@ -96,15 +108,11 @@ struct ScheduleProvider: TimelineProvider {
     }
 
     @MainActor
-    private func fetchInternalEvents(on date: Date) -> [ScheduleEventItem] {
+    private func fetchInternalEvents(from rangeStart: Date, to rangeEnd: Date) -> [ScheduleEventItem] {
         do {
             let context = PersistenceController.shared.container.mainContext
-            let calendar = Calendar.current
-            let dayStart = calendar.startOfDay(for: date)
-            guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return [] }
-
             let descriptor = FetchDescriptor<SDCalendarEvent>(
-                predicate: #Predicate<SDCalendarEvent> { $0.startDate < dayEnd && $0.endDate > dayStart },
+                predicate: #Predicate<SDCalendarEvent> { $0.startDate < rangeEnd && $0.endDate > rangeStart },
                 sortBy: [SortDescriptor(\.startDate)]
             )
 
@@ -123,17 +131,13 @@ struct ScheduleProvider: TimelineProvider {
         }
     }
 
-    private func fetchExternalEvents(on date: Date) -> [ScheduleEventItem] {
+    private func fetchExternalEvents(from rangeStart: Date, to rangeEnd: Date) -> [ScheduleEventItem] {
         let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier) ?? UserDefaults.standard
         guard let data = defaults.data(forKey: Self.externalCalendarEventsDefaultsKey) else { return [] }
         guard let externalEvents = try? JSONDecoder().decode([CalendarEvent].self, from: data) else { return [] }
 
-        let calendar = Calendar.current
-        let dayStart = calendar.startOfDay(for: date)
-        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return [] }
-
         return externalEvents
-            .filter { $0.startDate < dayEnd && $0.endDate > dayStart }
+            .filter { $0.startDate < rangeEnd && $0.endDate > rangeStart }
             .sorted {
                 if $0.startDate != $1.startDate { return $0.startDate < $1.startDate }
                 return $0.title < $1.title
@@ -148,6 +152,24 @@ struct ScheduleProvider: TimelineProvider {
                     categoryName: $0.calendarName
                 )
             }
+    }
+
+    @MainActor
+    private func fetchNextInlineEvent(from date: Date) -> ScheduleEventItem? {
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: date)
+        guard let searchEnd = calendar.date(byAdding: .day, value: 2, to: todayStart) else { return nil }
+
+        return fetchEvents(from: todayStart, to: searchEnd)
+            .filter { $0.endDate > date }
+            .sorted { lhs, rhs in
+                let lhsAnchor = max(lhs.startDate.timeIntervalSince1970, date.timeIntervalSince1970)
+                let rhsAnchor = max(rhs.startDate.timeIntervalSince1970, date.timeIntervalSince1970)
+                if lhsAnchor != rhsAnchor { return lhsAnchor < rhsAnchor }
+                if lhs.startDate != rhs.startDate { return lhs.startDate < rhs.startDate }
+                return lhs.title < rhs.title
+            }
+            .first
     }
 
     @MainActor
@@ -408,10 +430,11 @@ struct ScheduleWidgetEntryView: View {
     private var inlineLockScreenText: some View {
         let taskPrefix = inlinePendingTaskPrefix
 
-        if let firstEvent = entry.events.first {
-            let timeText: String = firstEvent.isAllDay ? "終日" : ScheduleWidgetFormatter.time.string(from: firstEvent.startDate)
+        if let nextEvent = entry.nextInlineEvent {
+            let dayPrefix = inlineDayPrefix(for: nextEvent.startDate)
+            let timeText: String = nextEvent.isAllDay ? "終日" : ScheduleWidgetFormatter.time.string(from: nextEvent.startDate)
             return (
-                Text("\(taskPrefix)\(timeText) \(firstEvent.title)")
+                Text("\(taskPrefix)\(dayPrefix)\(timeText) \(nextEvent.title)")
             )
             .lineLimit(1)
         } else {
@@ -427,6 +450,20 @@ struct ScheduleWidgetEntryView: View {
         guard count > 0 else { return "" }
         let compactCount = count > 9 ? "9+" : "\(count)"
         return "□\(compactCount) "
+    }
+
+    private func inlineDayPrefix(for eventDate: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDate(eventDate, inSameDayAs: entry.date) {
+            return ""
+        }
+
+        if let tomorrow = calendar.date(byAdding: .day, value: 1, to: entry.date),
+           calendar.isDate(eventDate, inSameDayAs: tomorrow) {
+            return "明日 "
+        }
+
+        return ""
     }
 
     private var header: some View {
