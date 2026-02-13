@@ -224,34 +224,43 @@ struct MemoWidgetEntryView : View {
             return (left: text, right: "")
         }
 
-        let characters = Array(text)
-        let midpoint = max(1, characters.count / 2)
-        let window = 24
-        let lower = max(1, midpoint - window)
-        let upper = min(characters.count - 1, midpoint + window)
+        let visualLines = chunkedLinesForMedium(text, approxCharactersPerLine: 12)
+        let midpoint = Int(ceil(Double(visualLines.count) * 0.5))
+        let left = visualLines.prefix(midpoint).joined(separator: "\n")
+        let right = visualLines.dropFirst(midpoint).joined(separator: "\n")
+        return (left: left, right: right)
+    }
 
-        // Prefer splitting at explicit line breaks near center.
-        if let newlineIndex = (lower...upper).first(where: { characters[$0] == "\n" }) {
-            let split = min(characters.count, newlineIndex + 1)
-            return (
-                left: String(characters[0..<split]),
-                right: String(characters[split..<characters.count])
-            )
+    private func chunkedLinesForMedium(_ text: String, approxCharactersPerLine: Int) -> [String] {
+        guard approxCharactersPerLine > 0 else { return [text] }
+
+        var lines: [String] = []
+        var current = ""
+
+        func flush(force: Bool = false) {
+            if force || current.isEmpty == false {
+                lines.append(current)
+                current = ""
+            }
         }
 
-        // Otherwise split at whitespace near center (without trimming anything).
-        if let spaceIndex = (lower...upper).first(where: { characters[$0].isWhitespace }) {
-            let split = min(characters.count, spaceIndex + 1)
-            return (
-                left: String(characters[0..<split]),
-                right: String(characters[split..<characters.count])
-            )
+        for character in text {
+            if character == "\n" {
+                flush(force: true)
+                continue
+            }
+
+            current.append(character)
+            if current.count >= approxCharactersPerLine {
+                flush()
+            }
         }
 
-        return (
-            left: String(characters[0..<midpoint]),
-            right: String(characters[midpoint..<characters.count])
-        )
+        if current.isEmpty == false {
+            lines.append(current)
+        }
+
+        return lines.isEmpty ? [text] : lines
     }
 
     private var header: some View {
