@@ -137,7 +137,7 @@ struct MemoWidgetEntryView : View {
     private var textLineLimit: Int {
         switch family {
         case .systemSmall: return 11
-        case .systemMedium: return 16
+        case .systemMedium: return 0
         default: return 24
         }
     }
@@ -197,18 +197,18 @@ struct MemoWidgetEntryView : View {
     }
 
     private var mediumTwoColumnText: some View {
-        let columns = splitIntoTwoColumns(normalizedText)
+        let columns = splitIntoTwoColumnsPreservingContent(normalizedText)
 
         return HStack(alignment: .top, spacing: 8) {
-            memoText(columns.left, lineLimit: textLineLimit)
+            memoText(columns.left, lineLimit: nil)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
 
-            memoText(columns.right, lineLimit: textLineLimit)
+            memoText(columns.right, lineLimit: nil)
                 .frame(maxWidth: .infinity, alignment: .topLeading)
         }
     }
 
-    private func memoText(_ text: String, lineLimit: Int) -> some View {
+    private func memoText(_ text: String, lineLimit: Int?) -> some View {
         Text(text)
             .font(bodyFont)
             .foregroundStyle(
@@ -219,21 +219,39 @@ struct MemoWidgetEntryView : View {
             .multilineTextAlignment(.leading)
     }
 
-    private func splitIntoTwoColumns(_ text: String) -> (left: String, right: String) {
-        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard cleaned.count > 1 else {
-            return (left: cleaned, right: "")
+    private func splitIntoTwoColumnsPreservingContent(_ text: String) -> (left: String, right: String) {
+        guard text.count > 1 else {
+            return (left: text, right: "")
         }
 
-        let characters = Array(cleaned)
-        let split = max(1, characters.count / 2)
-        let left = String(characters[0..<split]).trimmingCharacters(in: .whitespacesAndNewlines)
-        let right = String(characters[split..<characters.count]).trimmingCharacters(in: .whitespacesAndNewlines)
+        let characters = Array(text)
+        let midpoint = max(1, characters.count / 2)
+        let window = 24
+        let lower = max(1, midpoint - window)
+        let upper = min(characters.count - 1, midpoint + window)
 
-        if right.isEmpty {
-            return (left: cleaned, right: "")
+        // Prefer splitting at explicit line breaks near center.
+        if let newlineIndex = (lower...upper).first(where: { characters[$0] == "\n" }) {
+            let split = min(characters.count, newlineIndex + 1)
+            return (
+                left: String(characters[0..<split]),
+                right: String(characters[split..<characters.count])
+            )
         }
-        return (left: left, right: right)
+
+        // Otherwise split at whitespace near center (without trimming anything).
+        if let spaceIndex = (lower...upper).first(where: { characters[$0].isWhitespace }) {
+            let split = min(characters.count, spaceIndex + 1)
+            return (
+                left: String(characters[0..<split]),
+                right: String(characters[split..<characters.count])
+            )
+        }
+
+        return (
+            left: String(characters[0..<midpoint]),
+            right: String(characters[midpoint..<characters.count])
+        )
     }
 
     private var header: some View {
