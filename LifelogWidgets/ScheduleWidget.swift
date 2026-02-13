@@ -202,6 +202,13 @@ private enum ScheduleWidgetFormatter {
         return formatter
     }()
 
+    static let inlineDate: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "MM/dd(E)"
+        return formatter
+    }()
+
     static let time: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
@@ -385,20 +392,43 @@ struct ScheduleWidgetEntryView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            header
-            if hasContent {
-                rows
-                overflowSummary
-            } else {
-                emptyLine("予定・タスクはありません")
+        if family == .accessoryInline {
+            inlineLockScreenText
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                header
+                if hasContent {
+                    rows
+                    overflowSummary
+                } else {
+                    emptyLine("予定・タスクはありません")
+                }
+                Spacer(minLength: 0)
             }
-            Spacer(minLength: 0)
+            .foregroundStyle(.primary)
+            .padding(.vertical, family == .systemSmall ? 7 : 8)
+            .padding(.horizontal, family == .systemSmall ? 8 : 9)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .foregroundStyle(.primary)
-        .padding(.vertical, family == .systemSmall ? 7 : 8)
-        .padding(.horizontal, family == .systemSmall ? 8 : 9)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private var inlineLockScreenText: some View {
+        let dateText = ScheduleWidgetFormatter.inlineDate.string(from: entry.date)
+        if let firstEvent = entry.events.first {
+            return (
+                Text("\(dateText) ")
+                + Text(Image(systemName: "calendar"))
+                + Text(" \(eventTimeLabel(firstEvent)) \(firstEvent.title)")
+            )
+            .lineLimit(1)
+        } else {
+            return (
+                Text("\(dateText) ")
+                + Text(Image(systemName: "calendar"))
+                + Text(" 予定なし")
+            )
+            .lineLimit(1)
+        }
     }
 
     private var header: some View {
@@ -528,7 +558,7 @@ struct ScheduleWidget: Widget {
         }
         .configurationDisplayName("今日の予定とタスク")
         .description("日付・曜日・当日の予定・未完了タスクを表示します。")
-        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .accessoryInline])
         .contentMarginsDisabled()
     }
 }
