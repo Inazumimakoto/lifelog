@@ -403,7 +403,7 @@ struct TodayView: View {
                 Divider()
                 VStack(alignment: .leading, spacing: 4) {
                     if viewModel.calendarAccessDenied {
-                        Text("設定 > プライバシーとセキュリティ > カレンダーでlifelogへのアクセスを許可すると、外部カレンダーの予定が表示されます。")
+                        Text("設定 > プライバシーとセキュリティ > カレンダーでlifelifyへのアクセスを許可すると、外部カレンダーの予定が表示されます。")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

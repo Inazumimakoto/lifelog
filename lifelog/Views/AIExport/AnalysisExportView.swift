@@ -178,7 +178,7 @@ struct AnalysisExportView: View {
                     // ShareLink を使用（iOS 16+、シート競合を回避）
                     ShareLink(
                         item: generatedText,
-                        subject: Text("Lifelog AI分析データ"),
+                        subject: Text("Lifelify AI分析データ"),
                         message: Text("ライフログのAI分析用データです")
                     ) {
                         Label("ファイルとして書き出し", systemImage: "square.and.arrow.up")

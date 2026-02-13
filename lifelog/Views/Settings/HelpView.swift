@@ -16,7 +16,7 @@ struct HelpView: View {
                 // 概要
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("lifelogへようこそ！")
+                        Text("lifelifyへようこそ！")
                             .font(.headline)
                         Text("毎日の生活を記録し、振り返るためのアプリです。日記、習慣、予定、健康データを一元管理できます。")
                             .font(.subheadline)

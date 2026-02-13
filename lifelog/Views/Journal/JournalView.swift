@@ -449,7 +449,7 @@ struct JournalView: View {
                     }
                 }
                 if viewModel.calendarAccessDenied {
-                    Text("設定 > プライバシーとセキュリティ > カレンダーでlifelogへのアクセスを許可すると外部カレンダーの予定が表示されます。")
+                    Text("設定 > プライバシーとセキュリティ > カレンダーでlifelifyへのアクセスを許可すると外部カレンダーの予定が表示されます。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .frame(maxWidth: .infinity, alignment: .leading)

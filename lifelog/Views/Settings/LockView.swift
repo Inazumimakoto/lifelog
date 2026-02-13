@@ -20,7 +20,7 @@ struct LockView: View {
                     .font(.system(size: 60))
                     .foregroundStyle(.secondary)
                 
-                Text("lifelogはロックされています")
+                Text("lifelifyはロックされています")
                     .font(.headline)
                 
                 Button {

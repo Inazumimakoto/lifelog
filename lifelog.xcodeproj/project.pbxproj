@@ -41,7 +41,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		0E6196E62EC5A3A000A0734C /* lifelog.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = lifelog.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		0E6196E62EC5A3A000A0734C /* lifelify.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = lifelify.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		0EB039712EE55C1200AFE3B0 /* LifelogWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LifelogWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		0EB039732EE55C1200AFE3B0 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		0EB039752EE55C1200AFE3B0 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
@@ -132,7 +132,7 @@
 		0E6196E72EC5A3A000A0734C /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				0E6196E62EC5A3A000A0734C /* lifelog.app */,
+				0E6196E62EC5A3A000A0734C /* lifelify.app */,
 				0EB039712EE55C1200AFE3B0 /* LifelogWidgetsExtension.appex */,
 			);
 			name = Products;
@@ -175,7 +175,7 @@
 				0E027D522EEBD9C4006CB36F /* FirebaseStorage */,
 			);
 			productName = lifelog;
-			productReference = 0E6196E62EC5A3A000A0734C /* lifelog.app */;
+			productReference = 0E6196E62EC5A3A000A0734C /* lifelify.app */;
 			productType = "com.apple.product-type.application";
 		};
 		0EB039702EE55C1200AFE3B0 /* LifelogWidgetsExtension */ = {
@@ -417,7 +417,7 @@
 				CODE_SIGN_ENTITLEMENTS = lifelog/lifelog.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 44;
+				CURRENT_PROJECT_VERSION = 45;
 				DEVELOPMENT_TEAM = V7XG8HDQL4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -436,9 +436,9 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.12.0;
+				MARKETING_VERSION = 1.13.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.inazumimakoto.lifelog;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = lifelify;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -458,7 +458,7 @@
 				CODE_SIGN_ENTITLEMENTS = lifelog/lifelog.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 44;
+				CURRENT_PROJECT_VERSION = 45;
 				DEVELOPMENT_TEAM = V7XG8HDQL4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -477,9 +477,9 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.12.0;
+				MARKETING_VERSION = 1.13.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.inazumimakoto.lifelog;
-				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = lifelify;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
@@ -504,7 +504,7 @@
 				DEVELOPMENT_TEAM = V7XG8HDQL4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LifelogWidgets/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = LifelogWidgets;
+				INFOPLIST_KEY_CFBundleDisplayName = lifelify;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -539,7 +539,7 @@
 				DEVELOPMENT_TEAM = V7XG8HDQL4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LifelogWidgets/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = LifelogWidgets;
+				INFOPLIST_KEY_CFBundleDisplayName = lifelify;
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (

@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "0E6196E52EC5A3A000A0734C"
-               BuildableName = "lifelog.app"
+               BuildableName = "lifelify.app"
                BlueprintName = "lifelog"
                ReferencedContainer = "container:lifelog.xcodeproj">
             </BuildableReference>
@@ -45,7 +45,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "0E6196E52EC5A3A000A0734C"
-            BuildableName = "lifelog.app"
+            BuildableName = "lifelify.app"
             BlueprintName = "lifelog"
             ReferencedContainer = "container:lifelog.xcodeproj">
          </BuildableReference>
@@ -62,7 +62,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "0E6196E52EC5A3A000A0734C"
-            BuildableName = "lifelog.app"
+            BuildableName = "lifelify.app"
             BlueprintName = "lifelog"
             ReferencedContainer = "container:lifelog.xcodeproj">
          </BuildableReference>
