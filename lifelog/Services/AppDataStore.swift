@@ -1233,8 +1233,8 @@ final class AppDataStore: ObservableObject {
         }
 
         let targetDate = calendar.startOfDay(for: fireDate)
-        let eventTitles = events(on: targetDate).map(\.title)
-        let taskTitles = tasks
+        let targetEvents = events(on: targetDate)
+        let targetTasks = tasks
             .filter { !$0.isCompleted && isTask($0, scheduledOn: targetDate) }
             .sorted(by: { lhs, rhs in
                 if lhs.priority.rawValue != rhs.priority.rawValue {
@@ -1247,33 +1247,73 @@ final class AppDataStore: ObservableObject {
                 }
                 return lhs.title < rhs.title
             })
-            .map(\.title)
 
-        let body = todayOverviewBody(eventTitles: eventTitles, taskTitles: taskTitles)
+        let body = todayOverviewBody(targetDate: targetDate, events: targetEvents, tasks: targetTasks)
         NotificationService.shared.scheduleTodayOverviewReminder(fireDate: fireDate, body: body)
     }
 
-    private func todayOverviewBody(eventTitles: [String], taskTitles: [String]) -> String {
-        let eventSummary = summarizedTitles(eventTitles, limit: 3)
-        let taskSummary = summarizedTitles(taskTitles, limit: 3)
-        return "予定: \(eventSummary) ／ タスク: \(taskSummary)"
+    private func todayOverviewBody(targetDate: Date, events: [CalendarEvent], tasks: [Task]) -> String {
+        let eventLines = summarizedEventLines(events, on: targetDate, limit: 3)
+        let taskLines = summarizedTaskLines(tasks, limit: 3)
+        return [
+            "予定",
+            eventLines.joined(separator: "\n"),
+            "タスク",
+            taskLines.joined(separator: "\n")
+        ].joined(separator: "\n")
     }
 
-    private func summarizedTitles(_ titles: [String], limit: Int) -> String {
-        let normalizedTitles = titles
+    private func summarizedEventLines(_ events: [CalendarEvent], on date: Date, limit: Int) -> [String] {
+        let normalizedEvents = events.compactMap { event -> CalendarEvent? in
+            let normalizedTitle = event.title.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard normalizedTitle.isEmpty == false else { return nil }
+            var normalizedEvent = event
+            normalizedEvent.title = normalizedTitle
+            return normalizedEvent
+        }
+
+        guard normalizedEvents.isEmpty == false else {
+            return ["なし"]
+        }
+
+        let listedLines = Array(normalizedEvents.prefix(limit)).map { event in
+            todayOverviewEventLine(for: event, on: date)
+        }
+        let remainderCount = normalizedEvents.count - listedLines.count
+        if remainderCount > 0 {
+            return listedLines + ["ほか\(remainderCount)件"]
+        }
+        return listedLines
+    }
+
+    private func summarizedTaskLines(_ tasks: [Task], limit: Int) -> [String] {
+        let normalizedTitles = tasks.map(\.title)
             .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
 
         guard normalizedTitles.isEmpty == false else {
-            return "なし"
+            return ["なし"]
         }
 
-        let listedTitles = Array(normalizedTitles.prefix(limit))
-        let remainderCount = normalizedTitles.count - listedTitles.count
+        let listedLines = Array(normalizedTitles.prefix(limit)).map { "・\($0)" }
+        let remainderCount = normalizedTitles.count - listedLines.count
         if remainderCount > 0 {
-            return "\(listedTitles.joined(separator: "、")) ほか\(remainderCount)件"
+            return listedLines + ["ほか\(remainderCount)件"]
         }
-        return listedTitles.joined(separator: "、")
+        return listedLines
+    }
+
+    private func todayOverviewEventLine(for event: CalendarEvent, on date: Date) -> String {
+        let calendar = Calendar.current
+        let timeLabel: String
+        if event.isAllDay {
+            timeLabel = "終日"
+        } else if calendar.isDate(event.startDate, inSameDayAs: date) {
+            timeLabel = event.startDate.formattedTime()
+        } else {
+            timeLabel = "継続"
+        }
+        return "・\(timeLabel) \(event.title)"
     }
 
     // MARK: - Letter to the Future
