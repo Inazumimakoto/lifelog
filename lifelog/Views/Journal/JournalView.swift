@@ -1323,7 +1323,7 @@ struct JournalView: View {
         let pendingTasks = sortedTasks.filter { $0.isCompleted == false }
         let completedTasks = sortedTasks.filter(\.isCompleted)
         let statuses = store.habits
-            .filter { $0.schedule.isActive(on: date) }
+            .filter { !$0.isArchived && $0.schedule.isActive(on: date) }
             .map { habit in
                 TodayViewModel.DailyHabitStatus(habit: habit,
                                                 record: store.habitRecords.first {

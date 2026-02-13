@@ -877,7 +877,7 @@ final class AppDataStore: ObservableObject {
     
     private func checkAllHabitsComplete(on date: Date) {
         let calendar = Calendar.current
-        let activeHabits = habits.filter { $0.schedule.isActive(on: date) }
+        let activeHabits = habits.filter { !$0.isArchived && $0.schedule.isActive(on: date) }
         guard !activeHabits.isEmpty else { return }
         
         let allComplete = activeHabits.allSatisfy { habit in

@@ -79,7 +79,7 @@ final class TodayViewModel: ObservableObject {
             }.sorted(by: self.sortTasks)
 
             self.habitStatuses = self.store.habits
-                .filter { $0.schedule.isActive(on: self.date) }
+                .filter { !$0.isArchived && $0.schedule.isActive(on: self.date) }
                 .map { habit in
                     DailyHabitStatus(habit: habit,
                                      record: self.store.habitRecords.first {
