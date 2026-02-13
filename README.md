@@ -90,7 +90,7 @@
 ### 📈 Code Stats
 
 <p align="center">
-  📝 総行数: <strong>51,464</strong> &nbsp;•&nbsp; � Swiftコード: <strong>35,736</strong> &nbsp;•&nbsp; �📦 最大ファイル: <strong>JournalView.swift</strong> (3,530 行)
+  📝 総行数: <strong>51,464</strong> &nbsp;•&nbsp; 📁 lifelog配下: <strong>33,995</strong> &nbsp;•&nbsp; 📄 ファイル数: <strong>154</strong> &nbsp;•&nbsp; 🧠 Swiftコード: <strong>35,736</strong> &nbsp;•&nbsp; 📦 最大ファイル: <strong>JournalView.swift</strong> (3,530 行)
 </p>
 
 <sub>Stats 自動更新</sub>
@@ -110,8 +110,6 @@
 | `public` | 163 |
 | `.github` | 132 |
 <!-- dir-loc-end -->
-
-
 <br>
 
 | アプリ規模 | 行数 | 
