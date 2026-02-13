@@ -17,6 +17,8 @@ private struct AnniversaryWidgetModel {
     let type: AnniversaryType
     let repeatsYearly: Bool
     let startDate: Date?
+    let startLabel: String?
+    let endLabel: String?
 }
 
 private enum AnniversaryWidgetStore {
@@ -32,7 +34,9 @@ private enum AnniversaryWidgetStore {
                     targetDate: $0.targetDate,
                     type: $0.type,
                     repeatsYearly: $0.repeatsYearly,
-                    startDate: $0.startDate
+                    startDate: $0.startDate,
+                    startLabel: $0.startLabel,
+                    endLabel: $0.endLabel
                 )
             }
         } catch {
@@ -52,7 +56,9 @@ private enum AnniversaryWidgetStore {
                     targetDate: $0.targetDate,
                     type: $0.type,
                     repeatsYearly: $0.repeatsYearly,
-                    startDate: $0.startDate
+                    startDate: $0.startDate,
+                    startLabel: $0.startLabel,
+                    endLabel: $0.endLabel
                 )
             }
         } catch {
@@ -123,6 +129,7 @@ private struct AnniversaryPresentation {
     let title: String
     let valueText: String
     let subtitleText: String
+    let elapsedFromStartText: String?
     let anchorDateText: String
     let progress: Double?
     let progressText: String?
@@ -136,6 +143,8 @@ private enum AnniversaryCalculation {
     static func presentation(for model: AnniversaryWidgetModel, now: Date) -> AnniversaryPresentation {
         let today = calendar.startOfDay(for: now)
         let effectiveTarget = resolvedTargetDate(for: model, today: today)
+        let startLabel = normalizedLabel(model.startLabel)
+        let endLabel = normalizedLabel(model.endLabel)
 
         let valueText: String
         let subtitleText: String
@@ -147,7 +156,7 @@ private enum AnniversaryCalculation {
             let days = max(0, dayDiff(from: today, to: effectiveTarget))
             valueText = "D-\(days)"
             subtitleText = days == 0 ? "今日です" : "あと\(days)日"
-            anchorText = "終了: \(AnniversaryFormatter.fullDate.string(from: effectiveTarget))"
+            anchorText = "\(endLabel ?? "終了"): \(AnniversaryFormatter.fullDate.string(from: effectiveTarget))"
             accent = .blue
 
         case .since:
@@ -155,19 +164,24 @@ private enum AnniversaryCalculation {
             let days = max(0, dayDiff(from: startPoint, to: today))
             valueText = "+\(days)"
             subtitleText = "\(days)日経過"
-            anchorText = "起点: \(AnniversaryFormatter.fullDate.string(from: startPoint))"
+            anchorText = "\(endLabel ?? "起点"): \(AnniversaryFormatter.fullDate.string(from: startPoint))"
             accent = .orange
         }
 
+        var elapsedFromStartText: String?
         var progress: Double?
         var progressText: String?
         var rangeText: String?
         if let configuredStart = model.startDate {
             let startPoint = resolvedProgressStartDate(configuredStart, model: model, effectiveTarget: effectiveTarget)
+            let elapsed = max(0, dayDiff(from: startPoint, to: today))
+            elapsedFromStartText = "\(startLabel ?? "開始から") \(elapsed)日"
             if let rate = progressRate(start: startPoint, end: effectiveTarget, now: today) {
                 progress = rate
                 progressText = "\(Int(rate * 100))%"
-                rangeText = "\(AnniversaryFormatter.shortDate.string(from: startPoint)) - \(AnniversaryFormatter.shortDate.string(from: effectiveTarget))"
+                let startName = startLabel ?? "開始"
+                let endName = endLabel ?? "終了"
+                rangeText = "\(startName) \(AnniversaryFormatter.shortDate.string(from: startPoint)) - \(endName) \(AnniversaryFormatter.shortDate.string(from: effectiveTarget))"
             }
         }
 
@@ -175,12 +189,19 @@ private enum AnniversaryCalculation {
             title: model.title,
             valueText: valueText,
             subtitleText: subtitleText,
+            elapsedFromStartText: elapsedFromStartText,
             anchorDateText: anchorText,
             progress: progress,
             progressText: progressText,
             rangeText: rangeText,
             accentColor: accent
         )
+    }
+
+    private static func normalizedLabel(_ raw: String?) -> String? {
+        guard let raw else { return nil }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 
     private static func resolvedTargetDate(for model: AnniversaryWidgetModel, today: Date) -> Date {
@@ -335,6 +356,13 @@ private struct AnniversaryWidgetEntryView: View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
 
+            if let elapsed = p.elapsedFromStartText {
+                Text(elapsed)
+                    .font(.system(size: 10, weight: .medium, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
             if let progress = p.progress {
                 AnniversaryProgressBar(value: progress, color: p.accentColor)
             }
@@ -357,6 +385,12 @@ private struct AnniversaryWidgetEntryView: View {
                     Text(p.subtitleText)
                         .font(.system(size: 12, weight: .medium, design: .rounded))
                         .foregroundStyle(.secondary)
+                    if let elapsed = p.elapsedFromStartText {
+                        Text(elapsed)
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
                 Spacer(minLength: 0)
                 Text(p.valueText)
@@ -403,6 +437,13 @@ private struct AnniversaryWidgetEntryView: View {
                     .minimumScaleFactor(0.75)
             }
 
+            if let elapsed = p.elapsedFromStartText {
+                Text(elapsed)
+                    .font(.system(size: 12, weight: .medium, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
             if let progress = p.progress {
                 AnniversaryProgressBar(value: progress, color: p.accentColor)
                     .frame(height: 10)
@@ -442,7 +483,9 @@ private struct AnniversaryProvider: AppIntentTimelineProvider {
                 targetDate: Date().addingTimeInterval(60 * 60 * 24 * 10),
                 type: .countdown,
                 repeatsYearly: true,
-                startDate: Date().addingTimeInterval(-60 * 60 * 24 * 20)
+                startDate: Date().addingTimeInterval(-60 * 60 * 24 * 20),
+                startLabel: "開始から",
+                endLabel: "誕生日まで"
             )
         )
     }
