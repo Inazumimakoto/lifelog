@@ -136,41 +136,41 @@ struct MemoWidgetEntryView : View {
 
     private var textLineLimit: Int {
         switch family {
-        case .systemSmall: return 6
-        case .systemMedium: return 8
-        default: return 12
+        case .systemSmall: return 8
+        case .systemMedium: return 11
+        default: return 15
         }
     }
 
     private var bodyFont: Font {
         switch family {
         case .systemSmall:
-            return .system(size: 12, weight: .medium, design: .rounded)
+            return .system(size: 11.5, weight: .medium, design: .rounded)
         case .systemMedium:
-            return .system(size: 13, weight: .medium, design: .rounded)
+            return .system(size: 12, weight: .medium, design: .rounded)
         default:
-            return .system(size: 15, weight: .medium, design: .rounded)
+            return .system(size: 13.5, weight: .medium, design: .rounded)
         }
     }
 
     private var horizontalPadding: CGFloat {
         switch family {
-        case .systemSmall: return 11
-        case .systemMedium: return 12
-        default: return 14
+        case .systemSmall: return 8
+        case .systemMedium: return 9
+        default: return 10
         }
     }
 
     private var verticalPadding: CGFloat {
         switch family {
-        case .systemSmall: return 10
-        case .systemMedium: return 11
-        default: return 14
+        case .systemSmall: return 7
+        case .systemMedium: return 8
+        default: return 9
         }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 5) {
             header
 
             Text(normalizedText)
@@ -179,6 +179,7 @@ struct MemoWidgetEntryView : View {
                     normalizedText == "メモはありません" || entry.isHidden ? .secondary : .primary
                 )
                 .lineLimit(textLineLimit)
+                .lineSpacing(1)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
 
             if entry.isHidden && entry.requiresOpenAuth {
@@ -191,34 +192,26 @@ struct MemoWidgetEntryView : View {
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
             }
-
-            if family == .systemSmall, let updatedAt = entry.updatedAt {
-                Text("更新 \(MemoWidgetFormatter.updatedAt.string(from: updatedAt))")
-                    .font(.system(size: 9.5, weight: .regular, design: .rounded))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
-            }
         }
         .padding(.horizontal, horizontalPadding)
         .padding(.vertical, verticalPadding)
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 6) {
+        HStack(alignment: .center, spacing: 4) {
             Image(systemName: "note.text")
-                .font(.system(size: 12, weight: .semibold))
+                .font(.system(size: family == .systemSmall ? 11 : 12, weight: .semibold))
                 .foregroundStyle(.secondary)
 
             Text("メモ")
-                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .font(.system(size: family == .systemSmall ? 11 : 12, weight: .semibold, design: .rounded))
                 .foregroundStyle(.secondary)
 
             Spacer(minLength: 0)
 
             if family != .systemSmall, let updatedAt = entry.updatedAt {
                 Text(MemoWidgetFormatter.updatedAt.string(from: updatedAt))
-                    .font(.system(size: 10, weight: .regular, design: .rounded))
+                    .font(.system(size: 9, weight: .regular, design: .rounded))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -246,5 +239,6 @@ struct MemoWidget: Widget {
         .configurationDisplayName("メモ")
         .description("メモ内容を表示します。タップでメモ編集を開けます。")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+        .contentMarginsDisabled()
     }
 }

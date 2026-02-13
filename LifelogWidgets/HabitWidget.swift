@@ -22,12 +22,23 @@ struct HabitWidgetModel: Identifiable {
     let completions: [Bool] // Sun...Sat (7 cells)
 }
 
+struct HabitGrassDay: Identifiable {
+    let date: Date
+    let level: Int // 0...5
+    let isToday: Bool
+
+    var id: Date { date }
+}
+
 struct HabitEntry: TimelineEntry {
     let date: Date
     let habits: [HabitWidgetModel]
+    let grassDays: [HabitGrassDay]
 }
 
 struct HabitProvider: TimelineProvider {
+    private let grassWeeks = 14
+
     private static var widgetCalendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.locale = Locale(identifier: "ja_JP")
@@ -36,7 +47,12 @@ struct HabitProvider: TimelineProvider {
     }
 
     func placeholder(in context: Context) -> HabitEntry {
-        HabitEntry(
+        let calendar = Self.widgetCalendar
+        let today = calendar.startOfDay(for: Date())
+        let weekStart = startOfWeek(containing: today, calendar: calendar)
+        let grassStart = calendar.date(byAdding: .weekOfYear, value: -(grassWeeks - 1), to: weekStart) ?? weekStart
+
+        return HabitEntry(
             date: Date(),
             habits: [
                 HabitWidgetModel(
@@ -53,44 +69,54 @@ struct HabitProvider: TimelineProvider {
                     colorHex: "#3B82F6",
                     completions: [false, true, true, true, false, false, false]
                 )
-            ]
+            ],
+            grassDays: makePlaceholderGrassDays(start: grassStart, weeks: grassWeeks, today: today, calendar: calendar)
         )
     }
 
     func getSnapshot(in context: Context, completion: @escaping (HabitEntry) -> Void) {
         _Concurrency.Task { @MainActor in
-            completion(HabitEntry(date: Date(), habits: fetchHabits()))
+            completion(buildEntry(at: Date()))
         }
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<HabitEntry>) -> Void) {
         _Concurrency.Task { @MainActor in
             let now = Date()
-            let entry = HabitEntry(date: now, habits: fetchHabits())
+            let entry = buildEntry(at: now)
             let next = Calendar.current.date(byAdding: .minute, value: 30, to: now) ?? now.addingTimeInterval(60 * 30)
             completion(Timeline(entries: [entry], policy: .after(next)))
         }
     }
 
     @MainActor
-    private func fetchHabits() -> [HabitWidgetModel] {
+    private func buildEntry(at date: Date) -> HabitEntry {
         do {
             let context = PersistenceController.shared.container.mainContext
-            let habitsDesc = FetchDescriptor<SDHabit>(
+            let activeHabitsDesc = FetchDescriptor<SDHabit>(
                 predicate: #Predicate<SDHabit> { !$0.isArchived },
                 sortBy: [SortDescriptor(\.orderIndex)]
             )
-            let habits = try context.fetch(habitsDesc)
-            guard habits.isEmpty == false else { return [] }
+            let activeHabits = try context.fetch(activeHabitsDesc)
+
+            let allHabitsDesc = FetchDescriptor<SDHabit>(
+                sortBy: [SortDescriptor(\.createdAt)]
+            )
+            let allHabits = try context.fetch(allHabitsDesc)
 
             let calendar = Self.widgetCalendar
-            let today = calendar.startOfDay(for: Date())
+            let today = calendar.startOfDay(for: date)
             let weekStart = startOfWeek(containing: today, calendar: calendar)
             let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? weekStart
 
+            let grassStart = calendar.date(byAdding: .weekOfYear, value: -(grassWeeks - 1), to: weekStart) ?? weekStart
+            let grassEnd = calendar.date(byAdding: .day, value: grassWeeks * 7, to: grassStart) ?? weekEnd
+            let recordsStart = min(weekStart, grassStart)
+            let recordsEnd = max(weekEnd, grassEnd)
+
             let recordsDesc = FetchDescriptor<SDHabitRecord>(
                 predicate: #Predicate<SDHabitRecord> {
-                    $0.isCompleted && $0.date >= weekStart && $0.date < weekEnd
+                    $0.isCompleted && $0.date >= recordsStart && $0.date < recordsEnd
                 }
             )
             let records = try context.fetch(recordsDesc)
@@ -103,7 +129,7 @@ struct HabitProvider: TimelineProvider {
                 }
             )
 
-            return habits.map { habit in
+            let habitRows = activeHabits.map { habit in
                 let weekCompletions = (0..<7).map { offset in
                     let day = calendar.date(byAdding: .day, value: offset, to: weekStart) ?? weekStart
                     return completed.contains(HabitCompletionKey(habitID: habit.id, day: calendar.startOfDay(for: day)))
@@ -117,8 +143,27 @@ struct HabitProvider: TimelineProvider {
                     completions: weekCompletions
                 )
             }
+
+            let grassDays = buildGrassDays(
+                from: allHabits,
+                completed: completed,
+                start: grassStart,
+                weeks: grassWeeks,
+                today: today,
+                calendar: calendar
+            )
+
+            return HabitEntry(
+                date: date,
+                habits: habitRows,
+                grassDays: grassDays
+            )
         } catch {
-            return []
+            return HabitEntry(
+                date: date,
+                habits: [],
+                grassDays: []
+            )
         }
     }
 
@@ -127,6 +172,96 @@ struct HabitProvider: TimelineProvider {
         let weekday = calendar.component(.weekday, from: day)
         let shift = (weekday - calendar.firstWeekday + 7) % 7
         return calendar.date(byAdding: .day, value: -shift, to: day) ?? day
+    }
+
+    private func buildGrassDays(
+        from habits: [SDHabit],
+        completed: Set<HabitCompletionKey>,
+        start: Date,
+        weeks: Int,
+        today: Date,
+        calendar: Calendar
+    ) -> [HabitGrassDay] {
+        guard habits.isEmpty == false else { return [] }
+
+        var results: [HabitGrassDay] = []
+        results.reserveCapacity(weeks * 7)
+
+        for offset in 0..<(weeks * 7) {
+            guard let dayDate = calendar.date(byAdding: .day, value: offset, to: start) else { continue }
+            let day = calendar.startOfDay(for: dayDate)
+            let isFuture = day > today
+
+            let activeHabits = habits.filter { isHabit($0, activeOn: day, calendar: calendar) }
+            let scheduledHabits = activeHabits.filter { $0.scheduleIsActive(on: day) }
+            let completedCount = scheduledHabits.reduce(into: 0) { partial, habit in
+                let key = HabitCompletionKey(habitID: habit.id, day: day)
+                if completed.contains(key) {
+                    partial += 1
+                }
+            }
+
+            results.append(
+                HabitGrassDay(
+                    date: day,
+                    level: grassLevel(
+                        scheduledCount: scheduledHabits.count,
+                        completedCount: completedCount,
+                        isFuture: isFuture
+                    ),
+                    isToday: calendar.isDate(day, inSameDayAs: today)
+                )
+            )
+        }
+
+        return results
+    }
+
+    private func isHabit(_ habit: SDHabit, activeOn day: Date, calendar: Calendar) -> Bool {
+        let createdDay = calendar.startOfDay(for: habit.createdAt)
+        guard createdDay <= day else { return false }
+
+        if let archivedAt = habit.archivedAt {
+            let archivedDay = calendar.startOfDay(for: archivedAt)
+            return day < archivedDay
+        }
+        return true
+    }
+
+    private func grassLevel(scheduledCount: Int, completedCount: Int, isFuture: Bool) -> Int {
+        if isFuture { return 0 }
+        guard scheduledCount > 0 else { return 0 }
+        guard completedCount > 0 else { return 1 }
+
+        let rate = Double(completedCount) / Double(scheduledCount)
+        if rate <= 0.25 {
+            return 2
+        } else if rate <= 0.50 {
+            return 3
+        } else if rate <= 0.75 {
+            return 4
+        }
+        return 5
+    }
+
+    private func makePlaceholderGrassDays(
+        start: Date,
+        weeks: Int,
+        today: Date,
+        calendar: Calendar
+    ) -> [HabitGrassDay] {
+        let pattern = [1, 2, 3, 4, 5, 3, 2]
+        return (0..<(weeks * 7)).compactMap { offset in
+            guard let date = calendar.date(byAdding: .day, value: offset, to: start) else { return nil }
+            let day = calendar.startOfDay(for: date)
+            let isFuture = day > today
+
+            return HabitGrassDay(
+                date: day,
+                level: isFuture ? 0 : pattern[offset % pattern.count],
+                isToday: calendar.isDate(day, inSameDayAs: today)
+            )
+        }
     }
 }
 
@@ -190,6 +325,64 @@ private struct HabitWidgetLayoutMetrics {
     }
 }
 
+private struct HabitMediumSplitMetrics {
+    let size: CGSize
+
+    var outerPadding: CGFloat { 8 }
+    var columnSpacing: CGFloat { 8 }
+
+    var contentWidth: CGFloat {
+        max(0, size.width - (outerPadding * 2))
+    }
+
+    var leftWidth: CGFloat {
+        floor(max(0, contentWidth - columnSpacing) * 0.5)
+    }
+
+    var rightWidth: CGFloat {
+        max(0, contentWidth - columnSpacing - leftWidth)
+    }
+
+    var panelHeight: CGFloat {
+        max(0, size.height - (outerPadding * 2))
+    }
+}
+
+private struct HabitGrassLayoutMetrics {
+    let size: CGSize
+    let availableWeekCount: Int
+
+    var columnSpacing: CGFloat { 2 }
+    var rowSpacing: CGFloat { 2 }
+
+    var weekCount: Int {
+        guard availableWeekCount > 0 else { return 0 }
+
+        let heightBased = (
+            (size.height - CGFloat(6) * rowSpacing) / 7.0
+        )
+        let widthFit = Int(
+            floor((size.width + columnSpacing) / max(1, heightBased + columnSpacing))
+        )
+
+        return max(1, min(availableWeekCount, widthFit))
+    }
+
+    var cellSize: CGFloat {
+        let widthBased = (
+            (size.width - CGFloat(max(weekCount - 1, 0)) * columnSpacing) / CGFloat(max(weekCount, 1))
+        )
+        let heightBased = (
+            (size.height - CGFloat(6) * rowSpacing) / 7.0
+        )
+        return max(4, min(widthBased, heightBased))
+    }
+
+    var cornerRadius: CGFloat {
+        max(1.2, min(2.4, cellSize * 0.2))
+    }
+}
+
 private struct HabitCheckCell: View {
     let isCompleted: Bool
     let color: Color
@@ -216,6 +409,84 @@ private struct HabitCheckCell: View {
     }
 }
 
+private struct HabitGrassGridView: View {
+    let days: [HabitGrassDay]
+    let panelSize: CGSize
+    let colorScheme: ColorScheme
+
+    var body: some View {
+        let allWeeks = chunkedWeeks(from: days)
+        let metrics = HabitGrassLayoutMetrics(size: panelSize, availableWeekCount: allWeeks.count)
+        let weeks = Array(allWeeks.suffix(metrics.weekCount))
+
+        if weeks.isEmpty {
+            Text("草データなし")
+                .font(.system(size: 10, weight: .regular, design: .rounded))
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        } else {
+            HStack(alignment: .top, spacing: metrics.columnSpacing) {
+                ForEach(Array(weeks.enumerated()), id: \.offset) { _, week in
+                    VStack(spacing: metrics.rowSpacing) {
+                        ForEach(week) { day in
+                            RoundedRectangle(cornerRadius: metrics.cornerRadius)
+                                .fill(color(for: day.level))
+                                .frame(width: metrics.cellSize, height: metrics.cellSize)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: metrics.cornerRadius)
+                                        .stroke(
+                                            day.isToday ? todayStrokeColor : .clear,
+                                            lineWidth: day.isToday ? 1.1 : 0
+                                        )
+                                )
+                        }
+                    }
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    private var todayStrokeColor: Color {
+        colorScheme == .dark ? Color.white.opacity(0.95) : Color.black.opacity(0.45)
+    }
+
+    private func color(for level: Int) -> Color {
+        switch level {
+        case 0:
+            return colorScheme == .dark ? Color.white.opacity(0.10) : Color.black.opacity(0.08)
+        case 1:
+            return colorScheme == .dark ? Color.white.opacity(0.22) : Color.gray.opacity(0.28)
+        case 2:
+            return Color(hex: "#d1fae5") ?? Color.green.opacity(0.28)
+        case 3:
+            return Color(hex: "#a7f3d0") ?? Color.green.opacity(0.45)
+        case 4:
+            return Color(hex: "#4ade80") ?? Color.green.opacity(0.65)
+        default:
+            return Color(hex: "#16a34a") ?? Color.green
+        }
+    }
+
+    private func chunkedWeeks(from days: [HabitGrassDay]) -> [[HabitGrassDay]] {
+        guard days.isEmpty == false else { return [] }
+        let sorted = days.sorted { $0.date < $1.date }
+        var weeks: [[HabitGrassDay]] = []
+        var index = 0
+
+        while index < sorted.count {
+            let end = min(index + 7, sorted.count)
+            let slice = Array(sorted[index..<end])
+            if slice.count == 7 {
+                weeks.append(slice)
+            }
+            index += 7
+        }
+
+        return weeks
+    }
+}
+
 struct HabitWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
     @Environment(\.colorScheme) private var colorScheme
@@ -225,32 +496,74 @@ struct HabitWidgetEntryView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let metrics = HabitWidgetLayoutMetrics(
-                family: family,
-                habitCount: max(entry.habits.count, 1),
-                size: proxy.size
-            )
+            if family == .systemMedium {
+                mediumContent(size: proxy.size)
+            } else {
+                let metrics = HabitWidgetLayoutMetrics(
+                    family: .systemSmall,
+                    habitCount: max(entry.habits.count, 1),
+                    size: proxy.size
+                )
+                checklistContent(metrics: metrics)
+                    .padding(.horizontal, metrics.horizontalPadding)
+                    .padding(.vertical, metrics.verticalPadding)
+            }
+        }
+    }
 
-            VStack(alignment: .leading, spacing: metrics.sectionSpacing) {
-                dayHeader(metrics: metrics)
+    private func mediumContent(size: CGSize) -> some View {
+        let split = HabitMediumSplitMetrics(size: size)
+        let displayHabitCount = max(entry.habits.count, 1)
+        let leftMetrics = HabitWidgetLayoutMetrics(
+            family: .systemSmall,
+            habitCount: displayHabitCount,
+            size: CGSize(width: split.leftWidth, height: split.panelHeight)
+        )
+        let rowTopInset = leftMetrics.headerHeight + leftMetrics.sectionSpacing
+        let rowBlockHeight = (leftMetrics.rowHeight * CGFloat(displayHabitCount))
+            + (leftMetrics.rowSpacing * CGFloat(max(displayHabitCount - 1, 0)))
 
-                if entry.habits.isEmpty {
-                    Text("習慣がありません")
-                        .font(.system(size: metrics.emptyFontSize, weight: .regular, design: .rounded))
-                        .foregroundStyle(.secondary)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                } else {
-                    VStack(alignment: .leading, spacing: metrics.rowSpacing) {
-                        ForEach(entry.habits) { habit in
-                            habitRow(habit: habit, metrics: metrics)
-                        }
+        return HStack(alignment: .top, spacing: split.columnSpacing) {
+            checklistContent(metrics: leftMetrics)
+                .frame(width: split.leftWidth, height: split.panelHeight, alignment: .topLeading)
+
+            VStack(spacing: 0) {
+                Spacer()
+                    .frame(height: rowTopInset)
+
+                HabitGrassGridView(
+                    days: entry.grassDays,
+                    panelSize: CGSize(width: split.rightWidth, height: rowBlockHeight),
+                    colorScheme: colorScheme
+                )
+                .frame(height: rowBlockHeight, alignment: .topLeading)
+
+                Spacer(minLength: 0)
+            }
+            .frame(width: split.rightWidth, height: split.panelHeight, alignment: .top)
+        }
+        .padding(.horizontal, split.outerPadding)
+        .padding(.vertical, split.outerPadding)
+    }
+
+    private func checklistContent(metrics: HabitWidgetLayoutMetrics) -> some View {
+        VStack(alignment: .leading, spacing: metrics.sectionSpacing) {
+            dayHeader(metrics: metrics)
+
+            if entry.habits.isEmpty {
+                Text("習慣がありません")
+                    .font(.system(size: metrics.emptyFontSize, weight: .regular, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+            } else {
+                VStack(alignment: .leading, spacing: metrics.rowSpacing) {
+                    ForEach(entry.habits) { habit in
+                        habitRow(habit: habit, metrics: metrics)
                     }
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .padding(.horizontal, metrics.horizontalPadding)
-            .padding(.vertical, metrics.verticalPadding)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
 
     private func dayHeader(metrics: HabitWidgetLayoutMetrics) -> some View {
@@ -325,7 +638,7 @@ struct HabitWidget: Widget {
             }
         }
         .configurationDisplayName("週間習慣チェック")
-        .description("日〜土の習慣チェックを一覧表示します。")
+        .description("小: 週間チェック / 中: 週間チェック + 草表示")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }

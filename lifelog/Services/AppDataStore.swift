@@ -12,6 +12,7 @@ import EventKit
 import UserNotifications
 import SwiftUI
 import SwiftData
+import WidgetKit
 
 @MainActor
 final class AppDataStore: ObservableObject {
@@ -799,6 +800,7 @@ final class AppDataStore: ObservableObject {
             }
         }
         try? modelContext.save()
+        reloadHabitWidgetTimeline()
         
         // Haptic feedback
         if isCompleting {
@@ -935,6 +937,7 @@ final class AppDataStore: ObservableObject {
             }
         }
         try? modelContext.save()
+        reloadHabitWidgetTimeline()
     }
 
     func addHabit(_ habit: Habit) {
@@ -946,6 +949,7 @@ final class AppDataStore: ObservableObject {
         sdHabit.orderIndex = newIndex
         modelContext.insert(sdHabit)
         try? modelContext.save()
+        reloadHabitWidgetTimeline()
     }
 
     func updateHabit(_ habit: Habit) {
@@ -959,6 +963,7 @@ final class AppDataStore: ObservableObject {
              existing.update(from: habit)
              try? modelContext.save()
         }
+        reloadHabitWidgetTimeline()
     }
 
     func deleteHabit(_ habitID: UUID) {
@@ -974,6 +979,7 @@ final class AppDataStore: ObservableObject {
              existing.archivedAt = habits[index].archivedAt
              try? modelContext.save()
         }
+        reloadHabitWidgetTimeline()
     }
     
     func moveHabit(from source: IndexSet, to destination: Int) {
@@ -991,6 +997,7 @@ final class AppDataStore: ObservableObject {
              }
         }
         try? modelContext.save()
+        reloadHabitWidgetTimeline()
     }
 
     // MARK: - Anniversaries
@@ -1005,6 +1012,7 @@ final class AppDataStore: ObservableObject {
         sdItem.orderIndex = newIndex
         modelContext.insert(sdItem)
         try? modelContext.save()
+        reloadAnniversaryWidgetTimeline()
     }
 
     func updateAnniversary(_ anniversary: Anniversary) {
@@ -1019,6 +1027,7 @@ final class AppDataStore: ObservableObject {
              existing.update(from: anniversary)
              try? modelContext.save()
         }
+        reloadAnniversaryWidgetTimeline()
     }
 
     func deleteAnniversary(_ anniversaryID: UUID) {
@@ -1031,6 +1040,7 @@ final class AppDataStore: ObservableObject {
              modelContext.delete(existing)
              try? modelContext.save()
         }
+        reloadAnniversaryWidgetTimeline()
     }
     
     func moveAnniversary(from source: IndexSet, to destination: Int) {
@@ -1047,6 +1057,7 @@ final class AppDataStore: ObservableObject {
              }
         }
         try? modelContext.save()
+        reloadAnniversaryWidgetTimeline()
     }
 
     // MARK: - Memo Pad
@@ -1656,6 +1667,14 @@ final class AppDataStore: ObservableObject {
 
     private func persistExternalCalendarRange() {
         persist(externalCalendarRange, forKey: Self.externalCalendarRangeDefaultsKey)
+    }
+
+    private func reloadHabitWidgetTimeline() {
+        WidgetCenter.shared.reloadTimelines(ofKind: "HabitWidget")
+    }
+
+    private func reloadAnniversaryWidgetTimeline() {
+        WidgetCenter.shared.reloadTimelines(ofKind: "AnniversaryWidget")
     }
 
     private enum EventReminderStrategy {

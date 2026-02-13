@@ -42,6 +42,8 @@ struct lifelogApp: App {
                         store.rescheduleDiaryReminderIfNeeded()
                         store.rescheduleTodayOverviewReminderIfNeeded()
                         WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
+                        WidgetCenter.shared.reloadTimelines(ofKind: "HabitWidget")
+                        WidgetCenter.shared.reloadTimelines(ofKind: "AnniversaryWidget")
                         WidgetCenter.shared.reloadTimelines(ofKind: "MemoWidget")
                         _Concurrency.Task {
                             await monetizationService.refreshStatus()
@@ -66,6 +68,8 @@ struct lifelogApp: App {
                     syncMemoPrivacySettingsToSharedDefaults()
                     store.rescheduleTodayOverviewReminderIfNeeded()
                     WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
+                    WidgetCenter.shared.reloadTimelines(ofKind: "HabitWidget")
+                    WidgetCenter.shared.reloadTimelines(ofKind: "AnniversaryWidget")
                     WidgetCenter.shared.reloadTimelines(ofKind: "MemoWidget")
                     
                     // 最終ログイン日時を更新（手紙の生存確認用）
