@@ -1,3 +1,4 @@
+# /Users/inazumimakoto/Desktop/lifelog/.github/workflows/update-loc.yml を丸ごと置換
 name: Update LOC Stats
 
 on:
@@ -15,69 +16,100 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Calculate LOC stats
-        id: loc
-        run: |
-          # Total lines
-          TOTAL=$(git ls-files | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
-          echo "total=$TOTAL" >> $GITHUB_OUTPUT
-
-          # Swift lines
-          SWIFT=$(git ls-files '*.swift' | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
-          echo "swift=$SWIFT" >> $GITHUB_OUTPUT
-
-          # Largest file (excluding binary/generated files)
-          LARGEST=$(git ls-files | grep -E '\.(swift|ts|js|md|html|css)$' | grep -v 'package-lock' | xargs wc -l 2>/dev/null | sort -rn | head -2 | tail -1)
-          
-          # Extract stats from largest file line (format: lines filename)
-          LARGEST_LINES=$(echo "$LARGEST" | awk '{print $1}')
-          LARGEST_FILE=$(echo "$LARGEST" | awk '{print $2}' | xargs basename)
-          
-          echo "largest_lines=$LARGEST_LINES" >> $GITHUB_OUTPUT
-          echo "largest_file=$LARGEST_FILE" >> $GITHUB_OUTPUT
-
-      - name: Update README
-        env:
-          TOTAL: ${{ steps.loc.outputs.total }}
-          SWIFT: ${{ steps.loc.outputs.swift }}
-          LARGEST_FILE: ${{ steps.loc.outputs.largest_file }}
-          LARGEST_LINES: ${{ steps.loc.outputs.largest_lines }}
+      - name: Update README stats
         run: |
           python3 - <<'PY'
-          import os
           import re
+          import subprocess
+          from collections import defaultdict
           from pathlib import Path
 
-          # Load env vars and format with commas
-          total = "{:,}".format(int(os.environ.get("TOTAL", "0")))
-          swift = "{:,}".format(int(os.environ.get("SWIFT", "0")))
-          largest_lines = "{:,}".format(int(os.environ.get("LARGEST_LINES", "0")))
-          largest_file = os.environ.get("LARGEST_FILE", "Unknown")
+          def git_ls_files():
+              out = subprocess.check_output(["git", "ls-files", "-z"])
+              return [p for p in out.decode("utf-8", errors="ignore").split("\0") if p]
+
+          def count_lines(path_str: str) -> int:
+              try:
+                  data = Path(path_str).read_bytes()
+              except Exception:
+                  return 0
+              if not data:
+                  return 0
+              return data.count(b"\n") + (0 if data.endswith(b"\n") else 1)
+
+          files = git_ls_files()
+          file_count = len(files)
+
+          total = 0
+          swift = 0
+          largest_file = "Unknown"
+          largest_lines = -1
+          largest_exts = {".swift", ".ts", ".js", ".md", ".html", ".css"}
+          dir_totals = defaultdict(int)
+
+          for f in files:
+              lines = count_lines(f)
+              total += lines
+
+              if f.endswith(".swift"):
+                  swift += lines
+
+              p = Path(f)
+              top_dir = p.parts[0] if len(p.parts) > 1 else "(root)"
+              dir_totals[top_dir] += lines
+
+              if p.suffix in largest_exts and "package-lock" not in f:
+                  if lines > largest_lines:
+                      largest_lines = lines
+                      largest_file = p.name
+
+          if largest_lines < 0:
+              largest_lines = 0
+
+          sorted_dirs = sorted(dir_totals.items(), key=lambda x: (-x[1], x[0].lower()))
+          dir_table_lines = ["| Directory | LOC |", "|:--|--:|"]
+          for name, loc in sorted_dirs:
+              dir_table_lines.append(f"| `{name}` | {loc:,} |")
+          dir_table = "\n".join(dir_table_lines)
 
           readme_path = Path("README.md")
           readme = readme_path.read_text(encoding="utf-8")
 
-          # Replace Total Lines (Safe: \g<1> and \g<2>)
           readme = re.sub(
               r"(総行数: <strong>)[0-9,]+(</strong>)",
-              r"\g<1>" + total + r"\g<2>",
-              readme
+              r"\g<1>" + f"{total:,}" + r"\g<2>",
+              readme,
           )
-
-          # Replace Swift Lines
+          readme = re.sub(
+              r"(ファイル数: <strong>)[0-9,]+(</strong>)",
+              r"\g<1>" + f"{file_count:,}" + r"\g<2>",
+              readme,
+          )
           readme = re.sub(
               r"(Swiftコード: <strong>)[0-9,]+(</strong>)",
-              r"\g<1>" + swift + r"\g<2>",
-              readme
+              r"\g<1>" + f"{swift:,}" + r"\g<2>",
+              readme,
           )
-
-          # Replace Largest File
-          # Fix: Use \g<2> and \g<3> to avoid ambiguity when followed by numbers
           readme = re.sub(
               r"(最大ファイル: <strong>)[^<]+(</strong> \()[0-9,]+( 行\))",
-              r"\g<1>" + largest_file + r"\g<2>" + largest_lines + r"\g<3>",
-              readme
+              r"\g<1>" + largest_file + r"\g<2>" + f"{largest_lines:,}" + r"\g<3>",
+              readme,
           )
+
+          start = "<!-- dir-loc-start -->"
+          end = "<!-- dir-loc-end -->"
+          new_block = f"{start}\n{dir_table}\n{end}"
+          block_pattern = re.compile(rf"{re.escape(start)}.*?{re.escape(end)}", re.S)
+
+          if block_pattern.search(readme):
+              readme = block_pattern.sub(new_block, readme)
+          else:
+              insertion = "\n\n#### Directory LOC\n\n" + new_block + "\n"
+              marker = "<sub>Stats 自動更新</sub>"
+              if marker in readme:
+                  readme = readme.replace(marker, marker + insertion, 1)
+              else:
+                  readme += insertion
 
           readme_path.write_text(readme, encoding="utf-8")
           PY
