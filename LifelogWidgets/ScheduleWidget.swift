@@ -202,13 +202,6 @@ private enum ScheduleWidgetFormatter {
         return formatter
     }()
 
-    static let inlineDate: DateFormatter = {
-        let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "MM/dd(E)"
-        return formatter
-    }()
-
     static let time: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
@@ -413,19 +406,18 @@ struct ScheduleWidgetEntryView: View {
     }
 
     private var inlineLockScreenText: some View {
-        let dateText = ScheduleWidgetFormatter.inlineDate.string(from: entry.date)
+        let taskCountText = "未完\(entry.tasks.count)件"
+
         if let firstEvent = entry.events.first {
             return (
-                Text("\(dateText) ")
-                + Text(Image(systemName: "calendar"))
-                + Text(" \(eventTimeLabel(firstEvent)) \(firstEvent.title)")
+                Text(Image(systemName: "calendar"))
+                + Text(" \(eventTimeLabel(firstEvent)) \(firstEvent.title) | \(taskCountText)")
             )
             .lineLimit(1)
         } else {
             return (
-                Text("\(dateText) ")
-                + Text(Image(systemName: "calendar"))
-                + Text(" 予定なし")
+                Text(Image(systemName: "calendar"))
+                + Text(" 予定なし | \(taskCountText)")
             )
             .lineLimit(1)
         }
