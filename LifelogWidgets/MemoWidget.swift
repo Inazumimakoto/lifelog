@@ -134,14 +134,6 @@ struct MemoWidgetEntryView : View {
         return trimmed
     }
 
-    private var textLineLimit: Int {
-        switch family {
-        case .systemSmall: return 11
-        case .systemMedium: return 0
-        default: return 24
-        }
-    }
-
     private var bodyFont: Font {
         switch family {
         case .systemSmall:
@@ -177,7 +169,7 @@ struct MemoWidgetEntryView : View {
                 mediumTwoColumnText
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             } else {
-                memoText(normalizedText, lineLimit: textLineLimit)
+                memoText(normalizedText, lineLimit: nil)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
 
@@ -220,47 +212,71 @@ struct MemoWidgetEntryView : View {
     }
 
     private func splitIntoTwoColumnsPreservingContent(_ text: String) -> (left: String, right: String) {
-        guard text.count > 1 else {
+        let lines = text.components(separatedBy: "\n")
+        guard lines.count > 1 else {
+            return splitSingleLineForMedium(text)
+        }
+
+        var leftLines: [String] = []
+        var rightLines: [String] = []
+        var leftWeight = 0
+        var rightWeight = 0
+
+        for line in lines {
+            let weight = estimatedLineWeight(line)
+            if leftWeight <= rightWeight {
+                leftLines.append(line)
+                leftWeight += weight
+            } else {
+                rightLines.append(line)
+                rightWeight += weight
+            }
+        }
+
+        if rightLines.isEmpty {
+            return splitSingleLineForMedium(text)
+        }
+
+        return (
+            left: leftLines.joined(separator: "\n"),
+            right: rightLines.joined(separator: "\n")
+        )
+    }
+
+    private func estimatedLineWeight(_ line: String) -> Int {
+        let visible = line.trimmingCharacters(in: .whitespaces)
+        guard visible.isEmpty == false else { return 1 }
+        let approxCharactersPerRow = 11
+        return max(1, Int(ceil(Double(visible.count) / Double(approxCharactersPerRow))))
+    }
+
+    private func splitSingleLineForMedium(_ text: String) -> (left: String, right: String) {
+        let chars = Array(text)
+        guard chars.count > 1 else {
             return (left: text, right: "")
         }
 
-        let visualLines = chunkedLinesForMedium(text, approxCharactersPerLine: 12)
-        let midpoint = Int(ceil(Double(visualLines.count) * 0.5))
-        let left = visualLines.prefix(midpoint).joined(separator: "\n")
-        let right = visualLines.dropFirst(midpoint).joined(separator: "\n")
-        return (left: left, right: right)
-    }
+        let midpoint = chars.count / 2
+        let window = 20
+        let lower = max(1, midpoint - window)
+        let upper = min(chars.count - 1, midpoint + window)
+        let boundaryCharacters = CharacterSet(charactersIn: " 、。,.!?:;/-")
 
-    private func chunkedLinesForMedium(_ text: String, approxCharactersPerLine: Int) -> [String] {
-        guard approxCharactersPerLine > 0 else { return [text] }
-
-        var lines: [String] = []
-        var current = ""
-
-        func flush(force: Bool = false) {
-            if force || current.isEmpty == false {
-                lines.append(current)
-                current = ""
-            }
+        if let boundary = (lower...upper).first(where: { index in
+            let scalar = String(chars[index]).unicodeScalars.first
+            guard let scalar else { return false }
+            return boundaryCharacters.contains(scalar)
+        }) {
+            return (
+                left: String(chars[0..<boundary]),
+                right: String(chars[boundary..<chars.count])
+            )
         }
 
-        for character in text {
-            if character == "\n" {
-                flush(force: true)
-                continue
-            }
-
-            current.append(character)
-            if current.count >= approxCharactersPerLine {
-                flush()
-            }
-        }
-
-        if current.isEmpty == false {
-            lines.append(current)
-        }
-
-        return lines.isEmpty ? [text] : lines
+        return (
+            left: String(chars[0..<midpoint]),
+            right: String(chars[midpoint..<chars.count])
+        )
     }
 
     private var header: some View {
