@@ -406,20 +406,27 @@ struct ScheduleWidgetEntryView: View {
     }
 
     private var inlineLockScreenText: some View {
-        let taskCountText = "未完\(entry.tasks.count)件"
+        let taskPrefix = inlinePendingTaskPrefix
 
         if let firstEvent = entry.events.first {
             let timeText: String = firstEvent.isAllDay ? "終日" : ScheduleWidgetFormatter.time.string(from: firstEvent.startDate)
             return (
-                Text("\(timeText) \(firstEvent.title) | \(taskCountText)")
+                Text("\(taskPrefix)\(timeText) \(firstEvent.title)")
             )
             .lineLimit(1)
         } else {
             return (
-                Text("予定なし | \(taskCountText)")
+                Text("\(taskPrefix)予定なし")
             )
             .lineLimit(1)
         }
+    }
+
+    private var inlinePendingTaskPrefix: String {
+        let count = entry.tasks.count
+        guard count > 0 else { return "" }
+        let compactCount = count > 9 ? "9+" : "\(count)"
+        return "□\(compactCount) "
     }
 
     private var header: some View {
