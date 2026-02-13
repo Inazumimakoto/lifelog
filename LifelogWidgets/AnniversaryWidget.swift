@@ -127,8 +127,10 @@ private struct AnniversaryEntry: TimelineEntry {
 
 private struct AnniversaryPresentation {
     let title: String
+    let valuePrefixText: String
     let valueText: String
-    let subtitleText: String
+    let valueSuffixText: String
+    let subtitleText: String?
     let elapsedFromStartText: String?
     let anchorDateText: String
     let progress: Double?
@@ -146,24 +148,30 @@ private enum AnniversaryCalculation {
         let startLabel = normalizedLabel(model.startLabel)
         let endLabel = normalizedLabel(model.endLabel)
 
+        let valuePrefixText: String
         let valueText: String
-        let subtitleText: String
+        let valueSuffixText: String
+        let subtitleText: String?
         let anchorText: String
         let accent: Color
 
         switch model.type {
         case .countdown:
             let days = max(0, dayDiff(from: today, to: effectiveTarget))
-            valueText = "D-\(days)"
-            subtitleText = days == 0 ? "今日です" : "あと\(days)日"
+            valuePrefixText = resolvedEndLabelPrefix(endLabel)
+            valueText = "\(days)"
+            valueSuffixText = "日"
+            subtitleText = days == 0 ? "今日です" : nil
             anchorText = "\(endLabel ?? "終了"): \(AnniversaryFormatter.fullDate.string(from: effectiveTarget))"
             accent = .blue
 
         case .since:
             let startPoint = resolvedSinceBaseDate(for: model, today: today)
             let days = max(0, dayDiff(from: startPoint, to: today))
-            valueText = "+\(days)"
-            subtitleText = "\(days)日経過"
+            valuePrefixText = startLabel ?? "開始から"
+            valueText = "\(days)"
+            valueSuffixText = "日"
+            subtitleText = "経過"
             anchorText = "\(endLabel ?? "起点"): \(AnniversaryFormatter.fullDate.string(from: startPoint))"
             accent = .orange
         }
@@ -187,7 +195,9 @@ private enum AnniversaryCalculation {
 
         return AnniversaryPresentation(
             title: model.title,
+            valuePrefixText: valuePrefixText,
             valueText: valueText,
+            valueSuffixText: valueSuffixText,
             subtitleText: subtitleText,
             elapsedFromStartText: elapsedFromStartText,
             anchorDateText: anchorText,
@@ -202,6 +212,14 @@ private enum AnniversaryCalculation {
         guard let raw else { return nil }
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func resolvedEndLabelPrefix(_ endLabel: String?) -> String {
+        guard let endLabel else { return "あと" }
+        if endLabel.hasSuffix("まで") {
+            return endLabel
+        }
+        return "\(endLabel)まで"
     }
 
     private static func resolvedTargetDate(for model: AnniversaryWidgetModel, today: Date) -> Date {
@@ -341,6 +359,30 @@ private struct AnniversaryWidgetEntryView: View {
             .fixedSize(horizontal: false, vertical: true)
     }
 
+    private func emphasizedValueLine(
+        _ p: AnniversaryPresentation,
+        numberSize: CGFloat,
+        labelSize: CGFloat,
+        minScale: CGFloat
+    ) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(p.valuePrefixText)
+                .font(.system(size: labelSize, weight: .medium, design: .rounded))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+
+            valueText(p.valueText, size: numberSize, minScale: minScale)
+                .layoutPriority(1)
+
+            Text(p.valueSuffixText)
+                .font(.system(size: labelSize, weight: .medium, design: .rounded))
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+    }
+
     private func smallLayout(_ p: AnniversaryPresentation) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(p.title)
@@ -349,12 +391,14 @@ private struct AnniversaryWidgetEntryView: View {
 
             Spacer(minLength: 0)
 
-            valueText(p.valueText, size: 32, minScale: 0.62)
+            emphasizedValueLine(p, numberSize: 30, labelSize: 12, minScale: 0.62)
 
-            Text(p.subtitleText)
-                .font(.system(size: 12, weight: .medium, design: .rounded))
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+            if let subtitle = p.subtitleText {
+                Text(subtitle)
+                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
 
             if let elapsed = p.elapsedFromStartText {
                 Text(elapsed)
@@ -382,9 +426,6 @@ private struct AnniversaryWidgetEntryView: View {
                     Text(p.title)
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
                         .lineLimit(1)
-                    Text(p.subtitleText)
-                        .font(.system(size: 12, weight: .medium, design: .rounded))
-                        .foregroundStyle(.secondary)
                     if let elapsed = p.elapsedFromStartText {
                         Text(elapsed)
                             .font(.system(size: 11, weight: .medium, design: .rounded))
@@ -393,10 +434,15 @@ private struct AnniversaryWidgetEntryView: View {
                     }
                 }
                 Spacer(minLength: 0)
-                Text(p.valueText)
-                    .font(.system(size: 36, weight: .bold, design: .rounded))
-                    .contentTransition(.numericText())
-                    .lineLimit(1)
+                VStack(alignment: .trailing, spacing: 2) {
+                    emphasizedValueLine(p, numberSize: 34, labelSize: 12, minScale: 0.58)
+                    if let subtitle = p.subtitleText {
+                        Text(subtitle)
+                            .font(.system(size: 11, weight: .medium, design: .rounded))
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                }
             }
 
             if let progress = p.progress {
@@ -427,14 +473,15 @@ private struct AnniversaryWidgetEntryView: View {
                 .font(.system(size: 18, weight: .semibold, design: .rounded))
                 .lineLimit(1)
 
-            HStack(alignment: .lastTextBaseline, spacing: 8) {
-                valueText(p.valueText, size: 44, minScale: 0.6)
-                    .layoutPriority(1)
-                Text(p.subtitleText)
-                    .font(.system(size: 14, weight: .medium, design: .rounded))
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.75)
+            VStack(alignment: .leading, spacing: 4) {
+                emphasizedValueLine(p, numberSize: 42, labelSize: 15, minScale: 0.58)
+                if let subtitle = p.subtitleText {
+                    Text(subtitle)
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.75)
+                }
             }
 
             if let elapsed = p.elapsedFromStartText {
