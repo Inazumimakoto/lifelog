@@ -136,9 +136,9 @@ struct MemoWidgetEntryView : View {
 
     private var textLineLimit: Int {
         switch family {
-        case .systemSmall: return 8
-        case .systemMedium: return 11
-        default: return 15
+        case .systemSmall: return 11
+        case .systemMedium: return 16
+        default: return 24
         }
     }
 
@@ -147,40 +147,39 @@ struct MemoWidgetEntryView : View {
         case .systemSmall:
             return .system(size: 11.5, weight: .medium, design: .rounded)
         case .systemMedium:
-            return .system(size: 12, weight: .medium, design: .rounded)
+            return .system(size: 11.5, weight: .medium, design: .rounded)
         default:
-            return .system(size: 13.5, weight: .medium, design: .rounded)
+            return .system(size: 11.5, weight: .medium, design: .rounded)
         }
     }
 
     private var horizontalPadding: CGFloat {
         switch family {
-        case .systemSmall: return 8
-        case .systemMedium: return 9
-        default: return 10
+        case .systemSmall: return 7
+        case .systemMedium: return 8
+        default: return 8
         }
     }
 
     private var verticalPadding: CGFloat {
         switch family {
-        case .systemSmall: return 7
-        case .systemMedium: return 8
-        default: return 9
+        case .systemSmall: return 5
+        case .systemMedium: return 5
+        default: return 6
         }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
+        VStack(alignment: .leading, spacing: 3) {
             header
 
-            Text(normalizedText)
-                .font(bodyFont)
-                .foregroundStyle(
-                    normalizedText == "メモはありません" || entry.isHidden ? .secondary : .primary
-                )
-                .lineLimit(textLineLimit)
-                .lineSpacing(1)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            if family == .systemMedium {
+                mediumTwoColumnText
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            } else {
+                memoText(normalizedText, lineLimit: textLineLimit)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
 
             if entry.isHidden && entry.requiresOpenAuth {
                 HStack(spacing: 4) {
@@ -197,21 +196,61 @@ struct MemoWidgetEntryView : View {
         .padding(.vertical, verticalPadding)
     }
 
+    private var mediumTwoColumnText: some View {
+        let columns = splitIntoTwoColumns(normalizedText)
+
+        return HStack(alignment: .top, spacing: 8) {
+            memoText(columns.left, lineLimit: textLineLimit)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+
+            memoText(columns.right, lineLimit: textLineLimit)
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+    }
+
+    private func memoText(_ text: String, lineLimit: Int) -> some View {
+        Text(text)
+            .font(bodyFont)
+            .foregroundStyle(
+                normalizedText == "メモはありません" || entry.isHidden ? .secondary : .primary
+            )
+            .lineLimit(lineLimit)
+            .lineSpacing(0.5)
+            .multilineTextAlignment(.leading)
+    }
+
+    private func splitIntoTwoColumns(_ text: String) -> (left: String, right: String) {
+        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard cleaned.count > 1 else {
+            return (left: cleaned, right: "")
+        }
+
+        let characters = Array(cleaned)
+        let split = max(1, characters.count / 2)
+        let left = String(characters[0..<split]).trimmingCharacters(in: .whitespacesAndNewlines)
+        let right = String(characters[split..<characters.count]).trimmingCharacters(in: .whitespacesAndNewlines)
+
+        if right.isEmpty {
+            return (left: cleaned, right: "")
+        }
+        return (left: left, right: right)
+    }
+
     private var header: some View {
-        HStack(alignment: .center, spacing: 4) {
+        HStack(alignment: .center, spacing: 3) {
             Image(systemName: "note.text")
-                .font(.system(size: family == .systemSmall ? 11 : 12, weight: .semibold))
+                .font(.system(size: family == .systemSmall ? 10 : 11, weight: .semibold))
                 .foregroundStyle(.secondary)
 
             Text("メモ")
-                .font(.system(size: family == .systemSmall ? 11 : 12, weight: .semibold, design: .rounded))
+                .font(.system(size: family == .systemSmall ? 10 : 11, weight: .semibold, design: .rounded))
                 .foregroundStyle(.secondary)
 
             Spacer(minLength: 0)
 
             if family != .systemSmall, let updatedAt = entry.updatedAt {
                 Text(MemoWidgetFormatter.updatedAt.string(from: updatedAt))
-                    .font(.system(size: 9, weight: .regular, design: .rounded))
+                    .font(.system(size: 8.5, weight: .regular, design: .rounded))
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
