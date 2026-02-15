@@ -685,66 +685,137 @@ struct HabitYearHeatmapView: View {
     let summaries: [Date: HabitDaySummary]
     let onSelect: (HabitDaySummary) -> Void
 
+    @Environment(\.colorScheme) private var colorScheme
     private let calendar = Calendar.current
 
     var body: some View {
-        ScrollViewReader { proxy in
-            ScrollView(.horizontal, showsIndicators: false) {
-                LazyHStack(alignment: .top, spacing: 4) {
-                    ForEach(0..<weekCount, id: \.self) { week in
-                        VStack(spacing: 4) {
-                            ForEach(0..<7, id: \.self) { offset in
-                                let index = week * 7 + offset
-                                let date = calendar.date(byAdding: .day, value: index, to: startDate) ?? startDate
-                                let day = calendar.startOfDay(for: date)
-                                let summary = summaries[day]
-                                let isToday = calendar.isDate(day, inSameDayAs: Date())
-                                RoundedRectangle(cornerRadius: 3)
-                                    .fill(color(for: summary))
-                                    .frame(width: 14, height: 14)
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 3)
-                                            .stroke(isToday ? Color.white.opacity(0.9) : Color.black.opacity(0.08), lineWidth: isToday ? 1.6 : 1)
-                                    )
-                                    .scaleEffect(isToday ? 1.15 : 1.0)
-                                    .onTapGesture {
-                                        if let summary {
-                                            onSelect(summary)
+        let thresholds = completionThresholds
+
+        VStack(alignment: .trailing, spacing: 8) {
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(alignment: .top, spacing: 4) {
+                        ForEach(0..<weekCount, id: \.self) { week in
+                            VStack(spacing: 4) {
+                                ForEach(0..<7, id: \.self) { offset in
+                                    let index = week * 7 + offset
+                                    let date = calendar.date(byAdding: .day, value: index, to: startDate) ?? startDate
+                                    let day = calendar.startOfDay(for: date)
+                                    let summary = summaries[day]
+                                    let isToday = calendar.isDate(day, inSameDayAs: Date())
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(color(for: summary, thresholds: thresholds))
+                                        .frame(width: 14, height: 14)
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 3)
+                                                .stroke(isToday ? Color.white.opacity(0.9) : Color.black.opacity(0.08), lineWidth: isToday ? 1.6 : 1)
+                                        )
+                                        .scaleEffect(isToday ? 1.15 : 1.0)
+                                        .onTapGesture {
+                                            if let summary {
+                                                onSelect(summary)
+                                            }
                                         }
-                                    }
+                                }
                             }
+                            .id(week)
                         }
-                        .id(week)
+                    }
+                    .padding(.vertical, 4)
+                    .padding(.horizontal, 2)
+                }
+                .onAppear {
+                    // 最新週（右端）にスクロール
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        proxy.scrollTo(weekCount - 1, anchor: .trailing)
                     }
                 }
-                .padding(.vertical, 4)
-                .padding(.horizontal, 2)
             }
-            .onAppear {
-                // 最新週（右端）にスクロール
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                    proxy.scrollTo(weekCount - 1, anchor: .trailing)
+
+            HStack(spacing: 6) {
+                Spacer(minLength: 0)
+                Text("少")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                ForEach(0..<5, id: \.self) { level in
+                    RoundedRectangle(cornerRadius: 2)
+                        .fill(githubPalette[level])
+                        .frame(width: 10, height: 10)
                 }
+                Text("多")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
         }
     }
 
-    private func color(for summary: HabitDaySummary?) -> Color {
-        guard let summary else { return Color.gray.opacity(0.15) }
-        guard summary.scheduledCount > 0 else { return Color.gray.opacity(0.18) }
+    private typealias Thresholds = (q1: Int, q2: Int, q3: Int)
 
-        let rate = Double(summary.completedCount) / Double(summary.scheduledCount)
-        if rate == 0 {
-            return Color.gray.opacity(0.28)
-        } else if rate <= 0.25 {
-            return Color(hex: "#d1fae5") ?? Color.green.opacity(0.28)
-        } else if rate <= 0.5 {
-            return Color(hex: "#a7f3d0") ?? Color.green.opacity(0.45)
-        } else if rate <= 0.75 {
-            return Color(hex: "#4ade80") ?? Color.green.opacity(0.65)
-        } else {
-            return Color(hex: "#16a34a") ?? Color.green
+    private func color(for summary: HabitDaySummary?, thresholds: Thresholds) -> Color {
+        githubPalette[level(for: summary, thresholds: thresholds)]
+    }
+
+    private func level(for summary: HabitDaySummary?, thresholds: Thresholds) -> Int {
+        guard let summary, summary.scheduledCount > 0 else { return 0 }
+        let value = summary.completedCount
+        guard value > 0 else { return 0 }
+
+        if value <= thresholds.q1 { return 1 }
+        if value <= thresholds.q2 { return 2 }
+        if value <= thresholds.q3 { return 3 }
+        return 4
+    }
+
+    private var completionThresholds: Thresholds {
+        let values = nonZeroCompletionCounts
+        return (
+            q1: nearestRankPercentile(25, in: values),
+            q2: nearestRankPercentile(50, in: values),
+            q3: nearestRankPercentile(75, in: values)
+        )
+    }
+
+    private var nonZeroCompletionCounts: [Int] {
+        var counts: [Int] = []
+        counts.reserveCapacity(weekCount * 7)
+
+        for index in 0..<(weekCount * 7) {
+            let date = calendar.date(byAdding: .day, value: index, to: startDate) ?? startDate
+            let day = calendar.startOfDay(for: date)
+            guard let summary = summaries[day], summary.scheduledCount > 0 else { continue }
+            if summary.completedCount > 0 {
+                counts.append(summary.completedCount)
+            }
         }
+
+        return counts.sorted()
+    }
+
+    private func nearestRankPercentile(_ percentile: Int, in sortedValues: [Int]) -> Int {
+        guard sortedValues.isEmpty == false else { return 1 }
+        let p = Double(percentile) / 100.0
+        let rank = max(1, Int(ceil(Double(sortedValues.count) * p)))
+        return sortedValues[min(rank - 1, sortedValues.count - 1)]
+    }
+
+    private var githubPalette: [Color] {
+        if colorScheme == .dark {
+            return [
+                Color(hex: "#161b22") ?? Color(red: 0.09, green: 0.11, blue: 0.13),
+                Color(hex: "#0e4429") ?? Color(red: 0.05, green: 0.27, blue: 0.16),
+                Color(hex: "#006d32") ?? Color(red: 0.00, green: 0.43, blue: 0.20),
+                Color(hex: "#26a641") ?? Color(red: 0.15, green: 0.65, blue: 0.25),
+                Color(hex: "#39d353") ?? Color(red: 0.22, green: 0.83, blue: 0.33)
+            ]
+        }
+
+        return [
+            Color(hex: "#ebedf0") ?? Color(red: 0.92, green: 0.93, blue: 0.94),
+            Color(hex: "#9be9a8") ?? Color(red: 0.61, green: 0.91, blue: 0.66),
+            Color(hex: "#40c463") ?? Color(red: 0.25, green: 0.77, blue: 0.39),
+            Color(hex: "#30a14e") ?? Color(red: 0.19, green: 0.63, blue: 0.31),
+            Color(hex: "#216e39") ?? Color(red: 0.13, green: 0.43, blue: 0.22)
+        ]
     }
 }
 
