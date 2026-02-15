@@ -617,6 +617,7 @@ extension HabitsCountdownView {
 struct MiniHabitHeatmapView: View {
     let cells: [HabitHeatCell]
     let accentColor: Color
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let weeks = chunkedWeeks()
@@ -653,12 +654,10 @@ struct MiniHabitHeatmapView: View {
 
     private func color(for state: HabitHeatCell.State) -> Color {
         switch state {
-        case .inactive:
-            return Color.gray.opacity(0.2)
-        case .pending:
-            return Color.secondary.opacity(0.45)
         case .completed:
             return accentColor
+        case .inactive, .pending:
+            return githubPalette[0]
         }
     }
 
@@ -676,6 +675,26 @@ struct MiniHabitHeatmapView: View {
             index += 7
         }
         return weeks
+    }
+
+    private var githubPalette: [Color] {
+        if colorScheme == .dark {
+            return [
+                Color(hex: "#161b22") ?? Color(red: 0.09, green: 0.11, blue: 0.13),
+                Color(hex: "#0e4429") ?? Color(red: 0.05, green: 0.27, blue: 0.16),
+                Color(hex: "#006d32") ?? Color(red: 0.00, green: 0.43, blue: 0.20),
+                Color(hex: "#26a641") ?? Color(red: 0.15, green: 0.65, blue: 0.25),
+                Color(hex: "#39d353") ?? Color(red: 0.22, green: 0.83, blue: 0.33)
+            ]
+        }
+
+        return [
+            Color(hex: "#ebedf0") ?? Color(red: 0.92, green: 0.93, blue: 0.94),
+            Color(hex: "#9be9a8") ?? Color(red: 0.61, green: 0.91, blue: 0.66),
+            Color(hex: "#40c463") ?? Color(red: 0.25, green: 0.77, blue: 0.39),
+            Color(hex: "#30a14e") ?? Color(red: 0.19, green: 0.63, blue: 0.31),
+            Color(hex: "#216e39") ?? Color(red: 0.13, green: 0.43, blue: 0.22)
+        ]
     }
 }
 
@@ -749,7 +768,7 @@ struct HabitYearHeatmapView: View {
         }
     }
 
-    private typealias Thresholds = (q1: Int, q2: Int, q3: Int)
+    private typealias Thresholds = (q1: Int, q2: Int)
 
     private func color(for summary: HabitDaySummary?, thresholds: Thresholds) -> Color {
         githubPalette[level(for: summary, thresholds: thresholds)]
@@ -759,23 +778,22 @@ struct HabitYearHeatmapView: View {
         guard let summary, summary.scheduledCount > 0 else { return 0 }
         let value = summary.completedCount
         guard value > 0 else { return 0 }
+        if value == summary.scheduledCount { return 4 }
 
         if value <= thresholds.q1 { return 1 }
         if value <= thresholds.q2 { return 2 }
-        if value <= thresholds.q3 { return 3 }
-        return 4
+        return 3
     }
 
     private var completionThresholds: Thresholds {
-        let values = nonZeroCompletionCounts
+        let values = nonZeroPartialCompletionCounts
         return (
             q1: nearestRankPercentile(25, in: values),
-            q2: nearestRankPercentile(50, in: values),
-            q3: nearestRankPercentile(75, in: values)
+            q2: nearestRankPercentile(50, in: values)
         )
     }
 
-    private var nonZeroCompletionCounts: [Int] {
+    private var nonZeroPartialCompletionCounts: [Int] {
         var counts: [Int] = []
         counts.reserveCapacity(weekCount * 7)
 
@@ -783,7 +801,7 @@ struct HabitYearHeatmapView: View {
             let date = calendar.date(byAdding: .day, value: index, to: startDate) ?? startDate
             let day = calendar.startOfDay(for: date)
             guard let summary = summaries[day], summary.scheduledCount > 0 else { continue }
-            if summary.completedCount > 0 {
+            if summary.completedCount > 0 && summary.completedCount < summary.scheduledCount {
                 counts.append(summary.completedCount)
             }
         }
