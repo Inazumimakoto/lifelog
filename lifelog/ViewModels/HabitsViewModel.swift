@@ -53,6 +53,11 @@ final class HabitsViewModel: ObservableObject {
         }
     }
 
+    private struct HabitStreakSnapshot {
+        let current: Int
+        let best: Int
+    }
+
     @Published private(set) var habits: [Habit] = []
     @Published private(set) var weekDates: [Date] = []
     @Published private(set) var statuses: [HabitWeekStatus] = []
@@ -63,6 +68,8 @@ final class HabitsViewModel: ObservableObject {
     @Published private(set) var yearlyAverageRate: Double = 0
     @Published private(set) var monthlyAverageRate: Double = 0
     private var pendingAnimation: Animation?
+    private var recordsLookupCache: [UUID: [Date: HabitRecord]] = [:]
+    private var streakSnapshots: [UUID: HabitStreakSnapshot] = [:]
 
     private let store: AppDataStore
     private var cancellables = Set<AnyCancellable>()
@@ -92,16 +99,17 @@ final class HabitsViewModel: ObservableObject {
 
     private func refresh() {
         let updates = { [self] in
+            let recordsLookup = self.makeRecordsLookup(from: self.store.habitRecords)
+            self.recordsLookupCache = recordsLookup
+
             // Filter out archived habits - only show active ones
             self.habits = self.store.habits.filter { !$0.isArchived }
             self.statuses = self.habits.map { habit in
-                let recordsDictionary = store.habitRecords.reduce(into: [Date: HabitRecord]()) { partialResult, record in
-                    guard record.habitID == habit.id else { return }
-                    partialResult[record.date.startOfDay] = record
-                }
+                let recordsDictionary = recordsLookup[habit.id] ?? [:]
                 return HabitWeekStatus(habit: habit, dates: weekDates, records: recordsDictionary)
             }
-            self.rebuildHeatmaps()
+            self.rebuildHeatmaps(with: recordsLookup)
+            self.rebuildStreakSnapshots(with: recordsLookup)
         }
 
         if let animation = pendingAnimation {
@@ -151,14 +159,79 @@ final class HabitsViewModel: ObservableObject {
 
     func currentStreak(for habit: Habit, asOf date: Date = Date()) -> Int {
         let calendar = Calendar.current
-        let records = store.habitRecords
-            .filter { $0.habitID == habit.id }
-            .reduce(into: [Date: HabitRecord]()) { result, record in
-                result[record.date.startOfDay] = record
-            }
+        let targetDay = calendar.startOfDay(for: date)
+        let today = calendar.startOfDay(for: Date())
+        if targetDay == today, let snapshot = streakSnapshots[habit.id] {
+            return snapshot.current
+        }
 
+        let records = recordsLookupCache[habit.id] ?? [:]
+        return calculateCurrentStreak(for: habit, asOf: targetDay, records: records, calendar: calendar)
+    }
+
+    func maxStreak(for habit: Habit, asOf date: Date = Date()) -> Int {
+        let calendar = Calendar.current
+        let targetDay = calendar.startOfDay(for: date)
+        let today = calendar.startOfDay(for: Date())
+        if targetDay == today, let snapshot = streakSnapshots[habit.id] {
+            return snapshot.best
+        }
+
+        let records = recordsLookupCache[habit.id] ?? [:]
+        let current = calculateCurrentStreak(for: habit, asOf: targetDay, records: records, calendar: calendar)
+        let longest = calculateMaxStreak(for: habit, asOf: targetDay, records: records, calendar: calendar)
+        return max(longest, current)
+    }
+
+    func miniHeatmap(for habit: Habit) -> [HabitHeatCell] {
+        miniHeatmaps[habit.id] ?? []
+    }
+
+    func summary(for date: Date) -> HabitDaySummary? {
+        let day = Calendar.current.startOfDay(for: date)
+        return yearlySummaries[day]
+    }
+
+    // MARK: - Heatmap Builders
+
+    private func rebuildHeatmaps(with recordsLookup: [UUID: [Date: HabitRecord]]) {
+        computeYearlyHeatmap(with: recordsLookup)
+        computeMiniHeatmaps(with: recordsLookup)
+        computeAverageRates()
+    }
+
+    private func makeRecordsLookup(from records: [HabitRecord]) -> [UUID: [Date: HabitRecord]] {
+        records.reduce(into: [UUID: [Date: HabitRecord]]()) { partialResult, record in
+            var habitMap = partialResult[record.habitID] ?? [:]
+            habitMap[record.date.startOfDay] = record
+            partialResult[record.habitID] = habitMap
+        }
+    }
+
+    private func rebuildStreakSnapshots(with recordsLookup: [UUID: [Date: HabitRecord]]) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        var map: [UUID: HabitStreakSnapshot] = [:]
+        map.reserveCapacity(habits.count)
+
+        for habit in habits {
+            let records = recordsLookup[habit.id] ?? [:]
+            let current = calculateCurrentStreak(for: habit, asOf: today, records: records, calendar: calendar)
+            let longest = calculateMaxStreak(for: habit, asOf: today, records: records, calendar: calendar)
+            map[habit.id] = HabitStreakSnapshot(current: current, best: max(longest, current))
+        }
+
+        streakSnapshots = map
+    }
+
+    private func calculateCurrentStreak(
+        for habit: Habit,
+        asOf day: Date,
+        records: [Date: HabitRecord],
+        calendar: Calendar
+    ) -> Int {
         var streak = 0
-        var cursor = calendar.startOfDay(for: date)
+        var cursor = day
 
         while true {
             if habit.schedule.isActive(on: cursor) == false {
@@ -179,22 +252,19 @@ final class HabitsViewModel: ObservableObject {
         return streak
     }
 
-    func maxStreak(for habit: Habit, asOf date: Date = Date()) -> Int {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: date)
-        guard let start = calendar.date(byAdding: .day, value: -365, to: today) else { return 0 }
-        
-        let records = store.habitRecords
-            .filter { $0.habitID == habit.id }
-            .reduce(into: [Date: HabitRecord]()) { result, record in
-                result[record.date.startOfDay] = record
-            }
-        
+    private func calculateMaxStreak(
+        for habit: Habit,
+        asOf day: Date,
+        records: [Date: HabitRecord],
+        calendar: Calendar
+    ) -> Int {
+        guard let start = calendar.date(byAdding: .day, value: -365, to: day) else { return 0 }
+
         var cursor = start
         var longest = 0
         var running = 0
-        
-        while cursor <= today {
+
+        while cursor <= day {
             if habit.schedule.isActive(on: cursor) {
                 if records[cursor]?.isCompleted == true {
                     running += 1
@@ -206,30 +276,8 @@ final class HabitsViewModel: ObservableObject {
             guard let next = calendar.date(byAdding: .day, value: 1, to: cursor) else { break }
             cursor = next
         }
-        
-        return max(longest, currentStreak(for: habit, asOf: date))
-    }
 
-    func miniHeatmap(for habit: Habit) -> [HabitHeatCell] {
-        miniHeatmaps[habit.id] ?? []
-    }
-
-    func summary(for date: Date) -> HabitDaySummary? {
-        let day = Calendar.current.startOfDay(for: date)
-        return yearlySummaries[day]
-    }
-
-    // MARK: - Heatmap Builders
-
-    private func rebuildHeatmaps() {
-        let recordsLookup = store.habitRecords.reduce(into: [UUID: [Date: HabitRecord]]()) { partialResult, record in
-            var habitMap = partialResult[record.habitID] ?? [:]
-            habitMap[record.date.startOfDay] = record
-            partialResult[record.habitID] = habitMap
-        }
-        computeYearlyHeatmap(with: recordsLookup)
-        computeMiniHeatmaps(with: recordsLookup)
-        computeAverageRates()
+        return longest
     }
 
     private func computeYearlyHeatmap(with recordsLookup: [UUID: [Date: HabitRecord]]) {
