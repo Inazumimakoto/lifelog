@@ -24,7 +24,7 @@ struct HabitWidgetModel: Identifiable {
 
 struct HabitGrassDay: Identifiable {
     let date: Date
-    let level: Int // 0...5
+    let level: Int // 0...4
     let isToday: Bool
 
     var id: Date { date }
@@ -38,6 +38,15 @@ struct HabitEntry: TimelineEntry {
 
 struct HabitProvider: TimelineProvider {
     private let grassWeeks = 14
+    private typealias GrassThresholds = (q1: Int, q2: Int)
+
+    private struct GrassComputationDay {
+        let date: Date
+        let scheduledCount: Int
+        let completedCount: Int
+        let isFuture: Bool
+        let isToday: Bool
+    }
 
     private static var widgetCalendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
@@ -184,8 +193,8 @@ struct HabitProvider: TimelineProvider {
     ) -> [HabitGrassDay] {
         guard habits.isEmpty == false else { return [] }
 
-        var results: [HabitGrassDay] = []
-        results.reserveCapacity(weeks * 7)
+        var daySummaries: [GrassComputationDay] = []
+        daySummaries.reserveCapacity(weeks * 7)
 
         for offset in 0..<(weeks * 7) {
             guard let dayDate = calendar.date(byAdding: .day, value: offset, to: start) else { continue }
@@ -201,20 +210,43 @@ struct HabitProvider: TimelineProvider {
                 }
             }
 
-            results.append(
-                HabitGrassDay(
+            daySummaries.append(
+                GrassComputationDay(
                     date: day,
-                    level: grassLevel(
-                        scheduledCount: scheduledHabits.count,
-                        completedCount: completedCount,
-                        isFuture: isFuture
-                    ),
+                    scheduledCount: scheduledHabits.count,
+                    completedCount: completedCount,
+                    isFuture: isFuture,
                     isToday: calendar.isDate(day, inSameDayAs: today)
                 )
             )
         }
 
-        return results
+        let partialNonZeroCounts = daySummaries.compactMap { day -> Int? in
+            guard day.isFuture == false else { return nil }
+            guard day.scheduledCount > 0 else { return nil }
+            guard day.completedCount > 0 else { return nil }
+            guard day.completedCount < day.scheduledCount else { return nil }
+            return day.completedCount
+        }
+        .sorted()
+
+        let thresholds: GrassThresholds = (
+            q1: nearestRankPercentile(25, in: partialNonZeroCounts),
+            q2: nearestRankPercentile(50, in: partialNonZeroCounts)
+        )
+
+        return daySummaries.map { day in
+            HabitGrassDay(
+                date: day.date,
+                level: grassLevel(
+                    scheduledCount: day.scheduledCount,
+                    completedCount: day.completedCount,
+                    isFuture: day.isFuture,
+                    thresholds: thresholds
+                ),
+                isToday: day.isToday
+            )
+        }
     }
 
     private func isHabit(_ habit: SDHabit, activeOn day: Date, calendar: Calendar) -> Bool {
@@ -228,20 +260,27 @@ struct HabitProvider: TimelineProvider {
         return true
     }
 
-    private func grassLevel(scheduledCount: Int, completedCount: Int, isFuture: Bool) -> Int {
+    private func grassLevel(
+        scheduledCount: Int,
+        completedCount: Int,
+        isFuture: Bool,
+        thresholds: GrassThresholds
+    ) -> Int {
         if isFuture { return 0 }
         guard scheduledCount > 0 else { return 0 }
-        guard completedCount > 0 else { return 1 }
+        guard completedCount > 0 else { return 0 }
+        if completedCount == scheduledCount { return 4 }
 
-        let rate = Double(completedCount) / Double(scheduledCount)
-        if rate <= 0.25 {
-            return 2
-        } else if rate <= 0.50 {
-            return 3
-        } else if rate <= 0.75 {
-            return 4
-        }
-        return 5
+        if completedCount <= thresholds.q1 { return 1 }
+        if completedCount <= thresholds.q2 { return 2 }
+        return 3
+    }
+
+    private func nearestRankPercentile(_ percentile: Int, in sortedValues: [Int]) -> Int {
+        guard sortedValues.isEmpty == false else { return 1 }
+        let p = Double(percentile) / 100.0
+        let rank = max(1, Int(ceil(Double(sortedValues.count) * p)))
+        return sortedValues[min(rank - 1, sortedValues.count - 1)]
     }
 
     private func makePlaceholderGrassDays(
@@ -250,7 +289,7 @@ struct HabitProvider: TimelineProvider {
         today: Date,
         calendar: Calendar
     ) -> [HabitGrassDay] {
-        let pattern = [1, 2, 3, 4, 5, 3, 2]
+        let pattern = [0, 1, 2, 3, 4, 2, 1]
         return (0..<(weeks * 7)).compactMap { offset in
             guard let date = calendar.date(byAdding: .day, value: offset, to: start) else { return nil }
             let day = calendar.startOfDay(for: date)
@@ -452,20 +491,28 @@ private struct HabitGrassGridView: View {
     }
 
     private func color(for level: Int) -> Color {
-        switch level {
-        case 0:
-            return colorScheme == .dark ? Color.white.opacity(0.10) : Color.black.opacity(0.08)
-        case 1:
-            return colorScheme == .dark ? Color.white.opacity(0.22) : Color.gray.opacity(0.28)
-        case 2:
-            return Color(hex: "#d1fae5") ?? Color.green.opacity(0.28)
-        case 3:
-            return Color(hex: "#a7f3d0") ?? Color.green.opacity(0.45)
-        case 4:
-            return Color(hex: "#4ade80") ?? Color.green.opacity(0.65)
-        default:
-            return Color(hex: "#16a34a") ?? Color.green
+        let clampedLevel = max(0, min(4, level))
+        return githubPalette[clampedLevel]
+    }
+
+    private var githubPalette: [Color] {
+        if colorScheme == .dark {
+            return [
+                Color(hex: "#161b22") ?? Color(red: 0.09, green: 0.11, blue: 0.13),
+                Color(hex: "#0e4429") ?? Color(red: 0.05, green: 0.27, blue: 0.16),
+                Color(hex: "#006d32") ?? Color(red: 0.00, green: 0.43, blue: 0.20),
+                Color(hex: "#26a641") ?? Color(red: 0.15, green: 0.65, blue: 0.25),
+                Color(hex: "#39d353") ?? Color(red: 0.22, green: 0.83, blue: 0.33)
+            ]
         }
+
+        return [
+            Color(hex: "#ebedf0") ?? Color(red: 0.92, green: 0.93, blue: 0.94),
+            Color(hex: "#9be9a8") ?? Color(red: 0.61, green: 0.91, blue: 0.66),
+            Color(hex: "#40c463") ?? Color(red: 0.25, green: 0.77, blue: 0.39),
+            Color(hex: "#30a14e") ?? Color(red: 0.19, green: 0.63, blue: 0.31),
+            Color(hex: "#216e39") ?? Color(red: 0.13, green: 0.43, blue: 0.22)
+        ]
     }
 
     private func chunkedWeeks(from days: [HabitGrassDay]) -> [[HabitGrassDay]] {
