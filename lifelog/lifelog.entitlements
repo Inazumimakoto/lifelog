@@ -19,6 +19,7 @@
 	<key>com.apple.security.application-groups</key>
 	<array>
 		<string>group.lifelog.share</string>
+		<string>group.lifelog.screenshots</string>
 	</array>
 </dict>
 </plist>

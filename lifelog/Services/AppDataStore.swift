@@ -55,6 +55,12 @@ final class AppDataStore: ObservableObject {
     private static let defaultLocationVisitTagNames: [String] = [
         "ご飯", "カフェ", "仕事", "勉強", "買い物", "旅行", "観光", "運動", "用事", "友人", "家族", "デート"
     ]
+    #if DEBUG
+    private static let screenshotsModeLaunchArguments: Set<String> = [
+        "-screenshots-mode",
+        "-ScreenshotsMode",
+    ]
+    #endif
 
     // MARK: - SwiftData Context
     private let modelContext: ModelContext
@@ -181,6 +187,7 @@ final class AppDataStore: ObservableObject {
 
         #if DEBUG
         seedSampleDataIfNeeded()
+        seedJapaneseScheduleForScreenshotsIfNeeded()
         #endif
         _Concurrency.Task {
             await loadHealthData()
@@ -1993,6 +2000,103 @@ final class AppDataStore: ObservableObject {
     // MARK: - Sample Data (DEBUG only)
 
     #if DEBUG
+    private func seedJapaneseScheduleForScreenshotsIfNeeded() {
+        let arguments = Set(ProcessInfo.processInfo.arguments)
+        guard Self.screenshotsModeLaunchArguments.isDisjoint(with: arguments) == false else { return }
+
+        let minimumEventCountForScreenshots = 18
+        guard calendarEvents.count < minimumEventCountForScreenshots else { return }
+
+        var mergedEvents = calendarEvents
+        let seededEvents = makeJapaneseSampleScheduleEvents(referenceDate: Date())
+        for event in seededEvents where containsSimilarCalendarEvent(event, in: mergedEvents) == false {
+            mergedEvents.append(event)
+        }
+
+        guard mergedEvents.count != calendarEvents.count else { return }
+        mergedEvents.sort {
+            if $0.startDate == $1.startDate {
+                return $0.endDate < $1.endDate
+            }
+            return $0.startDate < $1.startDate
+        }
+        calendarEvents = mergedEvents
+        eventsCache.removeAll()
+        persistCalendarEvents()
+    }
+
+    private func makeJapaneseSampleScheduleEvents(referenceDate: Date) -> [CalendarEvent] {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: referenceDate)
+
+        func day(_ offset: Int) -> Date {
+            calendar.date(byAdding: .day, value: offset, to: today) ?? today
+        }
+
+        func timed(_ title: String, _ dayOffset: Int, _ startHour: Int, _ startMinute: Int, _ endHour: Int, _ endMinute: Int, _ calendarName: String) -> CalendarEvent {
+            let targetDay = day(dayOffset)
+            let start = calendar.date(bySettingHour: startHour, minute: startMinute, second: 0, of: targetDay) ?? targetDay
+            let end = calendar.date(bySettingHour: endHour, minute: endMinute, second: 0, of: targetDay) ?? start.addingTimeInterval(3_600)
+            return CalendarEvent(
+                title: title,
+                startDate: start,
+                endDate: end,
+                calendarName: calendarName
+            )
+        }
+
+        func allDay(_ title: String, _ dayOffset: Int, _ lengthDays: Int, _ calendarName: String) -> CalendarEvent {
+            let start = day(dayOffset)
+            let end = calendar.date(byAdding: .day, value: max(1, lengthDays), to: start) ?? start.addingTimeInterval(86_400)
+            return CalendarEvent(
+                title: title,
+                startDate: start,
+                endDate: end,
+                calendarName: calendarName,
+                isAllDay: true
+            )
+        }
+
+        return [
+            timed("朝の散歩", -2, 7, 0, 7, 30, "健康"),
+            timed("チーム朝会", -1, 9, 30, 10, 0, "仕事"),
+            timed("週次ふりかえり", -1, 18, 30, 19, 15, "仕事"),
+            timed("チーム朝会", 0, 9, 30, 10, 0, "仕事"),
+            timed("仕様確認ミーティング", 0, 11, 0, 12, 0, "仕事"),
+            timed("ランチ（中華）", 0, 12, 30, 13, 20, "プライベート"),
+            timed("E2EE手紙の下書き", 0, 21, 0, 21, 30, "タイムカプセル"),
+            timed("ジム", 1, 19, 0, 20, 0, "健康"),
+            timed("買い物", 2, 18, 30, 19, 30, "プライベート"),
+            allDay("日帰り旅行", 3, 1, "旅行"),
+            timed("カレンダー整理", 4, 20, 30, 21, 0, "プライベート"),
+            timed("チーム朝会", 5, 9, 30, 10, 0, "仕事"),
+            timed("デザインレビュー", 5, 15, 0, 16, 0, "仕事"),
+            timed("歯科検診", 7, 10, 30, 11, 15, "健康"),
+            timed("習慣チェック", 8, 21, 0, 21, 20, "習慣"),
+            allDay("出張（大阪）", 10, 2, "仕事"),
+            timed("メモ整理", 13, 20, 0, 20, 40, "学習"),
+            timed("写真整理", 15, 21, 0, 21, 40, "プライベート"),
+            timed("タイムカプセル作成", 18, 20, 0, 21, 0, "タイムカプセル"),
+            timed("読書", 21, 22, 0, 22, 40, "学習"),
+            timed("チーム朝会", 22, 9, 30, 10, 0, "仕事"),
+            timed("美容院", 25, 14, 0, 15, 0, "プライベート"),
+            allDay("実家へ帰省", 29, 2, "家族"),
+            timed("翌月の計画づくり", 34, 20, 0, 21, 0, "プライベート"),
+            timed("月次レビュー", 40, 18, 0, 19, 0, "仕事"),
+            timed("振り返りと日記", 44, 21, 0, 21, 40, "習慣")
+        ]
+    }
+
+    private func containsSimilarCalendarEvent(_ candidate: CalendarEvent, in events: [CalendarEvent]) -> Bool {
+        events.contains {
+            $0.title == candidate.title &&
+            $0.calendarName == candidate.calendarName &&
+            abs($0.startDate.timeIntervalSince(candidate.startDate)) < 1 &&
+            abs($0.endDate.timeIntervalSince(candidate.endDate)) < 1 &&
+            $0.isAllDay == candidate.isAllDay
+        }
+    }
+
     private func seedSampleDataIfNeeded() {
         guard tasks.isEmpty && diaryEntries.isEmpty && habits.isEmpty && anniversaries.isEmpty && calendarEvents.isEmpty else { return }
         let now = Date()

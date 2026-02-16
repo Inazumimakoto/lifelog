@@ -12,9 +12,59 @@ struct PersistenceController {
     static let shared = PersistenceController()
 
     let container: ModelContainer
-    
-    // App Group ID - MUST match Xcode capabilities
-    static let appGroupIdentifier = "group.lifelog.share"
+
+    // App Group IDs (must be present in app/widget entitlements)
+    private static let defaultAppGroupIdentifier = "group.lifelog.share"
+    private static let screenshotsAppGroupIdentifier = "group.lifelog.screenshots"
+    private static let activeAppGroupDefaultsKey = "lifelog.activeAppGroupIdentifier"
+    private static let screenshotsLaunchArguments: Set<String> = [
+        "-screenshots-mode",
+        "-ScreenshotsMode",
+    ]
+
+    private static var isRunningInExtension: Bool {
+        Bundle.main.bundleURL.pathExtension == "appex" ||
+        Bundle.main.object(forInfoDictionaryKey: "NSExtension") != nil
+    }
+
+    private static var isScreenshotsModeLaunch: Bool {
+        let arguments = Set(ProcessInfo.processInfo.arguments)
+        return screenshotsLaunchArguments.isDisjoint(with: arguments) == false
+    }
+
+    /// Active App Group used by app + widgets.
+    ///
+    /// - App launch:
+    ///   - `-screenshots-mode` -> screenshots group
+    ///   - default -> normal group
+    /// - Widget extension:
+    ///   - follows the latest app selection stored in shared defaults.
+    static var appGroupIdentifier: String {
+        let selected: String
+        if isScreenshotsModeLaunch {
+            selected = screenshotsAppGroupIdentifier
+        } else if isRunningInExtension {
+            selected = persistedActiveAppGroupIdentifier ?? defaultAppGroupIdentifier
+        } else {
+            selected = defaultAppGroupIdentifier
+        }
+
+        persistActiveAppGroupIdentifierIfNeeded(selected)
+        return selected
+    }
+
+    private static var persistedActiveAppGroupIdentifier: String? {
+        guard let defaults = UserDefaults(suiteName: defaultAppGroupIdentifier) else { return nil }
+        guard let value = defaults.string(forKey: activeAppGroupDefaultsKey) else { return nil }
+        let allowed = [defaultAppGroupIdentifier, screenshotsAppGroupIdentifier]
+        return allowed.contains(value) ? value : nil
+    }
+
+    private static func persistActiveAppGroupIdentifierIfNeeded(_ identifier: String) {
+        guard isRunningInExtension == false else { return }
+        guard let defaults = UserDefaults(suiteName: defaultAppGroupIdentifier) else { return }
+        defaults.set(identifier, forKey: activeAppGroupDefaultsKey)
+    }
 
     init(inMemory: Bool = false) {
         let schema = Schema([
