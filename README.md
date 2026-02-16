@@ -90,7 +90,7 @@
 ### 📈 Code Stats
 
 <p align="center">
-  📝 総行数: <strong>51,646</strong> &nbsp;•&nbsp; 📁 lifelog配下: <strong>34,132</strong> &nbsp;•&nbsp; 📄 ファイル数: <strong>154</strong> &nbsp;•&nbsp; 🧠 Swiftコード: <strong>35,920</strong> &nbsp;•&nbsp; 📦 最大ファイル: <strong>JournalView.swift</strong> (3,530 行)
+  📝 総行数: <strong>51,886</strong> &nbsp;•&nbsp; 📁 lifelog配下: <strong>34,287</strong> &nbsp;•&nbsp; 📄 ファイル数: <strong>155</strong> &nbsp;•&nbsp; 🧠 Swiftコード: <strong>36,074</strong> &nbsp;•&nbsp; 📦 最大ファイル: <strong>JournalView.swift</strong> (3,530 行)
 </p>
 
 <sub>Stats 自動更新</sub>
@@ -100,13 +100,13 @@
 <!-- dir-loc-start -->
 | Directory | LOC |
 |:--|--:|
-| `lifelog` | 34,132 |
+| `lifelog` | 34,287 |
 | `functions` | 10,187 |
 | `docs` | 2,657 |
 | `LifelogWidgets` | 2,305 |
-| `lifelog.xcodeproj` | 847 |
+| `lifelog.xcodeproj` | 931 |
 | `assets` | 688 |
-| `(root)` | 535 |
+| `(root)` | 536 |
 | `public` | 163 |
 | `.github` | 132 |
 <!-- dir-loc-end -->
