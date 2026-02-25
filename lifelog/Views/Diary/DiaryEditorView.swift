@@ -529,7 +529,6 @@ struct DiaryEditorView: View {
                                                 photoLinkContext = .photo(path)
                                             },
                                             onDelete: nil)
-                    .equatable()
                     PhotosPicker(selection: $selection,
                                  maxSelectionCount: max(1, remainingSlots),
                                  matching: .images) {
