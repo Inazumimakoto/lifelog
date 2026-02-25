@@ -115,6 +115,45 @@ private struct DayPreviewItem: Identifiable {
     }
 }
 
+private struct CalendarWeekMultiDaySegment: Identifiable {
+    let id: String
+    let eventID: UUID
+    let title: String
+    let color: Color
+    let lane: Int
+    let startColumn: Int
+    let endColumn: Int
+    let continuesBeforeWeek: Bool
+    let continuesAfterWeek: Bool
+}
+
+private struct CalendarDayMultiDayState {
+    let visibleLaneCount: Int
+    let occupiedVisibleLanes: Set<Int>
+    let hiddenMultiDayCount: Int
+
+    static let empty = CalendarDayMultiDayState(visibleLaneCount: 0,
+                                                occupiedVisibleLanes: [],
+                                                hiddenMultiDayCount: 0)
+}
+
+private struct CalendarWeekMultiDayLayout {
+    let visibleLaneCount: Int
+    let dayStates: [CalendarDayMultiDayState]
+    let segments: [CalendarWeekMultiDaySegment]
+
+    static let empty = CalendarWeekMultiDayLayout(visibleLaneCount: 0,
+                                                  dayStates: Array(repeating: .empty, count: 7),
+                                                  segments: [])
+}
+
+private enum CalendarCellRowContent {
+    case multiDayPlaceholder
+    case item(DayPreviewItem)
+    case overflow(Int)
+    case empty
+}
+
 
 struct JournalView: View {
     @Environment(\.scenePhase) private var scenePhase
@@ -128,6 +167,14 @@ struct JournalView: View {
     @StateObject private var viewModel: JournalViewModel
     private let monthPagerHeight: CGFloat = 700
     private let monthPagerRadius = 3
+    private let calendarGridSpacing: CGFloat = 4
+    private let calendarCellHeight: CGFloat = 88
+    private let calendarCellCornerRadius: CGFloat = 10
+    private let calendarCellTopPadding: CGFloat = 4
+    private let calendarCellRowSpacing: CGFloat = 2
+    private let calendarCellDateRowHeight: CGFloat = 18
+    private let calendarPreviewRowHeight: CGFloat = 14
+    private let calendarPreviewRowCornerRadius: CGFloat = 4
     @State private var monthPagerAnchors: [Date] = []
     @State private var monthPagerSelection: Int = 0
     @State private var isSyncingMonthPager = false
@@ -760,73 +807,72 @@ struct JournalView: View {
     }
 
     private var monthGridColumns: [GridItem] {
-        Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
+        Array(repeating: GridItem(.flexible(), spacing: calendarGridSpacing), count: 7)
     }
 
     private func monthCalendar(for anchor: Date) -> some View {
         let columns = monthGridColumns
         let itemLimit = 4
-        return LazyVGrid(columns: columns, spacing: 4) {
-            ForEach(viewModel.calendarDays(for: anchor)) { day in
-                monthDayCell(day, itemLimit: itemLimit)
+        let days = viewModel.calendarDays(for: anchor)
+        let weekLayouts = monthCalendarMultiDayLayouts(days: days, itemLimit: itemLimit)
+        return LazyVGrid(columns: columns, spacing: calendarGridSpacing) {
+            ForEach(Array(days.enumerated()), id: \.element.id) { index, day in
+                let weekIndex = index / 7
+                let dayIndex = index % 7
+                let layout = weekLayouts.indices.contains(weekIndex) ? weekLayouts[weekIndex] : .empty
+                let multiDayState = layout.dayStates.indices.contains(dayIndex) ? layout.dayStates[dayIndex] : .empty
+                monthDayCell(day, itemLimit: itemLimit, multiDayState: multiDayState)
             }
+        }
+        .overlay(alignment: .topLeading) {
+            GeometryReader { geometry in
+                monthMultiDayOverlay(weekLayouts: weekLayouts, gridWidth: geometry.size.width)
+            }
+            .allowsHitTesting(false)
         }
         // .animation removed: グリッド全体へのアニメーション伝播を防止（スクロールのカクつき対策）
     }
 
     @ViewBuilder
-    private func monthDayCell(_ day: JournalViewModel.CalendarDay, itemLimit: Int) -> some View {
+    private func monthDayCell(_ day: JournalViewModel.CalendarDay,
+                              itemLimit: Int,
+                              multiDayState: CalendarDayMultiDayState) -> some View {
         let previews = dayPreviewItems(events: day.events, tasks: day.tasks, on: day.date)
-        let (visible, overflow) = previewDisplay(previews, limit: itemLimit)
+        let rowContents = calendarCellRowContents(previews: previews,
+                                                  itemLimit: itemLimit,
+                                                  multiDayState: multiDayState)
         VStack(alignment: .leading, spacing: 2) {
             // Date fixed in top-left
             Text("\(Calendar.current.component(.day, from: day.date))")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
                 .padding(.horizontal, 4)  // Date gets its own padding
+                .frame(height: calendarCellDateRowHeight, alignment: .leading)
             
             // Items below the date
-            ForEach(visible) { item in
-                if item.kind == .event {
-                    eventBarView(item: item, date: day.date)
-                } else {
-                    CalendarPreviewText(text: previewLabel(for: item))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 3)
-                        .padding(.vertical, 2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(item.color.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
-                        .clipped()
-                }
+            ForEach(Array(rowContents.enumerated()), id: \.offset) { _, rowContent in
+                calendarCellRowView(rowContent)
             }
-            if overflow > 0 {
-                Text("+\(overflow)")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 4)  // Overflow text gets padding
-            }
-            
-            Spacer(minLength: 0)
         }
-        .padding(.top, 4)
+        .padding(.top, calendarCellTopPadding)
         // Remove .padding(.horizontal, 4) from VStack
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .frame(height: 88)
+        .frame(height: calendarCellHeight)
         // Use a mask that allows horizontal overflow (for connected bars)
         // but clips vertical overflow (to keep fixed height).
         // Padding -20 extends the mask horizontally by 20pt on each side.
         .mask(Rectangle().padding(.horizontal, -20))
         .background(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: calendarCellCornerRadius)
                 .fill(day.isToday ? Color.accentColor.opacity(0.12) : Color.clear)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: calendarCellCornerRadius)
                 .stroke(Color.clear, lineWidth: 2)
         )
         .overlay(alignment: .center) {
             if viewModel.selectedDate.isSameDay(as: day.date) {
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: calendarCellCornerRadius)
                     .stroke(Color.accentColor, lineWidth: 2)
                     .matchedGeometryEffect(id: "calendar-selection",
                                            in: selectionNamespace,
@@ -960,65 +1006,60 @@ struct JournalView: View {
     private func weekCalendar(for anchor: Date) -> some View {
         let dates = weekDates(for: anchor)
         let itemLimit = 4
-        let columns = Array(repeating: GridItem(.flexible(), spacing: 4), count: 7)
-        return LazyVGrid(columns: columns, spacing: 4) {
-            ForEach(dates, id: \.self) { date in
-                weekDayCell(date, itemLimit: itemLimit)
+        let columns = Array(repeating: GridItem(.flexible(), spacing: calendarGridSpacing), count: 7)
+        let multiDayLayout = weekCalendarMultiDayLayout(dates: dates, itemLimit: itemLimit)
+        return LazyVGrid(columns: columns, spacing: calendarGridSpacing) {
+            ForEach(Array(dates.enumerated()), id: \.element) { index, date in
+                let multiDayState = multiDayLayout.dayStates.indices.contains(index) ? multiDayLayout.dayStates[index] : .empty
+                weekDayCell(date, itemLimit: itemLimit, multiDayState: multiDayState)
             }
+        }
+        .overlay(alignment: .topLeading) {
+            GeometryReader { geometry in
+                weekMultiDayOverlay(layout: multiDayLayout, gridWidth: geometry.size.width)
+            }
+            .allowsHitTesting(false)
         }
         // .animation removed: グリッド全体へのアニメーション伝播を防止（スクロールのカクつき対策）
     }
 
     @ViewBuilder
-    private func weekDayCell(_ date: Date, itemLimit: Int) -> some View {
+    private func weekDayCell(_ date: Date,
+                             itemLimit: Int,
+                             multiDayState: CalendarDayMultiDayState) -> some View {
         let previews = dayPreviewItems(for: date)
-        let (visible, overflow) = previewDisplay(previews, limit: itemLimit)
+        let rowContents = calendarCellRowContents(previews: previews,
+                                                  itemLimit: itemLimit,
+                                                  multiDayState: multiDayState)
         VStack(alignment: .leading, spacing: 2) {
             // Date fixed in top-left
             Text("\(Calendar.current.component(.day, from: date))")
                 .font(.subheadline.weight(.semibold))
                 .padding(.horizontal, 4)  // Date gets its own padding
+                .frame(height: calendarCellDateRowHeight, alignment: .leading)
             
             // Items below the date
-            ForEach(visible) { item in
-                if item.kind == .event {
-                    eventBarView(item: item, date: date)
-                } else {
-                    CalendarPreviewText(text: previewLabel(for: item))
-                        .fixedSize(horizontal: false, vertical: true)
-                        .padding(.horizontal, 3)
-                        .padding(.vertical, 2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .background(item.color.opacity(0.2), in: RoundedRectangle(cornerRadius: 4))
-                        .clipped()
-                }
+            ForEach(Array(rowContents.enumerated()), id: \.offset) { _, rowContent in
+                calendarCellRowView(rowContent)
             }
-            if overflow > 0 {
-                Text("+\(overflow)")
-                    .font(.system(size: 9))
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 4)  // Overflow text gets padding
-            }
-            
-            Spacer(minLength: 0)
         }
-        .padding(.top, 4)
+        .padding(.top, calendarCellTopPadding)
         // Remove .padding(.horizontal, 4) from VStack
         .frame(maxWidth: .infinity, alignment: .topLeading)
-        .frame(height: 88)
+        .frame(height: calendarCellHeight)
         // Mask allowing horizontal overflow to connect bars
         .mask(Rectangle().padding(.horizontal, -20))
         .background(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: calendarCellCornerRadius)
                 .fill(date.isSameDay(as: Date()) ? Color.accentColor.opacity(0.12) : Color.clear)
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
+            RoundedRectangle(cornerRadius: calendarCellCornerRadius)
                 .stroke(Color.clear, lineWidth: 2)
         )
         .overlay(alignment: .center) {
             if date.startOfDay == viewModel.selectedDate.startOfDay {
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: calendarCellCornerRadius)
                     .stroke(Color.accentColor, lineWidth: 2)
                     .matchedGeometryEffect(id: "calendar-selection",
                                            in: selectionNamespace,
@@ -1629,59 +1670,329 @@ struct JournalView: View {
         return !calendar.isDate(event.startDate, inSameDayAs: adjustedEnd)
     }
 
-
-    private func previewDisplay(_ items: [DayPreviewItem], limit: Int) -> ([DayPreviewItem], Int) {
-        guard items.count > limit else { return (items, 0) }
-        let visibleCount = max(1, limit - 1)
-        let visible = Array(items.prefix(visibleCount))
-        let overflow = items.count - visibleCount
-        return (visible, overflow)
-    }
-
     private func previewLabel(for item: DayPreviewItem) -> String {
         item.title
     }
     
-    @ViewBuilder
-    private func eventBarView(item: DayPreviewItem, date: Date) -> some View {
-        let position = item.multiDayPosition(on: date)
-        let showTitle = position == .start || position == .none
-        let isMultiDay = item.isMultiDayEvent
-        
-        // Determine corner radii based on position
-        let leftRadius: CGFloat = (position == .start || position == .none) ? 4 : 0
-        let rightRadius: CGFloat = (position == .end || position == .none) ? 4 : 0
-        
-        // Horizontal extension to bridge grid spacing
-        // Adjusted to -2 (exact match for 4px gap) to avoid any overlap
-        let leadingPadding: CGFloat = (position == .start || position == .none) ? 0 : -2
-        let trailingPadding: CGFloat = (position == .end || position == .none) ? 0 : -2
-        
-        HStack(spacing: 0) {
-            if showTitle {
-                CalendarPreviewText(text: item.title)
-                    .fixedSize(horizontal: false, vertical: true)
+    private func calendarCellRowContents(previews: [DayPreviewItem],
+                                         itemLimit: Int,
+                                         multiDayState: CalendarDayMultiDayState) -> [CalendarCellRowContent] {
+        guard itemLimit > 0 else { return [] }
+
+        let regularItems = previews.filter { item in
+            !(item.kind == .event && item.isMultiDayEvent)
+        }
+
+        var rows = Array(repeating: CalendarCellRowContent.empty, count: itemLimit)
+        var availableRows: [Int] = []
+
+        for rowIndex in 0..<itemLimit {
+            let isOccupiedByVisibleMultiDay = rowIndex < multiDayState.visibleLaneCount &&
+                multiDayState.occupiedVisibleLanes.contains(rowIndex)
+            if isOccupiedByVisibleMultiDay {
+                rows[rowIndex] = .multiDayPlaceholder
             } else {
-                // Empty spacer to maintain height for middle/end segments
-                Text(" ")
-                    .font(.system(size: 9, weight: .medium))
+                availableRows.append(rowIndex)
             }
         }
-        .padding(.horizontal, showTitle ? 3 : 2)
-        .padding(.vertical, 2)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            UnevenRoundedRectangle(
-                topLeadingRadius: leftRadius,
-                bottomLeadingRadius: leftRadius,
-                bottomTrailingRadius: rightRadius,
-                topTrailingRadius: rightRadius
+
+        guard availableRows.isEmpty == false else { return rows }
+
+        let needsOverflowRow = multiDayState.hiddenMultiDayCount > 0 || regularItems.count > availableRows.count
+        let displayedRegularCount: Int
+        let overflowCount: Int
+
+        if needsOverflowRow {
+            let regularCapacity = max(0, availableRows.count - 1)
+            displayedRegularCount = min(regularItems.count, regularCapacity)
+            overflowCount = multiDayState.hiddenMultiDayCount + max(0, regularItems.count - displayedRegularCount)
+        } else {
+            displayedRegularCount = regularItems.count
+            overflowCount = 0
+        }
+
+        for (offset, item) in regularItems.prefix(displayedRegularCount).enumerated() {
+            rows[availableRows[offset]] = .item(item)
+        }
+
+        if overflowCount > 0, availableRows.indices.contains(displayedRegularCount) {
+            rows[availableRows[displayedRegularCount]] = .overflow(overflowCount)
+        }
+
+        return rows
+    }
+
+    @ViewBuilder
+    private func calendarCellRowView(_ content: CalendarCellRowContent) -> some View {
+        switch content {
+        case .multiDayPlaceholder, .empty:
+            Color.clear
+                .frame(maxWidth: .infinity)
+                .frame(height: calendarPreviewRowHeight)
+        case .overflow(let count):
+            Text("+\(count)")
+                .font(.system(size: 9))
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: calendarPreviewRowHeight, alignment: .center)
+        case .item(let item):
+            if item.kind == .event {
+                singleDayEventBarView(item: item)
+            } else {
+                CalendarPreviewText(text: previewLabel(for: item))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 3)
+                    .padding(.vertical, 1.5)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(item.color.opacity(0.2),
+                                in: RoundedRectangle(cornerRadius: calendarPreviewRowCornerRadius))
+                    .clipped()
+                    .frame(height: calendarPreviewRowHeight, alignment: .center)
+            }
+        }
+    }
+
+    private func weekCalendarMultiDayLayout(dates: [Date], itemLimit: Int) -> CalendarWeekMultiDayLayout {
+        var uniqueEvents: [UUID: CalendarEvent] = [:]
+        for date in dates {
+            for event in store.events(on: date) where isMultiDayEvent(event) {
+                uniqueEvents[event.id] = event
+            }
+        }
+        return buildWeekMultiDayLayout(weekDates: dates,
+                                       events: Array(uniqueEvents.values),
+                                       itemLimit: itemLimit)
+    }
+
+    private func monthCalendarMultiDayLayouts(days: [JournalViewModel.CalendarDay],
+                                              itemLimit: Int) -> [CalendarWeekMultiDayLayout] {
+        guard days.isEmpty == false else { return [] }
+
+        var layouts: [CalendarWeekMultiDayLayout] = []
+        for startIndex in stride(from: 0, to: days.count, by: 7) {
+            let endIndex = min(startIndex + 7, days.count)
+            guard endIndex - startIndex == 7 else { continue }
+            let weekDays = Array(days[startIndex..<endIndex])
+
+            var uniqueEvents: [UUID: CalendarEvent] = [:]
+            for day in weekDays {
+                for event in day.events where isMultiDayEvent(event) {
+                    uniqueEvents[event.id] = event
+                }
+            }
+
+            layouts.append(
+                buildWeekMultiDayLayout(weekDates: weekDays.map(\.date),
+                                        events: Array(uniqueEvents.values),
+                                        itemLimit: itemLimit)
             )
-            .fill(item.color.opacity(0.2))
-        )
-        .clipped()
-        .padding(.leading, leadingPadding)
-        .padding(.trailing, trailingPadding)
+        }
+        return layouts
+    }
+
+    private func buildWeekMultiDayLayout(weekDates: [Date],
+                                         events: [CalendarEvent],
+                                         itemLimit: Int) -> CalendarWeekMultiDayLayout {
+        let calendar = Calendar.current
+        guard weekDates.count == 7,
+              let firstWeekDate = weekDates.first,
+              let lastWeekDate = weekDates.last
+        else {
+            return .empty
+        }
+
+        let weekStart = calendar.startOfDay(for: firstWeekDate)
+        let weekLastDay = calendar.startOfDay(for: lastWeekDate)
+        guard let weekEndExclusive = calendar.date(byAdding: .day, value: 1, to: weekLastDay) else {
+            return .empty
+        }
+
+        struct Candidate {
+            let event: CalendarEvent
+            let startColumn: Int
+            let endColumn: Int
+            let continuesBeforeWeek: Bool
+            let continuesAfterWeek: Bool
+        }
+
+        var candidates: [Candidate] = []
+        for event in events {
+            guard event.startDate < weekEndExclusive, event.endDate > weekStart else { continue }
+
+            let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: event.endDate) ?? event.endDate
+            let eventStartDay = calendar.startOfDay(for: event.startDate)
+            let rawEventEndDay = calendar.startOfDay(for: adjustedEnd)
+            let eventEndDay = max(rawEventEndDay, eventStartDay)
+            let visibleStartDay = max(eventStartDay, weekStart)
+            let visibleEndDay = min(eventEndDay, weekLastDay)
+
+            guard visibleStartDay <= visibleEndDay else { continue }
+
+            let startColumn = calendar.dateComponents([.day], from: weekStart, to: visibleStartDay).day ?? 0
+            let endColumn = calendar.dateComponents([.day], from: weekStart, to: visibleEndDay).day ?? 0
+            guard (0..<7).contains(startColumn), (0..<7).contains(endColumn), startColumn <= endColumn else { continue }
+
+            candidates.append(
+                Candidate(event: event,
+                          startColumn: startColumn,
+                          endColumn: endColumn,
+                          continuesBeforeWeek: eventStartDay < weekStart,
+                          continuesAfterWeek: eventEndDay > weekLastDay)
+            )
+        }
+
+        if candidates.isEmpty {
+            return .empty
+        }
+
+        let sortedCandidates = candidates.sorted { lhs, rhs in
+            if lhs.startColumn != rhs.startColumn {
+                return lhs.startColumn < rhs.startColumn
+            }
+            let lhsSpan = lhs.endColumn - lhs.startColumn
+            let rhsSpan = rhs.endColumn - rhs.startColumn
+            if lhsSpan != rhsSpan {
+                return lhsSpan > rhsSpan
+            }
+            if lhs.event.isAllDay != rhs.event.isAllDay {
+                return lhs.event.isAllDay && rhs.event.isAllDay == false
+            }
+            if lhs.event.startDate != rhs.event.startDate {
+                return lhs.event.startDate < rhs.event.startDate
+            }
+            return lhs.event.title < rhs.event.title
+        }
+
+        let maxVisibleLanes = max(0, itemLimit - 1)
+        var laneEndColumns: [Int] = []
+        var visibleSegments: [CalendarWeekMultiDaySegment] = []
+        var occupiedVisibleLanesByDay = Array(repeating: Set<Int>(), count: 7)
+        var hiddenCountByDay = Array(repeating: 0, count: 7)
+
+        for candidate in sortedCandidates {
+            let assignedLane: Int
+            if let lane = laneEndColumns.firstIndex(where: { candidate.startColumn > $0 }) {
+                assignedLane = lane
+                laneEndColumns[lane] = candidate.endColumn
+            } else {
+                assignedLane = laneEndColumns.count
+                laneEndColumns.append(candidate.endColumn)
+            }
+
+            if assignedLane < maxVisibleLanes {
+                for dayIndex in candidate.startColumn...candidate.endColumn {
+                    occupiedVisibleLanesByDay[dayIndex].insert(assignedLane)
+                }
+                visibleSegments.append(
+                    CalendarWeekMultiDaySegment(
+                        id: "\(weekStart.timeIntervalSince1970)-\(candidate.event.id.uuidString)-\(assignedLane)",
+                        eventID: candidate.event.id,
+                        title: candidate.event.title,
+                        color: CategoryPalette.color(for: candidate.event.calendarName),
+                        lane: assignedLane,
+                        startColumn: candidate.startColumn,
+                        endColumn: candidate.endColumn,
+                        continuesBeforeWeek: candidate.continuesBeforeWeek,
+                        continuesAfterWeek: candidate.continuesAfterWeek
+                    )
+                )
+            } else {
+                for dayIndex in candidate.startColumn...candidate.endColumn {
+                    hiddenCountByDay[dayIndex] += 1
+                }
+            }
+        }
+
+        let visibleLaneCount = min(laneEndColumns.count, maxVisibleLanes)
+        let dayStates = (0..<7).map { index in
+            CalendarDayMultiDayState(visibleLaneCount: visibleLaneCount,
+                                     occupiedVisibleLanes: occupiedVisibleLanesByDay[index],
+                                     hiddenMultiDayCount: hiddenCountByDay[index])
+        }
+
+        return CalendarWeekMultiDayLayout(visibleLaneCount: visibleLaneCount,
+                                          dayStates: dayStates,
+                                          segments: visibleSegments)
+    }
+
+    private func monthMultiDayOverlay(weekLayouts: [CalendarWeekMultiDayLayout], gridWidth: CGFloat) -> some View {
+        multiDayOverlay(weekLayouts: weekLayouts, gridWidth: gridWidth)
+    }
+
+    private func weekMultiDayOverlay(layout: CalendarWeekMultiDayLayout, gridWidth: CGFloat) -> some View {
+        multiDayOverlay(weekLayouts: [layout], gridWidth: gridWidth)
+    }
+
+    @ViewBuilder
+    private func multiDayOverlay(weekLayouts: [CalendarWeekMultiDayLayout], gridWidth: CGFloat) -> some View {
+        let cellWidth = calendarGridCellWidth(for: gridWidth)
+        if cellWidth > 0 {
+            ZStack(alignment: .topLeading) {
+                ForEach(Array(weekLayouts.enumerated()), id: \.offset) { weekIndex, layout in
+                    ForEach(layout.segments) { segment in
+                        let spanLength = segment.endColumn - segment.startColumn + 1
+                        let x = CGFloat(segment.startColumn) * (cellWidth + calendarGridSpacing)
+                        let y = CGFloat(weekIndex) * (calendarCellHeight + calendarGridSpacing) + multiDayOverlayRowY(lane: segment.lane)
+                        let width = CGFloat(spanLength) * cellWidth + CGFloat(max(0, spanLength - 1)) * calendarGridSpacing
+
+                        multiDayOverlayBarView(segment: segment)
+                            .frame(width: width, height: calendarPreviewRowHeight, alignment: .leading)
+                            .offset(x: x, y: y)
+                    }
+                }
+            }
+        }
+    }
+
+    private func calendarGridCellWidth(for totalWidth: CGFloat) -> CGFloat {
+        let totalSpacing = calendarGridSpacing * 6
+        guard totalWidth > totalSpacing else { return 0 }
+        return (totalWidth - totalSpacing) / 7
+    }
+
+    private func multiDayOverlayRowY(lane: Int) -> CGFloat {
+        calendarCellTopPadding +
+        calendarCellDateRowHeight +
+        calendarCellRowSpacing +
+        CGFloat(lane) * (calendarPreviewRowHeight + calendarCellRowSpacing)
+    }
+
+    @ViewBuilder
+    private func singleDayEventBarView(item: DayPreviewItem) -> some View {
+        CalendarPreviewText(text: item.title)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 3)
+            .padding(.vertical, 1.5)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                RoundedRectangle(cornerRadius: calendarPreviewRowCornerRadius)
+                    .fill(item.color.opacity(0.2))
+            )
+            .clipped()
+            .frame(height: calendarPreviewRowHeight, alignment: .center)
+    }
+
+    @ViewBuilder
+    private func multiDayOverlayBarView(segment: CalendarWeekMultiDaySegment) -> some View {
+        let leadingRadius: CGFloat = segment.continuesBeforeWeek ? 0 : calendarPreviewRowCornerRadius
+        let trailingRadius: CGFloat = segment.continuesAfterWeek ? 0 : calendarPreviewRowCornerRadius
+
+        CalendarPreviewText(text: segment.title)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 3)
+            .padding(.vertical, 1.5)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                UnevenRoundedRectangle(
+                    topLeadingRadius: leadingRadius,
+                    bottomLeadingRadius: leadingRadius,
+                    bottomTrailingRadius: trailingRadius,
+                    topTrailingRadius: trailingRadius
+                )
+                .fill(segment.color.opacity(0.2))
+            )
+            .clipped()
     }
 
 
