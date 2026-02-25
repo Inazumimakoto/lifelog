@@ -3277,7 +3277,8 @@ private struct ReviewDetailPanel: View {
                                     path: path,
                                     index: index,
                                     onTap: {
-                                        selectedPhotoIndex = index
+                                        // 振り返りの全画面表示は常に「お気に入りの写真」起点にする。
+                                        setReviewPhotoSelection(preferredIndex)
                                         showPhotoViewer = true
                                     }
                                 )
@@ -3289,28 +3290,20 @@ private struct ReviewDetailPanel: View {
                     .scrollTargetBehavior(.paging)
                     .frame(height: 240)
                     .onAppear {
-                        let initialIndex = clampedIndex(preferredIndex)
-                        selectedPhotoIndex = initialIndex
-                        localPhotoIndex = initialIndex
-                        scrollToIndex(initialIndex, using: proxy)
+                        setReviewPhotoSelection(preferredIndex)
+                        scrollToIndex(selectedPhotoIndex, using: proxy)
                     }
                     .onChange(of: date) { _, _ in
-                        let initialIndex = clampedIndex(preferredIndex)
-                        selectedPhotoIndex = initialIndex
-                        localPhotoIndex = initialIndex
-                        scrollToIndex(initialIndex, using: proxy)
+                        setReviewPhotoSelection(preferredIndex)
+                        scrollToIndex(selectedPhotoIndex, using: proxy)
                     }
                     .onChange(of: preferredIndex) { _, newValue in
-                        let targetIndex = clampedIndex(newValue)
-                        selectedPhotoIndex = targetIndex
-                        localPhotoIndex = targetIndex
-                        scrollToIndex(targetIndex, using: proxy)
+                        setReviewPhotoSelection(newValue)
+                        scrollToIndex(selectedPhotoIndex, using: proxy)
                     }
                     .onChange(of: photoPaths) { _, _ in
-                        let targetIndex = clampedIndex(localPhotoIndex)
-                        selectedPhotoIndex = targetIndex
-                        localPhotoIndex = targetIndex
-                        scrollToIndex(targetIndex, using: proxy)
+                        setReviewPhotoSelection(localPhotoIndex)
+                        scrollToIndex(selectedPhotoIndex, using: proxy)
                     }
                 }
             }
@@ -3381,9 +3374,10 @@ private struct ReviewDetailPanel: View {
         }
         .fullScreenCover(isPresented: $showPhotoViewer) {
             DiaryPhotoViewerView(viewModel: DiaryViewModel(store: store, date: date),
-                                 initialIndex: selectedPhotoIndex,
+                                 initialIndex: reviewPhotoViewerIndex,
                                  onIndexChanged: { newIndex in
                                      selectedPhotoIndex = newIndex
+                                     reviewPhotoViewerIndex = newIndex
                                  })
         }
     }
@@ -3402,6 +3396,13 @@ private struct ReviewDetailPanel: View {
     private func clampedIndex(_ index: Int) -> Int {
         guard photoPaths.isEmpty == false else { return 0 }
         return min(max(index, 0), photoPaths.count - 1)
+    }
+
+    private func setReviewPhotoSelection(_ index: Int) {
+        let targetIndex = clampedIndex(index)
+        selectedPhotoIndex = targetIndex
+        localPhotoIndex = targetIndex
+        reviewPhotoViewerIndex = targetIndex
     }
 
     private func scrollToIndex(_ index: Int, using proxy: ScrollViewProxy) {
