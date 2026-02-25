@@ -29,6 +29,7 @@ struct DiaryEditorView: View {
     @State private var isImportingPhotos = false
     @State private var photoLinkContext: PhotoLinkContext?
     @State private var showPaywall = false
+    @State private var linkedPhotoPathsCache: Set<String> = []
     
     // AI採点機能
     @State private var showAIAppSelectionSheet = false
@@ -101,6 +102,7 @@ struct DiaryEditorView: View {
         )
         .onAppear {
             draftText = viewModel.entry.text
+            refreshLinkedPhotoPaths()
             // 日記リマインダー設定を読み込み
             diaryReminderEnabled = viewModel.store.diaryReminderEnabled
             let calendar = Calendar.current
@@ -127,6 +129,12 @@ struct DiaryEditorView: View {
         }
         .onChange(of: draftText) { _, newValue in
             viewModel.update(text: newValue)
+        }
+        .onChange(of: viewModel.entry.photoPaths) { _, _ in
+            refreshLinkedPhotoPaths()
+        }
+        .onChange(of: viewModel.entry.locations) { _, _ in
+            refreshLinkedPhotoPaths()
         }
         .onChange(of: viewModel.entry.date) { _, _ in
             draftText = viewModel.entry.text
@@ -453,6 +461,7 @@ struct DiaryEditorView: View {
                         .foregroundStyle(.secondary)
                 } else {
                     DiaryLocationsMapView(locations: viewModel.entry.locations)
+                        .equatable()
                         .frame(height: 120)
                         .cornerRadius(12)
                     VStack(spacing: 8) {
@@ -468,6 +477,7 @@ struct DiaryEditorView: View {
                                              onRemove: {
                                                  viewModel.removeLocation(id: location.id)
                                              })
+                            .equatable()
                         }
                     }
                 }
@@ -505,7 +515,7 @@ struct DiaryEditorView: View {
                 HStack {
                     DiaryPhotoThumbnailList(photoPaths: viewModel.entry.photoPaths,
                                             favoritePhotoPath: viewModel.entry.favoritePhotoPath,
-                                            linkedPhotoPaths: linkedPhotoPaths,
+                                            linkedPhotoPaths: linkedPhotoPathsCache,
                                             showFavorite: true,
                                             showDelete: false,
                                             onSetFavorite: { index in
@@ -519,6 +529,7 @@ struct DiaryEditorView: View {
                                                 photoLinkContext = .photo(path)
                                             },
                                             onDelete: nil)
+                    .equatable()
                     PhotosPicker(selection: $selection,
                                  maxSelectionCount: max(1, remainingSlots),
                                  matching: .images) {
@@ -550,8 +561,8 @@ struct DiaryEditorView: View {
         }
     }
 
-    private var linkedPhotoPaths: Set<String> {
-        viewModel.linkedDiaryPhotoPaths()
+    private func refreshLinkedPhotoPaths() {
+        linkedPhotoPathsCache = viewModel.linkedDiaryPhotoPaths()
     }
 
     private func showPhotoImportToast(_ summary: DiaryViewModel.PhotoImportSummary) {
@@ -650,11 +661,15 @@ private struct DiaryLocationsMapView: View, Equatable {
     }
 }
 
-private struct DiaryLocationRow: View {
+private struct DiaryLocationRow: View, Equatable {
     let location: DiaryLocation
     let onLink: () -> Void
     let onEditTags: () -> Void
     let onRemove: () -> Void
+
+    static func ==(lhs: DiaryLocationRow, rhs: DiaryLocationRow) -> Bool {
+        lhs.location == rhs.location
+    }
 
     var body: some View {
         let photoCount = location.photoPaths.count
