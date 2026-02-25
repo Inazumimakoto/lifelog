@@ -1745,7 +1745,7 @@ struct JournalView: View {
                     .padding(.horizontal, 3)
                     .padding(.vertical, 1.5)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(item.color.opacity(0.2),
+                    .background(item.color.opacity(0.3),
                                 in: RoundedRectangle(cornerRadius: calendarPreviewRowCornerRadius))
                     .clipped()
                     .frame(height: calendarPreviewRowHeight, alignment: .center)
@@ -1967,7 +1967,7 @@ struct JournalView: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .background(
                 RoundedRectangle(cornerRadius: calendarPreviewRowCornerRadius)
-                    .fill(item.color.opacity(0.2))
+                    .fill(item.color.opacity(0.3))
             )
             .clipped()
             .frame(height: calendarPreviewRowHeight, alignment: .center)
@@ -2000,7 +2000,7 @@ struct JournalView: View {
                     bottomTrailingRadius: trailingRadius,
                     topTrailingRadius: trailingRadius
                 )
-                .fill(segment.color.opacity(0.2))
+                .fill(segment.color.opacity(0.3))
             )
             .clipped()
     }
