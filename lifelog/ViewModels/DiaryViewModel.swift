@@ -642,7 +642,7 @@ final class DiaryViewModel: ObservableObject {
                 
                 // キャンセルされていなければ保存
                 guard !_Concurrency.Task.isCancelled else { return }
-                await self?.persist()
+                await self?.persistTextDraft()
             } catch {
                 // Task.sleep がキャンセルされた場合（正常動作）
             }
@@ -667,6 +667,17 @@ final class DiaryViewModel: ObservableObject {
         if !entry.text.isEmpty && entry.text.count > 10 {
             ReviewRequestManager.shared.registerPositiveAction()
         }
+    }
+
+    /// 本文の自動保存は SwiftData 同期をスキップして UI の引っかかりを抑える。
+    /// 画面終了時の flush やメタデータ更新時に通常保存で同期される。
+    private func persistTextDraft() {
+        syncPendingTextIfNeeded()
+        guard entry.mood != nil, entry.conditionScore != nil else {
+            persist()
+            return
+        }
+        store.upsert(entry: entry, syncSwiftData: false)
     }
 
     private func syncPendingTextIfNeeded() {

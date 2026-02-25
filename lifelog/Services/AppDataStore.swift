@@ -683,7 +683,7 @@ final class AppDataStore: ObservableObject {
         diaryEntries.first { Calendar.current.isDate($0.date, inSameDayAs: date) }
     }
 
-    func upsert(entry: DiaryEntry) {
+    func upsert(entry: DiaryEntry, syncSwiftData: Bool = true) {
         let normalized = normalizeDiaryEntry(entry)
         if let index = diaryEntries.firstIndex(where: { $0.id == normalized.id }) {
             diaryEntries[index] = normalized
@@ -698,6 +698,7 @@ final class AppDataStore: ObservableObject {
         if isToday && diaryReminderEnabled && hasContent {
             NotificationService.shared.cancelDiaryReminder()
         }
+        guard syncSwiftData else { return }
         syncDiaryEntryToSwiftData(normalized)
         try? modelContext.save()
     }
