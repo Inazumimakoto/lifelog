@@ -1979,8 +1979,17 @@ struct JournalView: View {
         let trailingRadius: CGFloat = segment.continuesAfterWeek ? 0 : calendarPreviewRowCornerRadius
         let showTitle = segment.continuesBeforeWeek == false
 
-        CalendarPreviewText(text: showTitle ? segment.title : "")
-            .fixedSize(horizontal: false, vertical: true)
+        HStack(spacing: 0) {
+            if showTitle {
+                CalendarPreviewText(text: segment.title)
+                    .fixedSize(horizontal: false, vertical: true)
+            } else {
+                // Keep bar thickness even when the repeated label is hidden.
+                CalendarPreviewText(text: " ")
+                    .fixedSize(horizontal: false, vertical: true)
+                    .opacity(0)
+            }
+        }
             .padding(.horizontal, 3)
             .padding(.vertical, 1.5)
             .frame(maxWidth: .infinity, alignment: .leading)
