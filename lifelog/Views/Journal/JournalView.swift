@@ -1977,8 +1977,9 @@ struct JournalView: View {
     private func multiDayOverlayBarView(segment: CalendarWeekMultiDaySegment) -> some View {
         let leadingRadius: CGFloat = segment.continuesBeforeWeek ? 0 : calendarPreviewRowCornerRadius
         let trailingRadius: CGFloat = segment.continuesAfterWeek ? 0 : calendarPreviewRowCornerRadius
+        let showTitle = segment.continuesBeforeWeek == false
 
-        CalendarPreviewText(text: segment.title)
+        CalendarPreviewText(text: showTitle ? segment.title : "")
             .fixedSize(horizontal: false, vertical: true)
             .padding(.horizontal, 3)
             .padding(.vertical, 1.5)
