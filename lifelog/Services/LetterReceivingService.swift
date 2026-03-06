@@ -93,22 +93,17 @@ class LetterReceivingService {
         for doc in snapshot.documents {
             let data = doc.data()
             let senderId = data["senderId"] as? String ?? ""
-            
-            // 送信者情報を取得
-            var senderEmoji = "😊"
-            var senderName = "送信者"
-            
-            if let senderDoc = try? await db.collection("users").document(senderId).getDocument(),
-               let senderData = senderDoc.data() {
-                senderEmoji = senderData["emoji"] as? String ?? "😊"
-                senderName = senderData["displayName"] as? String ?? "送信者"
-            }
+            let senderProfile = await resolveSenderProfile(
+                senderId: senderId,
+                letterData: data,
+                currentUserId: currentUser.uid
+            )
             
             let letter = ReceivedLetter(
                 id: doc.documentID,
                 senderId: senderId,
-                senderEmoji: senderEmoji,
-                senderName: senderName,
+                senderEmoji: senderProfile.emoji,
+                senderName: senderProfile.name,
                 encryptedContent: data["encryptedContent"] as? String ?? "",
                 encryptedPhotoURLs: data["encryptedPhotoURLs"] as? [String] ?? [],
                 status: data["status"] as? String ?? "",
@@ -158,16 +153,11 @@ class LetterReceivingService {
         let encryptedContent = data["encryptedContent"] as? String ?? ""
         let encryptedPhotoURLs = data["encryptedPhotoURLs"] as? [String] ?? []
         let senderId = data["senderId"] as? String ?? ""
-        
-        // 送信者情報を取得
-        var senderEmoji = "😊"
-        var senderName = "送信者"
-        
-        if let senderDoc = try? await db.collection("users").document(senderId).getDocument(),
-           let senderData = senderDoc.data() {
-            senderEmoji = senderData["emoji"] as? String ?? "😊"
-            senderName = senderData["displayName"] as? String ?? "送信者"
-        }
+        let senderProfile = await resolveSenderProfile(
+            senderId: senderId,
+            letterData: data,
+            currentUserId: currentUser.uid
+        )
         
         // 本文を復号
         let decryptedContent: String
@@ -200,13 +190,61 @@ class LetterReceivingService {
         return DecryptedLetter(
             id: letterId,
             senderId: senderId,
-            senderEmoji: senderEmoji,
-            senderName: senderName,
+            senderEmoji: senderProfile.emoji,
+            senderName: senderProfile.name,
             content: decryptedContent,
             photos: decryptedPhotos,
             deliveredAt: deliveredAt,
             openedAt: Date()
         )
+    }
+    
+    /// 手紙メタデータまたはペアリング情報から送信者表示名を解決
+    private func resolveSenderProfile(
+        senderId: String,
+        letterData: [String: Any],
+        currentUserId: String
+    ) async -> (emoji: String, name: String) {
+        // 新しい手紙はメタデータに送信者情報を保持する
+        if let senderName = normalizedDisplayName(letterData["senderName"] as? String) {
+            let senderEmoji = normalizedEmoji(letterData["senderEmoji"] as? String) ?? "😊"
+            return (senderEmoji, senderName)
+        }
+        
+        // 既存データ向け: 自分のpairingsから相手情報を引く
+        if let pairingSnapshot = try? await db.collection("pairings")
+            .whereField("userId", isEqualTo: currentUserId)
+            .whereField("friendId", isEqualTo: senderId)
+            .limit(to: 1)
+            .getDocuments(),
+           let pairingData = pairingSnapshot.documents.first?.data(),
+           let senderName = normalizedDisplayName(pairingData["friendName"] as? String) {
+            let senderEmoji = normalizedEmoji(pairingData["friendEmoji"] as? String) ?? "😊"
+            return (senderEmoji, senderName)
+        }
+        
+        // 送信者＝自分の場合のみusersを直接参照できる
+        if senderId == currentUserId,
+           let senderDoc = try? await db.collection("users").document(senderId).getDocument(),
+           let senderData = senderDoc.data(),
+           let senderName = normalizedDisplayName(senderData["displayName"] as? String) {
+            let senderEmoji = normalizedEmoji(senderData["emoji"] as? String) ?? "😊"
+            return (senderEmoji, senderName)
+        }
+        
+        return ("😊", "送信者")
+    }
+    
+    private func normalizedDisplayName(_ name: String?) -> String? {
+        guard let name else { return nil }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+    
+    private func normalizedEmoji(_ emoji: String?) -> String? {
+        guard let emoji else { return nil }
+        let trimmed = emoji.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
     
     /// アプリアイコンのバッジカウントを更新
