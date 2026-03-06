@@ -18,6 +18,7 @@ struct TodayView: View {
     @AppStorage("requiresDiaryOpenAuthentication") private var requiresDiaryOpenAuthentication: Bool = false
     @AppStorage("isMemoTextHidden") private var isMemoTextHidden: Bool = false
     @AppStorage("requiresMemoOpenAuthentication") private var requiresMemoOpenAuthentication: Bool = false
+    @AppStorage("dismissedSharedLetterIDs") private var dismissedSharedLetterIDsRaw: String = ""
     @State private var showSettings = false
     @State private var showTaskManager = false
     @State private var showEventManager = false
@@ -800,8 +801,7 @@ struct TodayView: View {
             // ✕ボタン（非表示にする）
             Button {
                 withAnimation {
-                    // 一覧から削除（実際には開封するまで消えない）
-                    receivedSharedLetters.removeAll { $0.id == letter.id }
+                    dismissSharedLetterFromHome(letter.id)
                 }
             } label: {
                 Image(systemName: "xmark.circle.fill")
@@ -815,9 +815,36 @@ struct TodayView: View {
     
     private func loadSharedLetters() async {
         do {
-            receivedSharedLetters = try await LetterReceivingService.shared.getReceivedLetters()
+            let fetchedLetters = try await LetterReceivingService.shared.getReceivedLetters()
+            pruneDismissedSharedLetterIDs(using: fetchedLetters)
+            receivedSharedLetters = fetchedLetters.filter { !dismissedSharedLetterIDs.contains($0.id) }
         } catch {
             print("共有手紙の取得に失敗: \(error.localizedDescription)")
+        }
+    }
+    
+    private var dismissedSharedLetterIDs: Set<String> {
+        Set(dismissedSharedLetterIDsRaw
+            .split(separator: "\n")
+            .map(String.init))
+    }
+    
+    private func persistDismissedSharedLetterIDs(_ ids: Set<String>) {
+        dismissedSharedLetterIDsRaw = ids.sorted().joined(separator: "\n")
+    }
+    
+    private func dismissSharedLetterFromHome(_ letterID: String) {
+        var ids = dismissedSharedLetterIDs
+        ids.insert(letterID)
+        persistDismissedSharedLetterIDs(ids)
+        receivedSharedLetters.removeAll { $0.id == letterID }
+    }
+    
+    private func pruneDismissedSharedLetterIDs(using letters: [LetterReceivingService.ReceivedLetter]) {
+        let activeLetterIDs = Set(letters.map(\.id))
+        let pruned = dismissedSharedLetterIDs.intersection(activeLetterIDs)
+        if pruned != dismissedSharedLetterIDs {
+            persistDismissedSharedLetterIDs(pruned)
         }
     }
 }
