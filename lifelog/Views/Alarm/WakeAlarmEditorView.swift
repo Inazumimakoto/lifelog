@@ -13,6 +13,7 @@ struct WakeAlarmEditorView: View {
     @State private var time: Date
     @State private var repeatDays: [Weekday]
     @State private var challengeMethod: WakeChallengeMethod
+    @State private var morningRoutinePresetID: UUID?
     @State private var isEnabled: Bool
     @State private var showDeleteConfirmation = false
     @State private var errorMessage: String?
@@ -33,6 +34,7 @@ struct WakeAlarmEditorView: View {
         _time = State(initialValue: initialTime)
         _repeatDays = State(initialValue: alarm?.repeatDays ?? Weekday.allCases)
         _challengeMethod = State(initialValue: alarm?.challengeMethod ?? .mentalMath)
+        _morningRoutinePresetID = State(initialValue: alarm?.morningRoutinePresetID)
         _isEnabled = State(initialValue: alarm?.isEnabled ?? true)
     }
 
@@ -79,6 +81,34 @@ struct WakeAlarmEditorView: View {
                 Text("stop を押すと、この解除テストをフルスクリーンで開始します。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+            }
+
+            Section("起床後ルーティン") {
+                if store.morningRoutinePresets.isEmpty {
+                    NavigationLink {
+                        MorningRoutinePresetListView()
+                    } label: {
+                        Label("朝ルーティンを作成", systemImage: "sunrise.fill")
+                    }
+
+                    Text("先にプリセットを作ると、解除後にそのまま流れを始めるか確認できます。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Picker("プリセット", selection: $morningRoutinePresetID) {
+                        Text("なし").tag(UUID?.none)
+                        ForEach(store.morningRoutinePresets) { preset in
+                            Text("\(preset.title) (\(preset.totalDurationMinutes)分)").tag(Optional(preset.id))
+                        }
+                    }
+
+                    if let morningRoutinePresetID,
+                       let preset = store.morningRoutinePreset(id: morningRoutinePresetID) {
+                        Text("\(preset.previewText)\n\(preset.summaryText)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
             }
 
             if originalAlarm != nil {
@@ -146,6 +176,7 @@ struct WakeAlarmEditorView: View {
             minute: components.minute ?? 0,
             repeatDays: repeatDays,
             challengeMethod: challengeMethod,
+            morningRoutinePresetID: morningRoutinePresetID,
             isEnabled: isEnabled,
             createdAt: originalAlarm?.createdAt ?? Date(),
             lastChallengeSuccessAt: originalAlarm?.lastChallengeSuccessAt
@@ -177,4 +208,3 @@ struct WakeAlarmEditorView: View {
         }
     }
 }
-

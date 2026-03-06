@@ -15,5 +15,6 @@ struct LifelogWidgetsBundle: WidgetBundle {
         HabitWidget()
         AnniversaryWidget()
         MemoWidget()
+        MorningRoutineLiveActivity()
     }
 }

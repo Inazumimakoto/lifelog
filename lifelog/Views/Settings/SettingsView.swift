@@ -10,6 +10,7 @@ import MessageUI
 
 struct SettingsView: View {
     @EnvironmentObject private var store: AppDataStore
+    @EnvironmentObject private var deepLinkManager: DeepLinkManager
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var monetization = MonetizationService.shared
     @StateObject private var appLockService = AppLockService.shared
@@ -351,6 +352,7 @@ struct SettingsView: View {
         .sheet(isPresented: $showWakeAlarms) {
             WakeAlarmSettingsSheet(isPresented: $showWakeAlarms)
                 .environmentObject(store)
+                .environmentObject(deepLinkManager)
         }
         .sheet(isPresented: $showHelp) {
             HelpView()

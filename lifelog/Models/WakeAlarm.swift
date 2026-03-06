@@ -62,6 +62,7 @@ struct WakeAlarm: Identifiable, Codable, Hashable {
     var minute: Int
     var repeatDays: [Weekday]
     var challengeMethod: WakeChallengeMethod
+    var morningRoutinePresetID: UUID?
     var isEnabled: Bool
     var createdAt: Date
     var lastChallengeSuccessAt: Date?
@@ -73,6 +74,7 @@ struct WakeAlarm: Identifiable, Codable, Hashable {
         minute: Int,
         repeatDays: [Weekday] = Weekday.allCases,
         challengeMethod: WakeChallengeMethod = .mentalMath,
+        morningRoutinePresetID: UUID? = nil,
         isEnabled: Bool = true,
         createdAt: Date = Date(),
         lastChallengeSuccessAt: Date? = nil
@@ -83,6 +85,7 @@ struct WakeAlarm: Identifiable, Codable, Hashable {
         self.minute = minute
         self.repeatDays = Self.normalizedRepeatDays(repeatDays)
         self.challengeMethod = challengeMethod
+        self.morningRoutinePresetID = morningRoutinePresetID
         self.isEnabled = isEnabled
         self.createdAt = createdAt
         self.lastChallengeSuccessAt = lastChallengeSuccessAt
@@ -125,4 +128,3 @@ struct WakeAlarm: Identifiable, Codable, Hashable {
         return repeatDays.map(\.shortLabel).joined(separator: " ")
     }
 }
-

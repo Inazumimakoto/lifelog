@@ -9,6 +9,9 @@ import Foundation
 import SwiftUI
 import EventKit
 import CoreLocation
+#if canImport(ActivityKit)
+import ActivityKit
+#endif
 
 // MARK: - Enumerations
 
@@ -157,6 +160,223 @@ enum Weekday: Int, CaseIterable, Identifiable, Codable {
         }
     }
 }
+
+struct MorningRoutineStep: Identifiable, Codable, Hashable {
+    let id: UUID
+    var title: String
+    var durationMinutes: Int
+
+    init(id: UUID = UUID(), title: String, durationMinutes: Int) {
+        self.id = id
+        self.title = title
+        self.durationMinutes = max(1, durationMinutes)
+    }
+}
+
+struct MorningRoutinePreset: Identifiable, Codable, Hashable {
+    let id: UUID
+    var title: String
+    var steps: [MorningRoutineStep]
+    var createdAt: Date
+    var updatedAt: Date
+
+    init(
+        id: UUID = UUID(),
+        title: String,
+        steps: [MorningRoutineStep],
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.title = title
+        self.steps = Self.normalizedSteps(steps)
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    static func normalizedSteps(_ steps: [MorningRoutineStep]) -> [MorningRoutineStep] {
+        steps.map {
+            MorningRoutineStep(
+                id: $0.id,
+                title: $0.title.trimmingCharacters(in: .whitespacesAndNewlines),
+                durationMinutes: max(1, $0.durationMinutes)
+            )
+        }
+        .filter { $0.title.isEmpty == false }
+    }
+
+    static func defaultTemplateSteps() -> [MorningRoutineStep] {
+        [
+            MorningRoutineStep(title: "ベッドメイク", durationMinutes: 2),
+            MorningRoutineStep(title: "トイレ", durationMinutes: 2),
+            MorningRoutineStep(title: "水分補給", durationMinutes: 1),
+            MorningRoutineStep(title: "シャワー", durationMinutes: 10),
+            MorningRoutineStep(title: "ヘアセット", durationMinutes: 10),
+            MorningRoutineStep(title: "服を着る", durationMinutes: 5),
+            MorningRoutineStep(title: "朝ごはん", durationMinutes: 30),
+        ]
+    }
+
+    var totalDurationMinutes: Int {
+        steps.reduce(0) { $0 + $1.durationMinutes }
+    }
+
+    var summaryText: String {
+        "\(steps.count)ステップ・\(totalDurationMinutes)分"
+    }
+
+    var previewText: String {
+        steps.prefix(3).map(\.title).joined(separator: " → ")
+    }
+}
+
+struct MorningRoutineTimelineStep: Identifiable, Hashable {
+    let id: UUID
+    let index: Int
+    let title: String
+    let durationMinutes: Int
+    let startAt: Date
+    let endAt: Date
+}
+
+struct MorningRoutineProgress: Hashable {
+    let timeline: [MorningRoutineTimelineStep]
+    let currentStep: MorningRoutineTimelineStep?
+    let completedStepCount: Int
+    let totalDuration: TimeInterval
+    let elapsedDuration: TimeInterval
+
+    var overallEndAt: Date? {
+        timeline.last?.endAt
+    }
+
+    var isFinished: Bool {
+        currentStep == nil && timeline.isEmpty == false && completedStepCount >= timeline.count
+    }
+
+    var remainingSteps: [MorningRoutineTimelineStep] {
+        guard let currentStep else { return [] }
+        return timeline.filter { $0.index > currentStep.index }
+    }
+
+    var completionFraction: Double {
+        guard totalDuration > 0 else { return 1 }
+        return min(max(elapsedDuration / totalDuration, 0), 1)
+    }
+}
+
+enum MorningRoutineRuntime {
+    static func timeline(steps: [MorningRoutineStep], startingAt startDate: Date) -> [MorningRoutineTimelineStep] {
+        var cursor = startDate
+        return steps.enumerated().map { index, step in
+            let endDate = cursor.addingTimeInterval(TimeInterval(step.durationMinutes * 60))
+            defer { cursor = endDate }
+            return MorningRoutineTimelineStep(
+                id: step.id,
+                index: index,
+                title: step.title,
+                durationMinutes: step.durationMinutes,
+                startAt: cursor,
+                endAt: endDate
+            )
+        }
+    }
+
+    static func progress(steps: [MorningRoutineStep], startingAt startDate: Date, at date: Date = Date()) -> MorningRoutineProgress {
+        let timeline = timeline(steps: steps, startingAt: startDate)
+        let totalDuration = max(0, (timeline.last?.endAt.timeIntervalSince(startDate)) ?? 0)
+        let elapsedDuration = min(max(date.timeIntervalSince(startDate), 0), totalDuration)
+        let currentStep = timeline.first(where: { date < $0.endAt })
+        let completedStepCount = timeline.filter { $0.endAt <= date }.count
+
+        return MorningRoutineProgress(
+            timeline: timeline,
+            currentStep: currentStep,
+            completedStepCount: completedStepCount,
+            totalDuration: totalDuration,
+            elapsedDuration: elapsedDuration
+        )
+    }
+}
+
+struct MorningRoutineSession: Identifiable, Codable, Hashable {
+    let id: UUID
+    var presetID: UUID?
+    var title: String
+    var steps: [MorningRoutineStep]
+    var sourceAlarmID: UUID?
+    var startedAt: Date
+
+    init(
+        id: UUID = UUID(),
+        presetID: UUID? = nil,
+        title: String,
+        steps: [MorningRoutineStep],
+        sourceAlarmID: UUID? = nil,
+        startedAt: Date = Date()
+    ) {
+        self.id = id
+        self.presetID = presetID
+        self.title = title
+        self.steps = MorningRoutinePreset.normalizedSteps(steps)
+        self.sourceAlarmID = sourceAlarmID
+        self.startedAt = startedAt
+    }
+
+    init(preset: MorningRoutinePreset, sourceAlarmID: UUID? = nil, startedAt: Date = Date()) {
+        self.init(
+            presetID: preset.id,
+            title: preset.title,
+            steps: preset.steps,
+            sourceAlarmID: sourceAlarmID,
+            startedAt: startedAt
+        )
+    }
+
+    var progress: MorningRoutineProgress {
+        progress(at: Date())
+    }
+
+    func progress(at date: Date) -> MorningRoutineProgress {
+        MorningRoutineRuntime.progress(steps: steps, startingAt: startedAt, at: date)
+    }
+
+    var plannedEndAt: Date {
+        progress(at: startedAt).overallEndAt ?? startedAt
+    }
+
+    func isFinished(at date: Date = Date()) -> Bool {
+        progress(at: date).isFinished
+    }
+}
+
+enum MorningRoutineError: LocalizedError {
+    case presetNotFound
+    case emptyPreset
+
+    var errorDescription: String? {
+        switch self {
+        case .presetNotFound:
+            return "指定したルーティンプリセットが見つかりません。"
+        case .emptyPreset:
+            return "ルーティンには最低1つのステップが必要です。"
+        }
+    }
+}
+
+#if canImport(ActivityKit)
+@available(iOS 17.0, *)
+struct MorningRoutineActivityAttributes: ActivityAttributes {
+    struct ContentState: Codable, Hashable {
+        var isRunning: Bool
+    }
+
+    var sessionID: UUID
+    var routineTitle: String
+    var startedAt: Date
+    var steps: [MorningRoutineStep]
+}
+#endif
 
 // MARK: - Core Models
 

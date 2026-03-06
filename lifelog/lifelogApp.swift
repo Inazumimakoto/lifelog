@@ -47,13 +47,15 @@ struct lifelogApp: App {
                         WidgetCenter.shared.reloadTimelines(ofKind: "AnniversaryWidget")
                         WidgetCenter.shared.reloadTimelines(ofKind: "MemoWidget")
                         _Concurrency.Task {
+                            await store.refreshActiveMorningRoutineIfNeeded()
                             await monetizationService.refreshStatus()
                         }
                     }
                 
                 if !appLockService.isUnlocked
                     && appLockService.isAppLockEnabled
-                    && deepLinkManager.pendingWakeAlarmID == nil {
+                    && deepLinkManager.pendingWakeAlarmID == nil
+                    && deepLinkManager.pendingMorningRoutinePresentationToken == nil {
                     LockView()
                         .transition(.opacity)
                         .zIndex(999)
@@ -68,7 +70,8 @@ struct lifelogApp: App {
 
                     if appLockService.isAppLockEnabled
                         && !appLockService.isUnlocked
-                        && deepLinkManager.pendingWakeAlarmID == nil {
+                        && deepLinkManager.pendingWakeAlarmID == nil
+                        && deepLinkManager.pendingMorningRoutinePresentationToken == nil {
                         appLockService.authenticate()
                     }
 
@@ -81,6 +84,7 @@ struct lifelogApp: App {
                     
                     // 最終ログイン日時を更新（手紙の生存確認用）
                     _Concurrency.Task {
+                        await store.refreshActiveMorningRoutineIfNeeded()
                         await AuthService.shared.updateLastLoginAt()
                         await monetizationService.refreshStatus()
                     }

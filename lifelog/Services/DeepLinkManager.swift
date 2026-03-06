@@ -29,6 +29,9 @@ final class DeepLinkManager: ObservableObject {
 
     /// 解除テスト待ちの目覚ましID
     @Published var pendingWakeAlarmID: UUID? = nil
+
+    /// 朝ルーティン画面を前面表示するためのトークン
+    @Published var pendingMorningRoutinePresentationToken: UUID? = nil
     
     private init() {}
     
@@ -71,6 +74,14 @@ final class DeepLinkManager: ObservableObject {
         WakeAlarmIntentBridge.clearPendingWakeChallenge()
     }
 
+    func requestMorningRoutinePresentation() {
+        pendingMorningRoutinePresentationToken = UUID()
+    }
+
+    func clearPendingMorningRoutinePresentation() {
+        pendingMorningRoutinePresentationToken = nil
+    }
+
     /// ウィジェットURLを処理（対応していれば true）
     func handleWidgetURL(_ url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased(), scheme == "lifelog" else {
@@ -82,6 +93,11 @@ final class DeepLinkManager: ObservableObject {
 
         if host == "memo" || path == "/memo" {
             pendingWidgetDestination = .memo
+            return true
+        }
+
+        if host == "routine" || path == "/routine" {
+            requestMorningRoutinePresentation()
             return true
         }
 

@@ -14,6 +14,7 @@ struct WakeChallengeView: View {
     }
 
     @EnvironmentObject private var store: AppDataStore
+    @EnvironmentObject private var deepLinkManager: DeepLinkManager
     @FocusState private var isInputFocused: Bool
 
     let alarm: WakeAlarm
@@ -28,6 +29,8 @@ struct WakeChallengeView: View {
     @State private var isShowingMemoryDigits = false
     @State private var targetString: String = ""
     @State private var isCompleting = false
+    @State private var routinePromptPreset: MorningRoutinePreset?
+    @State private var routineErrorMessage: String?
     @StateObject private var shakeDetector = ShakeDetector()
 
     private let mathTarget = 3
@@ -62,6 +65,33 @@ struct WakeChallengeView: View {
             guard alarm.challengeMethod == .shake else { return }
             guard count >= shakeTarget else { return }
             completeChallenge()
+        }
+        .confirmationDialog(
+            "朝ルーティンを開始しますか？",
+            isPresented: Binding(
+                get: { routinePromptPreset != nil },
+                set: { if !$0 { routinePromptPreset = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: routinePromptPreset
+        ) { preset in
+            Button("開始する") {
+                startMorningRoutine(with: preset)
+            }
+            Button("今回はスキップ", role: .cancel) {
+                routinePromptPreset = nil
+                onFinish()
+            }
+        } message: { preset in
+            Text("\(preset.title)\n\(preset.summaryText)")
+        }
+        .alert("朝ルーティン", isPresented: Binding(
+            get: { routineErrorMessage != nil },
+            set: { if !$0 { routineErrorMessage = nil } }
+        )) {
+            Button("OK") { }
+        } message: {
+            Text(routineErrorMessage ?? "")
         }
     }
 
@@ -370,7 +400,14 @@ struct WakeChallengeView: View {
             _Concurrency.Task {
                 await store.markWakeChallengeCompleted(for: alarm.id, shouldStopAlarm: true)
                 await MainActor.run {
-                    onFinish()
+                    if let presetID = alarm.morningRoutinePresetID,
+                       let preset = store.morningRoutinePreset(id: presetID) {
+                        feedbackMessage = "アラームを停止しました。"
+                        isCompleting = false
+                        routinePromptPreset = preset
+                    } else {
+                        onFinish()
+                    }
                 }
             }
 
@@ -399,6 +436,27 @@ struct WakeChallengeView: View {
     private static func makeRandomString(length: Int) -> String {
         let characters = Array("ABCDEFGHJKLMNPQRSTUVWXYZ23456789")
         return String((0..<length).compactMap { _ in characters.randomElement() })
+    }
+
+    private func startMorningRoutine(with preset: MorningRoutinePreset) {
+        guard !isCompleting else { return }
+        isCompleting = true
+
+        _Concurrency.Task {
+            do {
+                _ = try await store.startMorningRoutine(presetID: preset.id, sourceAlarmID: alarm.id)
+                await MainActor.run {
+                    routinePromptPreset = nil
+                    deepLinkManager.requestMorningRoutinePresentation()
+                    onFinish()
+                }
+            } catch {
+                await MainActor.run {
+                    isCompleting = false
+                    routineErrorMessage = error.localizedDescription
+                }
+            }
+        }
     }
 }
 

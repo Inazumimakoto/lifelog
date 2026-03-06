@@ -7,6 +7,7 @@ import SwiftUI
 
 struct WakeAlarmListView: View {
     @EnvironmentObject private var store: AppDataStore
+    @EnvironmentObject private var deepLinkManager: DeepLinkManager
 
     @State private var authorizationStatus: WakeAlarmAuthorizationStatus = .unsupported
     @State private var isShowingEditor = false
@@ -18,6 +19,7 @@ struct WakeAlarmListView: View {
         List {
             statusSection
             alarmsSection
+            routinesSection
             guidanceSection
         }
         .navigationTitle("目覚まし")
@@ -41,12 +43,14 @@ struct WakeAlarmListView: View {
                 WakeAlarmEditorView(alarm: editingAlarm)
             }
             .environmentObject(store)
+            .environmentObject(deepLinkManager)
         }
         .fullScreenCover(item: $previewAlarm) { alarm in
             WakeChallengeView(alarm: alarm, mode: .preview) {
                 previewAlarm = nil
             }
             .environmentObject(store)
+            .environmentObject(deepLinkManager)
         }
         .alert("目覚まし", isPresented: Binding(
             get: { errorMessage != nil },
@@ -129,6 +133,12 @@ struct WakeAlarmListView: View {
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
 
+                                if let presetTitle = routineTitle(for: alarm) {
+                                    Label(presetTitle, systemImage: "sunrise.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+
                                 if let lastSuccessAt = alarm.lastChallengeSuccessAt {
                                     Text("最終解除: \(lastSuccessAt.formatted(date: .abbreviated, time: .shortened))")
                                         .font(.caption2)
@@ -172,10 +182,33 @@ struct WakeAlarmListView: View {
         }
     }
 
+    private var routinesSection: some View {
+        Section("起床後ルーティン") {
+            NavigationLink {
+                MorningRoutinePresetListView()
+            } label: {
+                HStack {
+                    Label("プリセットを管理", systemImage: "sunrise.fill")
+                    Spacer()
+                    Text("\(store.morningRoutinePresets.count)")
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if let session = store.activeMorningRoutineSession,
+               let currentStep = session.progress.currentStep {
+                Label("\(session.title): \(currentStep.title)", systemImage: "figure.walk.motion")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
     private var guidanceSection: some View {
         Section("メモ") {
             Text("stop に解除テストを割り当て、snooze は使わない前提で設計しています。")
             Text("解除方法は暗算・短期記憶・文字列入力・シェイクから選べます。")
+            Text("起床後ルーティンをひも付けると、解除後にそのまま Live Activity で朝の流れを見続けられます。")
         }
         .font(.caption)
         .foregroundStyle(.secondary)
@@ -184,5 +217,12 @@ struct WakeAlarmListView: View {
     private func refreshAuthorizationStatus() async {
         authorizationStatus = await WakeAlarmService.shared.authorizationStatus()
     }
-}
 
+    private func routineTitle(for alarm: WakeAlarm) -> String? {
+        guard let presetID = alarm.morningRoutinePresetID,
+              let preset = store.morningRoutinePreset(id: presetID) else {
+            return nil
+        }
+        return preset.title
+    }
+}
