@@ -22,7 +22,7 @@ struct ReceivedLettersView: View {
         Group {
             if isLoading {
                 ProgressView("読み込み中...")
-            } else if letters.isEmpty {
+            } else if letters.isEmpty && store.sharedLetters.isEmpty {
                 emptyStateView
             } else {
                 letterListView
@@ -55,7 +55,9 @@ struct ReceivedLettersView: View {
             }
         }
         // 開封済みの手紙 → 通常表示
-        .sheet(isPresented: $showingOpenedLetterDetail) {
+        .sheet(isPresented: $showingOpenedLetterDetail, onDismiss: {
+            selectedOpenedLetter = nil
+        }) {
             if let letter = selectedOpenedLetter {
                 NavigationStack {
                     SharedLetterContentView(letter: letter)

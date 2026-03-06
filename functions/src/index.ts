@@ -80,6 +80,8 @@ export const scheduleRandomDelivery = onDocumentCreated("letters/{letterId}", as
 
   // ランダム配信の場合のみ
   if (data.deliveryCondition !== "random") return;
+  // クライアント側で日時確定済みのデータはそのまま使う
+  if (data.status !== "pending" || data.scheduledDeliveryDate) return;
 
   const startDate = data.randomStartDate?.toDate() || new Date(Date.now() + 24 * 60 * 60 * 1000);
   const endDate = data.randomEndDate?.toDate() || new Date(Date.now() + 3 * 365 * 24 * 60 * 60 * 1000);

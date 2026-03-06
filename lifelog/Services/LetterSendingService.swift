@@ -42,6 +42,7 @@ class LetterSendingService {
         let deliveryDate: Date?            // 固定日時の場合
         let randomStartDate: Date?         // ランダム開始日
         let randomEndDate: Date?           // ランダム終了日
+        let scheduledDeliveryDate: Date?   // 計算済みの配信日時
         let lastLoginDays: Int?            // 最終ログイン日数
         let status: LetterStatus
         let createdAt: Date
@@ -93,7 +94,9 @@ class LetterSendingService {
     ///   - deliveryDate: 固定配信日時
     ///   - randomStartDate: ランダム開始日
     ///   - randomEndDate: ランダム終了日
+    ///   - scheduledDeliveryDate: 計算済み配信日時
     ///   - lastLoginDays: 最終ログイン日数
+    ///   - initialStatus: 初期ステータス
     func sendLetter(
         content: String,
         photos: [UIImage],
@@ -102,7 +105,9 @@ class LetterSendingService {
         deliveryDate: Date? = nil,
         randomStartDate: Date? = nil,
         randomEndDate: Date? = nil,
-        lastLoginDays: Int? = nil
+        scheduledDeliveryDate: Date? = nil,
+        lastLoginDays: Int? = nil,
+        initialStatus: EncryptedLetter.LetterStatus = .pending
     ) async throws {
         
         // 1. 認証チェック
@@ -166,8 +171,9 @@ class LetterSendingService {
             "deliveryDate": deliveryDate.map { Timestamp(date: $0) } as Any,
             "randomStartDate": randomStartDate.map { Timestamp(date: $0) } as Any,
             "randomEndDate": randomEndDate.map { Timestamp(date: $0) } as Any,
+            "scheduledDeliveryDate": scheduledDeliveryDate.map { Timestamp(date: $0) } as Any,
             "lastLoginDays": lastLoginDays as Any,
-            "status": EncryptedLetter.LetterStatus.pending.rawValue,
+            "status": initialStatus.rawValue,
             "createdAt": Timestamp(date: Date())
         ]
         
@@ -275,6 +281,7 @@ class LetterSendingService {
                 deliveryDate: (data["deliveryDate"] as? Timestamp)?.dateValue(),
                 randomStartDate: (data["randomStartDate"] as? Timestamp)?.dateValue(),
                 randomEndDate: (data["randomEndDate"] as? Timestamp)?.dateValue(),
+                scheduledDeliveryDate: (data["scheduledDeliveryDate"] as? Timestamp)?.dateValue(),
                 lastLoginDays: data["lastLoginDays"] as? Int,
                 status: EncryptedLetter.LetterStatus(rawValue: data["status"] as? String ?? "") ?? .pending,
                 createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()

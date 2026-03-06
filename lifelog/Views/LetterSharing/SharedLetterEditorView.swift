@@ -344,16 +344,45 @@ struct SharedLetterEditorView: View {
         case .fixedDate:
             let dateFormatter = DateFormatter()
             dateFormatter.locale = Locale(identifier: "ja_JP")
-            dateFormatter.dateFormat = "M月d日 H:mm"
-            lines.append("📅 \(dateFormatter.string(from: combinedDeliveryDate)) に届きます")
+            dateFormatter.dateFormat = "M月d日"
+            let dateText = dateFormatter.string(from: fixedDeliveryDay)
+            
+            if timeMode == .fixed {
+                let timeFormatter = DateFormatter()
+                timeFormatter.locale = Locale(identifier: "ja_JP")
+                timeFormatter.dateFormat = "H:mm"
+                lines.append("📅 \(dateText) \(timeFormatter.string(from: fixedTime)) に届きます")
+            } else if useTimeRange {
+                let timeFormatter = DateFormatter()
+                timeFormatter.locale = Locale(identifier: "ja_JP")
+                timeFormatter.dateFormat = "H:mm"
+                lines.append("📅 \(dateText) の \(timeFormatter.string(from: startTime))〜\(timeFormatter.string(from: endTime)) のどこかに届きます")
+            } else {
+                lines.append("📅 \(dateText) のどこかの時間に届きます")
+            }
             
         case .random:
+            var deliveryDescription: String
             if useDateRange {
                 let dateFormatter = DateFormatter()
                 dateFormatter.dateFormat = "M/d"
-                lines.append("🎲 \(dateFormatter.string(from: randomStartDate))〜\(dateFormatter.string(from: randomEndDate)) に届きます")
+                deliveryDescription = "\(dateFormatter.string(from: randomStartDate))〜\(dateFormatter.string(from: randomEndDate))"
             } else {
-                lines.append("✨ いつか届きます（1日後〜3年後）")
+                deliveryDescription = "いつか（1日後〜3年後）"
+            }
+            
+            if timeMode == .fixed {
+                let timeFormatter = DateFormatter()
+                timeFormatter.locale = Locale(identifier: "ja_JP")
+                timeFormatter.dateFormat = "H:mm"
+                lines.append("🎲 \(deliveryDescription) の \(timeFormatter.string(from: fixedTime)) ごろに届きます")
+            } else if useTimeRange {
+                let timeFormatter = DateFormatter()
+                timeFormatter.locale = Locale(identifier: "ja_JP")
+                timeFormatter.dateFormat = "H:mm"
+                lines.append("🎲 \(deliveryDescription) の \(timeFormatter.string(from: startTime))〜\(timeFormatter.string(from: endTime)) のどこかに届きます")
+            } else {
+                lines.append("🎲 \(deliveryDescription) に届きます")
             }
             
         case .lastLogin:
@@ -375,6 +404,21 @@ struct SharedLetterEditorView: View {
         components.hour = timeComponents.hour
         components.minute = timeComponents.minute
         return calendar.date(from: components) ?? fixedDate
+    }
+    
+    private var fixedDeliveryDay: Date {
+        Calendar.current.startOfDay(for: fixedDate)
+    }
+    
+    private var requiresScheduledDeliveryDate: Bool {
+        switch deliveryCondition {
+        case .fixedDate:
+            return timeMode == .random
+        case .random:
+            return true
+        case .lastLogin:
+            return false
+        }
     }
     
     // MARK: - Photo Loading
@@ -418,21 +462,31 @@ struct SharedLetterEditorView: View {
                 var deliveryDateParam: Date? = nil
                 var randomStartParam: Date? = nil
                 var randomEndParam: Date? = nil
+                var scheduledDeliveryDateParam: Date? = nil
                 var lastLoginDaysParam: Int? = nil
+                var initialStatus: LetterSendingService.EncryptedLetter.LetterStatus = .pending
                 
                 switch deliveryCondition {
                 case .fixedDate:
-                    deliveryDateParam = combinedDeliveryDate
+                    if timeMode == .fixed {
+                        deliveryDateParam = combinedDeliveryDate
+                    } else {
+                        deliveryDateParam = fixedDeliveryDay
+                    }
                     
                 case .random:
                     if useDateRange {
                         randomStartParam = randomStartDate
                         randomEndParam = randomEndDate
                     }
-                    // 時間も考慮（今は日付のみ）
                     
                 case .lastLogin:
                     lastLoginDaysParam = lastLoginDays
+                }
+                
+                if requiresScheduledDeliveryDate {
+                    scheduledDeliveryDateParam = generateScheduledDeliveryDate()
+                    initialStatus = .scheduled
                 }
                 
                 // E2EE暗号化して送信
@@ -444,7 +498,9 @@ struct SharedLetterEditorView: View {
                     deliveryDate: deliveryDateParam,
                     randomStartDate: randomStartParam,
                     randomEndDate: randomEndParam,
-                    lastLoginDays: lastLoginDaysParam
+                    scheduledDeliveryDate: scheduledDeliveryDateParam,
+                    lastLoginDays: lastLoginDaysParam,
+                    initialStatus: initialStatus
                 )
                 
                 await MainActor.run {
@@ -459,6 +515,56 @@ struct SharedLetterEditorView: View {
                 }
             }
         }
+    }
+    
+    private func generateScheduledDeliveryDate() -> Date {
+        let calendar = Calendar.current
+        let now = Date()
+        let deliveryDay: Date
+        
+        switch deliveryCondition {
+        case .fixedDate:
+            deliveryDay = fixedDeliveryDay
+            
+        case .random:
+            if useDateRange {
+                let start = Calendar.current.startOfDay(for: randomStartDate)
+                let end = Calendar.current.startOfDay(for: randomEndDate)
+                let dayRange = calendar.dateComponents([.day], from: start, to: end).day ?? 1
+                let randomDays = Int.random(in: 0...max(0, dayRange))
+                deliveryDay = calendar.date(byAdding: .day, value: randomDays, to: start) ?? start
+            } else {
+                let rangeStart = calendar.date(byAdding: .day, value: 1, to: now) ?? now
+                let rangeEnd = calendar.date(byAdding: .year, value: 3, to: now) ?? now
+                let dayRange = calendar.dateComponents([.day], from: rangeStart, to: rangeEnd).day ?? 1
+                let randomDays = Int.random(in: 0...max(0, dayRange))
+                deliveryDay = calendar.date(byAdding: .day, value: randomDays, to: rangeStart) ?? rangeStart
+            }
+            
+        case .lastLogin:
+            return now
+        }
+        
+        let hour: Int
+        let minute: Int
+        
+        if timeMode == .fixed {
+            let components = calendar.dateComponents([.hour, .minute], from: fixedTime)
+            hour = components.hour ?? 12
+            minute = components.minute ?? 0
+        } else if useTimeRange {
+            let startTotalMinutes = calendar.component(.hour, from: startTime) * 60 + calendar.component(.minute, from: startTime)
+            let endTotalMinutes = calendar.component(.hour, from: endTime) * 60 + calendar.component(.minute, from: endTime)
+            let upperBound = max(startTotalMinutes + 1, endTotalMinutes)
+            let randomTotalMinutes = Int.random(in: startTotalMinutes..<upperBound)
+            hour = randomTotalMinutes / 60
+            minute = randomTotalMinutes % 60
+        } else {
+            hour = Int.random(in: 0...23)
+            minute = Int.random(in: 0...59)
+        }
+        
+        return calendar.date(bySettingHour: hour, minute: minute, second: 0, of: deliveryDay) ?? deliveryDay
     }
 }
 

@@ -12,10 +12,13 @@ service firebase.storage {
         )
       );
 
-      // 削除: 送信者のみOK
+      // 削除: 送信者または受信者OK（開封後のクリーンアップで使用）
       allow delete: if request.auth != null && 
         firestore.exists(/databases/(default)/documents/letters/$(letterId)) && 
-        firestore.get(/databases/(default)/documents/letters/$(letterId)).data.senderId == request.auth.uid;
+        (
+          firestore.get(/databases/(default)/documents/letters/$(letterId)).data.senderId == request.auth.uid ||
+          firestore.get(/databases/(default)/documents/letters/$(letterId)).data.recipientId == request.auth.uid
+        );
 
       // 作成: 認証済みならOK (UUIDファイル名なので上書きリスクは低い)
       allow create: if request.auth != null;
