@@ -32,6 +32,7 @@ final class AppDataStore: ObservableObject {
     @Published private(set) var sharedLetters: [SharedLetter] = []  // 他ユーザーからの手紙
     @Published private(set) var appState: AppState = AppState()
     @Published private(set) var locationVisitTagDefinitions: [LocationVisitTagDefinition] = []
+    @Published private(set) var wakeAlarms: [WakeAlarm] = []
     
     // MARK: - Cache
     private var eventsCache: [Date: [CalendarEvent]] = [:]
@@ -52,6 +53,7 @@ final class AppDataStore: ObservableObject {
     private static let healthSummariesDefaultsKey = "HealthSummaries_Storage_V1"
     private static let locationVisitTagsDefaultsKey = "LocationVisitTags_Storage_V1"
     private static let locationVisitTagsSeededDefaultsKey = "LocationVisitTagsSeeded_Storage_V1"
+    private static let wakeAlarmsDefaultsKey = "WakeAlarms_Storage_V1"
     private static let defaultLocationVisitTagNames: [String] = [
         "ご飯", "カフェ", "仕事", "勉強", "買い物", "旅行", "観光", "運動", "用事", "友人", "家族", "デート"
     ]
@@ -179,6 +181,7 @@ final class AppDataStore: ObservableObject {
         let storedRange: ExternalCalendarRange? = Self.loadValue(forKey: Self.externalCalendarRangeDefaultsKey, defaultValue: nil)
         self.externalCalendarRange = storedRange
         self.locationVisitTagDefinitions = Self.loadValue(forKey: Self.locationVisitTagsDefaultsKey, defaultValue: [])
+        self.wakeAlarms = Self.loadValue(forKey: Self.wakeAlarmsDefaultsKey, defaultValue: [])
         normalizeLocationVisitTagOrderIfNeeded()
         seedDefaultLocationVisitTagsIfNeeded()
 
@@ -1755,6 +1758,10 @@ final class AppDataStore: ObservableObject {
         persist(externalCalendarRange, forKey: Self.externalCalendarRangeDefaultsKey)
     }
 
+    private func persistWakeAlarms() {
+        persist(wakeAlarms, forKey: Self.wakeAlarmsDefaultsKey)
+    }
+
     private func reloadHabitWidgetTimeline() {
         WidgetCenter.shared.reloadTimelines(ofKind: "HabitWidget")
     }
@@ -2086,6 +2093,75 @@ final class AppDataStore: ObservableObject {
             timed("月次レビュー", 40, 18, 0, 19, 0, "仕事"),
             timed("振り返りと日記", 44, 21, 0, 21, 40, "習慣")
         ]
+    }
+
+    // MARK: - Wake Alarms
+
+    func wakeAlarm(id: UUID) -> WakeAlarm? {
+        wakeAlarms.first(where: { $0.id == id })
+    }
+
+    func saveWakeAlarm(_ alarm: WakeAlarm) async throws {
+        let normalized = WakeAlarm(
+            id: alarm.id,
+            title: alarm.title,
+            hour: alarm.hour,
+            minute: alarm.minute,
+            repeatDays: alarm.repeatDays,
+            challengeMethod: alarm.challengeMethod,
+            isEnabled: alarm.isEnabled,
+            createdAt: alarm.createdAt,
+            lastChallengeSuccessAt: alarm.lastChallengeSuccessAt
+        )
+
+        try await WakeAlarmService.shared.schedule(normalized)
+
+        if let existingIndex = wakeAlarms.firstIndex(where: { $0.id == normalized.id }) {
+            wakeAlarms[existingIndex] = normalized
+        } else {
+            wakeAlarms.append(normalized)
+        }
+
+        wakeAlarms.sort {
+            if $0.hour != $1.hour {
+                return $0.hour < $1.hour
+            }
+            if $0.minute != $1.minute {
+                return $0.minute < $1.minute
+            }
+            return $0.title.localizedStandardCompare($1.title) == .orderedAscending
+        }
+        persistWakeAlarms()
+    }
+
+    func setWakeAlarmEnabled(_ alarmID: UUID, isEnabled: Bool) async throws {
+        guard var alarm = wakeAlarm(id: alarmID) else { return }
+        alarm.isEnabled = isEnabled
+        try await saveWakeAlarm(alarm)
+    }
+
+    func deleteWakeAlarm(_ alarmID: UUID) throws {
+        try? WakeAlarmService.shared.cancel(alarmID: alarmID)
+        wakeAlarms.removeAll { $0.id == alarmID }
+        persistWakeAlarms()
+    }
+
+    func markWakeChallengeCompleted(for alarmID: UUID, shouldStopAlarm: Bool) async {
+        if shouldStopAlarm {
+            try? WakeAlarmService.shared.stop(alarmID: alarmID)
+        }
+
+        guard let index = wakeAlarms.firstIndex(where: { $0.id == alarmID }) else {
+            WakeAlarmIntentBridge.clearPendingWakeChallenge()
+            return
+        }
+
+        if wakeAlarms[index].repeatDays.isEmpty {
+            wakeAlarms[index].isEnabled = false
+        }
+        wakeAlarms[index].lastChallengeSuccessAt = Date()
+        persistWakeAlarms()
+        WakeAlarmIntentBridge.clearPendingWakeChallenge()
     }
 
     private func containsSimilarCalendarEvent(_ candidate: CalendarEvent, in events: [CalendarEvent]) -> Bool {

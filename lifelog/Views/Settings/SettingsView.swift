@@ -17,6 +17,7 @@ struct SettingsView: View {
     @State private var showMailErrorAlert = false
     @State private var showCalendarSettings = false
     @State private var showNotificationSettings = false
+    @State private var showWakeAlarms = false
     @State private var showHelp = false
     @State private var showLetterList = false
     @State private var showLetterSharing = false
@@ -347,6 +348,10 @@ struct SettingsView: View {
         .sheet(isPresented: $showNotificationSettings) {
             NotificationSettingsSheet(isPresented: $showNotificationSettings)
         }
+        .sheet(isPresented: $showWakeAlarms) {
+            WakeAlarmSettingsSheet(isPresented: $showWakeAlarms)
+                .environmentObject(store)
+        }
         .sheet(isPresented: $showHelp) {
             HelpView()
         }
@@ -475,6 +480,18 @@ struct SettingsView: View {
                 }
             }
             .foregroundStyle(.primary)
+
+            Button {
+                showWakeAlarms = true
+            } label: {
+                HStack {
+                    Label("目覚まし", systemImage: "alarm.fill")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .foregroundStyle(.primary)
         }
     }
 
@@ -581,6 +598,23 @@ private struct NotificationSettingsSheet: View {
     var body: some View {
         NavigationStack {
             NotificationSettingsView()
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("閉じる") {
+                            isPresented = false
+                        }
+                    }
+                }
+        }
+    }
+}
+
+private struct WakeAlarmSettingsSheet: View {
+    @Binding var isPresented: Bool
+
+    var body: some View {
+        NavigationStack {
+            WakeAlarmListView()
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
                         Button("閉じる") {

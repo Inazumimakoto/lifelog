@@ -26,6 +26,9 @@ final class DeepLinkManager: ObservableObject {
 
     /// ウィジェットからの遷移先
     @Published var pendingWidgetDestination: WidgetDestination? = nil
+
+    /// 解除テスト待ちの目覚ましID
+    @Published var pendingWakeAlarmID: UUID? = nil
     
     private init() {}
     
@@ -47,6 +50,25 @@ final class DeepLinkManager: ObservableObject {
     /// 共有手紙のディープリンク処理完了
     func clearPendingSharedLetter() {
         pendingSharedLetterID = nil
+    }
+
+    func handleWakeAlarmChallenge(alarmID: UUID) {
+        pendingWakeAlarmID = alarmID
+    }
+
+    func consumePendingWakeAlarmChallengeIfNeeded() {
+        guard pendingWakeAlarmID == nil else {
+            return
+        }
+        guard let alarmID = WakeAlarmIntentBridge.pendingWakeChallengeAlarmID() else {
+            return
+        }
+        pendingWakeAlarmID = alarmID
+    }
+
+    func clearPendingWakeAlarmChallenge() {
+        pendingWakeAlarmID = nil
+        WakeAlarmIntentBridge.clearPendingWakeChallenge()
     }
 
     /// ウィジェットURLを処理（対応していれば true）

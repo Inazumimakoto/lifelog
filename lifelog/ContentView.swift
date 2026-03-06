@@ -34,6 +34,7 @@ struct ContentView: View {
     @State private var premiumAlertMessage: String?
     @State private var showMemoEditorFromWidget = false
     @State private var isHandlingWidgetDestination = false
+    @State private var wakeAlarmToChallenge: WakeAlarm? = nil
 
     var body: some View {
         TabView(selection: $selection) {
@@ -193,6 +194,7 @@ struct ContentView: View {
         .onAppear {
             syncMemoPrivacySettingsToSharedDefaults()
             handleWidgetDestinationIfNeeded(deepLinkManager.pendingWidgetDestination)
+            handleWakeAlarmChallengeIfNeeded(deepLinkManager.pendingWakeAlarmID)
         }
         .onChange(of: isMemoTextHidden) { _, _ in
             syncMemoPrivacySettingsToSharedDefaults()
@@ -205,10 +207,20 @@ struct ContentView: View {
         .onChange(of: deepLinkManager.pendingWidgetDestination) { _, destination in
             handleWidgetDestinationIfNeeded(destination)
         }
+        .onChange(of: deepLinkManager.pendingWakeAlarmID) { _, alarmID in
+            handleWakeAlarmChallengeIfNeeded(alarmID)
+        }
         .fullScreenCover(isPresented: $showMemoEditorFromWidget) {
             NavigationStack {
                 MemoEditorView(store: store)
             }
+        }
+        .fullScreenCover(item: $wakeAlarmToChallenge) { alarm in
+            WakeChallengeView(alarm: alarm, mode: .alarm) {
+                wakeAlarmToChallenge = nil
+                deepLinkManager.clearPendingWakeAlarmChallenge()
+            }
+            .environmentObject(store)
         }
     }
     
@@ -254,6 +266,15 @@ struct ContentView: View {
                 showMemoEditorFromWidget = true
             }
         }
+    }
+
+    private func handleWakeAlarmChallengeIfNeeded(_ alarmID: UUID?) {
+        guard let alarmID else { return }
+        guard let alarm = store.wakeAlarm(id: alarmID) else {
+            deepLinkManager.clearPendingWakeAlarmChallenge()
+            return
+        }
+        wakeAlarmToChallenge = alarm
     }
 
     private func syncMemoPrivacySettingsToSharedDefaults() {

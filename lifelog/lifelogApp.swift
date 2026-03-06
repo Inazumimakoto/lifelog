@@ -38,6 +38,7 @@ struct lifelogApp: App {
                     .environment(\.locale, Locale(identifier: "ja_JP"))
                     .onAppear {
                         // 日記リマインダーを再スケジュール（今日書いていなければ通知）
+                        deepLinkManager.consumePendingWakeAlarmChallengeIfNeeded()
                         syncMemoPrivacySettingsToSharedDefaults()
                         store.rescheduleDiaryReminderIfNeeded()
                         store.rescheduleTodayOverviewReminderIfNeeded()
@@ -50,7 +51,9 @@ struct lifelogApp: App {
                         }
                     }
                 
-                if !appLockService.isUnlocked && appLockService.isAppLockEnabled {
+                if !appLockService.isUnlocked
+                    && appLockService.isAppLockEnabled
+                    && deepLinkManager.pendingWakeAlarmID == nil {
                     LockView()
                         .transition(.opacity)
                         .zIndex(999)
@@ -61,7 +64,11 @@ struct lifelogApp: App {
                     appLockService.lock()
                 } else if newPhase == .active {
                     // アプリがアクティブになった時にロックが有効なら認証を試みる
-                    if appLockService.isAppLockEnabled && !appLockService.isUnlocked {
+                    deepLinkManager.consumePendingWakeAlarmChallengeIfNeeded()
+
+                    if appLockService.isAppLockEnabled
+                        && !appLockService.isUnlocked
+                        && deepLinkManager.pendingWakeAlarmID == nil {
                         appLockService.authenticate()
                     }
 
