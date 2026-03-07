@@ -8,12 +8,15 @@ import SwiftUI
 struct WakeAlarmListView: View {
     @EnvironmentObject private var store: AppDataStore
     @EnvironmentObject private var deepLinkManager: DeepLinkManager
+    @AppStorage("hasSeenWakeAlarmOnboarding") private var hasSeenWakeAlarmOnboarding: Bool = false
 
     @State private var authorizationStatus: WakeAlarmAuthorizationStatus = .unsupported
     @State private var isShowingEditor = false
     @State private var editingAlarm: WakeAlarm?
     @State private var previewAlarm: WakeAlarm?
     @State private var errorMessage: String?
+    @State private var showOnboarding = false
+    @State private var isRequestingAuthorization = false
 
     var body: some View {
         List {
@@ -37,6 +40,7 @@ struct WakeAlarmListView: View {
         }
         .task {
             await refreshAuthorizationStatus()
+            presentOnboardingIfNeeded()
         }
         .sheet(isPresented: $isShowingEditor) {
             NavigationStack {
@@ -44,6 +48,18 @@ struct WakeAlarmListView: View {
             }
             .environmentObject(store)
             .environmentObject(deepLinkManager)
+        }
+        .sheet(isPresented: $showOnboarding, onDismiss: {
+            hasSeenWakeAlarmOnboarding = true
+        }) {
+            WakeAlarmOnboardingSheet(
+                authorizationStatus: authorizationStatus,
+                isRequestingAuthorization: isRequestingAuthorization,
+                onPrimaryAction: requestAuthorizationFromOnboarding,
+                onSecondaryAction: {
+                    showOnboarding = false
+                }
+            )
         }
         .fullScreenCover(item: $previewAlarm) { alarm in
             WakeChallengeView(alarm: alarm, mode: .preview) {
@@ -69,32 +85,31 @@ struct WakeAlarmListView: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Label("この機能は iOS 26 以降で使えます", systemImage: "iphone.slash")
                         .foregroundStyle(.secondary)
-                    Text("AlarmKit を使ってロック画面から解除テストへ遷移します。")
+                    Text("iPhone の正式な目覚ましとして鳴らし、解除テストと朝ルーティンを組み合わせます。")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
             case .notDetermined:
-                Button("目覚ましの許可をリクエスト") {
-                    _Concurrency.Task {
-                        authorizationStatus = await WakeAlarmService.shared.requestAuthorization()
-                    }
+                Button("システムの目覚ましを許可") {
+                    requestAuthorizationFromList()
                 }
-                Text("一度許可すると、stop から解除テストを起動できるようになります。")
+                .disabled(isRequestingAuthorization)
+                Text("このアプリで iPhone の正式な目覚ましを作るための許可です。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
             case .denied:
                 Label("設定アプリで目覚ましの許可を有効にしてください", systemImage: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
-                Text("いまは保存済みの一覧しか見られません。")
+                Text("許可すると、解除テスト付きのアラームと朝ルーティンを使えます。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
             case .authorized:
                 Label("目覚ましの許可は有効です", systemImage: "checkmark.seal.fill")
                     .foregroundStyle(.green)
-                Text("stop を押すと解除テストを開始する設計です。")
+                Text("アラーム鳴動後は解除テストを経由して止め、そのまま朝ルーティンへ進めます。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -224,5 +239,171 @@ struct WakeAlarmListView: View {
             return nil
         }
         return preset.title
+    }
+
+    private func presentOnboardingIfNeeded() {
+        guard hasSeenWakeAlarmOnboarding == false else { return }
+        guard authorizationStatus != .unsupported else {
+            hasSeenWakeAlarmOnboarding = true
+            return
+        }
+        showOnboarding = true
+    }
+
+    private func requestAuthorizationFromList() {
+        isRequestingAuthorization = true
+        _Concurrency.Task {
+            let newStatus = await WakeAlarmService.shared.requestAuthorization()
+            await MainActor.run {
+                authorizationStatus = newStatus
+                isRequestingAuthorization = false
+            }
+        }
+    }
+
+    private func requestAuthorizationFromOnboarding() {
+        if authorizationStatus != .notDetermined {
+            showOnboarding = false
+            return
+        }
+
+        isRequestingAuthorization = true
+        _Concurrency.Task {
+            let newStatus = await WakeAlarmService.shared.requestAuthorization()
+            await MainActor.run {
+                authorizationStatus = newStatus
+                isRequestingAuthorization = false
+                showOnboarding = false
+            }
+        }
+    }
+}
+
+private struct WakeAlarmOnboardingSheet: View {
+    let authorizationStatus: WakeAlarmAuthorizationStatus
+    let isRequestingAuthorization: Bool
+    let onPrimaryAction: () -> Void
+    let onSecondaryAction: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    hero
+                    featureCard(
+                        icon: "alarm.fill",
+                        title: "二度寝防止アラーム",
+                        detail: "このアプリが iPhone の正式な目覚ましを作ります。鳴ったあと、そのまま解除テストへ進みます。"
+                    )
+                    featureCard(
+                        icon: "brain.head.profile",
+                        title: "解除テスト",
+                        detail: "暗算、短期記憶、文字列入力、シェイクから選んで、起きたあとに頭と体を動かします。"
+                    )
+                    featureCard(
+                        icon: "sunrise.fill",
+                        title: "朝ルーティン",
+                        detail: "起きた後の流れをプリセット化して、Live Activity で今やることと残り時間を確認できます。"
+                    )
+                    footer
+                }
+                .padding(24)
+            }
+            .background(
+                LinearGradient(
+                    colors: [Color(red: 0.11, green: 0.09, blue: 0.07), Color(red: 0.20, green: 0.16, blue: 0.11)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+            )
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("あとで") {
+                        onSecondaryAction()
+                    }
+                }
+            }
+        }
+        .presentationDetents([.large])
+        .presentationDragIndicator(.visible)
+    }
+
+    private var hero: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("二度寝防止アラーム")
+                .font(.system(size: 34, weight: .black, design: .rounded))
+                .foregroundStyle(.white)
+
+            Text("解除テストでしっかり起きて、そのまま朝ルーティンへつなげます。")
+                .font(.headline)
+                .foregroundStyle(.white.opacity(0.82))
+        }
+    }
+
+    private func featureCard(icon: String, title: String, detail: String) -> some View {
+        HStack(alignment: .top, spacing: 16) {
+            Image(systemName: icon)
+                .font(.title2)
+                .foregroundStyle(.orange)
+                .frame(width: 32, height: 32)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                Text(detail)
+                    .font(.subheadline)
+                    .foregroundStyle(.white.opacity(0.72))
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.white.opacity(0.1), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .strokeBorder(.white.opacity(0.08), lineWidth: 1)
+        )
+    }
+
+    private var footer: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("最初に必要なこと")
+                .font(.headline)
+                .foregroundStyle(.white)
+
+            Text("このあと、iPhone のシステム目覚ましとして使うための許可を確認します。")
+                .font(.subheadline)
+                .foregroundStyle(.white.opacity(0.72))
+
+            Button {
+                onPrimaryAction()
+            } label: {
+                if isRequestingAuthorization {
+                    ProgressView()
+                        .frame(maxWidth: .infinity)
+                } else {
+                    Text(primaryButtonTitle)
+                        .frame(maxWidth: .infinity)
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.orange)
+            .foregroundStyle(.black)
+            .disabled(isRequestingAuthorization)
+        }
+    }
+
+    private var primaryButtonTitle: String {
+        switch authorizationStatus {
+        case .notDetermined:
+            return "使ってみる"
+        case .authorized:
+            return "一覧へ進む"
+        case .denied:
+            return "閉じる"
+        case .unsupported:
+            return "閉じる"
+        }
     }
 }
