@@ -72,7 +72,7 @@ struct WakeAlarm: Identifiable, Codable, Hashable {
         title: String,
         hour: Int,
         minute: Int,
-        repeatDays: [Weekday] = Weekday.allCases,
+        repeatDays: [Weekday] = [],
         challengeMethod: WakeChallengeMethod = .mentalMath,
         morningRoutinePresetID: UUID? = nil,
         isEnabled: Bool = true,

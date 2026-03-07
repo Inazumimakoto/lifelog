@@ -137,29 +137,13 @@ final class WakeAlarmService {
 
     @available(iOS 26.0, *)
     private func schedule(for alarm: WakeAlarm) -> Alarm.Schedule {
+        let time = Alarm.Schedule.Relative.Time(hour: alarm.hour, minute: alarm.minute)
         if alarm.repeatDays.isEmpty {
-            return .fixed(nextFixedDate(for: alarm))
+            return .relative(.init(time: time, repeats: .never))
         }
 
         let weekdayValues = alarm.repeatDays.map(\.localeWeekday)
-        let time = Alarm.Schedule.Relative.Time(hour: alarm.hour, minute: alarm.minute)
         return .relative(.init(time: time, repeats: .weekly(weekdayValues)))
-    }
-
-    @available(iOS 26.0, *)
-    private func nextFixedDate(for alarm: WakeAlarm) -> Date {
-        let calendar = Calendar.current
-        let now = Date()
-        var components = calendar.dateComponents([.year, .month, .day], from: now)
-        components.hour = alarm.hour
-        components.minute = alarm.minute
-        components.second = 0
-
-        let today = calendar.date(from: components) ?? now
-        if today > now {
-            return today
-        }
-        return calendar.date(byAdding: .day, value: 1, to: today) ?? today.addingTimeInterval(86_400)
     }
 
     @available(iOS 26.0, *)

@@ -32,7 +32,7 @@ struct WakeAlarmEditorView: View {
 
         _title = State(initialValue: alarm?.title ?? "朝のアラーム")
         _time = State(initialValue: initialTime)
-        _repeatDays = State(initialValue: alarm?.repeatDays ?? Weekday.allCases)
+        _repeatDays = State(initialValue: alarm?.repeatDays ?? [])
         _challengeMethod = State(initialValue: alarm?.challengeMethod ?? .mentalMath)
         _morningRoutinePresetID = State(initialValue: alarm?.morningRoutinePresetID)
         _isEnabled = State(initialValue: alarm?.isEnabled ?? true)
