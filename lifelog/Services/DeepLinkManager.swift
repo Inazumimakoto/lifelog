@@ -26,12 +26,6 @@ final class DeepLinkManager: ObservableObject {
 
     /// ウィジェットからの遷移先
     @Published var pendingWidgetDestination: WidgetDestination? = nil
-
-    /// 解除テスト待ちの目覚ましID
-    @Published var pendingWakeAlarmID: UUID? = nil
-
-    /// 朝ルーティン画面を前面表示するためのトークン
-    @Published var pendingMorningRoutinePresentationToken: UUID? = nil
     
     private init() {}
     
@@ -55,33 +49,6 @@ final class DeepLinkManager: ObservableObject {
         pendingSharedLetterID = nil
     }
 
-    func handleWakeAlarmChallenge(alarmID: UUID) {
-        pendingWakeAlarmID = alarmID
-    }
-
-    func consumePendingWakeAlarmChallengeIfNeeded() {
-        guard pendingWakeAlarmID == nil else {
-            return
-        }
-        guard let alarmID = WakeAlarmIntentBridge.pendingWakeChallengeAlarmID() else {
-            return
-        }
-        pendingWakeAlarmID = alarmID
-    }
-
-    func clearPendingWakeAlarmChallenge() {
-        pendingWakeAlarmID = nil
-        WakeAlarmIntentBridge.clearPendingWakeChallenge()
-    }
-
-    func requestMorningRoutinePresentation() {
-        pendingMorningRoutinePresentationToken = UUID()
-    }
-
-    func clearPendingMorningRoutinePresentation() {
-        pendingMorningRoutinePresentationToken = nil
-    }
-
     /// ウィジェットURLを処理（対応していれば true）
     func handleWidgetURL(_ url: URL) -> Bool {
         guard let scheme = url.scheme?.lowercased(), scheme == "lifelog" else {
@@ -93,11 +60,6 @@ final class DeepLinkManager: ObservableObject {
 
         if host == "memo" || path == "/memo" {
             pendingWidgetDestination = .memo
-            return true
-        }
-
-        if host == "routine" || path == "/routine" {
-            requestMorningRoutinePresentation()
             return true
         }
 

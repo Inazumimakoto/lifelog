@@ -34,11 +34,56 @@ struct ContentView: View {
     @State private var premiumAlertMessage: String?
     @State private var showMemoEditorFromWidget = false
     @State private var isHandlingWidgetDestination = false
-    @State private var wakeAlarmToChallenge: WakeAlarm? = nil
-    @State private var showMorningRoutineRunner = false
 
     var body: some View {
-        rootTabs
+        TabView(selection: $selection) {
+            navigationStack(for: 0) {
+                TodayView(store: store)
+            }
+            .tabItem {
+                Label("ホーム", systemImage: "sun.max.fill")
+            }
+            .tag(0)
+
+            navigationStack(for: 1) {
+                JournalView(store: store, resetTrigger: calendarResetTrigger)
+            }
+            .tabItem {
+                Label("カレンダー", systemImage: "calendar")
+            }
+            .tag(1)
+
+            navigationStack(for: 2) {
+                HabitsCountdownView(store: store, resetTrigger: habitsResetTrigger)
+            }
+            .tabItem {
+                Label("習慣", systemImage: "checkmark.circle")
+            }
+            .tag(2)
+
+            navigationStack(for: 3) {
+                HealthDashboardView(store: store)
+            }
+            .tabItem {
+                Label("ヘルス", systemImage: "heart.fill")
+            }
+            .tag(3)
+        }
+        .onChange(of: selection) { oldSelection, newSelection in
+            // 他のタブからカレンダータブに戻った時にリセット
+            if newSelection == 1 && oldSelection != 1 {
+                calendarResetTrigger += 1
+            }
+            // 習慣タブに戻った時に習慣表示にリセット
+            if newSelection == 2 && oldSelection != 2 {
+                habitsResetTrigger += 1
+            }
+            if newSelection == lastSelection {
+                // Scroll to top
+            }
+            lastSelection = newSelection
+        }
+        .toast()
         // ディープリンク: 未来への手紙の通知タップ
         .onChange(of: deepLinkManager.pendingLetterID) { _, letterID in
             guard let letterID = letterID else { return }
@@ -148,8 +193,6 @@ struct ContentView: View {
         .onAppear {
             syncMemoPrivacySettingsToSharedDefaults()
             handleWidgetDestinationIfNeeded(deepLinkManager.pendingWidgetDestination)
-            handleWakeAlarmChallengeIfNeeded(deepLinkManager.pendingWakeAlarmID)
-            handleMorningRoutinePresentationIfNeeded()
         }
         .onChange(of: isMemoTextHidden) { _, _ in
             syncMemoPrivacySettingsToSharedDefaults()
@@ -162,92 +205,11 @@ struct ContentView: View {
         .onChange(of: deepLinkManager.pendingWidgetDestination) { _, destination in
             handleWidgetDestinationIfNeeded(destination)
         }
-        .onChange(of: deepLinkManager.pendingWakeAlarmID) { _, alarmID in
-            handleWakeAlarmChallengeIfNeeded(alarmID)
-        }
-        .onChange(of: deepLinkManager.pendingMorningRoutinePresentationToken) { _, _ in
-            handleMorningRoutinePresentationIfNeeded()
-        }
-        .onChange(of: store.activeMorningRoutineSession?.id) { _, sessionID in
-            if sessionID == nil {
-                showMorningRoutineRunner = false
-                deepLinkManager.clearPendingMorningRoutinePresentation()
-            } else {
-                handleMorningRoutinePresentationIfNeeded()
-            }
-        }
         .fullScreenCover(isPresented: $showMemoEditorFromWidget) {
             NavigationStack {
                 MemoEditorView(store: store)
             }
         }
-        .fullScreenCover(isPresented: $showMorningRoutineRunner, onDismiss: {
-            deepLinkManager.clearPendingMorningRoutinePresentation()
-        }) {
-            NavigationStack {
-                MorningRoutineRunnerView()
-            }
-            .environmentObject(store)
-        }
-        .fullScreenCover(item: $wakeAlarmToChallenge) { alarm in
-            WakeChallengeView(alarm: alarm, mode: .alarm) {
-                wakeAlarmToChallenge = nil
-                deepLinkManager.clearPendingWakeAlarmChallenge()
-            }
-            .environmentObject(store)
-            .environmentObject(deepLinkManager)
-        }
-    }
-
-    private var rootTabs: some View {
-        TabView(selection: $selection) {
-            navigationStack(for: 0) {
-                TodayView(store: store)
-            }
-            .tabItem {
-                Label("ホーム", systemImage: "sun.max.fill")
-            }
-            .tag(0)
-
-            navigationStack(for: 1) {
-                JournalView(store: store, resetTrigger: calendarResetTrigger)
-            }
-            .tabItem {
-                Label("カレンダー", systemImage: "calendar")
-            }
-            .tag(1)
-
-            navigationStack(for: 2) {
-                HabitsCountdownView(store: store, resetTrigger: habitsResetTrigger)
-            }
-            .tabItem {
-                Label("習慣", systemImage: "checkmark.circle")
-            }
-            .tag(2)
-
-            navigationStack(for: 3) {
-                HealthDashboardView(store: store)
-            }
-            .tabItem {
-                Label("ヘルス", systemImage: "heart.fill")
-            }
-            .tag(3)
-        }
-        .onChange(of: selection) { oldSelection, newSelection in
-            // 他のタブからカレンダータブに戻った時にリセット
-            if newSelection == 1 && oldSelection != 1 {
-                calendarResetTrigger += 1
-            }
-            // 習慣タブに戻った時に習慣表示にリセット
-            if newSelection == 2 && oldSelection != 2 {
-                habitsResetTrigger += 1
-            }
-            if newSelection == lastSelection {
-                // Scroll to top
-            }
-            lastSelection = newSelection
-        }
-        .toast()
     }
     
     private func fetchSharedLetter(id: String) {
@@ -292,24 +254,6 @@ struct ContentView: View {
                 showMemoEditorFromWidget = true
             }
         }
-    }
-
-    private func handleWakeAlarmChallengeIfNeeded(_ alarmID: UUID?) {
-        guard let alarmID else { return }
-        guard let alarm = store.wakeAlarm(id: alarmID) else {
-            deepLinkManager.clearPendingWakeAlarmChallenge()
-            return
-        }
-        wakeAlarmToChallenge = alarm
-    }
-
-    private func handleMorningRoutinePresentationIfNeeded() {
-        guard deepLinkManager.pendingMorningRoutinePresentationToken != nil else { return }
-        guard store.activeMorningRoutineSession != nil else {
-            deepLinkManager.clearPendingMorningRoutinePresentation()
-            return
-        }
-        showMorningRoutineRunner = true
     }
 
     private func syncMemoPrivacySettingsToSharedDefaults() {

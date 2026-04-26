@@ -38,7 +38,6 @@ struct lifelogApp: App {
                     .environment(\.locale, Locale(identifier: "ja_JP"))
                     .onAppear {
                         // 日記リマインダーを再スケジュール（今日書いていなければ通知）
-                        deepLinkManager.consumePendingWakeAlarmChallengeIfNeeded()
                         syncMemoPrivacySettingsToSharedDefaults()
                         store.rescheduleDiaryReminderIfNeeded()
                         store.rescheduleTodayOverviewReminderIfNeeded()
@@ -47,15 +46,11 @@ struct lifelogApp: App {
                         WidgetCenter.shared.reloadTimelines(ofKind: "AnniversaryWidget")
                         WidgetCenter.shared.reloadTimelines(ofKind: "MemoWidget")
                         _Concurrency.Task {
-                            await store.refreshActiveMorningRoutineIfNeeded()
                             await monetizationService.refreshStatus()
                         }
                     }
                 
-                if !appLockService.isUnlocked
-                    && appLockService.isAppLockEnabled
-                    && deepLinkManager.pendingWakeAlarmID == nil
-                    && deepLinkManager.pendingMorningRoutinePresentationToken == nil {
+                if !appLockService.isUnlocked && appLockService.isAppLockEnabled {
                     LockView()
                         .transition(.opacity)
                         .zIndex(999)
@@ -66,12 +61,7 @@ struct lifelogApp: App {
                     appLockService.lock()
                 } else if newPhase == .active {
                     // アプリがアクティブになった時にロックが有効なら認証を試みる
-                    deepLinkManager.consumePendingWakeAlarmChallengeIfNeeded()
-
-                    if appLockService.isAppLockEnabled
-                        && !appLockService.isUnlocked
-                        && deepLinkManager.pendingWakeAlarmID == nil
-                        && deepLinkManager.pendingMorningRoutinePresentationToken == nil {
+                    if appLockService.isAppLockEnabled && !appLockService.isUnlocked {
                         appLockService.authenticate()
                     }
 
@@ -84,7 +74,6 @@ struct lifelogApp: App {
                     
                     // 最終ログイン日時を更新（手紙の生存確認用）
                     _Concurrency.Task {
-                        await store.refreshActiveMorningRoutineIfNeeded()
                         await AuthService.shared.updateLastLoginAt()
                         await monetizationService.refreshStatus()
                     }

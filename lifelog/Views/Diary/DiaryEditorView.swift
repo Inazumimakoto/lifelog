@@ -254,12 +254,12 @@ struct DiaryEditorView: View {
     private var entrySection: some View {
         Section("本文") {
             ZStack(alignment: .topLeading) {
-                if draftText.isEmpty {
-                    Text("ここに文章を入力")
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 8)
-                }
+                Text("ここに文章を入力")
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 8)
+                    .opacity(draftText.isEmpty ? 1 : 0)
+                    .allowsHitTesting(false)
                 TextEditor(text: textBinding)
                     .font(.body)
                     .frame(minHeight: 220, alignment: .topLeading)

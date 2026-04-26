@@ -32,9 +32,6 @@ final class AppDataStore: ObservableObject {
     @Published private(set) var sharedLetters: [SharedLetter] = []  // 他ユーザーからの手紙
     @Published private(set) var appState: AppState = AppState()
     @Published private(set) var locationVisitTagDefinitions: [LocationVisitTagDefinition] = []
-    @Published private(set) var wakeAlarms: [WakeAlarm] = []
-    @Published private(set) var morningRoutinePresets: [MorningRoutinePreset] = []
-    @Published private(set) var activeMorningRoutineSession: MorningRoutineSession? = nil
     
     // MARK: - Cache
     private var eventsCache: [Date: [CalendarEvent]] = [:]
@@ -55,9 +52,6 @@ final class AppDataStore: ObservableObject {
     private static let healthSummariesDefaultsKey = "HealthSummaries_Storage_V1"
     private static let locationVisitTagsDefaultsKey = "LocationVisitTags_Storage_V1"
     private static let locationVisitTagsSeededDefaultsKey = "LocationVisitTagsSeeded_Storage_V1"
-    private static let wakeAlarmsDefaultsKey = "WakeAlarms_Storage_V1"
-    private static let morningRoutinePresetsDefaultsKey = "MorningRoutinePresets_Storage_V1"
-    private static let activeMorningRoutineSessionDefaultsKey = "MorningRoutineSession_Storage_V1"
     private static let defaultLocationVisitTagNames: [String] = [
         "ご飯", "カフェ", "仕事", "勉強", "買い物", "旅行", "観光", "運動", "用事", "友人", "家族", "デート"
     ]
@@ -185,9 +179,6 @@ final class AppDataStore: ObservableObject {
         let storedRange: ExternalCalendarRange? = Self.loadValue(forKey: Self.externalCalendarRangeDefaultsKey, defaultValue: nil)
         self.externalCalendarRange = storedRange
         self.locationVisitTagDefinitions = Self.loadValue(forKey: Self.locationVisitTagsDefaultsKey, defaultValue: [])
-        self.wakeAlarms = Self.loadValue(forKey: Self.wakeAlarmsDefaultsKey, defaultValue: [])
-        self.morningRoutinePresets = Self.loadValue(forKey: Self.morningRoutinePresetsDefaultsKey, defaultValue: [])
-        self.activeMorningRoutineSession = Self.loadValue(forKey: Self.activeMorningRoutineSessionDefaultsKey, defaultValue: nil)
         normalizeLocationVisitTagOrderIfNeeded()
         seedDefaultLocationVisitTagsIfNeeded()
 
@@ -200,7 +191,6 @@ final class AppDataStore: ObservableObject {
         #endif
         _Concurrency.Task {
             await loadHealthData()
-            await refreshActiveMorningRoutineIfNeeded()
         }
     }
     
@@ -1118,11 +1108,14 @@ final class AppDataStore: ObservableObject {
 
     // MARK: - Memo Pad
 
-    func updateMemoPad(text: String) {
-        guard text != memoPad.text else { return }
-        memoPad.text = text
-        memoPad.lastUpdatedAt = Date()
-        persistMemoPad()
+    func updateMemoPad(text: String, syncSwiftData: Bool = true) {
+        if text != memoPad.text {
+            memoPad.text = text
+            memoPad.lastUpdatedAt = Date()
+        } else {
+            guard syncSwiftData else { return }
+        }
+        persistMemoPad(syncSwiftData: syncSwiftData)
     }
 
     private static func loadMemoPad() -> MemoPad {
@@ -1134,10 +1127,11 @@ final class AppDataStore: ObservableObject {
         return MemoPad()
     }
 
-    private func persistMemoPad() {
+    private func persistMemoPad(syncSwiftData: Bool = true) {
         if let data = try? JSONEncoder().encode(memoPad) {
             UserDefaults.standard.set(data, forKey: Self.memoPadDefaultsKey)
         }
+        guard syncSwiftData else { return }
         
         // SwiftData
         let descriptor = FetchDescriptor<SDMemoPad>()
@@ -1765,18 +1759,6 @@ final class AppDataStore: ObservableObject {
         persist(externalCalendarRange, forKey: Self.externalCalendarRangeDefaultsKey)
     }
 
-    private func persistWakeAlarms() {
-        persist(wakeAlarms, forKey: Self.wakeAlarmsDefaultsKey)
-    }
-
-    private func persistMorningRoutinePresets() {
-        persist(morningRoutinePresets, forKey: Self.morningRoutinePresetsDefaultsKey)
-    }
-
-    private func persistActiveMorningRoutineSession() {
-        persist(activeMorningRoutineSession, forKey: Self.activeMorningRoutineSessionDefaultsKey)
-    }
-
     private func reloadHabitWidgetTimeline() {
         WidgetCenter.shared.reloadTimelines(ofKind: "HabitWidget")
     }
@@ -2108,147 +2090,6 @@ final class AppDataStore: ObservableObject {
             timed("月次レビュー", 40, 18, 0, 19, 0, "仕事"),
             timed("振り返りと日記", 44, 21, 0, 21, 40, "習慣")
         ]
-    }
-
-    // MARK: - Wake Alarms
-
-    func morningRoutinePreset(id: UUID) -> MorningRoutinePreset? {
-        morningRoutinePresets.first(where: { $0.id == id })
-    }
-
-    func saveMorningRoutinePreset(_ preset: MorningRoutinePreset) {
-        let normalized = MorningRoutinePreset(
-            id: preset.id,
-            title: preset.title.trimmingCharacters(in: .whitespacesAndNewlines),
-            steps: preset.steps,
-            createdAt: preset.createdAt,
-            updatedAt: Date()
-        )
-
-        guard normalized.steps.isEmpty == false else { return }
-
-        if let existingIndex = morningRoutinePresets.firstIndex(where: { $0.id == normalized.id }) {
-            morningRoutinePresets[existingIndex] = normalized
-        } else {
-            morningRoutinePresets.append(normalized)
-        }
-
-        morningRoutinePresets.sort {
-            $0.updatedAt > $1.updatedAt
-        }
-        persistMorningRoutinePresets()
-    }
-
-    func deleteMorningRoutinePreset(_ presetID: UUID) {
-        morningRoutinePresets.removeAll { $0.id == presetID }
-        persistMorningRoutinePresets()
-
-        var updatedWakeAlarms = false
-        for index in wakeAlarms.indices where wakeAlarms[index].morningRoutinePresetID == presetID {
-            wakeAlarms[index].morningRoutinePresetID = nil
-            updatedWakeAlarms = true
-        }
-
-        if updatedWakeAlarms {
-            persistWakeAlarms()
-        }
-    }
-
-    @discardableResult
-    func startMorningRoutine(presetID: UUID, sourceAlarmID: UUID?) async throws -> MorningRoutineSession {
-        guard let preset = morningRoutinePreset(id: presetID) else {
-            throw MorningRoutineError.presetNotFound
-        }
-        guard preset.steps.isEmpty == false else {
-            throw MorningRoutineError.emptyPreset
-        }
-
-        let session = MorningRoutineSession(preset: preset, sourceAlarmID: sourceAlarmID)
-        activeMorningRoutineSession = session
-        persistActiveMorningRoutineSession()
-        try? await MorningRoutineLiveActivityService.shared.start(session: session)
-        return session
-    }
-
-    func finishMorningRoutine() async {
-        let sessionID = activeMorningRoutineSession?.id
-        activeMorningRoutineSession = nil
-        persistActiveMorningRoutineSession()
-        await MorningRoutineLiveActivityService.shared.end(sessionID: sessionID)
-    }
-
-    func refreshActiveMorningRoutineIfNeeded() async {
-        guard let session = activeMorningRoutineSession else { return }
-        guard session.isFinished() else { return }
-        await finishMorningRoutine()
-    }
-
-    func wakeAlarm(id: UUID) -> WakeAlarm? {
-        wakeAlarms.first(where: { $0.id == id })
-    }
-
-    func saveWakeAlarm(_ alarm: WakeAlarm) async throws {
-        let normalized = WakeAlarm(
-            id: alarm.id,
-            title: alarm.title,
-            hour: alarm.hour,
-            minute: alarm.minute,
-            repeatDays: alarm.repeatDays,
-            challengeMethod: alarm.challengeMethod,
-            morningRoutinePresetID: alarm.morningRoutinePresetID,
-            isEnabled: alarm.isEnabled,
-            createdAt: alarm.createdAt,
-            lastChallengeSuccessAt: alarm.lastChallengeSuccessAt
-        )
-
-        try await WakeAlarmService.shared.schedule(normalized)
-
-        if let existingIndex = wakeAlarms.firstIndex(where: { $0.id == normalized.id }) {
-            wakeAlarms[existingIndex] = normalized
-        } else {
-            wakeAlarms.append(normalized)
-        }
-
-        wakeAlarms.sort {
-            if $0.hour != $1.hour {
-                return $0.hour < $1.hour
-            }
-            if $0.minute != $1.minute {
-                return $0.minute < $1.minute
-            }
-            return $0.title.localizedStandardCompare($1.title) == .orderedAscending
-        }
-        persistWakeAlarms()
-    }
-
-    func setWakeAlarmEnabled(_ alarmID: UUID, isEnabled: Bool) async throws {
-        guard var alarm = wakeAlarm(id: alarmID) else { return }
-        alarm.isEnabled = isEnabled
-        try await saveWakeAlarm(alarm)
-    }
-
-    func deleteWakeAlarm(_ alarmID: UUID) throws {
-        try? WakeAlarmService.shared.cancel(alarmID: alarmID)
-        wakeAlarms.removeAll { $0.id == alarmID }
-        persistWakeAlarms()
-    }
-
-    func markWakeChallengeCompleted(for alarmID: UUID, shouldStopAlarm: Bool) async {
-        if shouldStopAlarm {
-            try? WakeAlarmService.shared.stop(alarmID: alarmID)
-        }
-
-        guard let index = wakeAlarms.firstIndex(where: { $0.id == alarmID }) else {
-            WakeAlarmIntentBridge.clearPendingWakeChallenge()
-            return
-        }
-
-        if wakeAlarms[index].repeatDays.isEmpty {
-            wakeAlarms[index].isEnabled = false
-        }
-        wakeAlarms[index].lastChallengeSuccessAt = Date()
-        persistWakeAlarms()
-        WakeAlarmIntentBridge.clearPendingWakeChallenge()
     }
 
     private func containsSimilarCalendarEvent(_ candidate: CalendarEvent, in events: [CalendarEvent]) -> Bool {

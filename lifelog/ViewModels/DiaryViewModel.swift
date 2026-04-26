@@ -669,15 +669,14 @@ final class DiaryViewModel: ObservableObject {
         }
     }
 
-    /// 本文の自動保存は SwiftData 同期をスキップして UI の引っかかりを抑える。
+    /// 本文の自動保存は SwiftData 同期と published entry 更新をスキップして入力中の IME を保つ。
     /// 画面終了時の flush やメタデータ更新時に通常保存で同期される。
     private func persistTextDraft() {
-        syncPendingTextIfNeeded()
-        guard entry.mood != nil, entry.conditionScore != nil else {
-            persist()
-            return
-        }
-        store.upsert(entry: entry, syncSwiftData: false)
+        var draft = entry
+        draft.text = pendingText
+        draft.mood = draft.mood ?? .neutral
+        draft.conditionScore = draft.conditionScore ?? 3
+        store.upsert(entry: draft, syncSwiftData: false)
     }
 
     private func syncPendingTextIfNeeded() {

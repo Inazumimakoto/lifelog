@@ -13,10 +13,6 @@
 			</array>
 		</dict>
 	</array>
-	<key>NSAlarmKitUsageDescription</key>
-	<string>作成した目覚ましをシステムアラームとして鳴らすために使用します。</string>
-	<key>NSSupportsLiveActivities</key>
-	<true/>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>
