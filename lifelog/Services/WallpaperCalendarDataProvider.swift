@@ -164,7 +164,7 @@ final class WallpaperCalendarDataProvider {
     static let itemLimit = 4
     static let externalCalendarEventsDefaultsKey = "ExternalCalendarEvents_Storage_V1"
 
-    static var calendar: Calendar {
+    nonisolated static var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
         calendar.locale = Locale(identifier: "ja_JP")
         calendar.firstWeekday = 1
