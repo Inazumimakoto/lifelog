@@ -16,6 +16,7 @@ struct SettingsView: View {
     @State private var showMailComposer = false
     @State private var showMailErrorAlert = false
     @State private var showCalendarSettings = false
+    @State private var showWallpaperCalendarSettings = false
     @State private var showNotificationSettings = false
     @State private var showHelp = false
     @State private var showLetterList = false
@@ -344,6 +345,18 @@ struct SettingsView: View {
                     }
             }
         }
+        .sheet(isPresented: $showWallpaperCalendarSettings) {
+            NavigationStack {
+                WallpaperCalendarSettingsView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("閉じる") {
+                                showWallpaperCalendarSettings = false
+                            }
+                        }
+                    }
+            }
+        }
         .sheet(isPresented: $showNotificationSettings) {
             NotificationSettingsSheet(isPresented: $showNotificationSettings)
         }
@@ -428,6 +441,18 @@ struct SettingsView: View {
             } label: {
                 HStack {
                     Label("カレンダー連携", systemImage: "arrow.triangle.2.circlepath")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .foregroundStyle(.primary)
+
+            Button {
+                showWallpaperCalendarSettings = true
+            } label: {
+                HStack {
+                    Label("ロック画面カレンダー", systemImage: "rectangle.stack.fill")
                     Spacer()
                     Image(systemName: "chevron.right")
                         .foregroundStyle(.secondary)
