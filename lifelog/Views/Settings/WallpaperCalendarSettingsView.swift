@@ -110,7 +110,7 @@ struct WallpaperCalendarSettingsView: View {
     }
 
     private var backgroundSection: some View {
-        Section("背景画像") {
+        Section {
             PhotosPicker(selection: $selectedBackgroundItem, matching: .images) {
                 HStack {
                     Label(settings.backgroundImageFilename == nil ? "背景画像を追加" : "背景画像を変更",
@@ -138,6 +138,8 @@ struct WallpaperCalendarSettingsView: View {
                     Label("背景画像を削除", systemImage: "trash")
                 }
             }
+        } header: {
+            Text("背景画像")
         } footer: {
             Text("画像を追加すると、その画像を中央で切り抜いて予定を重ねます。画像なしの場合は黒または白の単色背景になります。")
         }

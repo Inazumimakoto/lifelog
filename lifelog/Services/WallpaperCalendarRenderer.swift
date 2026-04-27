@@ -30,8 +30,14 @@ final class WallpaperCalendarRenderer {
     private let dataProvider: WallpaperCalendarDataProvider
     private let fileManager: FileManager
 
-    init(settingsStore: WallpaperCalendarSettingsStore = .shared,
-         dataProvider: WallpaperCalendarDataProvider = WallpaperCalendarDataProvider(),
+    init(fileManager: FileManager = .default) {
+        self.settingsStore = .shared
+        self.dataProvider = WallpaperCalendarDataProvider()
+        self.fileManager = fileManager
+    }
+
+    init(settingsStore: WallpaperCalendarSettingsStore,
+         dataProvider: WallpaperCalendarDataProvider,
          fileManager: FileManager = .default) {
         self.settingsStore = settingsStore
         self.dataProvider = dataProvider
@@ -40,8 +46,10 @@ final class WallpaperCalendarRenderer {
 
     func render(force: Bool = false,
                 now: Date = Date(),
-                screenSize: CGSize = UIScreen.main.bounds.size,
-                scale: CGFloat = UIScreen.main.scale) throws -> URL {
+                screenSize: CGSize? = nil,
+                scale: CGFloat? = nil) throws -> URL {
+        let resolvedScreenSize = screenSize ?? UIScreen.main.bounds.size
+        let resolvedScale = scale ?? UIScreen.main.scale
         let settings = settingsStore.load()
         let snapshot = dataProvider.makeSnapshot(settings: settings, now: now)
         let backgroundURL = settingsStore.backgroundImageURL(for: settings)
@@ -51,8 +59,8 @@ final class WallpaperCalendarRenderer {
             settings: settings,
             snapshot: snapshot,
             backgroundURL: backgroundURL,
-            screenSize: screenSize,
-            scale: scale,
+            screenSize: resolvedScreenSize,
+            scale: resolvedScale,
             isDarkAppearance: isDarkAppearance
         )
 
@@ -68,11 +76,11 @@ final class WallpaperCalendarRenderer {
             backgroundImage: backgroundImage,
             isDarkAppearance: isDarkAppearance
         )
-        .frame(width: screenSize.width, height: screenSize.height)
+        .frame(width: resolvedScreenSize.width, height: resolvedScreenSize.height)
         .environment(\.colorScheme, isDarkAppearance ? .dark : .light)
 
         let renderer = ImageRenderer(content: renderView)
-        renderer.scale = scale
+        renderer.scale = resolvedScale
         renderer.isOpaque = true
 
         guard let image = renderer.uiImage else {
