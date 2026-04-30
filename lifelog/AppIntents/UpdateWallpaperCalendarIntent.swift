@@ -21,8 +21,8 @@ struct UpdateWallpaperCalendarIntent: AppIntent {
         let data = try Data(contentsOf: url)
         let file = IntentFile(
             data: data,
-            filename: "lifelify-wallpaper-calendar.png",
-            type: .png
+            filename: "lifelify-wallpaper-calendar.jpg",
+            type: .jpeg
         )
         return .result(value: file, dialog: "壁紙カレンダーを作成しました。")
     }

@@ -14,7 +14,7 @@ final class WallpaperCalendarSettingsStore {
     private let directoryName = "WallpaperCalendar"
     private let backgroundDirectoryName = "Backgrounds"
     private let generatedDirectoryName = "Generated"
-    private let generatedFilename = "wallpaper-calendar-latest.png"
+    private let generatedFilename = "wallpaper-calendar-latest.jpg"
     private let defaults: UserDefaults
     private let fileManager: FileManager
 

@@ -12,13 +12,13 @@ import UIKit
 
 enum WallpaperCalendarRendererError: LocalizedError {
     case failedToRenderImage
-    case failedToEncodePNG
+    case failedToEncodeImage
 
     var errorDescription: String? {
         switch self {
         case .failedToRenderImage:
             return "壁紙カレンダー画像を作成できませんでした。"
-        case .failedToEncodePNG:
+        case .failedToEncodeImage:
             return "壁紙カレンダー画像を書き出せませんでした。"
         }
     }
@@ -26,7 +26,7 @@ enum WallpaperCalendarRendererError: LocalizedError {
 
 @MainActor
 final class WallpaperCalendarRenderer {
-    private static let renderVersion = 3
+    private static let renderVersion = 4
 
     private let settingsStore: WallpaperCalendarSettingsStore
     private let dataProvider: WallpaperCalendarDataProvider
@@ -88,8 +88,8 @@ final class WallpaperCalendarRenderer {
             size: resolvedScreenSize,
             scale: resolvedScale
         )
-        guard let data = image.pngData() else {
-            throw WallpaperCalendarRendererError.failedToEncodePNG
+        guard let data = image.jpegData(compressionQuality: 0.94) else {
+            throw WallpaperCalendarRendererError.failedToEncodeImage
         }
 
         let outputURL = try settingsStore.latestGeneratedImageURL()
