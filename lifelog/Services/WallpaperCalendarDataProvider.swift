@@ -176,9 +176,10 @@ final class WallpaperCalendarDataProvider {
                       now: Date = Date()) -> WallpaperCalendarSnapshot {
         let calendar = Self.calendar
         let rangeStart = startOfWeek(containing: now, calendar: calendar)
+        let weekCount = settings.effectiveWeekCount.rawValue
         let rangeEndExclusive = calendar.date(
             byAdding: .day,
-            value: settings.weekCount.rawValue * 7,
+            value: weekCount * 7,
             to: rangeStart
         ) ?? rangeStart
 
@@ -186,7 +187,7 @@ final class WallpaperCalendarDataProvider {
         let tasks = fetchTasks(from: rangeStart, to: rangeEndExclusive)
         let eventsByDay = eventsByDay(events, rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive, calendar: calendar)
         let tasksByDay = tasksByDay(tasks, rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive, calendar: calendar)
-        let dates = dates(from: rangeStart, count: settings.weekCount.rawValue * 7, calendar: calendar)
+        let dates = dates(from: rangeStart, count: weekCount * 7, calendar: calendar)
         let weeks = buildWeeks(dates: dates, eventsByDay: eventsByDay, tasksByDay: tasksByDay, calendar: calendar)
 
         return WallpaperCalendarSnapshot(

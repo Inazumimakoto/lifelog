@@ -211,7 +211,7 @@ struct WallpaperCalendarRenderView: View {
     private func layoutMetrics(in size: CGSize) -> WallpaperCalendarLayoutMetrics {
         let horizontalPadding = max(26, size.width * 0.07)
         let width = max(0, size.width - horizontalPadding * 2)
-        let cellHeight = cellHeight(for: settings.weekCount)
+        let cellHeight = cellHeight(for: settings.effectiveWeekCount)
         let weekdayHeaderHeight: CGFloat = 24
         let gridHeight = gridHeight(cellHeight: cellHeight)
         let height = weekdayHeaderHeight + gridSpacing + gridHeight

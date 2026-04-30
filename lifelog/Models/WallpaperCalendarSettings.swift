@@ -59,6 +59,10 @@ struct WallpaperCalendarSettings: Codable, Equatable {
         lastGeneratedFilename = try container.decodeIfPresent(String.self, forKey: .lastGeneratedFilename)
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
     }
+
+    var effectiveWeekCount: WallpaperCalendarWeekCount {
+        layoutPreset.weekCount
+    }
 }
 
 enum WallpaperCalendarWeekCount: Int, Codable, CaseIterable, Identifiable {
@@ -97,14 +101,33 @@ enum WallpaperCalendarLayoutPreset: String, Codable, CaseIterable, Identifiable 
     var detail: String {
         switch self {
         case .standard:
-            return "時計の下に大きめに表示"
+            return "時計の下に4週分を表示"
         case .avoidWidgets:
-            return "上のウィジェット領域を避ける"
+            return "上のウィジェット領域を避けて3週分を表示"
         case .avoidMedia:
-            return "下の再生バー領域を避ける"
+            return "下の再生バー領域を避けて3週分を表示"
         case .avoidWidgetsAndMedia:
-            return "上下どちらも避ける"
+            return "上下どちらも避けて2週分を表示"
         }
+    }
+
+    var weekCount: WallpaperCalendarWeekCount {
+        switch self {
+        case .standard:
+            return .four
+        case .avoidWidgets, .avoidMedia:
+            return .three
+        case .avoidWidgetsAndMedia:
+            return .two
+        }
+    }
+
+    var showsWidgetPlaceholder: Bool {
+        self == .avoidWidgets || self == .avoidWidgetsAndMedia
+    }
+
+    var showsMediaPlaceholder: Bool {
+        self == .avoidMedia || self == .avoidWidgetsAndMedia
     }
 }
 

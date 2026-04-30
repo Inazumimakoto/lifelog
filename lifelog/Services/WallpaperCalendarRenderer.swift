@@ -125,7 +125,7 @@ final class WallpaperCalendarRenderer {
             return BackgroundMetadata(path: url.lastPathComponent, modifiedAt: modifiedAt, fileSize: fileSize)
         }
         let payload = RenderFingerprintPayload(
-            weekCount: settings.weekCount.rawValue,
+            weekCount: settings.effectiveWeekCount.rawValue,
             layoutPreset: settings.layoutPreset.rawValue,
             privacyMode: settings.privacyMode.rawValue,
             appearance: settings.appearance.rawValue,
