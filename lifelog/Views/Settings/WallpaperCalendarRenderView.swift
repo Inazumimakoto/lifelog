@@ -187,7 +187,11 @@ struct WallpaperCalendarRenderView: View {
                             color: Color,
                             leadingRadius: CGFloat,
                             trailingRadius: CGFloat) -> some View {
-        WallpaperCalendarPreviewText(text: title)
+        Text(title)
+            .font(.system(size: 9, weight: .medium))
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .allowsTightening(true)
             .foregroundStyle(primaryTextColor)
             .padding(.horizontal, 3)
             .padding(.vertical, 1.5)
@@ -277,47 +281,4 @@ private struct WallpaperCalendarLayoutMetrics {
     let height: CGFloat
     let cellHeight: CGFloat
     let weekdayHeaderHeight: CGFloat
-}
-
-private struct WallpaperCalendarPreviewText: UIViewRepresentable {
-    let text: String
-
-    func makeUIView(context: Context) -> UILabel {
-        let label = UILabel()
-        label.numberOfLines = 1
-        label.lineBreakMode = .byClipping
-        label.adjustsFontSizeToFitWidth = false
-        label.allowsDefaultTighteningForTruncation = true
-        label.textColor = .label
-        label.backgroundColor = .clear
-        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        label.setContentCompressionResistancePriority(.required, for: .vertical)
-        label.setContentHuggingPriority(.required, for: .vertical)
-        label.font = Self.previewFont
-        return label
-    }
-
-    func updateUIView(_ uiView: UILabel, context: Context) {
-        uiView.text = text
-        uiView.font = Self.previewFont
-    }
-
-    @available(iOS 16.0, *)
-    static func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize {
-        let targetWidth = proposal.width ?? .greatestFiniteMagnitude
-        let targetHeight = proposal.height ?? .greatestFiniteMagnitude
-        let size = uiView.sizeThatFits(CGSize(width: targetWidth, height: targetHeight))
-        return CGSize(width: proposal.width ?? size.width, height: size.height)
-    }
-
-    private static let previewFont: UIFont = {
-        let baseFont = UIFont.systemFont(ofSize: 9, weight: .medium)
-        let descriptor = baseFont.fontDescriptor
-        let traits = (descriptor.object(forKey: .traits) as? [UIFontDescriptor.TraitKey: Any]) ?? [:]
-        var condensedTraits = traits
-        condensedTraits[.width] = -0.2
-        let condensedDescriptor = descriptor.addingAttributes([.traits: condensedTraits])
-        return UIFont(descriptor: condensedDescriptor, size: 9)
-    }()
 }

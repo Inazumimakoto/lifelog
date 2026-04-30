@@ -26,6 +26,8 @@ enum WallpaperCalendarRendererError: LocalizedError {
 
 @MainActor
 final class WallpaperCalendarRenderer {
+    private static let renderVersion = 2
+
     private let settingsStore: WallpaperCalendarSettingsStore
     private let dataProvider: WallpaperCalendarDataProvider
     private let fileManager: FileManager
@@ -119,6 +121,7 @@ final class WallpaperCalendarRenderer {
             return BackgroundMetadata(path: url.lastPathComponent, modifiedAt: modifiedAt, fileSize: fileSize)
         }
         let payload = RenderFingerprintPayload(
+            renderVersion: Self.renderVersion,
             weekCount: settings.effectiveWeekCount.rawValue,
             layoutPreset: settings.layoutPreset.rawValue,
             privacyMode: settings.privacyMode.rawValue,
@@ -137,6 +140,7 @@ final class WallpaperCalendarRenderer {
 }
 
 private struct RenderFingerprintPayload: Codable {
+    let renderVersion: Int
     let weekCount: Int
     let layoutPreset: String
     let privacyMode: String
