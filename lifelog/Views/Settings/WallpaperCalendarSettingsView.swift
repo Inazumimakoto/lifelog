@@ -27,7 +27,7 @@ struct WallpaperCalendarSettingsView: View {
         ShortcutGuideStep(
             assetName: "WallpaperShortcutGuide00",
             title: "lifelifyで検索",
-            detail: "検索欄に「lifelify」と入力し、「壁紙カレンダーを更新」を選びます。"
+            detail: "上の「ショートカット作成画面を開く」を押して開けたら、検索欄に「lifelify」と入力し、「壁紙カレンダーを更新」を選びます。"
         ),
         ShortcutGuideStep(
             assetName: "WallpaperShortcutGuide01",
@@ -62,7 +62,7 @@ struct WallpaperCalendarSettingsView: View {
         ShortcutGuideStep(
             assetName: "WallpaperShortcutGuide07",
             title: "再生して確認",
-            detail: "右下の再生ボタンを押して、ロック画面が変わることを確認します。"
+            detail: "右下の再生ボタンを押して、ロック画面が変わることを確認します。確認できたら下の「自動更新を設定」へ進んでください。"
         )
     ]
 
