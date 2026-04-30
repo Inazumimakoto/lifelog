@@ -18,6 +18,7 @@ struct WallpaperCalendarSettingsView: View {
     @State private var generatedImageURL: URL?
     @State private var generatedImage: UIImage?
     @State private var shortcutGuidePage = 0
+    @State private var shortcutAutomationGuidePage = 0
     @State private var isShowingBackgroundAdjustment = false
     @State private var isLoadingBackground = false
     @State private var isRendering = false
@@ -63,6 +64,34 @@ struct WallpaperCalendarSettingsView: View {
             assetName: "WallpaperShortcutGuide07",
             title: "再生して確認",
             detail: "右下の再生ボタンを押して、ロック画面が変わることを確認します。確認できたら下の「自動更新を設定」へ進んでください。"
+        )
+    ]
+
+    private static let shortcutAutomationSteps: [ShortcutGuideStep] = [
+        ShortcutGuideStep(
+            assetName: "WallpaperAutomationGuide01",
+            title: "オートメーションを開く",
+            detail: "下の「オートメーション」を選び、「新規オートメーション」をタップします。既にある場合は右上の「＋」を押します。"
+        ),
+        ShortcutGuideStep(
+            assetName: "WallpaperAutomationGuide02",
+            title: "アプリを選ぶ",
+            detail: "予定を追加してlifelifyを閉じた時に更新するため、トリガーは「アプリ」を選びます。"
+        ),
+        ShortcutGuideStep(
+            assetName: "WallpaperAutomationGuide03",
+            title: "閉じた時にすぐ実行",
+            detail: "①lifelifyを選択。②「開いている」を外して「閉じている」をオン。③「すぐに実行」を選び、通知をオフにして「次へ」を押します。"
+        ),
+        ShortcutGuideStep(
+            assetName: "WallpaperAutomationGuide04",
+            title: "ショートカットを選択",
+            detail: "上で作った「壁紙カレンダーを更新」のショートカットを選びます。"
+        ),
+        ShortcutGuideStep(
+            assetName: "WallpaperAutomationGuide05",
+            title: "完成を確認",
+            detail: "一覧に「lifelifyが閉じられたとき」と作成したショートカットが表示されていれば完了です。"
         )
     ]
 
@@ -174,7 +203,10 @@ struct WallpaperCalendarSettingsView: View {
                     selection: $shortcutGuidePage
                 )
 
-                ShortcutAutomationSummary()
+                ShortcutAutomationSummary(
+                    steps: Self.shortcutAutomationSteps,
+                    selection: $shortcutAutomationGuidePage
+                )
             }
             .padding(.vertical, 4)
         } header: {
@@ -673,17 +705,30 @@ private struct ShortcutGuideCard: View {
 }
 
 private struct ShortcutAutomationSummary: View {
+    let steps: [ShortcutGuideStep]
+    @Binding var selection: Int
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             Label("自動更新を設定", systemImage: "arrow.triangle.2.circlepath")
                 .font(.subheadline.weight(.semibold))
 
-            Text("手動で動作確認できたら、必ず自動更新を設定します。ショートカット一覧へ戻り、下の「オートメーション」から新規作成します。アプリ一覧でlifelifyを選び、「閉じている」をトリガーにします。「すぐに実行」にして、「実行時に通知」をオフにすると完了です。")
+            Text("手動で動作確認できたら、必ず自動更新を設定します。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("0:00の時刻指定で毎日更新する方法も使えます。ウィジェットや時計はiOSの壁紙設定、予定のレイアウトや壁紙画像はlifelifyのロック画面カレンダー設定で変更します。")
+            ShortcutGuidePager(
+                steps: steps,
+                selection: $selection
+            )
+
+            Text("今日が分かるように日付も入るため、必要なら「時刻」トリガーで0:00に更新するオートメーションも追加してください。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("ウィジェットや時計はiOSの壁紙設定、予定のレイアウトや壁紙画像はlifelifyのロック画面カレンダー設定で変更します。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
