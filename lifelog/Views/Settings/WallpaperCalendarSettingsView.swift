@@ -350,7 +350,7 @@ private struct WallpaperCalendarLockScreenPreview: View {
 
     private var statusBar: some View {
         HStack {
-            Text("SoftBank")
+            Text("Carrier")
                 .font(.system(size: 17, weight: .semibold))
             Spacer()
             HStack(spacing: 8) {
