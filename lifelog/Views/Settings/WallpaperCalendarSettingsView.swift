@@ -55,18 +55,13 @@ struct WallpaperCalendarSettingsView: View {
             if let previewSnapshot {
                 HStack {
                     Spacer()
-                    WallpaperCalendarRenderView(
+                    WallpaperCalendarLockScreenPreview(
                         snapshot: previewSnapshot,
                         settings: settings,
                         backgroundImage: previewBackgroundImage,
                         isDarkAppearance: resolvedDarkAppearance
                     )
-                    .frame(width: 260, height: 563)
-                    .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 24, style: .continuous)
-                            .stroke(Color.secondary.opacity(0.25), lineWidth: 1)
-                    )
+                    .scaledPhonePreview(width: 260)
                     Spacer()
                 }
                 .listRowInsets(EdgeInsets(top: 16, leading: 0, bottom: 16, trailing: 0))
@@ -292,5 +287,221 @@ struct WallpaperCalendarSettingsView: View {
         case .light:
             return false
         }
+    }
+}
+
+private struct WallpaperCalendarLockScreenPreview: View {
+    let snapshot: WallpaperCalendarSnapshot
+    let settings: WallpaperCalendarSettings
+    let backgroundImage: UIImage?
+    let isDarkAppearance: Bool
+
+    private let phoneSize = CGSize(width: 393, height: 852)
+
+    var body: some View {
+        ZStack {
+            WallpaperCalendarRenderView(
+                snapshot: snapshot,
+                settings: settings,
+                backgroundImage: backgroundImage,
+                isDarkAppearance: isDarkAppearance
+            )
+            .frame(width: phoneSize.width, height: phoneSize.height)
+
+            lockChrome
+        }
+        .frame(width: phoneSize.width, height: phoneSize.height)
+        .clipShape(RoundedRectangle(cornerRadius: 36, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 36, style: .continuous)
+                .stroke(Color.secondary.opacity(0.28), lineWidth: 1)
+        )
+        .environment(\.colorScheme, isDarkAppearance ? .dark : .light)
+    }
+
+    private var lockChrome: some View {
+        ZStack {
+            VStack(spacing: 12) {
+                statusBar
+                clockBlock
+
+                if settings.layoutPreset.showsWidgetPlaceholder {
+                    widgetPlaceholder
+                }
+
+                Spacer()
+            }
+            .padding(.top, 20)
+            .padding(.horizontal, 22)
+
+            if settings.layoutPreset.showsMediaPlaceholder {
+                mediaPlaceholder
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 86)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+            }
+
+            bottomControls
+                .padding(.horizontal, 54)
+                .padding(.bottom, 18)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+        }
+    }
+
+    private var statusBar: some View {
+        HStack {
+            Text("SoftBank")
+                .font(.system(size: 17, weight: .semibold))
+            Spacer()
+            HStack(spacing: 8) {
+                Image(systemName: "cellularbars")
+                Image(systemName: "wifi")
+                Image(systemName: "battery.100.bolt")
+            }
+            .font(.system(size: 17, weight: .semibold))
+        }
+        .foregroundStyle(primaryTextColor)
+    }
+
+    private var clockBlock: some View {
+        VStack(spacing: 2) {
+            Text(previewDateText)
+                .font(.system(size: 21, weight: .bold))
+            Text(previewTimeText)
+                .font(.system(size: 96, weight: .thin))
+                .monospacedDigit()
+                .minimumScaleFactor(0.7)
+                .lineLimit(1)
+        }
+        .foregroundStyle(primaryTextColor)
+    }
+
+    private var widgetPlaceholder: some View {
+        HStack(spacing: 28) {
+            weatherWidgetPlaceholder
+            circularWidgetPlaceholder(systemImage: "bolt.fill")
+            circularWidgetPlaceholder(systemImage: "sun.max.fill")
+        }
+        .frame(height: 70)
+    }
+
+    private var weatherWidgetPlaceholder: some View {
+        VStack(spacing: 6) {
+            HStack(spacing: 4) {
+                ForEach(0..<6, id: \.self) { index in
+                    VStack(spacing: 4) {
+                        Text(["21", "0", "3", "6", "9", "12"][index])
+                            .font(.system(size: 12, weight: .medium))
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(placeholderFill)
+                            .frame(width: 24, height: 22)
+                            .overlay(Image(systemName: index == 5 ? "cloud.fill" : "sun.max.fill")
+                                .font(.system(size: 12, weight: .bold))
+                                .foregroundStyle(primaryTextColor))
+                        Text(["14", "13", "12", "13", "20", "24"][index])
+                            .font(.system(size: 12, weight: .medium))
+                    }
+                }
+            }
+        }
+        .foregroundStyle(primaryTextColor)
+    }
+
+    private func circularWidgetPlaceholder(systemImage: String) -> some View {
+        Circle()
+            .stroke(primaryTextColor.opacity(0.9), lineWidth: 7)
+            .frame(width: 60, height: 60)
+            .overlay(
+                Image(systemName: systemImage)
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(primaryTextColor)
+            )
+    }
+
+    private var mediaPlaceholder: some View {
+        RoundedRectangle(cornerRadius: 28, style: .continuous)
+            .fill(mediaFill)
+            .frame(height: 184)
+            .overlay(alignment: .topLeading) {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(placeholderFill)
+                    .frame(width: 62, height: 62)
+                    .padding(18)
+            }
+            .overlay(alignment: .center) {
+                VStack(spacing: 26) {
+                    Capsule()
+                        .fill(primaryTextColor.opacity(0.18))
+                        .frame(width: 272, height: 8)
+                    HStack(spacing: 54) {
+                        Image(systemName: "backward.fill")
+                        Image(systemName: "pause.fill")
+                        Image(systemName: "forward.fill")
+                    }
+                    .font(.system(size: 34, weight: .bold))
+                    .foregroundStyle(primaryTextColor)
+                }
+                .padding(.top, 44)
+            }
+    }
+
+    private var bottomControls: some View {
+        HStack {
+            Circle()
+                .fill(controlFill)
+                .frame(width: 66, height: 66)
+                .overlay(Image(systemName: "flashlight.on.fill")
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(primaryTextColor))
+            Spacer()
+            Circle()
+                .fill(controlFill)
+                .frame(width: 66, height: 66)
+                .overlay(Image(systemName: "camera.fill")
+                    .font(.system(size: 26, weight: .semibold))
+                    .foregroundStyle(primaryTextColor))
+        }
+    }
+
+    private var previewDateText: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "M月d日(E)"
+        return formatter.string(from: snapshot.generatedAt)
+    }
+
+    private var previewTimeText: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "H:mm"
+        return formatter.string(from: snapshot.generatedAt)
+    }
+
+    private var primaryTextColor: Color {
+        isDarkAppearance ? .white : .black
+    }
+
+    private var placeholderFill: Color {
+        isDarkAppearance ? Color.white.opacity(0.18) : Color.black.opacity(0.12)
+    }
+
+    private var mediaFill: Color {
+        isDarkAppearance ? Color.white.opacity(0.10) : Color.black.opacity(0.08)
+    }
+
+    private var controlFill: Color {
+        isDarkAppearance ? Color.white.opacity(0.16) : Color.black.opacity(0.08)
+    }
+}
+
+private extension View {
+    func scaledPhonePreview(width: CGFloat) -> some View {
+        let baseWidth: CGFloat = 393
+        let baseHeight: CGFloat = 852
+        let scale = width / baseWidth
+        return self
+            .frame(width: baseWidth, height: baseHeight)
+            .scaleEffect(scale)
+            .frame(width: width, height: baseHeight * scale)
     }
 }
