@@ -17,6 +17,7 @@ struct WallpaperCalendarSettingsView: View {
     @State private var generatedImageURL: URL?
     @State private var generatedImage: UIImage?
     @State private var shortcutGuidePage = 0
+    @State private var isShowingBackgroundAdjustment = false
     @State private var isLoadingBackground = false
     @State private var isRendering = false
     @State private var alertMessage: String?
@@ -93,6 +94,25 @@ struct WallpaperCalendarSettingsView: View {
         } message: {
             Text(alertMessage ?? "")
         }
+        .sheet(isPresented: $isShowingBackgroundAdjustment) {
+            if let previewSnapshot, let previewBackgroundImage {
+                WallpaperBackgroundAdjustmentSheet(
+                    snapshot: previewSnapshot,
+                    settings: settings,
+                    backgroundImage: previewBackgroundImage,
+                    isDarkAppearance: resolvedDarkAppearance,
+                    onSave: saveBackgroundAdjustment
+                )
+            } else {
+                NavigationStack {
+                    ContentUnavailableView(
+                        "画像を読み込めませんでした",
+                        systemImage: "photo",
+                        description: Text("もう一度、壁紙画像を選び直してください。")
+                    )
+                }
+            }
+        }
     }
 
     private var previewSection: some View {
@@ -154,6 +174,13 @@ struct WallpaperCalendarSettingsView: View {
             }
 
             if settings.backgroundImageFilename != nil {
+                Button {
+                    isShowingBackgroundAdjustment = true
+                } label: {
+                    Label("画像の位置を調整", systemImage: "arrow.up.left.and.arrow.down.right")
+                }
+                .disabled(previewBackgroundImage == nil)
+
                 Button(role: .destructive) {
                     settings = settingsStore.removeBackgroundImage()
                     previewBackgroundImage = nil
@@ -301,6 +328,13 @@ struct WallpaperCalendarSettingsView: View {
         _Concurrency.Task {
             await refreshPreview()
         }
+    }
+
+    private func saveBackgroundAdjustment(_ adjustment: WallpaperCalendarBackgroundAdjustment) {
+        settings.backgroundAdjustment = adjustment
+        generatedImage = nil
+        generatedImageURL = nil
+        persistSettingsChange()
     }
 
     private func loadBackground(from item: PhotosPickerItem) {
@@ -535,6 +569,169 @@ private struct ShortcutAutomationSummary: View {
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
+    }
+}
+
+private struct WallpaperBackgroundAdjustmentSheet: View {
+    @Environment(\.dismiss) private var dismiss
+
+    let snapshot: WallpaperCalendarSnapshot
+    let settings: WallpaperCalendarSettings
+    let backgroundImage: UIImage
+    let isDarkAppearance: Bool
+    let onSave: (WallpaperCalendarBackgroundAdjustment) -> Void
+
+    @State private var adjustment: WallpaperCalendarBackgroundAdjustment
+    @State private var dragStartAdjustment: WallpaperCalendarBackgroundAdjustment?
+    @State private var scaleStartAdjustment: WallpaperCalendarBackgroundAdjustment?
+
+    private let phoneSize = CGSize(width: 393, height: 852)
+
+    init(snapshot: WallpaperCalendarSnapshot,
+         settings: WallpaperCalendarSettings,
+         backgroundImage: UIImage,
+         isDarkAppearance: Bool,
+         onSave: @escaping (WallpaperCalendarBackgroundAdjustment) -> Void) {
+        self.snapshot = snapshot
+        self.settings = settings
+        self.backgroundImage = backgroundImage
+        self.isDarkAppearance = isDarkAppearance
+        self.onSave = onSave
+        _adjustment = State(initialValue: settings.backgroundAdjustment)
+    }
+
+    var body: some View {
+        NavigationStack {
+            GeometryReader { proxy in
+                let previewWidth = min(max(260, proxy.size.width - 40), 330)
+                let previewHeight = phoneSize.height * (previewWidth / phoneSize.width)
+                let previewSize = CGSize(width: previewWidth, height: previewHeight)
+
+                ScrollView {
+                    VStack(spacing: 18) {
+                        adjustedPreview(width: previewWidth, previewSize: previewSize)
+
+                        VStack(alignment: .leading, spacing: 12) {
+                            Label("ドラッグで移動、ピンチで拡大", systemImage: "hand.draw")
+                                .font(.subheadline.weight(.semibold))
+
+                            HStack {
+                                Image(systemName: "minus.magnifyingglass")
+                                    .foregroundStyle(.secondary)
+                                Slider(value: scaleBinding, in: WallpaperCalendarBackgroundAdjustment.minScale...WallpaperCalendarBackgroundAdjustment.maxScale)
+                                Image(systemName: "plus.magnifyingglass")
+                                    .foregroundStyle(.secondary)
+                            }
+
+                            Button {
+                                adjustment = .defaultValue
+                            } label: {
+                                Label("中央に戻す", systemImage: "arrow.counterclockwise")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                        .padding(.horizontal, 20)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 18)
+                }
+            }
+            .navigationTitle("画像の位置を調整")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") {
+                        dismiss()
+                    }
+                }
+
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完了") {
+                        onSave(clampedAdjustment)
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    private func adjustedPreview(width: CGFloat, previewSize: CGSize) -> some View {
+        WallpaperCalendarLockScreenPreview(
+            snapshot: snapshot,
+            settings: previewSettings,
+            backgroundImage: backgroundImage,
+            isDarkAppearance: isDarkAppearance
+        )
+        .scaledPhonePreview(width: width)
+        .contentShape(Rectangle())
+        .gesture(dragGesture(previewSize: previewSize))
+        .simultaneousGesture(magnificationGesture)
+    }
+
+    private var previewSettings: WallpaperCalendarSettings {
+        var previewSettings = settings
+        previewSettings.backgroundAdjustment = clampedAdjustment
+        return previewSettings
+    }
+
+    private var clampedAdjustment: WallpaperCalendarBackgroundAdjustment {
+        adjustment.clamped(for: backgroundImage.size, canvasSize: phoneSize)
+    }
+
+    private var scaleBinding: Binding<Double> {
+        Binding(
+            get: {
+                adjustment.scale
+            },
+            set: { newValue in
+                adjustment = WallpaperCalendarBackgroundAdjustment(
+                    scale: newValue,
+                    offsetX: adjustment.offsetX,
+                    offsetY: adjustment.offsetY
+                )
+                .clamped(for: backgroundImage.size, canvasSize: phoneSize)
+            }
+        )
+    }
+
+    private func dragGesture(previewSize: CGSize) -> some Gesture {
+        DragGesture()
+            .onChanged { value in
+                if dragStartAdjustment == nil {
+                    dragStartAdjustment = adjustment
+                }
+                let start = dragStartAdjustment ?? adjustment
+                adjustment = WallpaperCalendarBackgroundAdjustment(
+                    scale: adjustment.scale,
+                    offsetX: start.offsetX + Double(value.translation.width / previewSize.width),
+                    offsetY: start.offsetY + Double(value.translation.height / previewSize.height)
+                )
+                .clamped(for: backgroundImage.size, canvasSize: phoneSize)
+            }
+            .onEnded { _ in
+                adjustment = clampedAdjustment
+                dragStartAdjustment = nil
+            }
+    }
+
+    private var magnificationGesture: some Gesture {
+        MagnificationGesture()
+            .onChanged { value in
+                if scaleStartAdjustment == nil {
+                    scaleStartAdjustment = adjustment
+                }
+                let start = scaleStartAdjustment ?? adjustment
+                adjustment = WallpaperCalendarBackgroundAdjustment(
+                    scale: start.scale * Double(value),
+                    offsetX: adjustment.offsetX,
+                    offsetY: adjustment.offsetY
+                )
+                .clamped(for: backgroundImage.size, canvasSize: phoneSize)
+            }
+            .onEnded { _ in
+                adjustment = clampedAdjustment
+                scaleStartAdjustment = nil
+            }
     }
 }
 
