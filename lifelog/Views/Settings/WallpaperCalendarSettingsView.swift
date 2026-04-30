@@ -603,38 +603,41 @@ private struct WallpaperBackgroundAdjustmentSheet: View {
     var body: some View {
         NavigationStack {
             GeometryReader { proxy in
-                let previewWidth = min(max(260, proxy.size.width - 40), 330)
+                let controlsHeight: CGFloat = 116
+                let verticalPadding: CGFloat = 36
+                let contentSpacing: CGFloat = 18
+                let availablePreviewHeight = max(420, proxy.size.height - controlsHeight - verticalPadding - contentSpacing)
+                let widthForHeight = availablePreviewHeight * phoneSize.width / phoneSize.height
+                let previewWidth = min(max(240, proxy.size.width - 40), 330, widthForHeight)
                 let previewHeight = phoneSize.height * (previewWidth / phoneSize.width)
                 let previewSize = CGSize(width: previewWidth, height: previewHeight)
 
-                ScrollView {
-                    VStack(spacing: 18) {
-                        adjustedPreview(width: previewWidth, previewSize: previewSize)
+                VStack(spacing: contentSpacing) {
+                    adjustedPreview(width: previewWidth, previewSize: previewSize)
 
-                        VStack(alignment: .leading, spacing: 12) {
-                            Label("ドラッグで移動、ピンチで拡大", systemImage: "hand.draw")
-                                .font(.subheadline.weight(.semibold))
+                    VStack(alignment: .leading, spacing: 12) {
+                        Label("ドラッグで移動、ピンチで拡大", systemImage: "hand.draw")
+                            .font(.subheadline.weight(.semibold))
 
-                            HStack {
-                                Image(systemName: "minus.magnifyingglass")
-                                    .foregroundStyle(.secondary)
-                                Slider(value: scaleBinding, in: WallpaperCalendarBackgroundAdjustment.minScale...WallpaperCalendarBackgroundAdjustment.maxScale)
-                                Image(systemName: "plus.magnifyingglass")
-                                    .foregroundStyle(.secondary)
-                            }
-
-                            Button {
-                                adjustment = .defaultValue
-                            } label: {
-                                Label("中央に戻す", systemImage: "arrow.counterclockwise")
-                            }
-                            .buttonStyle(.bordered)
+                        HStack {
+                            Image(systemName: "minus.magnifyingglass")
+                                .foregroundStyle(.secondary)
+                            Slider(value: scaleBinding, in: WallpaperCalendarBackgroundAdjustment.minScale...WallpaperCalendarBackgroundAdjustment.maxScale)
+                            Image(systemName: "plus.magnifyingglass")
+                                .foregroundStyle(.secondary)
                         }
-                        .padding(.horizontal, 20)
+
+                        Button {
+                            adjustment = .defaultValue
+                        } label: {
+                            Label("中央に戻す", systemImage: "arrow.counterclockwise")
+                        }
+                        .buttonStyle(.bordered)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 18)
+                    .padding(.horizontal, 20)
                 }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .padding(.vertical, verticalPadding / 2)
             }
             .navigationTitle("画像の位置を調整")
             .navigationBarTitleDisplayMode(.inline)
