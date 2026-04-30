@@ -190,7 +190,7 @@ struct WallpaperCalendarRenderView: View {
         Text(title)
             .font(.system(size: 9, weight: .medium))
             .lineLimit(1)
-            .truncationMode(.tail)
+            .fixedSize(horizontal: true, vertical: false)
             .allowsTightening(true)
             .foregroundStyle(primaryTextColor)
             .padding(.horizontal, 3)
@@ -227,16 +227,7 @@ struct WallpaperCalendarRenderView: View {
     }
 
     private func layoutTop(in size: CGSize) -> CGFloat {
-        switch settings.layoutPreset {
-        case .standard:
-            return size.height * 0.36
-        case .avoidWidgets:
-            return size.height * 0.43
-        case .avoidMedia:
-            return size.height * 0.26
-        case .avoidWidgetsAndMedia:
-            return size.height * 0.40
-        }
+        size.height * 0.36
     }
 
     private func gridHeight(cellHeight: CGFloat) -> CGFloat {

@@ -55,7 +55,8 @@ struct WallpaperCalendarSettings: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         weekCount = try container.decodeIfPresent(WallpaperCalendarWeekCount.self, forKey: .weekCount) ?? .three
-        layoutPreset = try container.decodeIfPresent(WallpaperCalendarLayoutPreset.self, forKey: .layoutPreset) ?? .standard
+        let decodedLayoutPreset = try container.decodeIfPresent(WallpaperCalendarLayoutPreset.self, forKey: .layoutPreset) ?? .standard
+        layoutPreset = decodedLayoutPreset.normalized
         privacyMode = try container.decodeIfPresent(WallpaperCalendarPrivacyMode.self, forKey: .privacyMode) ?? .details
         appearance = try container.decodeIfPresent(WallpaperCalendarAppearance.self, forKey: .appearance) ?? .system
         backgroundColorToken = try container.decodeIfPresent(String.self, forKey: .backgroundColorToken)
@@ -132,14 +133,22 @@ enum WallpaperCalendarLayoutPreset: String, Codable, CaseIterable, Identifiable 
     case avoidMedia
     case avoidWidgetsAndMedia
 
+    static let selectableCases: [WallpaperCalendarLayoutPreset] = [
+        .standard,
+        .avoidMedia,
+        .avoidWidgetsAndMedia
+    ]
+
     var id: String { rawValue }
+
+    var normalized: WallpaperCalendarLayoutPreset {
+        self == .avoidWidgets ? .standard : self
+    }
 
     var title: String {
         switch self {
-        case .standard:
+        case .standard, .avoidWidgets:
             return "標準"
-        case .avoidWidgets:
-            return "ウィジェットあり"
         case .avoidMedia:
             return "再生バーあり"
         case .avoidWidgetsAndMedia:
@@ -149,10 +158,8 @@ enum WallpaperCalendarLayoutPreset: String, Codable, CaseIterable, Identifiable 
 
     var detail: String {
         switch self {
-        case .standard:
-            return "時計の下に4週分を表示"
-        case .avoidWidgets:
-            return "上のウィジェット領域を避けて3週分を表示"
+        case .standard, .avoidWidgets:
+            return "時計とウィジェットの下に4週分を表示"
         case .avoidMedia:
             return "下の再生バー領域を避けて3週分を表示"
         case .avoidWidgetsAndMedia:
@@ -162,9 +169,9 @@ enum WallpaperCalendarLayoutPreset: String, Codable, CaseIterable, Identifiable 
 
     var weekCount: WallpaperCalendarWeekCount {
         switch self {
-        case .standard:
+        case .standard, .avoidWidgets:
             return .four
-        case .avoidWidgets, .avoidMedia:
+        case .avoidMedia:
             return .three
         case .avoidWidgetsAndMedia:
             return .two
@@ -172,7 +179,7 @@ enum WallpaperCalendarLayoutPreset: String, Codable, CaseIterable, Identifiable 
     }
 
     var showsWidgetPlaceholder: Bool {
-        self == .avoidWidgets || self == .avoidWidgetsAndMedia
+        self == .avoidWidgetsAndMedia
     }
 
     var showsMediaPlaceholder: Bool {

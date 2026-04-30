@@ -120,7 +120,7 @@ struct WallpaperCalendarSettingsView: View {
     private var displaySection: some View {
         Section("表示") {
             Picker("配置", selection: layoutPresetBinding) {
-                ForEach(WallpaperCalendarLayoutPreset.allCases) { preset in
+                ForEach(WallpaperCalendarLayoutPreset.selectableCases) { preset in
                     Text(preset.title).tag(preset)
                 }
             }
@@ -267,12 +267,13 @@ struct WallpaperCalendarSettingsView: View {
     private var layoutPresetBinding: Binding<WallpaperCalendarLayoutPreset> {
         Binding(
             get: {
-                settings.layoutPreset
+                settings.layoutPreset.normalized
             },
             set: { newValue in
-                guard settings.layoutPreset != newValue else { return }
-                settings.layoutPreset = newValue
-                settings.weekCount = newValue.weekCount
+                let normalizedValue = newValue.normalized
+                guard settings.layoutPreset.normalized != normalizedValue else { return }
+                settings.layoutPreset = normalizedValue
+                settings.weekCount = normalizedValue.weekCount
                 persistSettingsChange()
             }
         )
@@ -292,6 +293,7 @@ struct WallpaperCalendarSettingsView: View {
     }
 
     private func persistSettingsChange() {
+        settings.layoutPreset = settings.layoutPreset.normalized
         settings.weekCount = settings.effectiveWeekCount
         settings.lastGeneratedFingerprint = nil
         settings.updatedAt = Date()

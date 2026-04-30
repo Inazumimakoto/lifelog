@@ -26,7 +26,7 @@ enum WallpaperCalendarRendererError: LocalizedError {
 
 @MainActor
 final class WallpaperCalendarRenderer {
-    private static let renderVersion = 4
+    private static let renderVersion = 5
 
     private let settingsStore: WallpaperCalendarSettingsStore
     private let dataProvider: WallpaperCalendarDataProvider
@@ -296,18 +296,22 @@ final class WallpaperCalendarRenderer {
                           alignment: NSTextAlignment) {
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = alignment
-        paragraph.lineBreakMode = .byTruncatingTail
+        paragraph.lineBreakMode = .byClipping
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: color,
             .paragraphStyle: paragraph
         ]
+        let currentContext = UIGraphicsGetCurrentContext()
+        currentContext?.saveGState()
+        currentContext?.clip(to: rect)
         (text as NSString).draw(
             with: rect,
-            options: [.usesLineFragmentOrigin, .truncatesLastVisibleLine],
+            options: [.usesLineFragmentOrigin],
             attributes: attributes,
             context: nil
         )
+        currentContext?.restoreGState()
     }
 
     private func layoutMetrics(in size: CGSize, settings: WallpaperCalendarSettings) -> WallpaperCalendarDrawingLayout {
@@ -323,16 +327,7 @@ final class WallpaperCalendarRenderer {
     }
 
     private func layoutTop(in size: CGSize, settings: WallpaperCalendarSettings) -> CGFloat {
-        switch settings.layoutPreset {
-        case .standard:
-            return size.height * 0.36
-        case .avoidWidgets:
-            return size.height * 0.43
-        case .avoidMedia:
-            return size.height * 0.26
-        case .avoidWidgetsAndMedia:
-            return size.height * 0.40
-        }
+        size.height * 0.36
     }
 
     private func calendarGridCellWidth(for totalWidth: CGFloat) -> CGFloat {
