@@ -160,14 +160,14 @@ final class WallpaperCalendarRenderer {
                               context: CGContext) {
         let layout = layoutMetrics(in: size, settings: settings)
         let primaryColor = isDarkAppearance
-            ? UIColor.white.withAlphaComponent(0.92)
-            : UIColor.black.withAlphaComponent(0.86)
+            ? UIColor.white
+            : UIColor.black.withAlphaComponent(0.92)
         let secondaryColor = isDarkAppearance
-            ? UIColor.white.withAlphaComponent(0.62)
-            : UIColor.black.withAlphaComponent(0.46)
+            ? UIColor.white.withAlphaComponent(0.78)
+            : UIColor.black.withAlphaComponent(0.62)
         let cellWidth = calendarGridCellWidth(for: layout.width)
         let gridTop = layout.y + layout.weekdayHeaderHeight + gridSpacing
-        let chipAlpha: CGFloat = hasBackgroundImage ? 0.56 : 0.30
+        let chipAlpha: CGFloat = hasBackgroundImage ? 0.70 : 0.30
 
         drawWeekdayHeader(snapshot.weekdaySymbols,
                           layout: layout,

@@ -209,7 +209,7 @@ struct WallpaperCalendarRenderView: View {
                     bottomTrailingRadius: trailingRadius,
                     topTrailingRadius: trailingRadius
                 )
-                .fill(color.opacity(backgroundImage == nil ? 0.30 : 0.56))
+                .fill(color.opacity(backgroundImage == nil ? 0.30 : 0.70))
             )
             .clipped()
     }
@@ -266,11 +266,11 @@ struct WallpaperCalendarRenderView: View {
     }
 
     private var primaryTextColor: Color {
-        isDarkAppearance ? Color.white.opacity(0.92) : Color.black.opacity(0.86)
+        isDarkAppearance ? Color.white : Color.black.opacity(0.92)
     }
 
     private var secondaryTextColor: Color {
-        isDarkAppearance ? Color.white.opacity(0.62) : Color.black.opacity(0.46)
+        isDarkAppearance ? Color.white.opacity(0.78) : Color.black.opacity(0.62)
     }
 }
 
