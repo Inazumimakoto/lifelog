@@ -54,7 +54,7 @@ final class WallpaperCalendarRenderer {
         let snapshot = dataProvider.makeSnapshot(settings: settings, now: now)
         let backgroundURL = settingsStore.backgroundImageURL(for: settings)
         let backgroundImage = backgroundURL.flatMap { UIImage(contentsOfFile: $0.path) }
-        let isDarkAppearance = resolveDarkAppearance(settings.appearance)
+        let isDarkAppearance = resolveDarkAppearance(settings: settings, hasBackgroundImage: backgroundImage != nil)
         let fingerprint = try makeFingerprint(
             settings: settings,
             snapshot: snapshot,
@@ -101,15 +101,9 @@ final class WallpaperCalendarRenderer {
         dataProvider.makeSnapshot(settings: settings, now: now)
     }
 
-    func resolveDarkAppearance(_ appearance: WallpaperCalendarAppearance) -> Bool {
-        switch appearance {
-        case .system:
-            return UITraitCollection.current.userInterfaceStyle != .light
-        case .dark:
-            return true
-        case .light:
-            return false
-        }
+    func resolveDarkAppearance(settings: WallpaperCalendarSettings,
+                               hasBackgroundImage: Bool) -> Bool {
+        hasBackgroundImage || WallpaperCalendarBackgroundPalette.isDark(settings.backgroundColorToken)
     }
 
     private func makeFingerprint(settings: WallpaperCalendarSettings,
@@ -128,7 +122,7 @@ final class WallpaperCalendarRenderer {
             weekCount: settings.effectiveWeekCount.rawValue,
             layoutPreset: settings.layoutPreset.rawValue,
             privacyMode: settings.privacyMode.rawValue,
-            appearance: settings.appearance.rawValue,
+            backgroundColorToken: settings.backgroundColorToken,
             isDarkAppearance: isDarkAppearance,
             screenWidth: Double(screenSize.width),
             screenHeight: Double(screenSize.height),
@@ -146,7 +140,7 @@ private struct RenderFingerprintPayload: Codable {
     let weekCount: Int
     let layoutPreset: String
     let privacyMode: String
-    let appearance: String
+    let backgroundColorToken: String
     let isDarkAppearance: Bool
     let screenWidth: Double
     let screenHeight: Double

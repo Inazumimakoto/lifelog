@@ -25,8 +25,8 @@ struct WallpaperCalendarSettingsView: View {
     var body: some View {
         Form {
             previewSection
-            displaySection
             backgroundSection
+            displaySection
             shortcutSection
             generationSection
         }
@@ -89,12 +89,6 @@ struct WallpaperCalendarSettingsView: View {
                     Text(mode.title).tag(mode)
                 }
             }
-
-            Picker("背景なしの色", selection: binding(\.appearance)) {
-                ForEach(WallpaperCalendarAppearance.allCases) { appearance in
-                    Text(appearance.title).tag(appearance)
-                }
-            }
         }
     }
 
@@ -102,7 +96,7 @@ struct WallpaperCalendarSettingsView: View {
         Section {
             PhotosPicker(selection: $selectedBackgroundItem, matching: .images) {
                 HStack {
-                    Label(settings.backgroundImageFilename == nil ? "背景画像を追加" : "背景画像を変更",
+                    Label(settings.backgroundImageFilename == nil ? "壁紙画像を選ぶ" : "壁紙画像を変更",
                           systemImage: "photo")
                     Spacer()
                     if isLoadingBackground {
@@ -127,10 +121,22 @@ struct WallpaperCalendarSettingsView: View {
                     Label("背景画像を削除", systemImage: "trash")
                 }
             }
+
+            if settings.backgroundImageFilename == nil {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("画像を選ばない場合の背景色")
+                        .font(.subheadline)
+                    backgroundColorSwatchGrid(selection: backgroundColorBinding)
+                    ColorPicker("自由に色を選ぶ",
+                                selection: colorPickerSelection(for: backgroundColorBinding),
+                                supportsOpacity: false)
+                }
+                .padding(.vertical, 4)
+            }
         } header: {
-            Text("背景画像")
+            Text("壁紙")
         } footer: {
-            Text("画像を追加すると、その画像を中央で切り抜いて予定を重ねます。画像なしの場合は黒または白の単色背景になります。")
+            Text("画像を選ぶと中央で切り抜いて予定を重ねます。画像を選ばない場合は単色背景になります。")
         }
     }
 
@@ -201,6 +207,19 @@ struct WallpaperCalendarSettingsView: View {
                 guard settings.layoutPreset != newValue else { return }
                 settings.layoutPreset = newValue
                 settings.weekCount = newValue.weekCount
+                persistSettingsChange()
+            }
+        )
+    }
+
+    private var backgroundColorBinding: Binding<String> {
+        Binding(
+            get: {
+                settings.backgroundColorToken
+            },
+            set: { newValue in
+                guard isSameColorToken(settings.backgroundColorToken, newValue) == false else { return }
+                settings.backgroundColorToken = newValue
                 persistSettingsChange()
             }
         )
@@ -278,15 +297,58 @@ struct WallpaperCalendarSettingsView: View {
         generatedImage = url.flatMap { UIImage(contentsOfFile: $0.path) }
     }
 
-    private var resolvedDarkAppearance: Bool {
-        switch settings.appearance {
-        case .system:
-            return UITraitCollection.current.userInterfaceStyle != .light
-        case .dark:
-            return true
-        case .light:
-            return false
+    private func backgroundColorSwatchGrid(selection: Binding<String>) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
+                ForEach(WallpaperCalendarBackgroundPalette.choices, id: \.self) { token in
+                    Circle()
+                        .fill(AppColorPalette.color(for: token))
+                        .frame(width: 28, height: 28)
+                        .overlay(
+                            Circle()
+                                .stroke(Color.secondary.opacity(token == WallpaperCalendarBackgroundPalette.whiteToken ? 0.35 : 0),
+                                        lineWidth: 1)
+                        )
+                        .overlay(
+                            Circle()
+                                .stroke(
+                                    isSameColorToken(selection.wrappedValue, token) ? Color.primary : Color.clear,
+                                    lineWidth: 2
+                                )
+                        )
+                        .onTapGesture {
+                            selection.wrappedValue = token
+                        }
+                }
+            }
+            .padding(.vertical, 4)
+
+            Text(selection.wrappedValue)
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
         }
+    }
+
+    private func colorPickerSelection(for selection: Binding<String>) -> Binding<Color> {
+        Binding(
+            get: {
+                AppColorPalette.color(for: selection.wrappedValue)
+            },
+            set: { selected in
+                if let hex = selected.cgColor?.hexString {
+                    selection.wrappedValue = hex
+                }
+            }
+        )
+    }
+
+    private func isSameColorToken(_ lhs: String, _ rhs: String) -> Bool {
+        lhs.trimmingCharacters(in: .whitespacesAndNewlines)
+            .caseInsensitiveCompare(rhs.trimmingCharacters(in: .whitespacesAndNewlines)) == .orderedSame
+    }
+
+    private var resolvedDarkAppearance: Bool {
+        previewBackgroundImage != nil || WallpaperCalendarBackgroundPalette.isDark(settings.backgroundColorToken)
     }
 }
 

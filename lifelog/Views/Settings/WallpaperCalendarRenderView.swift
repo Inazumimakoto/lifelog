@@ -55,7 +55,7 @@ struct WallpaperCalendarRenderView: View {
 
             Color.black.opacity(isDarkAppearance ? 0.18 : 0.08)
         } else {
-            (isDarkAppearance ? Color.black : Color.white)
+            AppColorPalette.color(for: settings.backgroundColorToken)
         }
     }
 

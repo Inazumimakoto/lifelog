@@ -12,6 +12,7 @@ struct WallpaperCalendarSettings: Codable, Equatable {
     var layoutPreset: WallpaperCalendarLayoutPreset
     var privacyMode: WallpaperCalendarPrivacyMode
     var appearance: WallpaperCalendarAppearance
+    var backgroundColorToken: String
     var backgroundImageFilename: String?
     var lastGeneratedFingerprint: String?
     var lastGeneratedFilename: String?
@@ -21,6 +22,7 @@ struct WallpaperCalendarSettings: Codable, Equatable {
          layoutPreset: WallpaperCalendarLayoutPreset = .standard,
          privacyMode: WallpaperCalendarPrivacyMode = .details,
          appearance: WallpaperCalendarAppearance = .system,
+         backgroundColorToken: String = WallpaperCalendarBackgroundPalette.defaultToken,
          backgroundImageFilename: String? = nil,
          lastGeneratedFingerprint: String? = nil,
          lastGeneratedFilename: String? = nil,
@@ -29,6 +31,7 @@ struct WallpaperCalendarSettings: Codable, Equatable {
         self.layoutPreset = layoutPreset
         self.privacyMode = privacyMode
         self.appearance = appearance
+        self.backgroundColorToken = backgroundColorToken
         self.backgroundImageFilename = backgroundImageFilename
         self.lastGeneratedFingerprint = lastGeneratedFingerprint
         self.lastGeneratedFilename = lastGeneratedFilename
@@ -42,6 +45,7 @@ struct WallpaperCalendarSettings: Codable, Equatable {
         case layoutPreset
         case privacyMode
         case appearance
+        case backgroundColorToken
         case backgroundImageFilename
         case lastGeneratedFingerprint
         case lastGeneratedFilename
@@ -54,6 +58,8 @@ struct WallpaperCalendarSettings: Codable, Equatable {
         layoutPreset = try container.decodeIfPresent(WallpaperCalendarLayoutPreset.self, forKey: .layoutPreset) ?? .standard
         privacyMode = try container.decodeIfPresent(WallpaperCalendarPrivacyMode.self, forKey: .privacyMode) ?? .details
         appearance = try container.decodeIfPresent(WallpaperCalendarAppearance.self, forKey: .appearance) ?? .system
+        backgroundColorToken = try container.decodeIfPresent(String.self, forKey: .backgroundColorToken)
+            ?? Self.backgroundColorToken(for: appearance)
         backgroundImageFilename = try container.decodeIfPresent(String.self, forKey: .backgroundImageFilename)
         lastGeneratedFingerprint = try container.decodeIfPresent(String.self, forKey: .lastGeneratedFingerprint)
         lastGeneratedFilename = try container.decodeIfPresent(String.self, forKey: .lastGeneratedFilename)
@@ -62,6 +68,49 @@ struct WallpaperCalendarSettings: Codable, Equatable {
 
     var effectiveWeekCount: WallpaperCalendarWeekCount {
         layoutPreset.weekCount
+    }
+
+    private static func backgroundColorToken(for appearance: WallpaperCalendarAppearance) -> String {
+        switch appearance {
+        case .light:
+            return WallpaperCalendarBackgroundPalette.whiteToken
+        case .system, .dark:
+            return WallpaperCalendarBackgroundPalette.defaultToken
+        }
+    }
+}
+
+enum WallpaperCalendarBackgroundPalette {
+    static let defaultToken = "#000000"
+    static let whiteToken = "#FFFFFF"
+    static let choices: [String] = [
+        defaultToken,
+        whiteToken,
+        "#111827",
+        "#1F2937"
+    ] + AppColorPalette.presets
+
+    static func isDark(_ token: String) -> Bool {
+        guard let rgb = rgbComponents(from: token) else {
+            return true
+        }
+        let luminance = (0.2126 * rgb.red) + (0.7152 * rgb.green) + (0.0722 * rgb.blue)
+        return luminance < 0.58
+    }
+
+    private static func rgbComponents(from token: String) -> (red: Double, green: Double, blue: Double)? {
+        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.hasPrefix("#") else { return nil }
+        let hex = String(trimmed.dropFirst())
+        guard hex.count == 6,
+              let value = Int(hex, radix: 16)
+        else {
+            return nil
+        }
+        let red = Double((value >> 16) & 0xFF) / 255
+        let green = Double((value >> 8) & 0xFF) / 255
+        let blue = Double(value & 0xFF) / 255
+        return (red, green, blue)
     }
 }
 
