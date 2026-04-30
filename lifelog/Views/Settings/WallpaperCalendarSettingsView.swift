@@ -13,6 +13,7 @@ struct WallpaperCalendarSettingsView: View {
     @State private var settings = WallpaperCalendarSettingsStore.shared.load()
     @State private var selectedBackgroundItem: PhotosPickerItem?
     @State private var previewSnapshot: WallpaperCalendarSnapshot?
+    @State private var previewPages: [WallpaperCalendarPreviewPage] = []
     @State private var previewBackgroundImage: UIImage?
     @State private var generatedImageURL: URL?
     @State private var generatedImage: UIImage?
@@ -95,7 +96,8 @@ struct WallpaperCalendarSettingsView: View {
             Text(alertMessage ?? "")
         }
         .sheet(isPresented: $isShowingBackgroundAdjustment) {
-            if let previewSnapshot, let previewBackgroundImage {
+            if let previewSnapshot = currentPreviewPage?.snapshot ?? previewSnapshot,
+               let previewBackgroundImage {
                 WallpaperBackgroundAdjustmentSheet(
                     snapshot: previewSnapshot,
                     settings: settings,
@@ -117,14 +119,15 @@ struct WallpaperCalendarSettingsView: View {
 
     private var previewSection: some View {
         Section {
-            if let previewSnapshot {
+            if previewPages.isEmpty == false {
                 WallpaperCalendarPreviewEditor(
                     selectedBackgroundItem: $selectedBackgroundItem,
-                    snapshot: previewSnapshot,
-                    settings: settings,
+                    pages: previewPages,
+                    selectedPreset: settings.layoutPreset.normalized,
                     backgroundImage: previewBackgroundImage,
                     isDarkAppearance: resolvedDarkAppearance,
                     isLoadingBackground: isLoadingBackground,
+                    onSelectPreset: selectLayoutPreset,
                     onAdjustBackground: {
                         isShowingBackgroundAdjustment = true
                     },
@@ -140,11 +143,6 @@ struct WallpaperCalendarSettingsView: View {
 
     private var displaySection: some View {
         Section("表示") {
-            WeekLayoutSelector(
-                selectedPreset: settings.layoutPreset.normalized,
-                onSelect: selectLayoutPreset
-            )
-
             Picker("表示内容", selection: binding(\.privacyMode)) {
                 ForEach(WallpaperCalendarPrivacyMode.allCases) { mode in
                     Text(mode.title).tag(mode)
@@ -337,10 +335,23 @@ struct WallpaperCalendarSettingsView: View {
     @MainActor
     private func refreshPreview() async {
         let renderer = WallpaperCalendarRenderer()
-        previewSnapshot = renderer.makePreviewSnapshot(settings: settings)
-        previewBackgroundImage = settingsStore
+        let backgroundImage = settingsStore
             .backgroundImageURL(for: settings)
             .flatMap { UIImage(contentsOfFile: $0.path) }
+        let pages = WallpaperCalendarLayoutPreset.selectableCases.map { preset in
+            var pageSettings = settings
+            pageSettings.layoutPreset = preset.normalized
+            pageSettings.weekCount = preset.weekCount
+            return WallpaperCalendarPreviewPage(
+                preset: preset.normalized,
+                snapshot: renderer.makePreviewSnapshot(settings: pageSettings),
+                settings: pageSettings
+            )
+        }
+        previewPages = pages
+        previewSnapshot = pages.first { $0.preset == settings.layoutPreset.normalized }?.snapshot
+            ?? pages.first?.snapshot
+        previewBackgroundImage = backgroundImage
     }
 
     private func renderNow() {
@@ -427,35 +438,95 @@ struct WallpaperCalendarSettingsView: View {
     private var resolvedDarkAppearance: Bool {
         previewBackgroundImage != nil || WallpaperCalendarBackgroundPalette.isDark(settings.backgroundColorToken)
     }
+
+    private var currentPreviewPage: WallpaperCalendarPreviewPage? {
+        previewPages.first { $0.preset == settings.layoutPreset.normalized }
+            ?? previewPages.first
+    }
+}
+
+private struct WallpaperCalendarPreviewPage: Identifiable {
+    var id: String { preset.rawValue }
+    let preset: WallpaperCalendarLayoutPreset
+    let snapshot: WallpaperCalendarSnapshot
+    let settings: WallpaperCalendarSettings
 }
 
 private struct WallpaperCalendarPreviewEditor: View {
     @Binding var selectedBackgroundItem: PhotosPickerItem?
 
-    let snapshot: WallpaperCalendarSnapshot
-    let settings: WallpaperCalendarSettings
+    let pages: [WallpaperCalendarPreviewPage]
+    let selectedPreset: WallpaperCalendarLayoutPreset
     let backgroundImage: UIImage?
     let isDarkAppearance: Bool
     let isLoadingBackground: Bool
+    let onSelectPreset: (WallpaperCalendarLayoutPreset) -> Void
     let onAdjustBackground: () -> Void
     let onRemoveBackground: () -> Void
+
+    private let previewWidth: CGFloat = 272
+    private let previewHeight: CGFloat = 852 * (272.0 / 393.0)
 
     var body: some View {
         VStack(spacing: 14) {
             backgroundToolbar
                 .frame(height: 48)
 
-            WallpaperCalendarLockScreenPreview(
-                snapshot: snapshot,
-                settings: settings,
-                backgroundImage: backgroundImage,
-                isDarkAppearance: isDarkAppearance
-            )
-            .scaledPhonePreview(width: 272)
+            TabView(selection: previewSelection) {
+                ForEach(pages) { page in
+                    WallpaperCalendarLockScreenPreview(
+                        snapshot: page.snapshot,
+                        settings: page.settings,
+                        backgroundImage: backgroundImage,
+                        isDarkAppearance: isDarkAppearance
+                    )
+                    .scaledPhonePreview(width: previewWidth)
+                    .tag(page.preset.rawValue)
+                }
+            }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: previewHeight)
+
+            previewPageIndicator
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 16)
         .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    private var previewSelection: Binding<String> {
+        Binding(
+            get: {
+                selectedPreset.normalized.rawValue
+            },
+            set: { rawValue in
+                guard let preset = WallpaperCalendarLayoutPreset(rawValue: rawValue) else { return }
+                onSelectPreset(preset)
+            }
+        )
+    }
+
+    private var previewPageIndicator: some View {
+        HStack(spacing: 8) {
+            ForEach(pages) { page in
+                Button {
+                    onSelectPreset(page.preset)
+                } label: {
+                    Text(page.preset.weekLayoutTitle)
+                        .font(.caption.weight(.semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(page.preset == selectedPreset.normalized ? Color.white : Color.primary)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(
+                            Capsule()
+                                .fill(page.preset == selectedPreset.normalized ? Color.accentColor : Color.secondary.opacity(0.12))
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .accessibilityElement(children: .contain)
     }
 
     @ViewBuilder
@@ -514,58 +585,6 @@ private struct PreviewEditorIconButton: View {
                         .foregroundStyle(tint)
                 }
             }
-    }
-}
-
-private struct WeekLayoutSelector: View {
-    let selectedPreset: WallpaperCalendarLayoutPreset
-    let onSelect: (WallpaperCalendarLayoutPreset) -> Void
-
-    var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                ForEach(WallpaperCalendarLayoutPreset.selectableCases) { preset in
-                    Button {
-                        onSelect(preset)
-                    } label: {
-                        WeekLayoutCard(
-                            preset: preset,
-                            isSelected: selectedPreset.normalized == preset.normalized
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(.vertical, 2)
-        }
-    }
-}
-
-private struct WeekLayoutCard: View {
-    let preset: WallpaperCalendarLayoutPreset
-    let isSelected: Bool
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(preset.weekLayoutTitle)
-                .font(.headline.weight(.semibold))
-                .foregroundStyle(.primary)
-
-            Text(preset.weekLayoutSubtitle)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(2)
-        }
-        .frame(width: 130, height: 74, alignment: .topLeading)
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(isSelected ? Color.accentColor.opacity(0.14) : Color.secondary.opacity(0.08))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.18), lineWidth: isSelected ? 2 : 1)
-        )
     }
 }
 
