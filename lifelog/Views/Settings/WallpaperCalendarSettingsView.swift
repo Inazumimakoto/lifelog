@@ -418,6 +418,14 @@ private struct WallpaperCalendarPreviewEditor: View {
 
     var body: some View {
         VStack(spacing: 12) {
+            Text("ロック画面からも予定を確認しましょう。まずはここから背景画像や週数を選択。")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+                .padding(.horizontal, 8)
+
             backgroundToolbar
                 .frame(height: 48)
 
