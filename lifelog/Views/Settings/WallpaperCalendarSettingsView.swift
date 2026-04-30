@@ -25,6 +25,11 @@ struct WallpaperCalendarSettingsView: View {
 
     private static let shortcutGuideSteps: [ShortcutGuideStep] = [
         ShortcutGuideStep(
+            assetName: "WallpaperShortcutGuide00",
+            title: "lifelifyで検索",
+            detail: "検索欄に「lifelify」と入力し、「壁紙カレンダーを更新」を選びます。"
+        ),
+        ShortcutGuideStep(
             assetName: "WallpaperShortcutGuide01",
             title: "実行時に表示をオフ",
             detail: "「壁紙カレンダーを更新」を追加したら、「実行時に表示」をオフにします。"
@@ -58,11 +63,6 @@ struct WallpaperCalendarSettingsView: View {
             assetName: "WallpaperShortcutGuide07",
             title: "再生して確認",
             detail: "右下の再生ボタンを押して、ロック画面が変わることを確認します。"
-        ),
-        ShortcutGuideStep(
-            assetName: "WallpaperShortcutGuide08",
-            title: "自動更新を作る",
-            detail: "確認できたら戻って「オートメーション」から新規作成し、トリガーは「アプリ」を選びます。"
         )
     ]
 
@@ -675,15 +675,15 @@ private struct ShortcutGuideCard: View {
 private struct ShortcutAutomationSummary: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("自動更新のおすすめ", systemImage: "arrow.triangle.2.circlepath")
+            Label("自動更新を設定", systemImage: "arrow.triangle.2.circlepath")
                 .font(.subheadline.weight(.semibold))
 
-            Text("アプリ一覧でlifelifyを選び、「閉じている」をトリガーにします。「すぐに実行」にして、「実行時に通知」をオフにすると完了です。0:00の時刻指定もおすすめです。")
+            Text("手動で動作確認できたら、必ず自動更新を設定します。ショートカット一覧へ戻り、下の「オートメーション」から新規作成します。アプリ一覧でlifelifyを選び、「閉じている」をトリガーにします。「すぐに実行」にして、「実行時に通知」をオフにすると完了です。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("ウィジェットや時計はiOSの壁紙設定、予定のレイアウトや壁紙画像はlifelifyのロック画面カレンダー設定で変更します。")
+            Text("0:00の時刻指定で毎日更新する方法も使えます。ウィジェットや時計はiOSの壁紙設定、予定のレイアウトや壁紙画像はlifelifyのロック画面カレンダー設定で変更します。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
