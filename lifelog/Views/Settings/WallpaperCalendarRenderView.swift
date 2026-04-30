@@ -51,6 +51,11 @@ struct WallpaperCalendarRenderView: View {
                 .resizable()
                 .scaledToFill()
                 .frame(width: size.width, height: size.height)
+                .scaleEffect(CGFloat(backgroundAdjustment(for: backgroundImage, size: size).scale))
+                .offset(
+                    x: CGFloat(backgroundAdjustment(for: backgroundImage, size: size).offsetX) * size.width,
+                    y: CGFloat(backgroundAdjustment(for: backgroundImage, size: size).offsetY) * size.height
+                )
                 .clipped()
 
             Color.black.opacity(isDarkAppearance ? 0.18 : 0.08)
@@ -254,6 +259,10 @@ struct WallpaperCalendarRenderView: View {
             return secondaryTextColor
         }
         return primaryTextColor
+    }
+
+    private func backgroundAdjustment(for image: UIImage, size: CGSize) -> WallpaperCalendarBackgroundAdjustment {
+        settings.backgroundAdjustment.clamped(for: image.size, canvasSize: size)
     }
 
     private var primaryTextColor: Color {

@@ -55,6 +55,7 @@ final class WallpaperCalendarSettingsStore {
         return update { settings in
             removeFileIfPresent(filename: settings.backgroundImageFilename, in: directory)
             settings.backgroundImageFilename = filename
+            settings.backgroundAdjustment = .defaultValue
             settings.lastGeneratedFingerprint = nil
         }
     }
@@ -66,6 +67,7 @@ final class WallpaperCalendarSettingsStore {
                 removeFileIfPresent(filename: filename, in: directory)
             }
             settings.backgroundImageFilename = nil
+            settings.backgroundAdjustment = .defaultValue
             settings.lastGeneratedFingerprint = nil
         }
     }

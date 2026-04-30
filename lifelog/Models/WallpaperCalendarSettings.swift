@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import CoreGraphics
 
 struct WallpaperCalendarSettings: Codable, Equatable {
     var weekCount: WallpaperCalendarWeekCount
@@ -14,6 +15,7 @@ struct WallpaperCalendarSettings: Codable, Equatable {
     var appearance: WallpaperCalendarAppearance
     var backgroundColorToken: String
     var backgroundImageFilename: String?
+    var backgroundAdjustment: WallpaperCalendarBackgroundAdjustment
     var lastGeneratedFingerprint: String?
     var lastGeneratedFilename: String?
     var updatedAt: Date
@@ -24,6 +26,7 @@ struct WallpaperCalendarSettings: Codable, Equatable {
          appearance: WallpaperCalendarAppearance = .system,
          backgroundColorToken: String = WallpaperCalendarBackgroundPalette.defaultToken,
          backgroundImageFilename: String? = nil,
+         backgroundAdjustment: WallpaperCalendarBackgroundAdjustment = .defaultValue,
          lastGeneratedFingerprint: String? = nil,
          lastGeneratedFilename: String? = nil,
          updatedAt: Date = Date()) {
@@ -33,6 +36,7 @@ struct WallpaperCalendarSettings: Codable, Equatable {
         self.appearance = appearance
         self.backgroundColorToken = backgroundColorToken
         self.backgroundImageFilename = backgroundImageFilename
+        self.backgroundAdjustment = backgroundAdjustment
         self.lastGeneratedFingerprint = lastGeneratedFingerprint
         self.lastGeneratedFilename = lastGeneratedFilename
         self.updatedAt = updatedAt
@@ -47,6 +51,7 @@ struct WallpaperCalendarSettings: Codable, Equatable {
         case appearance
         case backgroundColorToken
         case backgroundImageFilename
+        case backgroundAdjustment
         case lastGeneratedFingerprint
         case lastGeneratedFilename
         case updatedAt
@@ -62,6 +67,8 @@ struct WallpaperCalendarSettings: Codable, Equatable {
         backgroundColorToken = try container.decodeIfPresent(String.self, forKey: .backgroundColorToken)
             ?? Self.backgroundColorToken(for: appearance)
         backgroundImageFilename = try container.decodeIfPresent(String.self, forKey: .backgroundImageFilename)
+        backgroundAdjustment = try container.decodeIfPresent(WallpaperCalendarBackgroundAdjustment.self, forKey: .backgroundAdjustment)
+            ?? .defaultValue
         lastGeneratedFingerprint = try container.decodeIfPresent(String.self, forKey: .lastGeneratedFingerprint)
         lastGeneratedFilename = try container.decodeIfPresent(String.self, forKey: .lastGeneratedFilename)
         updatedAt = try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
@@ -78,6 +85,47 @@ struct WallpaperCalendarSettings: Codable, Equatable {
         case .system, .dark:
             return WallpaperCalendarBackgroundPalette.defaultToken
         }
+    }
+}
+
+struct WallpaperCalendarBackgroundAdjustment: Codable, Equatable {
+    static let defaultValue = WallpaperCalendarBackgroundAdjustment()
+    static let minScale = 1.0
+    static let maxScale = 3.0
+
+    var scale: Double
+    var offsetX: Double
+    var offsetY: Double
+
+    init(scale: Double = 1.0,
+         offsetX: Double = 0,
+         offsetY: Double = 0) {
+        self.scale = scale
+        self.offsetX = offsetX
+        self.offsetY = offsetY
+    }
+
+    func clamped(for imageSize: CGSize, canvasSize: CGSize) -> WallpaperCalendarBackgroundAdjustment {
+        let resolvedScale = min(max(scale, Self.minScale), Self.maxScale)
+        guard imageSize.width > 0,
+              imageSize.height > 0,
+              canvasSize.width > 0,
+              canvasSize.height > 0
+        else {
+            return WallpaperCalendarBackgroundAdjustment(scale: resolvedScale)
+        }
+
+        let baseScale = max(canvasSize.width / imageSize.width, canvasSize.height / imageSize.height)
+        let scaledWidth = imageSize.width * baseScale * resolvedScale
+        let scaledHeight = imageSize.height * baseScale * resolvedScale
+        let maxOffsetX = max(0, (scaledWidth - canvasSize.width) / 2) / canvasSize.width
+        let maxOffsetY = max(0, (scaledHeight - canvasSize.height) / 2) / canvasSize.height
+
+        return WallpaperCalendarBackgroundAdjustment(
+            scale: resolvedScale,
+            offsetX: min(max(offsetX, -maxOffsetX), maxOffsetX),
+            offsetY: min(max(offsetY, -maxOffsetY), maxOffsetY)
+        )
     }
 }
 
