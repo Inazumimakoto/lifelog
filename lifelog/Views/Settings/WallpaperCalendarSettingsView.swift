@@ -16,9 +16,53 @@ struct WallpaperCalendarSettingsView: View {
     @State private var previewBackgroundImage: UIImage?
     @State private var generatedImageURL: URL?
     @State private var generatedImage: UIImage?
+    @State private var shortcutGuidePage = 0
     @State private var isLoadingBackground = false
     @State private var isRendering = false
     @State private var alertMessage: String?
+
+    private static let shortcutGuideSteps: [ShortcutGuideStep] = [
+        ShortcutGuideStep(
+            assetName: "WallpaperShortcutGuide01",
+            title: "実行時に表示をオフ",
+            detail: "「壁紙カレンダーを更新」を追加したら、「実行時に表示」をオフにします。"
+        ),
+        ShortcutGuideStep(
+            assetName: "WallpaperShortcutGuide02",
+            title: "壁紙を設定を追加",
+            detail: "検索欄に「壁紙を設定」と入力し、iOS標準の「壁紙に写真を設定」を選びます。"
+        ),
+        ShortcutGuideStep(
+            assetName: "WallpaperShortcutGuide03",
+            title: "設定先を開く",
+            detail: "「ロック画面、ホーム画面」と表示されている部分をタップします。"
+        ),
+        ShortcutGuideStep(
+            assetName: "WallpaperShortcutGuide04",
+            title: "ロック画面だけにする",
+            detail: "ホーム画面のチェックを外して、ロック画面だけに設定します。"
+        ),
+        ShortcutGuideStep(
+            assetName: "WallpaperShortcutGuide05",
+            title: "詳細を開く",
+            detail: "右側の「>」を押して、壁紙設定アクションの詳細を開きます。"
+        ),
+        ShortcutGuideStep(
+            assetName: "WallpaperShortcutGuide06",
+            title: "追加オプションをオフ",
+            detail: "「プレビューを表示」と「被写体を切り取る」をどちらもオフにします。"
+        ),
+        ShortcutGuideStep(
+            assetName: "WallpaperShortcutGuide07",
+            title: "再生して確認",
+            detail: "右下の再生ボタンを押して、ロック画面が変わることを確認します。"
+        ),
+        ShortcutGuideStep(
+            assetName: "WallpaperShortcutGuide08",
+            title: "自動更新を作る",
+            detail: "確認できたら戻って「オートメーション」から新規作成し、トリガーは「アプリ」を選びます。"
+        )
+    ]
 
     private let settingsStore = WallpaperCalendarSettingsStore.shared
     private let shortcutCreateURL = URL(string: "shortcuts://create-shortcut")
@@ -155,50 +199,15 @@ struct WallpaperCalendarSettingsView: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 12) {
                 ShortcutSetupNote()
 
-                ShortcutSetupStepRow(
-                    number: 1,
-                    title: "lifelifyのアクションを追加",
-                    details: [
-                        "作成画面で「アクションを追加」を押します。",
-                        "検索欄に「lifelify」または「壁紙カレンダーを更新」と入力します。",
-                        "検索結果から「壁紙カレンダーを更新」を選びます。"
-                    ],
-                    searchTerms: ["lifelify", "壁紙カレンダーを更新"]
+                ShortcutGuidePager(
+                    steps: Self.shortcutGuideSteps,
+                    selection: $shortcutGuidePage
                 )
 
-                ShortcutSetupStepRow(
-                    number: 2,
-                    title: "壁紙を設定アクションを追加",
-                    details: [
-                        "もう一度検索欄を開いて「壁紙を設定」と入力します。",
-                        "iOS標準の「壁紙を設定」を選びます。",
-                        "1つ目のアクションで作られた画像を、そのまま壁紙設定アクションに渡します。"
-                    ],
-                    searchTerms: ["壁紙を設定"]
-                )
-
-                ShortcutSetupStepRow(
-                    number: 3,
-                    title: "ロック画面だけに設定",
-                    details: [
-                        "「壁紙を設定」アクションの設定先をロック画面にします。",
-                        "ホーム画面を変えたくない場合は、ホーム画面側を外します。",
-                        "確認画面が毎回出る場合は、プレビュー表示や確認の設定をオフにします。"
-                    ]
-                )
-
-                ShortcutSetupStepRow(
-                    number: 4,
-                    title: "自動更新にする",
-                    details: [
-                        "ショートカット単体で動くことを確認したら、ショートカットアプリの「オートメーション」を開きます。",
-                        "毎朝の時刻、または「lifelifyを閉じたとき」をトリガーにします。",
-                        "作ったショートカットを実行するように設定し、「実行の前に尋ねる」があればオフにします。"
-                    ]
-                )
+                ShortcutAutomationSummary()
             }
             .padding(.vertical, 4)
         } header: {
@@ -420,55 +429,109 @@ struct WallpaperCalendarSettingsView: View {
 private struct ShortcutSetupNote: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("ショートカットが必要な理由", systemImage: "questionmark.circle")
+            Label("まず手動で動作確認", systemImage: "play.circle")
                 .font(.subheadline.weight(.semibold))
 
-            Text("lifelifyはロック画面用の画像を作ります。実際にロック画面へ反映する操作は、iOS標準の「壁紙を設定」アクションにつなぐ必要があります。")
+            Text("ショートカットを作って一度実行し、ロック画面が変わることを確認してから自動更新にします。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
     }
 }
 
-private struct ShortcutSetupStepRow: View {
-    let number: Int
+private struct ShortcutGuideStep: Identifiable {
+    let id = UUID()
+    let assetName: String
     let title: String
-    let details: [String]
-    var searchTerms: [String] = []
+    let detail: String
+}
+
+private struct ShortcutGuidePager: View {
+    let steps: [ShortcutGuideStep]
+    @Binding var selection: Int
 
     var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Text("\(number)")
-                .font(.caption.weight(.bold))
-                .foregroundStyle(.white)
-                .frame(width: 22, height: 22)
-                .background(Color.accentColor, in: Circle())
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text(title)
-                    .font(.subheadline.weight(.semibold))
-
-                ForEach(details, id: \.self) { detail in
-                    Text(detail)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                if searchTerms.isEmpty == false {
-                    HStack(spacing: 6) {
-                        ForEach(searchTerms, id: \.self) { term in
-                            Text(term)
-                                .font(.caption.monospaced())
-                                .foregroundStyle(.primary)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.secondary.opacity(0.14), in: Capsule())
-                        }
-                    }
-                    .padding(.top, 2)
+        VStack(spacing: 10) {
+            TabView(selection: $selection) {
+                ForEach(Array(steps.enumerated()), id: \.element.id) { index, step in
+                    ShortcutGuideCard(
+                        step: step,
+                        currentIndex: index + 1,
+                        totalCount: steps.count
+                    )
+                    .tag(index)
                 }
             }
+            .tabViewStyle(.page(indexDisplayMode: .never))
+            .frame(height: 500)
+
+            HStack(spacing: 6) {
+                ForEach(steps.indices, id: \.self) { index in
+                    Circle()
+                        .fill(index == selection ? Color.accentColor : Color.secondary.opacity(0.28))
+                        .frame(width: 6, height: 6)
+                }
+            }
+            .frame(maxWidth: .infinity)
+        }
+    }
+}
+
+private struct ShortcutGuideCard: View {
+    let step: ShortcutGuideStep
+    let currentIndex: Int
+    let totalCount: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("\(currentIndex)/\(totalCount)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+            }
+
+            Image(step.assetName)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity)
+                .frame(height: 360)
+                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
+                )
+
+            Text(step.title)
+                .font(.subheadline.weight(.semibold))
+
+            Text(step.detail)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+}
+
+private struct ShortcutAutomationSummary: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("自動更新のおすすめ", systemImage: "arrow.triangle.2.circlepath")
+                .font(.subheadline.weight(.semibold))
+
+            Text("アプリ一覧でlifelifyを選び、「閉じている」をトリガーにします。「すぐに実行」にして、「実行時に通知」をオフにすると完了です。0:00の時刻指定もおすすめです。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("ウィジェットや時計はiOSの壁紙設定、予定のレイアウトや壁紙画像はlifelifyのロック画面カレンダー設定で変更します。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
