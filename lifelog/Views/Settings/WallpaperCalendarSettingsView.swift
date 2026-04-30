@@ -212,7 +212,10 @@ struct WallpaperCalendarSettingsView: View {
         } header: {
             Text("ショートカット")
         } footer: {
-            Text("完成形は「壁紙カレンダーを更新」→「壁紙を設定」の2アクションです。予定・タスク・日付・設定が同じ場合は、作成済みの画像を再利用します。必要なら「時刻」トリガーで0:00に更新するオートメーションも追加してください。")
+            VStack(alignment: .leading, spacing: 4) {
+                Text("「今日」がハイライトされるため、必要なら「時刻」トリガーで0:00に更新するオートメーションも追加してください。")
+                Text("ロック画面のレイアウトが初期化されますが、時刻のフォントやウィジェットはiOSの壁紙設定で変更し直してください。次からは適用されます。")
+            }
         }
     }
 
@@ -723,10 +726,6 @@ private struct ShortcutAutomationSummary: View {
                 selection: $selection
             )
 
-            Text("ウィジェットや時計はiOSの壁紙設定、予定のレイアウトや壁紙画像はlifelifyのロック画面カレンダー設定で変更します。")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
         }
     }
 }
