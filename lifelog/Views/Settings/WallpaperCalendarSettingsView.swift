@@ -143,15 +143,6 @@ struct WallpaperCalendarSettingsView: View {
 
     private var shortcutSection: some View {
         Section {
-            VStack(alignment: .leading, spacing: 10) {
-                Label("なぜショートカットが必要？", systemImage: "questionmark.circle")
-                    .font(.subheadline.weight(.semibold))
-                Text("lifelifyは壁紙用の画像を作成します。ロック画面への設定はiOSの「壁紙を設定」アクションに渡す必要があります。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            .padding(.vertical, 2)
-
             Button {
                 openShortcutCreator()
             } label: {
@@ -164,17 +155,56 @@ struct WallpaperCalendarSettingsView: View {
                 }
             }
 
-            VStack(alignment: .leading, spacing: 12) {
-                ShortcutInstructionRow(number: 1, text: "アクションに「壁紙カレンダーを更新」を追加")
-                ShortcutInstructionRow(number: 2, text: "次に「壁紙を設定」を追加")
-                ShortcutInstructionRow(number: 3, text: "入力画像をロック画面の壁紙に設定")
-                ShortcutInstructionRow(number: 4, text: "自動更新したい場合はオートメーションで時刻や「lifelifyを閉じたとき」に実行")
+            VStack(alignment: .leading, spacing: 14) {
+                ShortcutSetupNote()
+
+                ShortcutSetupStepRow(
+                    number: 1,
+                    title: "lifelifyのアクションを追加",
+                    details: [
+                        "作成画面で「アクションを追加」を押します。",
+                        "検索欄に「lifelify」または「壁紙カレンダーを更新」と入力します。",
+                        "検索結果から「壁紙カレンダーを更新」を選びます。"
+                    ],
+                    searchTerms: ["lifelify", "壁紙カレンダーを更新"]
+                )
+
+                ShortcutSetupStepRow(
+                    number: 2,
+                    title: "壁紙を設定アクションを追加",
+                    details: [
+                        "もう一度検索欄を開いて「壁紙を設定」と入力します。",
+                        "iOS標準の「壁紙を設定」を選びます。",
+                        "1つ目のアクションで作られた画像を、そのまま壁紙設定アクションに渡します。"
+                    ],
+                    searchTerms: ["壁紙を設定"]
+                )
+
+                ShortcutSetupStepRow(
+                    number: 3,
+                    title: "ロック画面だけに設定",
+                    details: [
+                        "「壁紙を設定」アクションの設定先をロック画面にします。",
+                        "ホーム画面を変えたくない場合は、ホーム画面側を外します。",
+                        "確認画面が毎回出る場合は、プレビュー表示や確認の設定をオフにします。"
+                    ]
+                )
+
+                ShortcutSetupStepRow(
+                    number: 4,
+                    title: "自動更新にする",
+                    details: [
+                        "ショートカット単体で動くことを確認したら、ショートカットアプリの「オートメーション」を開きます。",
+                        "毎朝の時刻、または「lifelifyを閉じたとき」をトリガーにします。",
+                        "作ったショートカットを実行するように設定し、「実行の前に尋ねる」があればオフにします。"
+                    ]
+                )
             }
             .padding(.vertical, 4)
         } header: {
             Text("ショートカット")
         } footer: {
-            Text("予定・タスク・日付・設定が同じ場合は、作成済みの画像を再利用します。")
+            Text("完成形は「壁紙カレンダーを更新」→「壁紙を設定」の2アクションです。予定・タスク・日付・設定が同じ場合は、作成済みの画像を再利用します。")
         }
     }
 
@@ -387,9 +417,24 @@ struct WallpaperCalendarSettingsView: View {
     }
 }
 
-private struct ShortcutInstructionRow: View {
+private struct ShortcutSetupNote: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("ショートカットが必要な理由", systemImage: "questionmark.circle")
+                .font(.subheadline.weight(.semibold))
+
+            Text("lifelifyはロック画面用の画像を作ります。実際にロック画面へ反映する操作は、iOS標準の「壁紙を設定」アクションにつなぐ必要があります。")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct ShortcutSetupStepRow: View {
     let number: Int
-    let text: String
+    let title: String
+    let details: [String]
+    var searchTerms: [String] = []
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
@@ -399,10 +444,31 @@ private struct ShortcutInstructionRow: View {
                 .frame(width: 22, height: 22)
                 .background(Color.accentColor, in: Circle())
 
-            Text(text)
-                .font(.subheadline)
-                .foregroundStyle(.primary)
-                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+
+                ForEach(details, id: \.self) { detail in
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                if searchTerms.isEmpty == false {
+                    HStack(spacing: 6) {
+                        ForEach(searchTerms, id: \.self) { term in
+                            Text(term)
+                                .font(.caption.monospaced())
+                                .foregroundStyle(.primary)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.secondary.opacity(0.14), in: Capsule())
+                        }
+                    }
+                    .padding(.top, 2)
+                }
+            }
         }
     }
 }
