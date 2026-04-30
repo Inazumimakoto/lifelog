@@ -125,6 +125,7 @@ struct WallpaperCalendarSettingsView: View {
                     pages: previewPages,
                     selectedPreset: settings.layoutPreset.normalized,
                     backgroundImage: previewBackgroundImage,
+                    backgroundColor: colorPickerSelection(for: backgroundColorBinding),
                     isDarkAppearance: resolvedDarkAppearance,
                     isLoadingBackground: isLoadingBackground,
                     onSelectPreset: selectLayoutPreset,
@@ -159,9 +160,6 @@ struct WallpaperCalendarSettingsView: View {
                     Text("画像を選ばない場合の背景色")
                         .font(.subheadline)
                     backgroundColorSwatchGrid(selection: backgroundColorBinding)
-                    ColorPicker("自由に色を選ぶ",
-                                selection: colorPickerSelection(for: backgroundColorBinding),
-                                supportsOpacity: false)
                 }
                 .padding(.vertical, 4)
             } header: {
@@ -458,6 +456,7 @@ private struct WallpaperCalendarPreviewEditor: View {
     let pages: [WallpaperCalendarPreviewPage]
     let selectedPreset: WallpaperCalendarLayoutPreset
     let backgroundImage: UIImage?
+    @Binding var backgroundColor: Color
     let isDarkAppearance: Bool
     let isLoadingBackground: Bool
     let onSelectPreset: (WallpaperCalendarLayoutPreset) -> Void
@@ -532,16 +531,20 @@ private struct WallpaperCalendarPreviewEditor: View {
     @ViewBuilder
     private var backgroundToolbar: some View {
         if backgroundImage == nil {
-            PhotosPicker(selection: $selectedBackgroundItem, matching: .images) {
-                PreviewEditorIconButton(
-                    systemImage: "photo.badge.plus",
-                    isLoading: isLoadingBackground,
-                    tint: .accentColor
-                )
+            HStack(spacing: 14) {
+                PhotosPicker(selection: $selectedBackgroundItem, matching: .images) {
+                    PreviewEditorIconButton(
+                        systemImage: "photo.badge.plus",
+                        isLoading: isLoadingBackground,
+                        tint: .accentColor
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(isLoadingBackground)
+                .accessibilityLabel("壁紙画像を選ぶ")
+
+                PreviewEditorColorPicker(color: $backgroundColor)
             }
-            .buttonStyle(.plain)
-            .disabled(isLoadingBackground)
-            .accessibilityLabel("壁紙画像を選ぶ")
         } else {
             HStack(spacing: 14) {
                 PhotosPicker(selection: $selectedBackgroundItem, matching: .images) {
@@ -564,6 +567,21 @@ private struct WallpaperCalendarPreviewEditor: View {
                 .accessibilityLabel("背景画像を削除")
             }
         }
+    }
+}
+
+private struct PreviewEditorColorPicker: View {
+    @Binding var color: Color
+
+    var body: some View {
+        ColorPicker("", selection: $color, supportsOpacity: false)
+            .labelsHidden()
+            .frame(width: 46, height: 46)
+            .overlay {
+                PreviewEditorIconButton(systemImage: "paintpalette", tint: .accentColor)
+                    .allowsHitTesting(false)
+            }
+            .accessibilityLabel("背景色を自由に選ぶ")
     }
 }
 
