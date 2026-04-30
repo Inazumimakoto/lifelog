@@ -71,7 +71,7 @@ struct WallpaperCalendarSettingsView: View {
     var body: some View {
         Form {
             previewSection
-            backgroundSection
+            backgroundColorSection
             displaySection
             shortcutSection
             generationSection
@@ -118,18 +118,19 @@ struct WallpaperCalendarSettingsView: View {
     private var previewSection: some View {
         Section {
             if let previewSnapshot {
-                HStack {
-                    Spacer()
-                    WallpaperCalendarLockScreenPreview(
-                        snapshot: previewSnapshot,
-                        settings: settings,
-                        backgroundImage: previewBackgroundImage,
-                        isDarkAppearance: resolvedDarkAppearance
-                    )
-                    .scaledPhonePreview(width: 260)
-                    Spacer()
-                }
-                .listRowInsets(EdgeInsets(top: 16, leading: 0, bottom: 16, trailing: 0))
+                WallpaperCalendarPreviewEditor(
+                    selectedBackgroundItem: $selectedBackgroundItem,
+                    snapshot: previewSnapshot,
+                    settings: settings,
+                    backgroundImage: previewBackgroundImage,
+                    isDarkAppearance: resolvedDarkAppearance,
+                    isLoadingBackground: isLoadingBackground,
+                    onAdjustBackground: {
+                        isShowingBackgroundAdjustment = true
+                    },
+                    onRemoveBackground: removeBackgroundImage
+                )
+                .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -139,15 +140,10 @@ struct WallpaperCalendarSettingsView: View {
 
     private var displaySection: some View {
         Section("表示") {
-            Picker("配置", selection: layoutPresetBinding) {
-                ForEach(WallpaperCalendarLayoutPreset.selectableCases) { preset in
-                    Text(preset.title).tag(preset)
-                }
-            }
-
-            Label(settings.layoutPreset.detail, systemImage: "calendar")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            WeekLayoutSelector(
+                selectedPreset: settings.layoutPreset.normalized,
+                onSelect: selectLayoutPreset
+            )
 
             Picker("表示内容", selection: binding(\.privacyMode)) {
                 ForEach(WallpaperCalendarPrivacyMode.allCases) { mode in
@@ -157,44 +153,10 @@ struct WallpaperCalendarSettingsView: View {
         }
     }
 
-    private var backgroundSection: some View {
-        Section {
-            PhotosPicker(selection: $selectedBackgroundItem, matching: .images) {
-                HStack {
-                    Label(settings.backgroundImageFilename == nil ? "壁紙画像を選ぶ" : "壁紙画像を変更",
-                          systemImage: "photo")
-                    Spacer()
-                    if isLoadingBackground {
-                        ProgressView()
-                    } else {
-                        Image(systemName: "chevron.right")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-
-            if settings.backgroundImageFilename != nil {
-                Button {
-                    isShowingBackgroundAdjustment = true
-                } label: {
-                    Label("画像の位置を調整", systemImage: "arrow.up.left.and.arrow.down.right")
-                }
-                .disabled(previewBackgroundImage == nil)
-
-                Button(role: .destructive) {
-                    settings = settingsStore.removeBackgroundImage()
-                    previewBackgroundImage = nil
-                    generatedImage = nil
-                    generatedImageURL = nil
-                    _Concurrency.Task {
-                        await refreshPreview()
-                    }
-                } label: {
-                    Label("背景画像を削除", systemImage: "trash")
-                }
-            }
-
-            if settings.backgroundImageFilename == nil {
+    @ViewBuilder
+    private var backgroundColorSection: some View {
+        if settings.backgroundImageFilename == nil {
+            Section {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("画像を選ばない場合の背景色")
                         .font(.subheadline)
@@ -204,11 +166,11 @@ struct WallpaperCalendarSettingsView: View {
                                 supportsOpacity: false)
                 }
                 .padding(.vertical, 4)
+            } header: {
+                Text("背景色")
+            } footer: {
+                Text("画像を選ぶと中央で切り抜いて予定を重ねます。画像を選ばない場合は単色背景になります。")
             }
-        } header: {
-            Text("壁紙")
-        } footer: {
-            Text("画像を選ぶと中央で切り抜いて予定を重ねます。画像を選ばない場合は単色背景になります。")
         }
     }
 
@@ -291,21 +253,6 @@ struct WallpaperCalendarSettingsView: View {
         )
     }
 
-    private var layoutPresetBinding: Binding<WallpaperCalendarLayoutPreset> {
-        Binding(
-            get: {
-                settings.layoutPreset.normalized
-            },
-            set: { newValue in
-                let normalizedValue = newValue.normalized
-                guard settings.layoutPreset.normalized != normalizedValue else { return }
-                settings.layoutPreset = normalizedValue
-                settings.weekCount = normalizedValue.weekCount
-                persistSettingsChange()
-            }
-        )
-    }
-
     private var backgroundColorBinding: Binding<String> {
         Binding(
             get: {
@@ -317,6 +264,16 @@ struct WallpaperCalendarSettingsView: View {
                 persistSettingsChange()
             }
         )
+    }
+
+    private func selectLayoutPreset(_ newValue: WallpaperCalendarLayoutPreset) {
+        let normalizedValue = newValue.normalized
+        guard settings.layoutPreset.normalized != normalizedValue else { return }
+        withAnimation(.spring(response: 0.28, dampingFraction: 0.86)) {
+            settings.layoutPreset = normalizedValue
+            settings.weekCount = normalizedValue.weekCount
+        }
+        persistSettingsChange()
     }
 
     private func persistSettingsChange() {
@@ -335,6 +292,16 @@ struct WallpaperCalendarSettingsView: View {
         generatedImage = nil
         generatedImageURL = nil
         persistSettingsChange()
+    }
+
+    private func removeBackgroundImage() {
+        settings = settingsStore.removeBackgroundImage()
+        previewBackgroundImage = nil
+        generatedImage = nil
+        generatedImageURL = nil
+        _Concurrency.Task {
+            await refreshPreview()
+        }
     }
 
     private func loadBackground(from item: PhotosPickerItem) {
@@ -459,6 +426,165 @@ struct WallpaperCalendarSettingsView: View {
 
     private var resolvedDarkAppearance: Bool {
         previewBackgroundImage != nil || WallpaperCalendarBackgroundPalette.isDark(settings.backgroundColorToken)
+    }
+}
+
+private struct WallpaperCalendarPreviewEditor: View {
+    @Binding var selectedBackgroundItem: PhotosPickerItem?
+
+    let snapshot: WallpaperCalendarSnapshot
+    let settings: WallpaperCalendarSettings
+    let backgroundImage: UIImage?
+    let isDarkAppearance: Bool
+    let isLoadingBackground: Bool
+    let onAdjustBackground: () -> Void
+    let onRemoveBackground: () -> Void
+
+    var body: some View {
+        VStack(spacing: 14) {
+            backgroundToolbar
+                .frame(height: 48)
+
+            WallpaperCalendarLockScreenPreview(
+                snapshot: snapshot,
+                settings: settings,
+                backgroundImage: backgroundImage,
+                isDarkAppearance: isDarkAppearance
+            )
+            .scaledPhonePreview(width: 272)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 16)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+    }
+
+    @ViewBuilder
+    private var backgroundToolbar: some View {
+        if backgroundImage == nil {
+            PhotosPicker(selection: $selectedBackgroundItem, matching: .images) {
+                PreviewEditorIconButton(
+                    systemImage: "photo.badge.plus",
+                    isLoading: isLoadingBackground,
+                    tint: .accentColor
+                )
+            }
+            .buttonStyle(.plain)
+            .disabled(isLoadingBackground)
+            .accessibilityLabel("壁紙画像を選ぶ")
+        } else {
+            HStack(spacing: 14) {
+                PhotosPicker(selection: $selectedBackgroundItem, matching: .images) {
+                    PreviewEditorIconButton(systemImage: "photo", tint: .accentColor)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("壁紙画像を変更")
+
+                Button(action: onAdjustBackground) {
+                    PreviewEditorIconButton(systemImage: "arrow.up.left.and.arrow.down.right", tint: .accentColor)
+                }
+                .buttonStyle(.plain)
+                .disabled(backgroundImage == nil)
+                .accessibilityLabel("画像の位置を調整")
+
+                Button(role: .destructive, action: onRemoveBackground) {
+                    PreviewEditorIconButton(systemImage: "trash", tint: .red)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("背景画像を削除")
+            }
+        }
+    }
+}
+
+private struct PreviewEditorIconButton: View {
+    let systemImage: String
+    var isLoading = false
+    var tint: Color = .accentColor
+
+    var body: some View {
+        Circle()
+            .fill(tint.opacity(0.14))
+            .frame(width: 46, height: 46)
+            .overlay {
+                if isLoading {
+                    ProgressView()
+                } else {
+                    Image(systemName: systemImage)
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundStyle(tint)
+                }
+            }
+    }
+}
+
+private struct WeekLayoutSelector: View {
+    let selectedPreset: WallpaperCalendarLayoutPreset
+    let onSelect: (WallpaperCalendarLayoutPreset) -> Void
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(WallpaperCalendarLayoutPreset.selectableCases) { preset in
+                    Button {
+                        onSelect(preset)
+                    } label: {
+                        WeekLayoutCard(
+                            preset: preset,
+                            isSelected: selectedPreset.normalized == preset.normalized
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+}
+
+private struct WeekLayoutCard: View {
+    let preset: WallpaperCalendarLayoutPreset
+    let isSelected: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(preset.weekLayoutTitle)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(.primary)
+
+            Text(preset.weekLayoutSubtitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+        }
+        .frame(width: 130, height: 74, alignment: .topLeading)
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(isSelected ? Color.accentColor.opacity(0.14) : Color.secondary.opacity(0.08))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .stroke(isSelected ? Color.accentColor : Color.secondary.opacity(0.18), lineWidth: isSelected ? 2 : 1)
+        )
+    }
+}
+
+private extension WallpaperCalendarLayoutPreset {
+    var weekLayoutTitle: String {
+        "\(weekCount.rawValue)週"
+    }
+
+    var weekLayoutSubtitle: String {
+        switch normalized {
+        case .standard:
+            return "ふだん使い"
+        case .avoidMedia:
+            return "再生バーあり"
+        case .avoidWidgetsAndMedia:
+            return "両方あり"
+        case .avoidWidgets:
+            return "ふだん使い"
+        }
     }
 }
 
