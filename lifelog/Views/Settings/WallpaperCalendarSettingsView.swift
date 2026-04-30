@@ -72,7 +72,6 @@ struct WallpaperCalendarSettingsView: View {
     var body: some View {
         Form {
             previewSection
-            backgroundColorSection
             displaySection
             shortcutSection
             generationSection
@@ -134,7 +133,8 @@ struct WallpaperCalendarSettingsView: View {
                     },
                     onRemoveBackground: removeBackgroundImage
                 )
-                .listRowInsets(EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16))
+                .listRowInsets(EdgeInsets(top: 16, leading: 0, bottom: 16, trailing: 0))
+                .listRowBackground(Color.clear)
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, alignment: .center)
@@ -148,24 +148,6 @@ struct WallpaperCalendarSettingsView: View {
                 ForEach(WallpaperCalendarPrivacyMode.allCases) { mode in
                     Text(mode.title).tag(mode)
                 }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var backgroundColorSection: some View {
-        if settings.backgroundImageFilename == nil {
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("画像を選ばない場合の背景色")
-                        .font(.subheadline)
-                    backgroundColorSwatchGrid(selection: backgroundColorBinding)
-                }
-                .padding(.vertical, 4)
-            } header: {
-                Text("背景色")
-            } footer: {
-                Text("画像を選ぶと中央で切り抜いて予定を重ねます。画像を選ばない場合は単色背景になります。")
             }
         }
     }
@@ -383,38 +365,6 @@ struct WallpaperCalendarSettingsView: View {
         generatedImage = url.flatMap { UIImage(contentsOfFile: $0.path) }
     }
 
-    private func backgroundColorSwatchGrid(selection: Binding<String>) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 6), spacing: 12) {
-                ForEach(WallpaperCalendarBackgroundPalette.choices, id: \.self) { token in
-                    Circle()
-                        .fill(AppColorPalette.color(for: token))
-                        .frame(width: 28, height: 28)
-                        .overlay(
-                            Circle()
-                                .stroke(Color.secondary.opacity(token == WallpaperCalendarBackgroundPalette.whiteToken ? 0.35 : 0),
-                                        lineWidth: 1)
-                        )
-                        .overlay(
-                            Circle()
-                                .stroke(
-                                    isSameColorToken(selection.wrappedValue, token) ? Color.primary : Color.clear,
-                                    lineWidth: 2
-                                )
-                        )
-                        .onTapGesture {
-                            selection.wrappedValue = token
-                        }
-                }
-            }
-            .padding(.vertical, 4)
-
-            Text(selection.wrappedValue)
-                .font(.caption.monospaced())
-                .foregroundStyle(.secondary)
-        }
-    }
-
     private func colorPickerSelection(for selection: Binding<String>) -> Binding<Color> {
         Binding(
             get: {
@@ -467,9 +417,11 @@ private struct WallpaperCalendarPreviewEditor: View {
     private let previewHeight: CGFloat = 852 * (272.0 / 393.0)
 
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: 12) {
             backgroundToolbar
                 .frame(height: 48)
+
+            previewPageIndicator
 
             TabView(selection: previewSelection) {
                 ForEach(pages) { page in
@@ -485,12 +437,8 @@ private struct WallpaperCalendarPreviewEditor: View {
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .frame(height: previewHeight)
-
-            previewPageIndicator
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 16)
-        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
     }
 
     private var previewSelection: Binding<String> {
