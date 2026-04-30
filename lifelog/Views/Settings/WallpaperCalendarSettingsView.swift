@@ -21,6 +21,7 @@ struct WallpaperCalendarSettingsView: View {
     @State private var alertMessage: String?
 
     private let settingsStore = WallpaperCalendarSettingsStore.shared
+    private let shortcutCreateURL = URL(string: "shortcuts://create-shortcut")
 
     var body: some View {
         Form {
@@ -141,13 +142,39 @@ struct WallpaperCalendarSettingsView: View {
     }
 
     private var shortcutSection: some View {
-        Section("ショートカット") {
-            Label("壁紙カレンダーを更新", systemImage: "sparkles.rectangle.stack")
-                .foregroundStyle(.primary)
+        Section {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("なぜショートカットが必要？", systemImage: "questionmark.circle")
+                    .font(.subheadline.weight(.semibold))
+                Text("lifelifyは壁紙用の画像を作成します。ロック画面への設定はiOSの「壁紙を設定」アクションに渡す必要があります。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(.vertical, 2)
 
-            Text("ショートカットでこのアクションを実行し、続けて「壁紙を設定」に渡すとロック画面を更新できます。")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Button {
+                openShortcutCreator()
+            } label: {
+                HStack {
+                    Label("ショートカット作成画面を開く", systemImage: "square.grid.2x2")
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 12) {
+                ShortcutInstructionRow(number: 1, text: "アクションに「壁紙カレンダーを更新」を追加")
+                ShortcutInstructionRow(number: 2, text: "次に「壁紙を設定」を追加")
+                ShortcutInstructionRow(number: 3, text: "入力画像をロック画面の壁紙に設定")
+                ShortcutInstructionRow(number: 4, text: "自動更新したい場合はオートメーションで時刻や「lifelifyを閉じたとき」に実行")
+            }
+            .padding(.vertical, 4)
+        } header: {
+            Text("ショートカット")
+        } footer: {
+            Text("予定・タスク・日付・設定が同じ場合は、作成済みの画像を再利用します。")
         }
     }
 
@@ -291,6 +318,14 @@ struct WallpaperCalendarSettingsView: View {
         }
     }
 
+    private func openShortcutCreator() {
+        guard let shortcutCreateURL else {
+            alertMessage = "ショートカット作成画面を開けませんでした。"
+            return
+        }
+        UIApplication.shared.open(shortcutCreateURL)
+    }
+
     private func loadGeneratedImage() {
         let url = settingsStore.generatedImageURL(for: settings)
         generatedImageURL = url
@@ -349,6 +384,26 @@ struct WallpaperCalendarSettingsView: View {
 
     private var resolvedDarkAppearance: Bool {
         previewBackgroundImage != nil || WallpaperCalendarBackgroundPalette.isDark(settings.backgroundColorToken)
+    }
+}
+
+private struct ShortcutInstructionRow: View {
+    let number: Int
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Text("\(number)")
+                .font(.caption.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(width: 22, height: 22)
+                .background(Color.accentColor, in: Circle())
+
+            Text(text)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
