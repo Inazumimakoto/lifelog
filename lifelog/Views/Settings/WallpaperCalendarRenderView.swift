@@ -16,10 +16,12 @@ struct WallpaperCalendarRenderView: View {
 
     private let gridSpacing: CGFloat = 4
     private let cellTopPadding: CGFloat = 4
-    private let cellHorizontalPadding: CGFloat = 2
-    private let dateRowHeight: CGFloat = 20
-    private let previewRowHeight: CGFloat = 16
+    private let cellHorizontalPadding: CGFloat = 0
+    private let cellHeight: CGFloat = 88
+    private let dateRowHeight: CGFloat = 18
+    private let previewRowHeight: CGFloat = 14
     private let cellRowSpacing: CGFloat = 2
+    private let cellCornerRadius: CGFloat = 10
     private let previewRowCornerRadius: CGFloat = 4
 
     var body: some View {
@@ -58,10 +60,10 @@ struct WallpaperCalendarRenderView: View {
     }
 
     private var weekdayHeader: some View {
-        HStack(spacing: gridSpacing) {
+        HStack(spacing: 0) {
             ForEach(Array(snapshot.weekdaySymbols.enumerated()), id: \.offset) { _, symbol in
                 Text(symbol)
-                    .font(.system(size: 12, weight: .semibold))
+                    .font(.caption)
                     .foregroundStyle(secondaryTextColor)
                     .frame(maxWidth: .infinity)
             }
@@ -103,6 +105,14 @@ struct WallpaperCalendarRenderView: View {
         .padding(.top, cellTopPadding)
         .padding(.horizontal, cellHorizontalPadding)
         .frame(width: width, height: height, alignment: .top)
+        .background(
+            RoundedRectangle(cornerRadius: cellCornerRadius)
+                .fill(
+                    WallpaperCalendarDataProvider.calendar.isDateInToday(day.date)
+                    ? Color.accentColor.opacity(0.12)
+                    : Color.clear
+                )
+        )
         .contentShape(Rectangle())
     }
 
@@ -111,20 +121,10 @@ struct WallpaperCalendarRenderView: View {
         let calendar = WallpaperCalendarDataProvider.calendar
         let dayText = String(calendar.component(.day, from: date))
 
-        if calendar.isDateInToday(date) {
-            Text(dayText)
-                .font(.system(size: 17, weight: .bold))
-                .foregroundStyle(Color.white)
-                .frame(width: 28, height: 28)
-                .background(Color.blue, in: Circle())
-                .offset(y: -4)
-        } else {
-            Text(dayText)
-                .font(.system(size: 17, weight: .medium))
-                .foregroundStyle(dateTextColor(for: date))
-                .frame(width: 28, height: 28, alignment: .center)
-                .offset(y: -4)
-        }
+        Text(dayText)
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(dateTextColor(for: date))
+            .padding(.horizontal, 4)
     }
 
     @ViewBuilder
@@ -136,9 +136,9 @@ struct WallpaperCalendarRenderView: View {
                 .frame(height: previewRowHeight)
         case .overflow(let count):
             Text("+\(count)")
-                .font(.system(size: 10, weight: .semibold))
+                .font(.system(size: 9))
                 .foregroundStyle(secondaryTextColor)
-                .padding(.horizontal, 3)
+                .padding(.horizontal, 4)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(height: previewRowHeight)
         case .item(let item):
@@ -187,10 +187,7 @@ struct WallpaperCalendarRenderView: View {
                             color: Color,
                             leadingRadius: CGFloat,
                             trailingRadius: CGFloat) -> some View {
-        Text(title)
-            .font(.system(size: 10, weight: .semibold))
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
+        WallpaperCalendarPreviewText(text: title)
             .foregroundStyle(primaryTextColor)
             .padding(.horizontal, 3)
             .padding(.vertical, 1.5)
@@ -211,7 +208,6 @@ struct WallpaperCalendarRenderView: View {
     private func layoutMetrics(in size: CGSize) -> WallpaperCalendarLayoutMetrics {
         let horizontalPadding = max(26, size.width * 0.07)
         let width = max(0, size.width - horizontalPadding * 2)
-        let cellHeight = cellHeight(for: settings.effectiveWeekCount)
         let weekdayHeaderHeight: CGFloat = 24
         let gridHeight = gridHeight(cellHeight: cellHeight)
         let height = weekdayHeaderHeight + gridSpacing + gridHeight
@@ -226,21 +222,10 @@ struct WallpaperCalendarRenderView: View {
         )
     }
 
-    private func cellHeight(for weekCount: WallpaperCalendarWeekCount) -> CGFloat {
-        switch weekCount {
-        case .two:
-            return 98
-        case .three:
-            return 92
-        case .four:
-            return 86
-        }
-    }
-
     private func layoutTop(in size: CGSize) -> CGFloat {
         switch settings.layoutPreset {
         case .standard:
-            return size.height * 0.34
+            return size.height * 0.36
         case .avoidWidgets:
             return size.height * 0.43
         case .avoidMedia:
@@ -292,4 +277,47 @@ private struct WallpaperCalendarLayoutMetrics {
     let height: CGFloat
     let cellHeight: CGFloat
     let weekdayHeaderHeight: CGFloat
+}
+
+private struct WallpaperCalendarPreviewText: UIViewRepresentable {
+    let text: String
+
+    func makeUIView(context: Context) -> UILabel {
+        let label = UILabel()
+        label.numberOfLines = 1
+        label.lineBreakMode = .byClipping
+        label.adjustsFontSizeToFitWidth = false
+        label.allowsDefaultTighteningForTruncation = true
+        label.textColor = .label
+        label.backgroundColor = .clear
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        label.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        label.setContentCompressionResistancePriority(.required, for: .vertical)
+        label.setContentHuggingPriority(.required, for: .vertical)
+        label.font = Self.previewFont
+        return label
+    }
+
+    func updateUIView(_ uiView: UILabel, context: Context) {
+        uiView.text = text
+        uiView.font = Self.previewFont
+    }
+
+    @available(iOS 16.0, *)
+    static func sizeThatFits(_ proposal: ProposedViewSize, uiView: UILabel, context: Context) -> CGSize {
+        let targetWidth = proposal.width ?? .greatestFiniteMagnitude
+        let targetHeight = proposal.height ?? .greatestFiniteMagnitude
+        let size = uiView.sizeThatFits(CGSize(width: targetWidth, height: targetHeight))
+        return CGSize(width: proposal.width ?? size.width, height: size.height)
+    }
+
+    private static let previewFont: UIFont = {
+        let baseFont = UIFont.systemFont(ofSize: 9, weight: .medium)
+        let descriptor = baseFont.fontDescriptor
+        let traits = (descriptor.object(forKey: .traits) as? [UIFontDescriptor.TraitKey: Any]) ?? [:]
+        var condensedTraits = traits
+        condensedTraits[.width] = -0.2
+        let condensedDescriptor = descriptor.addingAttributes([.traits: condensedTraits])
+        return UIFont(descriptor: condensedDescriptor, size: 9)
+    }()
 }
