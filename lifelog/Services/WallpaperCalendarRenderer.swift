@@ -167,7 +167,7 @@ final class WallpaperCalendarRenderer {
             : UIColor.black.withAlphaComponent(0.62)
         let cellWidth = calendarGridCellWidth(for: layout.width)
         let gridTop = layout.y + layout.weekdayHeaderHeight + gridSpacing
-        let chipAlpha: CGFloat = hasBackgroundImage ? 0.70 : 0.30
+        let chipAlpha: CGFloat = hasBackgroundImage ? 0.62 : 0.30
 
         drawWeekdayHeader(snapshot.weekdaySymbols,
                           layout: layout,
@@ -233,7 +233,7 @@ final class WallpaperCalendarRenderer {
                              chipAlpha: CGFloat) {
         let calendar = WallpaperCalendarDataProvider.calendar
         if calendar.isDateInToday(day.date) {
-            UIColor.systemBlue.withAlphaComponent(0.12).setFill()
+            UIColor.systemBlue.withAlphaComponent(0.28).setFill()
             UIBezierPath(roundedRect: rect, cornerRadius: cellCornerRadius).fill()
         }
 

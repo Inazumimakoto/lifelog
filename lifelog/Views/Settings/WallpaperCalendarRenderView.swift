@@ -114,7 +114,7 @@ struct WallpaperCalendarRenderView: View {
             RoundedRectangle(cornerRadius: cellCornerRadius)
                 .fill(
                     WallpaperCalendarDataProvider.calendar.isDateInToday(day.date)
-                    ? Color.accentColor.opacity(0.12)
+                    ? Color.accentColor.opacity(0.28)
                     : Color.clear
                 )
         )
@@ -209,7 +209,7 @@ struct WallpaperCalendarRenderView: View {
                     bottomTrailingRadius: trailingRadius,
                     topTrailingRadius: trailingRadius
                 )
-                .fill(color.opacity(backgroundImage == nil ? 0.30 : 0.70))
+                .fill(color.opacity(backgroundImage == nil ? 0.30 : 0.62))
             )
             .clipped()
     }
