@@ -165,6 +165,7 @@ final class WallpaperCalendarRenderer {
         let secondaryColor = isDarkAppearance
             ? UIColor.white.withAlphaComponent(0.78)
             : UIColor.black.withAlphaComponent(0.62)
+        let textShadow = makeTextShadow(isEnabled: isDarkAppearance)
         let cellWidth = calendarGridCellWidth(for: layout.width)
         let gridTop = layout.y + layout.weekdayHeaderHeight + gridSpacing
         let chipAlpha: CGFloat = hasBackgroundImage ? 0.62 : 0.30
@@ -172,7 +173,8 @@ final class WallpaperCalendarRenderer {
         drawWeekdayHeader(snapshot.weekdaySymbols,
                           layout: layout,
                           primaryColor: secondaryColor,
-                          cellWidth: cellWidth)
+                          cellWidth: cellWidth,
+                          textShadow: textShadow)
 
         for (weekIndex, week) in snapshot.weeks.enumerated() {
             let weekY = gridTop + CGFloat(weekIndex) * (cellHeight + gridSpacing)
@@ -184,7 +186,8 @@ final class WallpaperCalendarRenderer {
                             settings: settings,
                             primaryColor: primaryColor,
                             secondaryColor: secondaryColor,
-                            chipAlpha: chipAlpha)
+                            chipAlpha: chipAlpha,
+                            textShadow: textShadow)
             }
         }
 
@@ -202,7 +205,8 @@ final class WallpaperCalendarRenderer {
                                leadingRadius: segment.continuesBeforeWeek ? 0 : previewRowCornerRadius,
                                trailingRadius: segment.continuesAfterWeek ? 0 : previewRowCornerRadius,
                                textColor: primaryColor,
-                               alpha: chipAlpha)
+                               alpha: chipAlpha,
+                               textShadow: textShadow)
             }
         }
 
@@ -212,7 +216,8 @@ final class WallpaperCalendarRenderer {
     private func drawWeekdayHeader(_ symbols: [String],
                                    layout: WallpaperCalendarDrawingLayout,
                                    primaryColor: UIColor,
-                                   cellWidth: CGFloat) {
+                                   cellWidth: CGFloat,
+                                   textShadow: NSShadow?) {
         let font = UIFont.systemFont(ofSize: 12)
         for (index, symbol) in symbols.enumerated() {
             let rect = CGRect(
@@ -221,7 +226,7 @@ final class WallpaperCalendarRenderer {
                 width: cellWidth,
                 height: layout.weekdayHeaderHeight
             )
-            drawText(symbol, in: rect, font: font, color: primaryColor, alignment: .center)
+            drawText(symbol, in: rect, font: font, color: primaryColor, alignment: .center, shadow: textShadow)
         }
     }
 
@@ -230,7 +235,8 @@ final class WallpaperCalendarRenderer {
                              settings: WallpaperCalendarSettings,
                              primaryColor: UIColor,
                              secondaryColor: UIColor,
-                             chipAlpha: CGFloat) {
+                             chipAlpha: CGFloat,
+                             textShadow: NSShadow?) {
         let calendar = WallpaperCalendarDataProvider.calendar
         if calendar.isDateInToday(day.date) {
             UIColor.systemBlue.withAlphaComponent(0.28).setFill()
@@ -249,7 +255,8 @@ final class WallpaperCalendarRenderer {
                  in: dateRect,
                  font: UIFont.systemFont(ofSize: 15, weight: .semibold),
                  color: dateColor,
-                 alignment: .left)
+                 alignment: .left,
+                 shadow: textShadow)
 
         for (rowIndex, rowContent) in day.rowContents.enumerated() {
             let rowY = rect.minY + cellTopPadding + dateRowHeight + cellRowSpacing +
@@ -263,7 +270,8 @@ final class WallpaperCalendarRenderer {
                          in: rowRect.insetBy(dx: 4, dy: 0),
                          font: UIFont.systemFont(ofSize: 9),
                          color: secondaryColor,
-                         alignment: .left)
+                         alignment: .left,
+                         shadow: textShadow)
             case .item(let item):
                 drawPreviewBar(title: item.displayTitle(privacyMode: settings.privacyMode),
                                color: UIColor(item.color),
@@ -271,7 +279,8 @@ final class WallpaperCalendarRenderer {
                                leadingRadius: previewRowCornerRadius,
                                trailingRadius: previewRowCornerRadius,
                                textColor: primaryColor,
-                               alpha: chipAlpha)
+                               alpha: chipAlpha,
+                               textShadow: textShadow)
             }
         }
     }
@@ -282,7 +291,8 @@ final class WallpaperCalendarRenderer {
                                 leadingRadius: CGFloat,
                                 trailingRadius: CGFloat,
                                 textColor: UIColor,
-                                alpha: CGFloat) {
+                                alpha: CGFloat,
+                                textShadow: NSShadow?) {
         guard rect.width > 0, rect.height > 0 else { return }
         color.withAlphaComponent(alpha).setFill()
         previewBarPath(rect: rect, leadingRadius: leadingRadius, trailingRadius: trailingRadius).fill()
@@ -290,22 +300,27 @@ final class WallpaperCalendarRenderer {
                  in: rect.insetBy(dx: 3, dy: 1.5),
                  font: previewFont,
                  color: textColor,
-                 alignment: .left)
+                 alignment: .left,
+                 shadow: textShadow)
     }
 
     private func drawText(_ text: String,
                           in rect: CGRect,
                           font: UIFont,
                           color: UIColor,
-                          alignment: NSTextAlignment) {
+                          alignment: NSTextAlignment,
+                          shadow: NSShadow? = nil) {
         let paragraph = NSMutableParagraphStyle()
         paragraph.alignment = alignment
         paragraph.lineBreakMode = .byClipping
-        let attributes: [NSAttributedString.Key: Any] = [
+        var attributes: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: color,
             .paragraphStyle: paragraph
         ]
+        if let shadow {
+            attributes[.shadow] = shadow
+        }
         let currentContext = UIGraphicsGetCurrentContext()
         currentContext?.saveGState()
         currentContext?.clip(to: rect)
@@ -316,6 +331,15 @@ final class WallpaperCalendarRenderer {
             context: nil
         )
         currentContext?.restoreGState()
+    }
+
+    private func makeTextShadow(isEnabled: Bool) -> NSShadow? {
+        guard isEnabled else { return nil }
+        let shadow = NSShadow()
+        shadow.shadowColor = UIColor.black.withAlphaComponent(0.50)
+        shadow.shadowBlurRadius = 1.2
+        shadow.shadowOffset = CGSize(width: 0, height: 1)
+        return shadow
     }
 
     private func layoutMetrics(in size: CGSize, settings: WallpaperCalendarSettings) -> WallpaperCalendarDrawingLayout {

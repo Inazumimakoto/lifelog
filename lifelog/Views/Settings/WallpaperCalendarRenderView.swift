@@ -70,6 +70,7 @@ struct WallpaperCalendarRenderView: View {
                 Text(symbol)
                     .font(.caption)
                     .foregroundStyle(secondaryTextColor)
+                    .shadow(color: textShadowColor, radius: textShadowRadius, x: 0, y: 1)
                     .frame(maxWidth: .infinity)
             }
         }
@@ -129,6 +130,7 @@ struct WallpaperCalendarRenderView: View {
         Text(dayText)
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(dateTextColor(for: date))
+            .shadow(color: textShadowColor, radius: textShadowRadius, x: 0, y: 1)
             .padding(.horizontal, 4)
     }
 
@@ -143,6 +145,7 @@ struct WallpaperCalendarRenderView: View {
             Text("+\(count)")
                 .font(.system(size: 9))
                 .foregroundStyle(secondaryTextColor)
+                .shadow(color: textShadowColor, radius: textShadowRadius, x: 0, y: 1)
                 .padding(.horizontal, 4)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(height: previewRowHeight)
@@ -198,6 +201,7 @@ struct WallpaperCalendarRenderView: View {
             .fixedSize(horizontal: true, vertical: false)
             .allowsTightening(true)
             .foregroundStyle(primaryTextColor)
+            .shadow(color: textShadowColor, radius: textShadowRadius, x: 0, y: 1)
             .padding(.horizontal, 3)
             .padding(.vertical, 1.5)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -271,6 +275,14 @@ struct WallpaperCalendarRenderView: View {
 
     private var secondaryTextColor: Color {
         isDarkAppearance ? Color.white.opacity(0.78) : Color.black.opacity(0.62)
+    }
+
+    private var textShadowColor: Color {
+        isDarkAppearance ? Color.black.opacity(0.45) : Color.clear
+    }
+
+    private var textShadowRadius: CGFloat {
+        isDarkAppearance ? 1.2 : 0
     }
 }
 
