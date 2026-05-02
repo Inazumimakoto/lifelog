@@ -845,7 +845,8 @@ struct JournalView: View {
             // Date fixed in top-left
             Text("\(Calendar.current.component(.day, from: day.date))")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(day.isWithinDisplayedMonth ? .primary : .secondary)
+                .foregroundStyle(calendarDateTextColor(for: day.date,
+                                                       isWithinDisplayedMonth: day.isWithinDisplayedMonth))
                 .padding(.horizontal, 4)  // Date gets its own padding
                 .frame(height: calendarCellDateRowHeight, alignment: .leading)
             
@@ -1035,6 +1036,7 @@ struct JournalView: View {
             // Date fixed in top-left
             Text("\(Calendar.current.component(.day, from: date))")
                 .font(.subheadline.weight(.semibold))
+                .foregroundStyle(calendarDateTextColor(for: date))
                 .padding(.horizontal, 4)  // Date gets its own padding
                 .frame(height: calendarCellDateRowHeight, alignment: .leading)
             
@@ -1074,6 +1076,13 @@ struct JournalView: View {
 
     private var activeDisplayMode: JournalViewModel.DisplayMode {
         calendarMode == .review ? .month : viewModel.displayMode
+    }
+
+    private func calendarDateTextColor(for date: Date, isWithinDisplayedMonth: Bool = true) -> Color {
+        guard isWithinDisplayedMonth, Calendar.current.isDateInWeekend(date) == false else {
+            return .secondary
+        }
+        return .primary
     }
 
     private func reviewMonthCalendar(for anchor: Date) -> some View {
@@ -3764,7 +3773,7 @@ private struct ReviewDayCell: View {
             ZStack(alignment: .top) {
                 Text("\(Calendar.current.component(.day, from: day.date))")
                     .font(.caption.weight(.bold))
-                    .foregroundStyle(hasPhoto ? .white : (day.isWithinDisplayedMonth ? .primary : .secondary))
+                    .foregroundStyle(reviewDateTextColor)
                     .padding(.horizontal, 4)
                     .padding(.vertical, 2)
                     .background(
@@ -3811,6 +3820,14 @@ private struct ReviewDayCell: View {
             thumbnail = nil
             thumbnail = await PhotoStorage.loadThumbnail(at: path)
         }
+    }
+
+    private var reviewDateTextColor: Color {
+        guard hasPhoto == false else { return .white }
+        guard day.isWithinDisplayedMonth, Calendar.current.isDateInWeekend(day.date) == false else {
+            return .secondary
+        }
+        return .primary
     }
 }
 

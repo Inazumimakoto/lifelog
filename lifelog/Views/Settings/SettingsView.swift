@@ -9,6 +9,8 @@ import SwiftUI
 import MessageUI
 
 struct SettingsView: View {
+    private let openWallpaperCalendarOnAppear: Bool
+
     @EnvironmentObject private var store: AppDataStore
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var monetization = MonetizationService.shared
@@ -16,6 +18,7 @@ struct SettingsView: View {
     @State private var showMailComposer = false
     @State private var showMailErrorAlert = false
     @State private var showCalendarSettings = false
+    @State private var showWallpaperCalendarSettings = false
     @State private var showNotificationSettings = false
     @State private var showHelp = false
     @State private var showLetterList = false
@@ -35,13 +38,20 @@ struct SettingsView: View {
     @State private var optimizeTotal: Int = 0
     @State private var optimizeResult: String?
     @State private var currentStorageSize: Int64 = 0
+    @State private var didHandleInitialWallpaperCalendarNavigation = false
 #if DEBUG
     private let debugAutomaticStorefront = "AUTO"
+    @AppStorage(WallpaperCalendarAnnouncementState.hasSeenKey) private var hasSeenWallpaperCalendarAnnouncement = false
+    @State private var showWallpaperCalendarAnnouncementDebug = false
 #endif
     @StateObject private var githubService = GitHubService.shared
     
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    }
+
+    init(openWallpaperCalendarOnAppear: Bool = false) {
+        self.openWallpaperCalendarOnAppear = openWallpaperCalendarOnAppear
     }
     
     var body: some View {
@@ -264,6 +274,18 @@ struct SettingsView: View {
                 }
 
 #if DEBUG
+                Button {
+                    showWallpaperCalendarAnnouncementDebug = true
+                } label: {
+                    Label("ロック画面カレンダー告知を表示", systemImage: "rectangle.stack.badge.play")
+                }
+
+                Button {
+                    hasSeenWallpaperCalendarAnnouncement = false
+                } label: {
+                    Label("ロック画面カレンダー告知を未読に戻す", systemImage: "arrow.counterclockwise")
+                }
+
                 Picker("課金テスト国", selection: debugStorefrontSelectionBinding) {
                     Text("自動").tag(debugAutomaticStorefront)
                     Text("日本 (JP)").tag("JP")
@@ -344,6 +366,24 @@ struct SettingsView: View {
                     }
             }
         }
+        .sheet(isPresented: $showWallpaperCalendarSettings) {
+            NavigationStack {
+                WallpaperCalendarSettingsView()
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("閉じる") {
+                                showWallpaperCalendarSettings = false
+                            }
+                        }
+                    }
+            }
+        }
+#if DEBUG
+        .modifier(DebugWallpaperCalendarAnnouncementOverlayModifier(
+            isPresented: $showWallpaperCalendarAnnouncementDebug,
+            showWallpaperCalendarSettings: $showWallpaperCalendarSettings
+        ))
+#endif
         .sheet(isPresented: $showNotificationSettings) {
             NotificationSettingsSheet(isPresented: $showNotificationSettings)
         }
@@ -418,6 +458,7 @@ struct SettingsView: View {
         }
         .onAppear {
             currentStorageSize = PhotoStorage.totalStorageSize()
+            openInitialWallpaperCalendarSettingsIfNeeded()
         }
     }
 
@@ -428,6 +469,18 @@ struct SettingsView: View {
             } label: {
                 HStack {
                     Label("カレンダー連携", systemImage: "arrow.triangle.2.circlepath")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .foregroundStyle(.primary)
+
+            Button {
+                showWallpaperCalendarSettings = true
+            } label: {
+                HStack {
+                    Label("ロック画面カレンダー", systemImage: "rectangle.stack.fill")
                     Spacer()
                     Image(systemName: "chevron.right")
                         .foregroundStyle(.secondary)
@@ -519,6 +572,19 @@ struct SettingsView: View {
         }
     }
 
+    private func openInitialWallpaperCalendarSettingsIfNeeded() {
+        guard openWallpaperCalendarOnAppear,
+              didHandleInitialWallpaperCalendarNavigation == false
+        else {
+            return
+        }
+
+        didHandleInitialWallpaperCalendarNavigation = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
+            showWallpaperCalendarSettings = true
+        }
+    }
+
 #if DEBUG
     private var debugStorefrontSelectionBinding: Binding<String> {
         Binding(
@@ -540,6 +606,28 @@ struct SettingsView: View {
     }
 #endif
 }
+
+#if DEBUG
+private struct DebugWallpaperCalendarAnnouncementOverlayModifier: ViewModifier {
+    @Binding var isPresented: Bool
+    @Binding var showWallpaperCalendarSettings: Bool
+
+    func body(content: Content) -> some View {
+        content.modifier(WallpaperCalendarAnnouncementOverlayModifier(
+            isPresented: $isPresented,
+            onDismiss: {
+                isPresented = false
+            },
+            onOpenSettings: {
+                isPresented = false
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+                    showWallpaperCalendarSettings = true
+                }
+            }
+        ))
+    }
+}
+#endif
 
 // メール作成用のラッパーView
 struct MailComposerView: UIViewControllerRepresentable {

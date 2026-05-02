@@ -114,6 +114,8 @@ class LetterSendingService {
         guard let currentUser = Auth.auth().currentUser else {
             throw SendError.notAuthenticated
         }
+        let senderEmoji = AuthService.shared.currentUser?.emoji ?? "😊"
+        let senderName = AuthService.shared.currentUser?.displayName ?? "送信者"
         
         // 2. 未開封上限チェック（5通）
         let pendingCount = try await getPendingLetterCount(
@@ -160,6 +162,8 @@ class LetterSendingService {
         // 6. Firestoreに保存
         let letterData: [String: Any] = [
             "senderId": currentUser.uid,
+            "senderEmoji": senderEmoji,
+            "senderName": senderName,
             "recipientId": recipient.odic,
             "encryptedContent": encryptedContentBase64,
             "encryptedPhotoURLs": encryptedPhotoURLs,
@@ -294,6 +298,8 @@ class LetterSendingService {
         guard let currentUser = Auth.auth().currentUser else {
             throw SendError.notAuthenticated
         }
+        let senderEmoji = AuthService.shared.currentUser?.emoji ?? "😊"
+        let senderName = AuthService.shared.currentUser?.displayName ?? "送信者"
         
         // 2. 自分の公開鍵を取得
         let publicKeyData = try e2eeService.getOrCreateKeyPair()
@@ -323,6 +329,8 @@ class LetterSendingService {
         // 5. Firestoreに保存（即座に配信済み）
         let letterData: [String: Any] = [
             "senderId": currentUser.uid,
+            "senderEmoji": senderEmoji,
+            "senderName": senderName,
             "recipientId": currentUser.uid,  // 自分自身
             "encryptedContent": encryptedContentBase64,
             "encryptedPhotoURLs": encryptedPhotoURLs,

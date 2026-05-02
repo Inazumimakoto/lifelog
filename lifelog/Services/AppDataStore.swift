@@ -1108,11 +1108,14 @@ final class AppDataStore: ObservableObject {
 
     // MARK: - Memo Pad
 
-    func updateMemoPad(text: String) {
-        guard text != memoPad.text else { return }
-        memoPad.text = text
-        memoPad.lastUpdatedAt = Date()
-        persistMemoPad()
+    func updateMemoPad(text: String, syncSwiftData: Bool = true) {
+        if text != memoPad.text {
+            memoPad.text = text
+            memoPad.lastUpdatedAt = Date()
+        } else {
+            guard syncSwiftData else { return }
+        }
+        persistMemoPad(syncSwiftData: syncSwiftData)
     }
 
     private static func loadMemoPad() -> MemoPad {
@@ -1124,10 +1127,11 @@ final class AppDataStore: ObservableObject {
         return MemoPad()
     }
 
-    private func persistMemoPad() {
+    private func persistMemoPad(syncSwiftData: Bool = true) {
         if let data = try? JSONEncoder().encode(memoPad) {
             UserDefaults.standard.set(data, forKey: Self.memoPadDefaultsKey)
         }
+        guard syncSwiftData else { return }
         
         // SwiftData
         let descriptor = FetchDescriptor<SDMemoPad>()
