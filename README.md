@@ -11,11 +11,22 @@
 </p>
 
 <p align="center">
-  <img src="https://is1-ssl.mzstatic.com/image/thumb/PurpleSource221/v4/5a/ce/26/5ace26e1-cb6b-5aa3-edee-d195e854785a/Apple_iPhone_16_Pro_Max_Screenshot_1.png/600x1300bb.webp" width="19%" alt="lifelify home screenshot">
-  <img src="https://is1-ssl.mzstatic.com/image/thumb/PurpleSource211/v4/83/32/b1/8332b1cb-7729-1e4a-aa91-acc497e22e84/Apple_iPhone_16_Pro_Max_Screenshot_2.png/600x1300bb.webp" width="19%" alt="lifelify calendar screenshot">
-  <img src="https://is1-ssl.mzstatic.com/image/thumb/PurpleSource211/v4/17/c7/78/17c77876-3123-66be-008f-2d18a3bb2fcf/Apple_iPhone_16_Pro_Max_Screenshot_3.png/600x1300bb.webp" width="19%" alt="lifelify habit screenshot">
-  <img src="https://is1-ssl.mzstatic.com/image/thumb/PurpleSource221/v4/c8/02/71/c802718a-8528-0c81-770b-e33d54bcf26d/Apple_iPhone_16_Pro_Max_Screenshot_4.png/600x1300bb.webp" width="19%" alt="lifelify diary screenshot">
-  <img src="https://is1-ssl.mzstatic.com/image/thumb/PurpleSource211/v4/76/d9/2c/76d92c14-a5f7-2ba6-5fb9-1befee565eef/Apple_iPhone_16_Pro_Max_Screenshot_5.png/600x1300bb.webp" width="19%" alt="lifelify health screenshot">
+  <img src="https://is1-ssl.mzstatic.com/image/thumb/PurpleSource221/v4/5a/ce/26/5ace26e1-cb6b-5aa3-edee-d195e854785a/Apple_iPhone_16_Pro_Max_Screenshot_1.png/600x1300bb.webp" width="23%" alt="lifelify home screenshot">
+  <img src="https://is1-ssl.mzstatic.com/image/thumb/PurpleSource211/v4/83/32/b1/8332b1cb-7729-1e4a-aa91-acc497e22e84/Apple_iPhone_16_Pro_Max_Screenshot_2.png/600x1300bb.webp" width="23%" alt="lifelify calendar screenshot">
+  <img src="https://is1-ssl.mzstatic.com/image/thumb/PurpleSource211/v4/17/c7/78/17c77876-3123-66be-008f-2d18a3bb2fcf/Apple_iPhone_16_Pro_Max_Screenshot_3.png/600x1300bb.webp" width="23%" alt="lifelify habit screenshot">
+  <img src="https://is1-ssl.mzstatic.com/image/thumb/PurpleSource221/v4/c8/02/71/c802718a-8528-0c81-770b-e33d54bcf26d/Apple_iPhone_16_Pro_Max_Screenshot_4.png/600x1300bb.webp" width="23%" alt="lifelify diary screenshot">
+  <img src="https://is1-ssl.mzstatic.com/image/thumb/PurpleSource211/v4/76/d9/2c/76d92c14-a5f7-2ba6-5fb9-1befee565eef/Apple_iPhone_16_Pro_Max_Screenshot_5.png/600x1300bb.webp" width="23%" alt="lifelify health screenshot">
+  <img src="https://is1-ssl.mzstatic.com/image/thumb/PurpleSource221/v4/62/6c/33/626c33b6-b80a-4726-61cb-cb2175622bdd/Apple_iPhone_16_Pro_Max_Screenshot_6.png/600x1300bb.webp" width="23%" alt="lifelify widget screenshot">
+  <img src="https://is1-ssl.mzstatic.com/image/thumb/PurpleSource211/v4/79/e7/9d/79e79d32-49de-6805-48dc-49cc8d1cbf3b/Apple_iPhone_16_Pro_Max_Screenshot_7.png/600x1300bb.webp" width="23%" alt="lifelify lock screen guide screenshot">
+  <img src="https://is1-ssl.mzstatic.com/image/thumb/PurpleSource221/v4/75/54/d5/7554d507-d733-c6f0-4e7f-1a11cf954126/Apple_iPhone_16_Pro_Max_Screenshot_8.png/600x1300bb.webp" width="23%" alt="lifelify wallpaper calendar screenshot">
+</p>
+
+## Recent Update
+
+ロック画面からもカレンダーを確認できる機能を追加しました。予定やタスクを壁紙カレンダーとして表示できるので、アプリを開かなくても直近の予定をすぐに見られます。
+
+<p align="center">
+  <img src="assets/lock-screen-calendar.png" width="32%" alt="lifelify lock screen calendar">
 </p>
 
 ## Features
@@ -30,6 +41,7 @@
 | 記念日 | 誕生日、イベント、記念日をカウントダウンまたは経過日数で表示 |
 | ヘルス | 歩数、睡眠、消費カロリーなどをカードとグラフで振り返り |
 | ウィジェット | ホーム画面やロック画面で予定、タスク、習慣、記念日、メモを確認 |
+| ロック画面カレンダー | 予定やタスクを壁紙カレンダーとして表示し、ロック画面から確認 |
 | プライバシー | アプリロック、日記・メモ本文の非表示、ローカル中心のデータ管理 |
 
 ## Concept
@@ -51,7 +63,7 @@
 
 | Metric | Value |
 | --- | ---: |
-| 総行数 | 71,682 |
+| 総行数 | 72,720 |
 | 最大ファイル | `lifelog/Views/Journal/JournalView.swift` / 3,873 行 |
 
 集計対象: `git ls-files` で追跡されているリポジトリ内ファイル。依存関係フォルダなど未追跡ファイルは含みません。
