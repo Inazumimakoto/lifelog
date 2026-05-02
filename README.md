@@ -51,10 +51,10 @@
 
 | Metric | Value |
 | --- | ---: |
-| 総行数 | 45,702 |
+| 総行数 | 71,682 |
 | 最大ファイル | `lifelog/Views/Journal/JournalView.swift` / 3,873 行 |
 
-集計対象: Swift / TypeScript / JSON / Markdown / plist / HTML / entitlements / pbxproj / rules。`node_modules` と `package-lock.json` は除外しています。
+集計対象: `git ls-files` で追跡されているリポジトリ内ファイル。依存関係フォルダなど未追跡ファイルは含みません。
 
 ## Repository
 
@@ -101,20 +101,3 @@ xcodebuild test -project lifelog.xcodeproj -scheme lifelog -destination 'platfor
 ## License
 
 MIT License. See [`LICENSE`](LICENSE).
-
-
-#### Directory LOC
-
-<!-- dir-loc-start -->
-| Directory | LOC |
-|:--|--:|
-| `lifelog` | 54,199 |
-| `functions` | 10,189 |
-| `docs` | 2,657 |
-| `LifelogWidgets` | 2,305 |
-| `lifelog.xcodeproj` | 933 |
-| `assets` | 688 |
-| `(root)` | 416 |
-| `public` | 163 |
-| `.github` | 132 |
-<!-- dir-loc-end -->
