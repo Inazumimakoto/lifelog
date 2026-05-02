@@ -2033,7 +2033,11 @@ struct JournalView: View {
 
     private func refreshExternalCalendars() {
         _Concurrency.Task {
-            await viewModel.syncExternalCalendarsIfNeeded(force: true, anchorDate: viewModel.monthAnchor)
+            await viewModel.syncExternalCalendarsIfNeeded(
+                force: true,
+                anchorDate: viewModel.monthAnchor,
+                allowPermissionPrompt: true
+            )
         }
     }
 

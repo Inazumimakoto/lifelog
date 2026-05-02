@@ -20,9 +20,11 @@ final class WeatherService: NSObject, ObservableObject {
     private let weatherKitService = WeatherKit.WeatherService.shared
     private let locationManager = CLLocationManager()
     private var lastFetchDate: Date?
+    private var authorizationContinuation: CheckedContinuation<Bool, Never>?
     
     override init() {
         super.init()
+        locationStatus = locationManager.authorizationStatus
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
     }
@@ -31,11 +33,36 @@ final class WeatherService: NSObject, ObservableObject {
     func requestLocationPermission() {
         locationManager.requestWhenInUseAuthorization()
     }
+
+    /// 初期設定画面から位置情報の許可をリクエスト
+    func requestLocationPermissionForInitialSetup() async -> Bool {
+        locationStatus = locationManager.authorizationStatus
+
+        switch locationStatus {
+        case .authorizedWhenInUse, .authorizedAlways:
+            await fetchWeather()
+            return true
+        case .denied, .restricted:
+            return false
+        case .notDetermined:
+            return await withCheckedContinuation { continuation in
+                authorizationContinuation?.resume(returning: false)
+                authorizationContinuation = continuation
+                requestLocationPermission()
+            }
+        @unknown default:
+            return false
+        }
+    }
     
     /// 天気情報を取得
-    func fetchWeather() async {
+    func fetchWeather(allowPermissionPrompt: Bool = false) async {
+        locationStatus = locationManager.authorizationStatus
+
         guard locationStatus == .authorizedWhenInUse || locationStatus == .authorizedAlways else {
-            requestLocationPermission()
+            if allowPermissionPrompt {
+                requestLocationPermission()
+            }
             return
         }
         
@@ -87,7 +114,11 @@ extension WeatherService: CLLocationManagerDelegate {
     nonisolated func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
         _Concurrency.Task { @MainActor in
             self.locationStatus = status
-            if status == .authorizedWhenInUse || status == .authorizedAlways {
+            let granted = status == .authorizedWhenInUse || status == .authorizedAlways
+            self.authorizationContinuation?.resume(returning: granted)
+            self.authorizationContinuation = nil
+
+            if granted {
                 await self.fetchWeather()
             }
         }

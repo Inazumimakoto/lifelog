@@ -32,7 +32,7 @@ final class AppDataStore: ObservableObject {
     @Published private(set) var sharedLetters: [SharedLetter] = []  // 他ユーザーからの手紙
     @Published private(set) var appState: AppState = AppState()
     @Published private(set) var locationVisitTagDefinitions: [LocationVisitTagDefinition] = []
-    
+
     // MARK: - Cache
     private var eventsCache: [Date: [CalendarEvent]] = [:]
     private var externalCalendarRange: ExternalCalendarRange? = nil
@@ -189,33 +189,48 @@ final class AppDataStore: ObservableObject {
         seedSampleDataIfNeeded()
         seedJapaneseScheduleForScreenshotsIfNeeded()
         #endif
-        _Concurrency.Task {
-            await loadHealthData()
+        loadCachedHealthData()
+        if UserDefaults.standard.bool(forKey: InitialPermissionsState.healthRequestedKey) {
+            _Concurrency.Task {
+                await loadHealthData()
+            }
         }
     }
-    
-    func loadHealthData() async {
-        // Load cached data first
+
+    private func loadCachedHealthData() {
         let cached: [HealthSummary] = Self.loadValue(forKey: Self.healthSummariesDefaultsKey, defaultValue: [])
         if !cached.isEmpty {
             self.healthSummaries = cached
         }
-        
-        let authorized = await HealthKitManager.shared.requestAuthorization()
-        if authorized {
-            // Fetch recent 7 days for quick update, then full year in background
-            let recentFetched = await HealthKitManager.shared.fetchHealthData(for: 7)
-            if !recentFetched.isEmpty {
-                mergeHealthSummaries(recentFetched)
-            }
-            
-            // Fetch full year (365 days) - this runs after recent data is shown
-            let fullFetched = await HealthKitManager.shared.fetchHealthData(for: 365)
-            if !fullFetched.isEmpty {
-                mergeHealthSummaries(fullFetched)
-                persistHealthSummaries()
+    }
+
+    @discardableResult
+    func loadHealthData(requestAuthorizationIfNeeded: Bool = false) async -> Bool {
+        loadCachedHealthData()
+
+        if requestAuthorizationIfNeeded {
+            UserDefaults.standard.set(true, forKey: InitialPermissionsState.healthRequestedKey)
+            let authorizationCompleted = await HealthKitManager.shared.requestAuthorization()
+            guard authorizationCompleted else { return false }
+        } else {
+            guard UserDefaults.standard.bool(forKey: InitialPermissionsState.healthRequestedKey) else {
+                return false
             }
         }
+
+        // Fetch recent 7 days for quick update, then full year in background.
+        let recentFetched = await HealthKitManager.shared.fetchHealthData(for: 7)
+        if !recentFetched.isEmpty {
+            mergeHealthSummaries(recentFetched)
+        }
+
+        let fullFetched = await HealthKitManager.shared.fetchHealthData(for: 365)
+        if !fullFetched.isEmpty {
+            mergeHealthSummaries(fullFetched)
+            persistHealthSummaries()
+        }
+
+        return true
     }
     
     private func mergeHealthSummaries(_ newData: [HealthSummary]) {
@@ -374,6 +389,29 @@ final class AppDataStore: ObservableObject {
         externalCalendarRange
     }
 
+    @discardableResult
+    func syncExternalCalendarsIfAuthorized(
+        requestPermissionIfNeeded: Bool = false,
+        anchorDate: Date = Date()
+    ) async -> Bool {
+        let calendarService = CalendarEventService()
+        let granted = await calendarService.requestAccessIfNeeded(shouldPrompt: requestPermissionIfNeeded)
+        guard granted else { return false }
+
+        calendarService.refreshCalendarLinks(store: self)
+        let range = currentExternalCalendarRange() ?? defaultExternalCalendarRange(for: anchorDate)
+
+        do {
+            let ekEvents = try await calendarService.fetchEvents(from: range.start, to: range.end)
+            let external = mapExternalEvents(from: ekEvents)
+            updateExternalCalendarEvents(external, range: range)
+            updateLastCalendarSync(date: Date())
+            return true
+        } catch {
+            return false
+        }
+    }
+
     var lastCalendarSyncDate: Date? {
         appState.lastCalendarSyncDate
     }
@@ -402,6 +440,30 @@ final class AppDataStore: ObservableObject {
         }
         appState.calendarCategoryLinks = links
         persistAppState()
+    }
+
+    private func defaultExternalCalendarRange(for anchor: Date) -> ExternalCalendarRange {
+        let calendar = Calendar.current
+        let anchorMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: anchor)) ?? anchor
+        let start = calendar.date(byAdding: .month, value: -6, to: anchorMonth) ?? anchorMonth
+        let endMonthStart = calendar.date(byAdding: .month, value: 19, to: anchorMonth) ?? anchorMonth
+        let end = calendar.date(byAdding: .second, value: -1, to: endMonthStart) ?? endMonthStart
+        return ExternalCalendarRange(start: start, end: end)
+    }
+
+    private func mapExternalEvents(from ekEvents: [EKEvent]) -> [CalendarEvent] {
+        let links = appState.calendarCategoryLinks
+        let linkMap = Dictionary(uniqueKeysWithValues: links.map { ($0.calendarIdentifier, $0) })
+        let defaultCategory = CategoryPalette.defaultCategoryName
+
+        return ekEvents.compactMap { event in
+            let identifier = event.calendar.calendarIdentifier
+            if let link = linkMap[identifier] {
+                guard let category = link.categoryId else { return nil }
+                return CalendarEvent(event: event, categoryName: category)
+            }
+            return CalendarEvent(event: event, categoryName: defaultCategory)
+        }
     }
     
     /// Auto-map calendar name to category based on keywords

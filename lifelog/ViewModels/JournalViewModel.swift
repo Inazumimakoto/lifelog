@@ -237,7 +237,11 @@ final class JournalViewModel: ObservableObject {
         return items.sorted(by: { $0.start < $1.start })
     }
 
-    func syncExternalCalendarsIfNeeded(force: Bool = false, anchorDate: Date? = nil) async {
+    func syncExternalCalendarsIfNeeded(
+        force: Bool = false,
+        anchorDate: Date? = nil,
+        allowPermissionPrompt: Bool = false
+    ) async {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let anchor = anchorDate ?? monthAnchor
@@ -262,7 +266,12 @@ final class JournalViewModel: ObservableObject {
             }
         }
 
-        let granted = await calendarService.requestAccessIfNeeded()
+        let status = EKEventStore.authorizationStatus(for: .event)
+        if status == .notDetermined && allowPermissionPrompt == false {
+            return
+        }
+
+        let granted = await calendarService.requestAccessIfNeeded(shouldPrompt: allowPermissionPrompt)
         guard granted else {
             calendarAccessDenied = true
             return

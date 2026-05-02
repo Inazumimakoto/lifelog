@@ -7,6 +7,7 @@
 
 import Foundation
 import UserNotifications
+import UIKit
 
 /// 通知タイプの識別子
 enum NotificationType: String {
@@ -29,9 +30,14 @@ class NotificationService {
     // MARK: - 通知許可
     
     /// 通知許可をリクエスト
-    func requestAuthorization() async -> Bool {
+    func requestAuthorization(registerForRemoteNotifications: Bool = false) async -> Bool {
         do {
             let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
+            if granted && registerForRemoteNotifications {
+                await MainActor.run {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
+            }
             return granted
         } catch {
             print("通知許可リクエストエラー: \(error)")

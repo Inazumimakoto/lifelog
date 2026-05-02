@@ -29,18 +29,19 @@ class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNUserNot
         UNUserNotificationCenter.current().delegate = self
         print("✅ 通知デリゲート設定完了")
         
-        // 通知許可リクエスト
-        let authOptions: UNAuthorizationOptions = [.alert, .badge, .sound]
-        UNUserNotificationCenter.current().requestAuthorization(
-            options: authOptions,
-            completionHandler: { granted, error in
-                print("📣 通知許可結果: granted=\(granted), error=\(String(describing: error))")
+        // 通知許可の OS ダイアログは初期設定フローから順番に出す。
+        // 既に許可済みの場合だけ APNs 登録を復元する。
+        UNUserNotificationCenter.current().getNotificationSettings { settings in
+            switch settings.authorizationStatus {
+            case .authorized, .provisional, .ephemeral:
+                DispatchQueue.main.async {
+                    print("📱 通知許可済みのため registerForRemoteNotifications を呼び出します...")
+                    application.registerForRemoteNotifications()
+                }
+            default:
+                break
             }
-        )
-        
-        print("📱 registerForRemoteNotifications を呼び出します...")
-        application.registerForRemoteNotifications()
-        print("📱 registerForRemoteNotifications 呼び出し完了")
+        }
         
         print("🚀🚀🚀 AppDelegate didFinishLaunchingWithOptions 終了 🚀🚀🚀")
         return true

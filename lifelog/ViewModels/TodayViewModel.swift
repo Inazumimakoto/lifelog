@@ -134,7 +134,11 @@ final class TodayViewModel: ObservableObject {
         store.deleteCalendarEvent(event.id)
     }
 
-    func syncExternalCalendarsIfNeeded(force: Bool = false, anchorDate: Date? = nil) async {
+    func syncExternalCalendarsIfNeeded(
+        force: Bool = false,
+        anchorDate: Date? = nil,
+        allowPermissionPrompt: Bool = false
+    ) async {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let anchor = anchorDate ?? date
@@ -159,7 +163,12 @@ final class TodayViewModel: ObservableObject {
             }
         }
 
-        let granted = await calendarService.requestAccessIfNeeded()
+        let status = EKEventStore.authorizationStatus(for: .event)
+        if status == .notDetermined && allowPermissionPrompt == false {
+            return
+        }
+
+        let granted = await calendarService.requestAccessIfNeeded(shouldPrompt: allowPermissionPrompt)
         guard granted else {
             await MainActor.run {
                 self.calendarAccessDenied = true

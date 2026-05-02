@@ -12,14 +12,17 @@ import EventKit
 final class CalendarEventService {
     private let eventStore = EKEventStore()
 
-    func requestAccessIfNeeded() async -> Bool {
+    func requestAccessIfNeeded(shouldPrompt: Bool = true) async -> Bool {
         let status = EKEventStore.authorizationStatus(for: .event)
         switch status {
-        case .authorized:
+        case .fullAccess:
             return true
+        case .writeOnly:
+            return false
         case .notDetermined:
+            guard shouldPrompt else { return false }
             do {
-                return try await eventStore.requestAccess(to: .event)
+                return try await eventStore.requestFullAccessToEvents()
             } catch {
                 return false
             }
@@ -29,8 +32,7 @@ final class CalendarEventService {
     }
 
     func fetchEvents(from startDate: Date, to endDate: Date) async throws -> [EKEvent] {
-        let status = EKEventStore.authorizationStatus(for: .event)
-        guard status == .authorized else { return [] }
+        guard Self.hasFullCalendarAccess else { return [] }
         guard startDate <= endDate else { return [] }
 
         let predicate = eventStore.predicateForEvents(withStart: startDate, end: endDate, calendars: nil)
@@ -40,11 +42,13 @@ final class CalendarEventService {
 
     func refreshCalendarLinks(store: AppDataStore) {
         // Only access calendars if authorized
-        let status = EKEventStore.authorizationStatus(for: .event)
-        guard status == .authorized else { return }
+        guard Self.hasFullCalendarAccess else { return }
         
         let calendars = eventStore.calendars(for: .event)
         store.updateCalendarLinks(with: calendars)
     }
 
+    private static var hasFullCalendarAccess: Bool {
+        EKEventStore.authorizationStatus(for: .event) == .fullAccess
+    }
 }

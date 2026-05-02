@@ -41,6 +41,8 @@ struct ContentView: View {
     @AppStorage(WallpaperCalendarAnnouncementState.hasSeenKey) private var hasSeenWallpaperCalendarAnnouncement = false
     @State private var showWallpaperCalendarAnnouncement = false
     @State private var showSettingsFromWallpaperCalendarAnnouncement = false
+    @AppStorage(InitialPermissionsState.completedKey) private var hasCompletedInitialPermissionsSetup = false
+    @State private var showInitialPermissionsSetup = false
 
     var body: some View {
         TabView(selection: $selection) {
@@ -200,6 +202,7 @@ struct ContentView: View {
         .onAppear {
             syncMemoPrivacySettingsToSharedDefaults()
             handleWidgetDestinationIfNeeded(deepLinkManager.pendingWidgetDestination)
+            presentInitialPermissionsSetupIfNeeded()
             presentWallpaperCalendarAnnouncementIfNeeded()
         }
         .onChange(of: isMemoTextHidden) { _, _ in
@@ -214,6 +217,7 @@ struct ContentView: View {
             handleWidgetDestinationIfNeeded(destination)
         }
         .onChange(of: appLockService.isUnlocked) { _, _ in
+            presentInitialPermissionsSetupIfNeeded()
             presentWallpaperCalendarAnnouncementIfNeeded()
         }
         .modifier(WallpaperCalendarAnnouncementOverlayModifier(
@@ -224,6 +228,13 @@ struct ContentView: View {
         .sheet(isPresented: $showSettingsFromWallpaperCalendarAnnouncement) {
             NavigationStack {
                 SettingsView(openWallpaperCalendarOnAppear: true)
+            }
+        }
+        .fullScreenCover(isPresented: $showInitialPermissionsSetup) {
+            InitialPermissionsSetupView(store: store) {
+                hasCompletedInitialPermissionsSetup = true
+                showInitialPermissionsSetup = false
+                handleInitialPermissionsSetupCompletion()
             }
         }
         .fullScreenCover(isPresented: $showMemoEditorFromWidget) {
@@ -277,8 +288,29 @@ struct ContentView: View {
         }
     }
 
+    private func presentInitialPermissionsSetupIfNeeded() {
+        guard hasCompletedInitialPermissionsSetup == false else { return }
+        guard appLockService.isAppLockEnabled == false || appLockService.isUnlocked else { return }
+        showInitialPermissionsSetup = true
+    }
+
+    private func handleInitialPermissionsSetupCompletion() {
+        store.rescheduleDiaryReminderIfNeeded()
+        store.rescheduleTodayOverviewReminderIfNeeded()
+        WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
+        WidgetCenter.shared.reloadTimelines(ofKind: "HabitWidget")
+        WidgetCenter.shared.reloadTimelines(ofKind: "AnniversaryWidget")
+        WidgetCenter.shared.reloadTimelines(ofKind: "MemoWidget")
+
+        _Concurrency.Task {
+            await store.loadHealthData()
+            await store.syncExternalCalendarsIfAuthorized()
+        }
+    }
+
     private func presentWallpaperCalendarAnnouncementIfNeeded() {
-        guard hasSeenWallpaperCalendarAnnouncement == false,
+        guard hasCompletedInitialPermissionsSetup,
+              hasSeenWallpaperCalendarAnnouncement == false,
               showWallpaperCalendarAnnouncement == false,
               showSettingsFromWallpaperCalendarAnnouncement == false,
               appLockService.isAppLockEnabled == false || appLockService.isUnlocked
@@ -287,7 +319,8 @@ struct ContentView: View {
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            guard hasSeenWallpaperCalendarAnnouncement == false,
+            guard hasCompletedInitialPermissionsSetup,
+                  hasSeenWallpaperCalendarAnnouncement == false,
                   showWallpaperCalendarAnnouncement == false,
                   showSettingsFromWallpaperCalendarAnnouncement == false,
                   appLockService.isAppLockEnabled == false || appLockService.isUnlocked

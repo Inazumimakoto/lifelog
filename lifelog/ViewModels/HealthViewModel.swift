@@ -65,7 +65,7 @@ final class HealthViewModel: ObservableObject {
     }
 
     func requestHealthKitAuthorization() async {
-        await store.loadHealthData()
+        await store.loadHealthData(requestAuthorizationIfNeeded: true)
     }
 
     private func bind() {
