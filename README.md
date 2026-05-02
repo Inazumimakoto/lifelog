@@ -113,3 +113,20 @@ xcodebuild test -project lifelog.xcodeproj -scheme lifelog -destination 'platfor
 ## License
 
 MIT License. See [`LICENSE`](LICENSE).
+
+
+#### Directory LOC
+
+<!-- dir-loc-start -->
+| Directory | LOC |
+|:--|--:|
+| `lifelog` | 54,244 |
+| `functions` | 10,189 |
+| `docs` | 2,657 |
+| `LifelogWidgets` | 2,305 |
+| `assets` | 1,714 |
+| `lifelog.xcodeproj` | 933 |
+| `(root)` | 428 |
+| `public` | 163 |
+| `.github` | 132 |
+<!-- dir-loc-end -->
