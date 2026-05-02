@@ -181,7 +181,12 @@ final class AppDataStore: ObservableObject {
         self.externalCalendarRange = storedRange
         self.locationVisitTagDefinitions = Self.loadValue(forKey: Self.locationVisitTagsDefaultsKey, defaultValue: [])
         normalizeLocationVisitTagOrderIfNeeded()
-        hasExistingUserFootprintForInitialPermissions = hasUserContentForInitialPermissions || Self.hasStoredUserDefaultsFootprintForInitialPermissions()
+        let hasSeenInitialPermissionsFeature = UserDefaults.standard.bool(forKey: InitialPermissionsState.featureSeenKey)
+        hasExistingUserFootprintForInitialPermissions = hasUserContentForInitialPermissions ||
+            Self.hasStoredUserDefaultsFootprintForInitialPermissions(
+                includeAutoSeededKeys: hasSeenInitialPermissionsFeature == false
+            )
+        UserDefaults.standard.set(true, forKey: InitialPermissionsState.featureSeenKey)
         seedDefaultLocationVisitTagsIfNeeded()
 
         reapplyEventCategoryNotificationSettings()
@@ -1624,8 +1629,8 @@ final class AppDataStore: ObservableObject {
         return defaultValue
     }
 
-    private static func hasStoredUserDefaultsFootprintForInitialPermissions() -> Bool {
-        let keys = [
+    private static func hasStoredUserDefaultsFootprintForInitialPermissions(includeAutoSeededKeys: Bool) -> Bool {
+        var keys = [
             tasksDefaultsKey,
             diaryDefaultsKey,
             habitsDefaultsKey,
@@ -1638,6 +1643,12 @@ final class AppDataStore: ObservableObject {
             appStateDefaultsKey,
             healthSummariesDefaultsKey
         ]
+        if includeAutoSeededKeys {
+            keys.append(contentsOf: [
+                locationVisitTagsDefaultsKey,
+                locationVisitTagsSeededDefaultsKey
+            ])
+        }
 
         let sharedDefaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier)
         return keys.contains { key in
