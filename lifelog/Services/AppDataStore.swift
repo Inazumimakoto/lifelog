@@ -37,6 +37,7 @@ final class AppDataStore: ObservableObject {
     private var eventsCache: [Date: [CalendarEvent]] = [:]
     private var externalCalendarRange: ExternalCalendarRange? = nil
     private var externalReminderRescheduleGeneration: UInt = 0
+    private(set) var hasExistingUserFootprintForInitialPermissions = false
 
     // MARK: - Legacy Persistence Keys
     private static let tasksDefaultsKey = "Tasks_Storage_V1"
@@ -180,6 +181,7 @@ final class AppDataStore: ObservableObject {
         self.externalCalendarRange = storedRange
         self.locationVisitTagDefinitions = Self.loadValue(forKey: Self.locationVisitTagsDefaultsKey, defaultValue: [])
         normalizeLocationVisitTagOrderIfNeeded()
+        hasExistingUserFootprintForInitialPermissions = hasUserContentForInitialPermissions || Self.hasStoredUserDefaultsFootprintForInitialPermissions()
         seedDefaultLocationVisitTagsIfNeeded()
 
         reapplyEventCategoryNotificationSettings()
@@ -195,6 +197,24 @@ final class AppDataStore: ObservableObject {
                 await loadHealthData()
             }
         }
+    }
+
+    private var hasUserContentForInitialPermissions: Bool {
+        !tasks.isEmpty ||
+        !diaryEntries.isEmpty ||
+        !habits.isEmpty ||
+        !habitRecords.isEmpty ||
+        !anniversaries.isEmpty ||
+        !calendarEvents.isEmpty ||
+        !externalCalendarEvents.isEmpty ||
+        !letters.isEmpty ||
+        !sharedLetters.isEmpty ||
+        !healthSummaries.isEmpty ||
+        memoPad.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ||
+        memoPad.lastUpdatedAt != nil ||
+        appState.lastCalendarSyncDate != nil ||
+        appState.calendarCategoryLinks.isEmpty == false ||
+        appState.diaryReminderEnabled
     }
 
     private func loadCachedHealthData() {
@@ -1602,6 +1622,27 @@ final class AppDataStore: ObservableObject {
             return decoded
         }
         return defaultValue
+    }
+
+    private static func hasStoredUserDefaultsFootprintForInitialPermissions() -> Bool {
+        let keys = [
+            tasksDefaultsKey,
+            diaryDefaultsKey,
+            habitsDefaultsKey,
+            habitRecordsDefaultsKey,
+            anniversariesDefaultsKey,
+            calendarEventsDefaultsKey,
+            externalCalendarEventsDefaultsKey,
+            externalCalendarRangeDefaultsKey,
+            memoPadDefaultsKey,
+            appStateDefaultsKey,
+            healthSummariesDefaultsKey
+        ]
+
+        let sharedDefaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier)
+        return keys.contains { key in
+            sharedDefaults?.object(forKey: key) != nil || UserDefaults.standard.object(forKey: key) != nil
+        }
     }
 
     static func normalizeDiaryEntries(_ entries: [DiaryEntry]) -> [DiaryEntry] {

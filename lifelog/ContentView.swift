@@ -290,6 +290,10 @@ struct ContentView: View {
 
     private func presentInitialPermissionsSetupIfNeeded() {
         guard hasCompletedInitialPermissionsSetup == false else { return }
+        if store.hasExistingUserFootprintForInitialPermissions {
+            hasCompletedInitialPermissionsSetup = true
+            return
+        }
         guard appLockService.isAppLockEnabled == false || appLockService.isUnlocked else { return }
         showInitialPermissionsSetup = true
     }
