@@ -8,6 +8,10 @@
 import SwiftUI
 import WidgetKit
 
+enum WallpaperCalendarAnnouncementState {
+    static let hasSeenKey = "hasSeenWallpaperCalendarAnnouncementV1"
+}
+
 struct ContentView: View {
     @EnvironmentObject private var store: AppDataStore
     @EnvironmentObject private var deepLinkManager: DeepLinkManager
@@ -34,6 +38,9 @@ struct ContentView: View {
     @State private var premiumAlertMessage: String?
     @State private var showMemoEditorFromWidget = false
     @State private var isHandlingWidgetDestination = false
+    @AppStorage(WallpaperCalendarAnnouncementState.hasSeenKey) private var hasSeenWallpaperCalendarAnnouncement = false
+    @State private var showWallpaperCalendarAnnouncement = false
+    @State private var showSettingsFromWallpaperCalendarAnnouncement = false
 
     var body: some View {
         TabView(selection: $selection) {
@@ -193,6 +200,7 @@ struct ContentView: View {
         .onAppear {
             syncMemoPrivacySettingsToSharedDefaults()
             handleWidgetDestinationIfNeeded(deepLinkManager.pendingWidgetDestination)
+            presentWallpaperCalendarAnnouncementIfNeeded()
         }
         .onChange(of: isMemoTextHidden) { _, _ in
             syncMemoPrivacySettingsToSharedDefaults()
@@ -204,6 +212,19 @@ struct ContentView: View {
         }
         .onChange(of: deepLinkManager.pendingWidgetDestination) { _, destination in
             handleWidgetDestinationIfNeeded(destination)
+        }
+        .onChange(of: appLockService.isUnlocked) { _, _ in
+            presentWallpaperCalendarAnnouncementIfNeeded()
+        }
+        .modifier(WallpaperCalendarAnnouncementOverlayModifier(
+            isPresented: $showWallpaperCalendarAnnouncement,
+            onDismiss: dismissWallpaperCalendarAnnouncement,
+            onOpenSettings: openSettingsFromWallpaperCalendarAnnouncement
+        ))
+        .sheet(isPresented: $showSettingsFromWallpaperCalendarAnnouncement) {
+            NavigationStack {
+                SettingsView(openWallpaperCalendarOnAppear: true)
+            }
         }
         .fullScreenCover(isPresented: $showMemoEditorFromWidget) {
             NavigationStack {
@@ -253,6 +274,40 @@ struct ContentView: View {
                 selection = 0
                 showMemoEditorFromWidget = true
             }
+        }
+    }
+
+    private func presentWallpaperCalendarAnnouncementIfNeeded() {
+        guard hasSeenWallpaperCalendarAnnouncement == false,
+              showWallpaperCalendarAnnouncement == false,
+              showSettingsFromWallpaperCalendarAnnouncement == false,
+              appLockService.isAppLockEnabled == false || appLockService.isUnlocked
+        else {
+            return
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+            guard hasSeenWallpaperCalendarAnnouncement == false,
+                  showWallpaperCalendarAnnouncement == false,
+                  showSettingsFromWallpaperCalendarAnnouncement == false,
+                  appLockService.isAppLockEnabled == false || appLockService.isUnlocked
+            else {
+                return
+            }
+            showWallpaperCalendarAnnouncement = true
+        }
+    }
+
+    private func dismissWallpaperCalendarAnnouncement() {
+        hasSeenWallpaperCalendarAnnouncement = true
+        showWallpaperCalendarAnnouncement = false
+    }
+
+    private func openSettingsFromWallpaperCalendarAnnouncement() {
+        hasSeenWallpaperCalendarAnnouncement = true
+        showWallpaperCalendarAnnouncement = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
+            showSettingsFromWallpaperCalendarAnnouncement = true
         }
     }
 

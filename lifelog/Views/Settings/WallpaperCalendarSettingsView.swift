@@ -26,9 +26,14 @@ struct WallpaperCalendarSettingsView: View {
 
     private static let shortcutGuideSteps: [ShortcutGuideStep] = [
         ShortcutGuideStep(
+            actionTitle: "ショートカット作成画面を開く",
+            actionSystemImage: "square.grid.2x2",
+            centersAction: true
+        ),
+        ShortcutGuideStep(
             assetName: "WallpaperShortcutGuide00",
             title: "lifelifyで検索",
-            detail: "上の「ショートカット作成画面を開く」を押して開けたら、検索欄に「lifelify」と入力し、「壁紙カレンダーを更新」を選びます。"
+            detail: "検索欄に「lifelify」と入力して「壁紙カレンダーを更新」を選びます。"
         ),
         ShortcutGuideStep(
             assetName: "WallpaperShortcutGuide01",
@@ -183,24 +188,22 @@ struct WallpaperCalendarSettingsView: View {
 
     private var shortcutSection: some View {
         Section {
-            Button {
-                openShortcutCreator()
-            } label: {
-                HStack {
-                    Label("ショートカット作成画面を開く", systemImage: "square.grid.2x2")
-                    Spacer()
-                    Image(systemName: "arrow.up.right")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
+            Text("次はショートカットとオートメーションを設定します。")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+                .fixedSize(horizontal: false, vertical: true)
 
             VStack(alignment: .leading, spacing: 12) {
                 ShortcutSetupNote()
 
                 ShortcutGuidePager(
                     steps: Self.shortcutGuideSteps,
-                    selection: $shortcutGuidePage
+                    selection: $shortcutGuidePage,
+                    onStepAction: { step in
+                        if step.actionTitle != nil {
+                            openShortcutCreator()
+                        }
+                    }
                 )
 
                 ShortcutAutomationSummary(
@@ -631,14 +634,18 @@ private struct ShortcutSetupNote: View {
 
 private struct ShortcutGuideStep: Identifiable {
     let id = UUID()
-    let assetName: String
-    let title: String
-    let detail: String
+    var assetName: String? = nil
+    var title: String? = nil
+    var detail: String? = nil
+    var actionTitle: String? = nil
+    var actionSystemImage: String? = nil
+    var centersAction = false
 }
 
 private struct ShortcutGuidePager: View {
     let steps: [ShortcutGuideStep]
     @Binding var selection: Int
+    var onStepAction: ((ShortcutGuideStep) -> Void)? = nil
 
     var body: some View {
         VStack(spacing: 10) {
@@ -647,7 +654,10 @@ private struct ShortcutGuidePager: View {
                     ShortcutGuideCard(
                         step: step,
                         currentIndex: index + 1,
-                        totalCount: steps.count
+                        totalCount: steps.count,
+                        onAction: step.actionTitle == nil ? nil : {
+                            onStepAction?(step)
+                        }
                     )
                     .tag(index)
                 }
@@ -671,8 +681,17 @@ private struct ShortcutGuideCard: View {
     let step: ShortcutGuideStep
     let currentIndex: Int
     let totalCount: Int
+    let onAction: (() -> Void)?
 
     var body: some View {
+        if step.centersAction {
+            actionOnlyCard
+        } else {
+            standardCard
+        }
+    }
+
+    private var standardCard: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text("\(currentIndex)/\(totalCount)")
@@ -682,28 +701,75 @@ private struct ShortcutGuideCard: View {
                 Spacer()
             }
 
-            Image(step.assetName)
-                .resizable()
-                .scaledToFit()
-                .frame(maxWidth: .infinity)
-                .frame(height: 360)
-                .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 8, style: .continuous)
-                        .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
-                )
+            if let assetName = step.assetName {
+                Image(assetName)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 360)
+                    .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .stroke(Color.secondary.opacity(0.18), lineWidth: 1)
+                    )
+            }
 
-            Text(step.title)
-                .font(.subheadline.weight(.semibold))
+            if let title = step.title {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+            }
 
-            Text(step.detail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
+            if let detail = step.detail {
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if let actionTitle = step.actionTitle, let onAction {
+                stepActionButton(title: actionTitle, action: onAction)
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var actionOnlyCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                Text("\(currentIndex)/\(totalCount)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+
+                Spacer()
+            }
+
+            Spacer()
+
+            if let actionTitle = step.actionTitle, let onAction {
+                stepActionButton(title: actionTitle, action: onAction)
+                    .frame(maxWidth: .infinity)
+            }
+
+            Spacer()
         }
         .padding(12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color.secondary.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private func stepActionButton(title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack {
+                Label(title, systemImage: step.actionSystemImage ?? "arrow.up.right")
+                Spacer()
+                Image(systemName: "arrow.up.right")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.bordered)
     }
 }
 
@@ -896,7 +962,7 @@ private struct WallpaperBackgroundAdjustmentSheet: View {
     }
 }
 
-private struct WallpaperCalendarLockScreenPreview: View {
+struct WallpaperCalendarLockScreenPreview: View {
     let snapshot: WallpaperCalendarSnapshot
     let settings: WallpaperCalendarSettings
     let backgroundImage: UIImage?
