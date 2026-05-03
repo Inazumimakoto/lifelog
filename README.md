@@ -10,6 +10,10 @@
   </a>
 </p>
 
+## Milestone
+
+130ダウンロード & 10レビューいただきました！皆さん本当にありがとうございます！このまま高評価を維持できるように頑張ります！
+
 <p align="center">
   <img src="https://is1-ssl.mzstatic.com/image/thumb/PurpleSource221/v4/5a/ce/26/5ace26e1-cb6b-5aa3-edee-d195e854785a/Apple_iPhone_16_Pro_Max_Screenshot_1.png/600x1300bb.webp" width="23%" alt="lifelify home screenshot">
   <img src="https://is1-ssl.mzstatic.com/image/thumb/PurpleSource211/v4/83/32/b1/8332b1cb-7729-1e4a-aa91-acc497e22e84/Apple_iPhone_16_Pro_Max_Screenshot_2.png/600x1300bb.webp" width="23%" alt="lifelify calendar screenshot">
@@ -63,7 +67,7 @@
 
 | Metric | Value |
 | --- | ---: |
-| 総行数 | 72,720 |
+| 総行数 | 72,798 |
 | 最大ファイル | `lifelog/Views/Journal/JournalView.swift` / 3,873 行 |
 
 集計対象: `git ls-files` で追跡されているリポジトリ内ファイル。依存関係フォルダなど未追跡ファイルは含みません。
