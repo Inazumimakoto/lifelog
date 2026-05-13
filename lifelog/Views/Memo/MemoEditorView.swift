@@ -28,7 +28,9 @@ struct MemoEditorView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ZStack(alignment: .topLeading) {
-                StableTextEditor(text: memoBinding)
+                StableTextEditor(text: memoBinding,
+                                 keyboardDismissMode: .interactive,
+                                 adjustsForKeyboard: true)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 12)
@@ -42,8 +44,10 @@ struct MemoEditorView: View {
                 .frame(maxWidth: .infinity, alignment: .trailing)
                 .opacity(viewModel.lastUpdatedAt == nil ? 0 : 1)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding()
         .navigationTitle("メモ")
+        .ignoresSafeArea(.keyboard, edges: .bottom)
         .scrollDismissesKeyboard(.never)
         .onAppear {
             if didLoadInitialDraft == false {

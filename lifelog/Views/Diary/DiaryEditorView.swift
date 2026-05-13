@@ -264,7 +264,8 @@ struct DiaryEditorView: View {
                     .padding(.vertical, 8)
                     .opacity(draftText.isEmpty ? 1 : 0)
                     .allowsHitTesting(false)
-                StableTextEditor(text: textBinding)
+                StableTextEditor(text: textBinding,
+                                 textContainerInset: UIEdgeInsets(top: 8, left: 6, bottom: 8, right: 6))
                     .frame(minHeight: 220, alignment: .topLeading)
             }
             Text("感じたことを自由に書き留めましょう。")
