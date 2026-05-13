@@ -772,6 +772,15 @@ final class AppDataStore: ObservableObject {
 
     func upsert(entry: DiaryEntry, syncSwiftData: Bool = true) {
         let normalized = normalizeDiaryEntry(entry)
+        if syncSwiftData == false {
+            persistDiaryEntryDraft(normalized)
+            let isToday = Calendar.current.isDateInToday(entry.date)
+            if isToday && diaryReminderEnabled && normalized.text.isEmpty == false {
+                NotificationService.shared.cancelDiaryReminder()
+            }
+            return
+        }
+
         if let index = diaryEntries.firstIndex(where: { $0.id == normalized.id }) {
             diaryEntries[index] = normalized
         } else {
@@ -788,6 +797,16 @@ final class AppDataStore: ObservableObject {
         guard syncSwiftData else { return }
         syncDiaryEntryToSwiftData(normalized)
         try? modelContext.save()
+    }
+
+    private func persistDiaryEntryDraft(_ entry: DiaryEntry) {
+        var draftEntries = diaryEntries
+        if let index = draftEntries.firstIndex(where: { $0.id == entry.id }) {
+            draftEntries[index] = entry
+        } else {
+            draftEntries.append(entry)
+        }
+        persist(draftEntries, forKey: Self.diaryDefaultsKey)
     }
     
     // MARK: - Location Visit Tags
@@ -1196,6 +1215,11 @@ final class AppDataStore: ObservableObject {
     // MARK: - Memo Pad
 
     func updateMemoPad(text: String, syncSwiftData: Bool = true) {
+        if syncSwiftData == false {
+            persistMemoPadDraft(text: text)
+            return
+        }
+
         if text != memoPad.text {
             memoPad.text = text
             memoPad.lastUpdatedAt = Date()
@@ -1203,6 +1227,17 @@ final class AppDataStore: ObservableObject {
             guard syncSwiftData else { return }
         }
         persistMemoPad(syncSwiftData: syncSwiftData)
+    }
+
+    private func persistMemoPadDraft(text: String) {
+        var draft = memoPad
+        if text != draft.text {
+            draft.text = text
+            draft.lastUpdatedAt = Date()
+        }
+        if let data = try? JSONEncoder().encode(draft) {
+            UserDefaults.standard.set(data, forKey: Self.memoPadDefaultsKey)
+        }
     }
 
     private static func loadMemoPad() -> MemoPad {

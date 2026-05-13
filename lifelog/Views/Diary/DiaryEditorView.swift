@@ -30,6 +30,7 @@ struct DiaryEditorView: View {
     @State private var photoLinkContext: PhotoLinkContext?
     @State private var showPaywall = false
     @State private var linkedPhotoPathsCache: Set<String> = []
+    @State private var didLoadInitialDraft = false
     
     // AI採点機能
     @State private var showAIAppSelectionSheet = false
@@ -101,7 +102,10 @@ struct DiaryEditorView: View {
                 }
         )
         .onAppear {
-            draftText = viewModel.entry.text
+            if didLoadInitialDraft == false {
+                draftText = viewModel.textDraft
+                didLoadInitialDraft = true
+            }
             refreshLinkedPhotoPaths()
             // 日記リマインダー設定を読み込み
             diaryReminderEnabled = viewModel.store.diaryReminderEnabled
@@ -137,7 +141,7 @@ struct DiaryEditorView: View {
             refreshLinkedPhotoPaths()
         }
         .onChange(of: viewModel.entry.date) { _, _ in
-            draftText = viewModel.entry.text
+            draftText = viewModel.textDraft
         }
         .onChange(of: scenePhase, initial: false) { _, newPhase in
             if newPhase != .active {
@@ -234,7 +238,7 @@ struct DiaryEditorView: View {
         if newDate > Date() { return }
         HapticManager.light()
         viewModel.loadEntry(for: newDate)
-        draftText = viewModel.entry.text
+        draftText = viewModel.textDraft
     }
 
     private var moodBinding: Binding<MoodLevel> {
@@ -260,10 +264,8 @@ struct DiaryEditorView: View {
                     .padding(.vertical, 8)
                     .opacity(draftText.isEmpty ? 1 : 0)
                     .allowsHitTesting(false)
-                TextEditor(text: textBinding)
-                    .font(.body)
+                StableTextEditor(text: textBinding)
                     .frame(minHeight: 220, alignment: .topLeading)
-                    .scrollContentBackground(.hidden)
             }
             Text("感じたことを自由に書き留めましょう。")
                 .font(.caption)

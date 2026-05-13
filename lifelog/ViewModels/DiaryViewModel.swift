@@ -39,6 +39,10 @@ final class DiaryViewModel: ObservableObject {
     var diaryPhotoLimit: Int {
         monetization.diaryPhotoLimit
     }
+
+    var textDraft: String {
+        pendingText
+    }
     
     /// テキスト保存用のデバウンスタスク
     private var textPersistTask: _Concurrency.Task<Void, Never>?

@@ -400,7 +400,11 @@ enum CategoryPalette {
     }
 
     static var defaultCategoryName: String {
-        allCategories().first?.name ?? "仕事"
+        let categories = allCategoriesMapping()
+        if categories["仕事"] != nil {
+            return "仕事"
+        }
+        return categories.keys.sorted().first ?? "仕事"
     }
 
 }

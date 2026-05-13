@@ -29,6 +29,10 @@ final class MemoPadViewModel: ObservableObject {
         bind()
     }
 
+    var textDraft: String {
+        pendingText
+    }
+
     func update(text: String) {
         guard pendingText != text else { return }
         pendingText = text
@@ -56,6 +60,7 @@ final class MemoPadViewModel: ObservableObject {
 
     private func persistText(syncSwiftData: Bool) {
         store.updateMemoPad(text: pendingText, syncSwiftData: syncSwiftData)
+        guard syncSwiftData else { return }
         memoText = pendingText
         lastUpdatedAt = store.memoPad.lastUpdatedAt
     }

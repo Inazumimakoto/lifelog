@@ -12,6 +12,7 @@ struct MemoEditorView: View {
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var viewModel: MemoPadViewModel
     @State private var draftText: String = ""
+    @State private var didLoadInitialDraft = false
 
     init(store: AppDataStore) {
         _viewModel = StateObject(wrappedValue: MemoPadViewModel(store: store))
@@ -27,12 +28,10 @@ struct MemoEditorView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ZStack(alignment: .topLeading) {
-                TextEditor(text: memoBinding)
-                    .keyboardType(.default)
+                StableTextEditor(text: memoBinding)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 12)
-                    .scrollContentBackground(.hidden)
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
             .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
@@ -47,7 +46,10 @@ struct MemoEditorView: View {
         .navigationTitle("メモ")
         .scrollDismissesKeyboard(.never)
         .onAppear {
-            draftText = viewModel.memoText
+            if didLoadInitialDraft == false {
+                draftText = viewModel.textDraft
+                didLoadInitialDraft = true
+            }
         }
         .onDisappear {
             viewModel.flushPendingSave()

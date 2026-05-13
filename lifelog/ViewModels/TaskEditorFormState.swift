@@ -11,6 +11,17 @@ import Combine
 /// タスクエディターのフォーム状態を管理するクラス
 /// @StateObjectとして使用することで、ビューが再作成されても状態が保持される
 class TaskEditorFormState: ObservableObject {
+    struct Draft: Equatable {
+        var title: String
+        var detail: String
+        var startDate: Date
+        var endDate: Date
+        var priority: TaskPriority
+        var hasReminder: Bool
+        var reminderDate: Date
+        var isSomeday: Bool
+    }
+
     @Published var title: String = ""
     @Published var detail: String = ""
     @Published var startDate: Date = Date()
@@ -21,7 +32,24 @@ class TaskEditorFormState: ObservableObject {
     @Published var isSomeday: Bool = false
     
     private let calendar = Calendar.current
+    private let draftKey: String
     private var isConfigured = false
+
+    init(task: Task? = nil, defaultDate: Date? = nil) {
+        self.draftKey = Self.makeDraftKey(task: task, defaultDate: defaultDate)
+        configure(task: task, defaultDate: defaultDate)
+    }
+
+    var draft: Draft {
+        Draft(title: title,
+              detail: detail,
+              startDate: startDate,
+              endDate: endDate,
+              priority: priority,
+              hasReminder: hasReminder,
+              reminderDate: reminderDate,
+              isSomeday: isSomeday)
+    }
     
     /// フォームを初期値で設定する（一度だけ実行される）
     func configure(task: Task?, defaultDate: Date?) {
@@ -66,10 +94,21 @@ class TaskEditorFormState: ObservableObject {
         // 新規タスクの場合、開始日の指定時刻に通知
         let defaultReminderDateTime = calendar.date(bySettingHour: defaultHour, minute: defaultMinute, second: 0, of: base) ?? base
         reminderDate = task?.reminderDate ?? defaultReminderDateTime
+
+        restoreCachedDraftIfAvailable()
+    }
+
+    func cacheDraft() {
+        TaskEditorDraftCache.drafts[draftKey] = draft
+    }
+
+    func clearCachedDraft() {
+        TaskEditorDraftCache.drafts[draftKey] = nil
     }
     
     /// フォームをリセットして次回の使用に備える
     func reset() {
+        clearCachedDraft()
         isConfigured = false
         title = ""
         detail = ""
@@ -80,4 +119,31 @@ class TaskEditorFormState: ObservableObject {
         reminderDate = Date()
         isSomeday = false
     }
+
+    private func restoreCachedDraftIfAvailable() {
+        guard let cached = TaskEditorDraftCache.drafts[draftKey] else { return }
+        title = cached.title
+        detail = cached.detail
+        startDate = cached.startDate
+        endDate = cached.endDate
+        priority = cached.priority
+        hasReminder = cached.hasReminder
+        reminderDate = cached.reminderDate
+        isSomeday = cached.isSomeday
+    }
+
+    private static func makeDraftKey(task: Task?, defaultDate: Date?) -> String {
+        if let task {
+            return "edit:\(task.id.uuidString)"
+        }
+        guard let defaultDate else {
+            return "new:undated"
+        }
+        let day = Calendar.current.startOfDay(for: defaultDate).timeIntervalSinceReferenceDate
+        return "new:\(day)"
+    }
+}
+
+private enum TaskEditorDraftCache {
+    static var drafts: [String: TaskEditorFormState.Draft] = [:]
 }

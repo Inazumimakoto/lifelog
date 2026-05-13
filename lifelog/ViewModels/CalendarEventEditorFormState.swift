@@ -11,6 +11,18 @@ import Combine
 /// カレンダーイベントエディターのフォーム状態を管理するクラス
 /// @StateObjectとして使用することで、ビューが再作成されても状態が保持される
 class CalendarEventEditorFormState: ObservableObject {
+    struct Draft: Equatable {
+        var title: String
+        var category: String
+        var startDate: Date
+        var endDate: Date
+        var isAllDay: Bool
+        var hasReminder: Bool
+        var useRelativeReminder: Bool
+        var reminderMinutes: Int
+        var reminderDate: Date
+    }
+
     @Published var title: String = ""
     @Published var category: String = CategoryPalette.defaultCategoryName
     @Published var startDate: Date = Date()
@@ -21,7 +33,25 @@ class CalendarEventEditorFormState: ObservableObject {
     @Published var reminderMinutes: Int = 30
     @Published var reminderDate: Date = Date()
     
+    private let draftKey: String
     private var isConfigured = false
+
+    init(event: CalendarEvent? = nil, defaultDate: Date = Date()) {
+        self.draftKey = Self.makeDraftKey(event: event, defaultDate: defaultDate)
+        configure(event: event, defaultDate: defaultDate)
+    }
+
+    var draft: Draft {
+        Draft(title: title,
+              category: category,
+              startDate: startDate,
+              endDate: endDate,
+              isAllDay: isAllDay,
+              hasReminder: hasReminder,
+              useRelativeReminder: useRelativeReminder,
+              reminderMinutes: reminderMinutes,
+              reminderDate: reminderDate)
+    }
     
     /// フォームを初期値で設定する（一度だけ実行される）
     func configure(event: CalendarEvent?, defaultDate: Date) {
@@ -83,10 +113,21 @@ class CalendarEventEditorFormState: ObservableObject {
         useRelativeReminder = useRelative
         reminderMinutes = defaultMinutes
         reminderDate = defaultReminderDate
+
+        restoreCachedDraftIfAvailable()
+    }
+
+    func cacheDraft() {
+        CalendarEventEditorDraftCache.drafts[draftKey] = draft
+    }
+
+    func clearCachedDraft() {
+        CalendarEventEditorDraftCache.drafts[draftKey] = nil
     }
     
     /// フォームをリセットして次回の使用に備える
     func reset() {
+        clearCachedDraft()
         isConfigured = false
         title = ""
         category = CategoryPalette.defaultCategoryName
@@ -98,4 +139,29 @@ class CalendarEventEditorFormState: ObservableObject {
         reminderMinutes = 30
         reminderDate = Date()
     }
+
+    private func restoreCachedDraftIfAvailable() {
+        guard let cached = CalendarEventEditorDraftCache.drafts[draftKey] else { return }
+        title = cached.title
+        category = cached.category
+        startDate = cached.startDate
+        endDate = cached.endDate
+        isAllDay = cached.isAllDay
+        hasReminder = cached.hasReminder
+        useRelativeReminder = cached.useRelativeReminder
+        reminderMinutes = cached.reminderMinutes
+        reminderDate = cached.reminderDate
+    }
+
+    private static func makeDraftKey(event: CalendarEvent?, defaultDate: Date) -> String {
+        if let event {
+            return "edit:\(event.id.uuidString)"
+        }
+        let day = Calendar.current.startOfDay(for: defaultDate).timeIntervalSinceReferenceDate
+        return "new:\(day)"
+    }
+}
+
+private enum CalendarEventEditorDraftCache {
+    static var drafts: [String: CalendarEventEditorFormState.Draft] = [:]
 }

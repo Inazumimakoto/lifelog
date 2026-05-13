@@ -9,7 +9,7 @@ import SwiftUI
 
 struct TaskEditorView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var formState = TaskEditorFormState()
+    @StateObject private var formState: TaskEditorFormState
     @State private var showDeleteConfirmation = false
 
     var onSave: (Task) -> Void
@@ -27,6 +27,7 @@ struct TaskEditorView: View {
         self.onDelete = onDelete
         self.originalTask = task
         self.defaultDate = defaultDate
+        _formState = StateObject(wrappedValue: TaskEditorFormState(task: task, defaultDate: defaultDate))
     }
 
     var body: some View {
@@ -107,14 +108,14 @@ struct TaskEditorView: View {
                                     reminderDate: formState.hasReminder ? formState.reminderDate : nil,
                                     completedAt: originalTask?.completedAt)
                     onSave(task)
-                    formState.reset()
+                    formState.clearCachedDraft()
                     dismiss()
                 }
                 .disabled(formState.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             ToolbarItem(placement: .cancellationAction) {
                 Button("キャンセル", role: .cancel) {
-                    formState.reset()
+                    formState.clearCachedDraft()
                     dismiss()
                 }
             }
@@ -122,13 +123,13 @@ struct TaskEditorView: View {
         .confirmationDialog("このタスクを削除しますか？", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("削除", role: .destructive) {
                 onDelete?()
-                formState.reset()
+                formState.clearCachedDraft()
                 dismiss()
             }
             Button("キャンセル", role: .cancel) { }
         }
-        .onAppear {
-            formState.configure(task: originalTask, defaultDate: defaultDate)
+        .onChange(of: formState.draft) { _, _ in
+            formState.cacheDraft()
         }
         .onChange(of: formState.priority) { _, newPriority in
             // 新規作成時のみ優先度変更で通知設定を連動

@@ -9,7 +9,7 @@ import SwiftUI
 
 struct CalendarEventEditorView: View {
     @Environment(\.dismiss) private var dismiss
-    @StateObject private var formState = CalendarEventEditorFormState()
+    @StateObject private var formState: CalendarEventEditorFormState
     @State private var isShowingCategorySelection = false
     @State private var showDeleteConfirmation = false
 
@@ -27,6 +27,7 @@ struct CalendarEventEditorView: View {
         self.onDelete = onDelete
         self.originalEvent = event
         self.defaultDate = defaultDate
+        _formState = StateObject(wrappedValue: CalendarEventEditorFormState(event: event, defaultDate: defaultDate))
     }
 
     var body: some View {
@@ -133,20 +134,20 @@ struct CalendarEventEditorView: View {
                                               reminderMinutes: formState.hasReminder && formState.useRelativeReminder ? formState.reminderMinutes : nil,
                                               reminderDate: formState.hasReminder && !formState.useRelativeReminder ? formState.reminderDate : nil)
                     onSave(event)
-                    formState.reset()
+                    formState.clearCachedDraft()
                     dismiss()
                 }
                 .disabled(formState.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             ToolbarItem(placement: .cancellationAction) {
                 Button("キャンセル", role: .cancel) {
-                    formState.reset()
+                    formState.clearCachedDraft()
                     dismiss()
                 }
             }
         }
-        .onAppear {
-            formState.configure(event: originalEvent, defaultDate: defaultDate)
+        .onChange(of: formState.draft) { _, _ in
+            formState.cacheDraft()
         }
         .onChange(of: formState.isAllDay) { _, newValue in
             if newValue {
@@ -180,7 +181,7 @@ struct CalendarEventEditorView: View {
         .confirmationDialog("この予定を削除しますか？", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("削除", role: .destructive) {
                 onDelete?()
-                formState.reset()
+                formState.clearCachedDraft()
                 dismiss()
             }
             Button("キャンセル", role: .cancel) { }
