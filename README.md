@@ -124,7 +124,7 @@ MIT License. See [`LICENSE`](LICENSE).
 <!-- dir-loc-start -->
 | Directory | LOC |
 |:--|--:|
-| `lifelog` | 54,515 |
+| `lifelog` | 54,613 |
 | `functions` | 10,189 |
 | `docs` | 2,657 |
 | `LifelogWidgets` | 2,305 |
