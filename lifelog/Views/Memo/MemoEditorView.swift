@@ -11,26 +11,17 @@ struct MemoEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var viewModel: MemoPadViewModel
-    @State private var draftText: String = ""
-    @State private var didLoadInitialDraft = false
 
     init(store: AppDataStore) {
         _viewModel = StateObject(wrappedValue: MemoPadViewModel(store: store))
     }
 
-    private var memoBinding: Binding<String> {
-        Binding(
-            get: { draftText },
-            set: { draftText = $0 }
-        )
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ZStack(alignment: .topLeading) {
-                StableTextEditor(text: memoBinding,
-                                 keyboardDismissMode: .interactive,
-                                 adjustsForKeyboard: true)
+                MemoTextView(initialText: viewModel.textDraft) { newValue in
+                    viewModel.update(text: newValue)
+                }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 12)
@@ -49,17 +40,8 @@ struct MemoEditorView: View {
         .navigationTitle("メモ")
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .scrollDismissesKeyboard(.never)
-        .onAppear {
-            if didLoadInitialDraft == false {
-                draftText = viewModel.textDraft
-                didLoadInitialDraft = true
-            }
-        }
         .onDisappear {
             viewModel.flushPendingSave()
-        }
-        .onChange(of: draftText) { _, newValue in
-            viewModel.update(text: newValue)
         }
         .onChange(of: scenePhase, initial: false) { _, newPhase in
             if newPhase != .active {
