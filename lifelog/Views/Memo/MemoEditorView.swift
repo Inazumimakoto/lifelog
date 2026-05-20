@@ -19,9 +19,13 @@ struct MemoEditorView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             ZStack(alignment: .topLeading) {
-                MemoTextView(initialText: viewModel.textDraft) { newValue in
+                LongFormTextView(text: viewModel.textDraft,
+                                 textVersion: 0,
+                                 onTextChange: { newValue in
                     viewModel.update(text: newValue)
-                }
+                },
+                                 keyboardDismissMode: .interactive,
+                                 adjustsForKeyboard: true)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 12)

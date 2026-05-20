@@ -14,10 +14,10 @@ struct DiaryEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var viewModel: DiaryViewModel
+    @StateObject private var textDraft: LongFormTextDraft
     @ObservedObject private var monetization = MonetizationService.shared
     @ObservedObject private var tagManager = EmotionTagManager.shared
     @State private var selection: [PhotosPickerItem] = []
-    @State private var draftText: String = ""
     @State private var showLocationPicker = false
     @State private var pendingLocationSelection: DiaryLocation?
     @State private var locationTagEditorContext: LocationTagEditorContext?
@@ -30,7 +30,7 @@ struct DiaryEditorView: View {
     @State private var photoLinkContext: PhotoLinkContext?
     @State private var showPaywall = false
     @State private var linkedPhotoPathsCache: Set<String> = []
-    @State private var didLoadInitialDraft = false
+    @State private var selectedEmotionTagHashes: Set<String> = []
     
     // AI採点機能
     @State private var showAIAppSelectionSheet = false
@@ -38,7 +38,10 @@ struct DiaryEditorView: View {
     @State private var selectedAIProvider: AIProvider = .chatgpt
 
     init(store: AppDataStore, date: Date) {
-        _viewModel = StateObject(wrappedValue: DiaryViewModel(store: store, date: date))
+        let viewModel = DiaryViewModel(store: store, date: date)
+        _viewModel = StateObject(wrappedValue: viewModel)
+        _textDraft = StateObject(wrappedValue: LongFormTextDraft(text: viewModel.textDraft))
+        _selectedEmotionTagHashes = State(initialValue: Self.emotionTagHashes(in: viewModel.textDraft))
     }
 
     var body: some View {
@@ -102,10 +105,7 @@ struct DiaryEditorView: View {
                 }
         )
         .onAppear {
-            if didLoadInitialDraft == false {
-                draftText = viewModel.textDraft
-                didLoadInitialDraft = true
-            }
+            syncSelectedEmotionTags(in: textDraft.text)
             refreshLinkedPhotoPaths()
             // 日記リマインダー設定を読み込み
             diaryReminderEnabled = viewModel.store.diaryReminderEnabled
@@ -131,9 +131,6 @@ struct DiaryEditorView: View {
                 }
             }
         }
-        .onChange(of: draftText) { _, newValue in
-            viewModel.update(text: newValue)
-        }
         .onChange(of: viewModel.entry.photoPaths) { _, _ in
             refreshLinkedPhotoPaths()
         }
@@ -141,7 +138,7 @@ struct DiaryEditorView: View {
             refreshLinkedPhotoPaths()
         }
         .onChange(of: viewModel.entry.date) { _, _ in
-            draftText = viewModel.textDraft
+            replaceEditorText(viewModel.textDraft, syncViewModel: false)
         }
         .onChange(of: scenePhase, initial: false) { _, newPhase in
             if newPhase != .active {
@@ -225,20 +222,36 @@ struct DiaryEditorView: View {
         }
     }
 
-    private var textBinding: Binding<String> {
-        Binding<String>(
-            get: { draftText },
-            set: { draftText = $0 }
-        )
-    }
-    
     private func navigateDay(offset: Int) {
         guard let newDate = Calendar.current.date(byAdding: .day, value: offset, to: viewModel.entry.date) else { return }
         // 未来の日付には移動しない
         if newDate > Date() { return }
         HapticManager.light()
         viewModel.loadEntry(for: newDate)
-        draftText = viewModel.textDraft
+        replaceEditorText(viewModel.textDraft, syncViewModel: false)
+    }
+
+    private func replaceEditorText(_ newText: String, syncViewModel: Bool) {
+        textDraft.replaceText(newText)
+        syncSelectedEmotionTags(in: newText)
+        if syncViewModel {
+            viewModel.update(text: newText)
+        }
+    }
+
+    private func syncSelectedEmotionTags(in text: String) {
+        let nextHashes = Self.emotionTagHashes(in: text)
+        if selectedEmotionTagHashes != nextHashes {
+            selectedEmotionTagHashes = nextHashes
+        }
+    }
+
+    private static func emotionTagHashes(in text: String) -> Set<String> {
+        let manager = EmotionTagManager.shared
+        let allHashes = MoodLevel.allCases.flatMap { mood in
+            manager.tags(for: mood.rawValue).map(\.hashTag)
+        }
+        return Set(allHashes.filter { text.contains($0) })
     }
 
     private var moodBinding: Binding<MoodLevel> {
@@ -262,9 +275,15 @@ struct DiaryEditorView: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 8)
-                    .opacity(draftText.isEmpty ? 1 : 0)
+                    .opacity(textDraft.isEmpty ? 1 : 0)
                     .allowsHitTesting(false)
-                StableTextEditor(text: textBinding,
+                LongFormTextView(text: textDraft.text,
+                                 textVersion: textDraft.version,
+                                 onTextChange: { newValue in
+                                     textDraft.updateFromEditor(newValue)
+                                     viewModel.update(text: newValue)
+                                     syncSelectedEmotionTags(in: newValue)
+                                 },
                                  textContainerInset: UIEdgeInsets(top: 8, left: 6, bottom: 8, right: 6))
                     .frame(minHeight: 220, alignment: .topLeading)
             }
@@ -319,7 +338,7 @@ struct DiaryEditorView: View {
                     }
                 }
             }
-            .disabled(draftText.isEmpty || (selectedAIProvider == .devpc && !DevPCLLMService.shared.canUseThisWeek))
+            .disabled(textDraft.isEmpty || (selectedAIProvider == .devpc && !DevPCLLMService.shared.canUseThisWeek))
         } footer: {
             VStack(alignment: .leading, spacing: 4) {
                 Text(selectedScoreMode.description)
@@ -348,7 +367,7 @@ struct DiaryEditorView: View {
     
     private func askDevPC() {
         let prompt = DiaryScorePrompt.prompt(for: selectedScoreMode)
-        devPCPrompt = DiaryScorePrompt.build(prompt: prompt, diaryText: draftText)
+        devPCPrompt = DiaryScorePrompt.build(prompt: prompt, diaryText: textDraft.text)
         HapticManager.light()
         // showDevPCSheet は onChange で設定される
     }
@@ -356,7 +375,7 @@ struct DiaryEditorView: View {
     private func copyForAIScoring() {
         // 選択したモードのプロンプト + 日記本文をクリップボードにコピー
         let prompt = DiaryScorePrompt.prompt(for: selectedScoreMode)
-        let fullText = DiaryScorePrompt.build(prompt: prompt, diaryText: draftText)
+        let fullText = DiaryScorePrompt.build(prompt: prompt, diaryText: textDraft.text)
         UIPasteboard.general.string = fullText
         HapticManager.success()
         showAIAppSelectionSheet = true
@@ -384,7 +403,7 @@ struct DiaryEditorView: View {
                     // タグボタン一覧
                     FlowLayout(spacing: 8) {
                         ForEach(availableTags) { tag in
-                            let isSelected = draftText.contains(tag.hashTag)
+                            let isSelected = selectedEmotionTagHashes.contains(tag.hashTag) || textDraft.text.contains(tag.hashTag)
                             Button {
                                 toggleTag(tag)
                             } label: {
@@ -426,7 +445,7 @@ struct DiaryEditorView: View {
     
     private func toggleTag(_ tag: EmotionTag) {
         HapticManager.soft()
-        var text = draftText
+        var text = textDraft.text
         if text.contains(tag.hashTag) {
             // タグを削除
             text = text.replacingOccurrences(of: " \(tag.hashTag)", with: "")
@@ -438,7 +457,7 @@ struct DiaryEditorView: View {
             }
             text += tag.hashTag
         }
-        draftText = text.trimmingCharacters(in: .whitespaces)
+        replaceEditorText(text.trimmingCharacters(in: .whitespaces), syncViewModel: true)
     }
 
     private var conditionSection: some View {

@@ -98,7 +98,11 @@ class TaskEditorFormState: ObservableObject {
         restoreCachedDraftIfAvailable()
     }
 
-    func cacheDraft() {
+    func cacheDraft(detailOverride: String? = nil) {
+        var draft = draft
+        if let detailOverride {
+            draft.detail = detailOverride
+        }
         TaskEditorDraftCache.drafts[draftKey] = draft
     }
 

@@ -10,6 +10,7 @@ import SwiftUI
 struct TaskEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var formState: TaskEditorFormState
+    @StateObject private var detailDraft: LongFormTextDraft
     @State private var showDeleteConfirmation = false
 
     var onSave: (Task) -> Void
@@ -27,14 +28,28 @@ struct TaskEditorView: View {
         self.onDelete = onDelete
         self.originalTask = task
         self.defaultDate = defaultDate
-        _formState = StateObject(wrappedValue: TaskEditorFormState(task: task, defaultDate: defaultDate))
+        let formState = TaskEditorFormState(task: task, defaultDate: defaultDate)
+        _formState = StateObject(wrappedValue: formState)
+        _detailDraft = StateObject(wrappedValue: LongFormTextDraft(text: formState.detail))
     }
 
     var body: some View {
         Form {
             Section("タスク内容") {
                 TextField("タイトルを入力", text: $formState.title)
-                TextField("詳細メモ（任意）", text: $formState.detail, axis: .vertical)
+                ZStack(alignment: .topLeading) {
+                    Text("詳細メモ（任意）")
+                        .foregroundStyle(.tertiary)
+                        .opacity(detailDraft.isEmpty ? 1 : 0)
+                        .allowsHitTesting(false)
+                    LongFormTextView(text: detailDraft.text,
+                                     textVersion: detailDraft.version,
+                                     onTextChange: { newValue in
+                                         detailDraft.updateFromEditor(newValue)
+                                         formState.cacheDraft(detailOverride: newValue)
+                                     })
+                        .frame(minHeight: 56, alignment: .topLeading)
+                }
                 
                 Picker("期限", selection: $formState.isSomeday) {
                     Text("日付指定").tag(false)
@@ -100,7 +115,7 @@ struct TaskEditorView: View {
                 Button("保存") {
                     let task = Task(id: originalTask?.id ?? UUID(),
                                     title: formState.title,
-                                    detail: formState.detail,
+                                    detail: detailDraft.text,
                                     startDate: formState.isSomeday ? nil : calendar.startOfDay(for: formState.startDate),
                                     endDate: formState.isSomeday ? nil : calendar.startOfDay(for: formState.endDate),
                                     priority: formState.priority,
@@ -129,7 +144,7 @@ struct TaskEditorView: View {
             Button("キャンセル", role: .cancel) { }
         }
         .onChange(of: formState.draft) { _, _ in
-            formState.cacheDraft()
+            formState.cacheDraft(detailOverride: detailDraft.text)
         }
         .onChange(of: formState.priority) { _, newPriority in
             // 新規作成時のみ優先度変更で通知設定を連動

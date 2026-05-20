@@ -1389,7 +1389,7 @@ struct ReportSheetView: View {
     
     @Environment(\.dismiss) private var dismiss
     @State private var selectedReason: ReportService.ReportReason?
-    @State private var details: String = ""
+    @StateObject private var detailsDraft = LongFormTextDraft(text: "")
     @State private var isSubmitting = false
     @State private var showSuccess = false
     
@@ -1424,8 +1424,18 @@ struct ReportSheetView: View {
                 }
                 
                 Section {
-                    TextField("詳細（任意）", text: $details, axis: .vertical)
-                        .lineLimit(3...6)
+                    ZStack(alignment: .topLeading) {
+                        Text("詳細（任意）")
+                            .foregroundStyle(.tertiary)
+                            .opacity(detailsDraft.isEmpty ? 1 : 0)
+                            .allowsHitTesting(false)
+                        LongFormTextView(text: detailsDraft.text,
+                                         textVersion: detailsDraft.version,
+                                         onTextChange: { newValue in
+                                             detailsDraft.updateFromEditor(newValue)
+                                         })
+                            .frame(minHeight: 72, alignment: .topLeading)
+                    }
                 } header: {
                     Text("詳細")
                 }
@@ -1464,7 +1474,7 @@ struct ReportSheetView: View {
                     userId: userId,
                     reason: reason,
                     letterId: letterId,
-                    details: details.isEmpty ? nil : details
+                    details: detailsDraft.isEmpty ? nil : detailsDraft.text
                 )
                 await MainActor.run {
                     isSubmitting = false

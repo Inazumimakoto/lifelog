@@ -14,7 +14,7 @@ struct LetterEditorView: View {
     
     private let existingLetter: Letter?
     
-    @State private var content: String
+    @StateObject private var contentDraft: LongFormTextDraft
     
     // 日付設定
     @State private var dateMode: DeliveryMode  // 固定 or ランダム
@@ -47,7 +47,7 @@ struct LetterEditorView: View {
     
     init(letter: Letter? = nil) {
         self.existingLetter = letter
-        _content = State(initialValue: letter?.content ?? "")
+        _contentDraft = StateObject(wrappedValue: LongFormTextDraft(text: letter?.content ?? ""))
         
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
         let threeMonthsLater = Calendar.current.date(byAdding: .month, value: 3, to: Date()) ?? Date()
@@ -133,7 +133,7 @@ struct LetterEditorView: View {
                 Button("封印する") {
                     showSendConfirmation = true
                 }
-                .disabled(content.isEmpty)
+                .disabled(contentDraft.isEmpty)
             }
         }
         .confirmationDialog("手紙を削除しますか？", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
@@ -163,7 +163,11 @@ struct LetterEditorView: View {
     
     private var contentSection: some View {
         Section {
-            TextEditor(text: $content)
+            LongFormTextView(text: contentDraft.text,
+                             textVersion: contentDraft.version,
+                             onTextChange: { newValue in
+                                 contentDraft.updateFromEditor(newValue)
+                             })
                 .frame(minHeight: 200)
         } header: {
             Text("手紙の内容")
@@ -390,11 +394,11 @@ struct LetterEditorView: View {
         
         if let existing = existingLetter {
             letter = existing
-            letter.content = content
+            letter.content = contentDraft.text
             letter.deliveryType = computedDeliveryType
         } else {
             letter = Letter(
-                content: content,
+                content: contentDraft.text,
                 deliveryType: computedDeliveryType
             )
         }

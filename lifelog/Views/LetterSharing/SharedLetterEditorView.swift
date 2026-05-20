@@ -20,7 +20,7 @@ struct SharedLetterEditorView: View {
     @State private var showingFriendPicker = false
     
     // 手紙の内容
-    @State private var content: String = ""
+    @StateObject private var contentDraft: LongFormTextDraft
     
     // 配信モード
     @State private var deliveryCondition: DeliveryCondition = .fixedDate
@@ -93,6 +93,7 @@ struct SharedLetterEditorView: View {
     
     init(preselectedFriend: PairingService.Friend? = nil) {
         _selectedFriend = State(initialValue: preselectedFriend)
+        _contentDraft = StateObject(wrappedValue: LongFormTextDraft(text: ""))
         
         let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date()
         let threeMonthsLater = Calendar.current.date(byAdding: .month, value: 3, to: Date()) ?? Date()
@@ -163,7 +164,7 @@ struct SharedLetterEditorView: View {
     }
     
     private var canSend: Bool {
-        selectedFriend != nil && !content.isEmpty
+        selectedFriend != nil && !contentDraft.isEmpty
     }
     
     // MARK: - Sections
@@ -200,7 +201,11 @@ struct SharedLetterEditorView: View {
     
     private var contentSection: some View {
         Section {
-            TextEditor(text: $content)
+            LongFormTextView(text: contentDraft.text,
+                             textVersion: contentDraft.version,
+                             onTextChange: { newValue in
+                                 contentDraft.updateFromEditor(newValue)
+                             })
                 .frame(minHeight: 200)
         } header: {
             Text("✏️ 手紙の内容")
@@ -491,7 +496,7 @@ struct SharedLetterEditorView: View {
                 
                 // E2EE暗号化して送信
                 try await LetterSendingService.shared.sendLetter(
-                    content: content,
+                    content: contentDraft.text,
                     photos: selectedImages,
                     recipient: friend,
                     deliveryCondition: condition,
