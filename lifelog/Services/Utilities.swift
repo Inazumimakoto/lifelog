@@ -9,28 +9,7 @@ import Foundation
 import SwiftUI
 import WidgetKit
 
-extension Color {
-    init?(hex: String) {
-        var hexSanitized = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        if hexSanitized.count == 3 {
-            for (index, char) in hexSanitized.enumerated() {
-                hexSanitized.insert(char, at: hexSanitized.index(hexSanitized.startIndex, offsetBy: index * 2))
-            }
-        }
-
-        guard let int = UInt64(hexSanitized, radix: 16) else { return nil }
-        let r, g, b: Double
-        switch hexSanitized.count {
-        case 6:
-            r = Double((int >> 16) & 0xFF) / 255
-            g = Double((int >> 8) & 0xFF) / 255
-            b = Double(int & 0xFF) / 255
-        default:
-            return nil
-        }
-        self.init(red: r, green: g, blue: b)
-    }
-}
+// Color(hex:) は共有ファイル ColorHex.swift へ移動した。
 
 private enum JapaneseLocaleProvider {
     static let locale = Locale(identifier: "ja_JP")

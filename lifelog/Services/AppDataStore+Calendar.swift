@@ -22,11 +22,14 @@ extension AppDataStore {
         }
 
         guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return [] }
-        let result = (calendarEvents + externalCalendarEvents)
-            .filter { event in
-                event.startDate < dayEnd && event.endDate > dayStart
-            }
-            .sorted(by: { $0.startDate < $1.startDate })
+        // マージ・重複排除・整列の方針は共有の EventQuerying に一本化する。
+        // 内部/外部それぞれ当日と重なるものに絞ってからマージする。
+        let internalEvents = EventQuerying.overlapping(calendarEvents, rangeStart: dayStart, rangeEndExclusive: dayEnd)
+        let externalEvents = EventQuerying.overlapping(externalCalendarEvents, rangeStart: dayStart, rangeEndExclusive: dayEnd)
+        let result = EventQuerying.mergedDedupedSorted(
+            internalEvents: internalEvents,
+            externalEvents: externalEvents
+        )
 
         // キャッシュに保存
         eventsCache[dayStart] = result

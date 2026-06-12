@@ -47,8 +47,9 @@ final class AppDataStore: ObservableObject {
     static let habitRecordsDefaultsKey = "HabitRecords_Storage_V1"
     static let anniversariesDefaultsKey = "Anniversaries_Storage_V1"
     static let calendarEventsDefaultsKey = "CalendarEvents_Storage_V1"
-    static let externalCalendarEventsDefaultsKey = "ExternalCalendarEvents_Storage_V1"
-    static let externalCalendarRangeDefaultsKey = "ExternalCalendarRange_Storage_V1"
+    // キー文字列の正は共有 EventQuerying。値は不変のまま参照だけ集約する。
+    static let externalCalendarEventsDefaultsKey = EventQuerying.externalCalendarEventsDefaultsKey
+    static let externalCalendarRangeDefaultsKey = EventQuerying.externalCalendarRangeDefaultsKey
     static let memoPadDefaultsKey = "MemoPad_Storage_V1"
     static let appStateDefaultsKey = "AppState_Storage_V1"
     static let healthSummariesDefaultsKey = "HealthSummaries_Storage_V1"

@@ -162,7 +162,6 @@ struct WallpaperCalendarFingerprintPayload: Codable {
 @MainActor
 final class WallpaperCalendarDataProvider {
     static let itemLimit = 4
-    static let externalCalendarEventsDefaultsKey = "ExternalCalendarEvents_Storage_V1"
 
     nonisolated static var calendar: Calendar {
         var calendar = Calendar(identifier: .gregorian)
@@ -206,18 +205,13 @@ final class WallpaperCalendarDataProvider {
     }
 
     private func fetchEvents(from rangeStart: Date, to rangeEndExclusive: Date) -> [CalendarEvent] {
+        // マージ・重複排除・整列は共有 EventQuerying に一本化する。
         let internalEvents = fetchInternalEvents(from: rangeStart, to: rangeEndExclusive)
         let externalEvents = fetchExternalEvents(from: rangeStart, to: rangeEndExclusive)
-        return (internalEvents + externalEvents)
-            .reduce(into: [UUID: CalendarEvent]()) { result, event in
-                if let existing = result[event.id] {
-                    result[event.id] = existing.startDate <= event.startDate ? existing : event
-                } else {
-                    result[event.id] = event
-                }
-            }
-            .values
-            .sorted(by: sortEvents)
+        return EventQuerying.mergedDedupedSorted(
+            internalEvents: internalEvents,
+            externalEvents: externalEvents
+        )
     }
 
     private func fetchInternalEvents(from rangeStart: Date, to rangeEndExclusive: Date) -> [CalendarEvent] {
@@ -247,15 +241,10 @@ final class WallpaperCalendarDataProvider {
     }
 
     private func fetchExternalEvents(from rangeStart: Date, to rangeEndExclusive: Date) -> [CalendarEvent] {
-        let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier) ?? .standard
-        guard let data = defaults.data(forKey: Self.externalCalendarEventsDefaultsKey),
-              let events = try? JSONDecoder().decode([CalendarEvent].self, from: data)
-        else {
-            return []
-        }
-        return events
-            .filter { $0.startDate < rangeEndExclusive && $0.endDate > rangeStart }
-            .sorted(by: sortEvents)
+        // 外部イベントの読み出しとデコードは共有 EventQuerying に集約。
+        let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier)
+        let events = EventQuerying.loadExternalEvents(from: defaults)
+        return EventQuerying.overlapping(events, rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive)
     }
 
     private func fetchTasks(from rangeStart: Date, to rangeEndExclusive: Date) -> [Task] {
@@ -634,13 +623,6 @@ final class WallpaperCalendarDataProvider {
         let symbols = calendar.shortStandaloneWeekdaySymbols
         guard symbols.count == 7 else { return ["日", "月", "火", "水", "木", "金", "土"] }
         return symbols
-    }
-
-    private func sortEvents(_ lhs: CalendarEvent, _ rhs: CalendarEvent) -> Bool {
-        if lhs.startDate != rhs.startDate {
-            return lhs.startDate < rhs.startDate
-        }
-        return lhs.title < rhs.title
     }
 
     private func sortEventsForPreview(_ lhs: CalendarEvent, _ rhs: CalendarEvent) -> Bool {
