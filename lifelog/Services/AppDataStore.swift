@@ -281,8 +281,6 @@ final class AppDataStore: ObservableObject {
     }
 
     private func persistHealthSummaries() {
-        persist(healthSummaries, forKey: Self.healthSummariesDefaultsKey)
-
         // Full Sync to SwiftData (keyed by Date to avoid duplication if IDs change)
         // 1. Fetch all existing SDHealthSummaries
         let descriptor = FetchDescriptor<SDHealthSummary>()

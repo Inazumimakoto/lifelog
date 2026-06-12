@@ -191,11 +191,6 @@ extension AppDataStore {
             CalendarEvent(title: "Yoga class", startDate: calendar.date(byAdding: .day, value: 1, to: now)?.addingTimeInterval(18_000) ?? now,
                           endDate: calendar.date(byAdding: .day, value: 1, to: now)?.addingTimeInterval(19_800) ?? now, calendarName: "Wellness")
         ]
-        persistTasks()
-        persistDiaryEntries()
-        persistHabits()
-        persistHabitRecords()
-        persistAnniversaries()
         persistCalendarEvents()
     }
     #endif

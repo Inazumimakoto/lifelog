@@ -553,8 +553,7 @@ struct LetterSharingView: View {
             odic: "test-user-\(Int.random(in: 1000...9999))",
             friendEmoji: ["🐶", "🐱", "🐰", "🦊", "🐻", "🐼"].randomElement()!,
             friendName: ["太郎", "花子", "健太", "美咲", "翔太", "さくら"].randomElement()!,
-            friendPublicKey: "test-public-key",
-            pendingLetterCount: Int.random(in: 0...3)
+            friendPublicKey: "test-public-key"
         )
         
         // ローカルに追加（Firestoreには保存しない）

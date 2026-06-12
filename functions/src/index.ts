@@ -336,7 +336,6 @@ async function createMutualPairing(userIdA: string, userIdB: string): Promise<bo
       friendEmoji: friend.emoji || "😊",
       friendName: friend.displayName || "ユーザー",
       friendPublicKey: friend.publicKey,
-      pendingLetterCount: 0,
       createdAt: FieldValue.serverTimestamp(),
     });
   };

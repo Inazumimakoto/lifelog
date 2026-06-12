@@ -125,8 +125,7 @@ struct FriendRequestsView: View {
                 odic: request.fromUserId,
                 friendEmoji: request.fromUserEmoji,
                 friendName: request.fromUserName,
-                friendPublicKey: request.fromUserPublicKey,
-                pendingLetterCount: 0
+                friendPublicKey: request.fromUserPublicKey
             )
             pairingService.friends.append(testFriend)
             

@@ -12,7 +12,6 @@ extension AppDataStore {
 
     func addTask(_ task: Task) {
         tasks.append(task)
-        persistTasks()
 
         let sdTask = SDTask(domain: task)
         modelContext.insert(sdTask)
@@ -25,7 +24,6 @@ extension AppDataStore {
     func updateTask(_ task: Task) {
         guard let index = tasks.firstIndex(where: { $0.id == task.id }) else { return }
         tasks[index] = task
-        persistTasks()
 
         let taskID = task.id
         let descriptor = FetchDescriptor<SDTask>(predicate: #Predicate { $0.id == taskID })
@@ -48,7 +46,6 @@ extension AppDataStore {
             NotificationService.shared.cancelTaskReminder(taskId: tasks[index].id)
             tasks.remove(at: index)
         }
-        persistTasks()
 
         for id in idsToDelete {
              let descriptor = FetchDescriptor<SDTask>(predicate: #Predicate { $0.id == id })
@@ -65,7 +62,6 @@ extension AppDataStore {
             NotificationService.shared.cancelTaskReminder(taskId: id)
         }
         tasks.removeAll { ids.contains($0.id) }
-        persistTasks()
 
         for id in ids {
              let descriptor = FetchDescriptor<SDTask>(predicate: #Predicate { $0.id == id })
@@ -82,7 +78,6 @@ extension AppDataStore {
         tasks[index].isCompleted.toggle()
         // Set completedAt when completed, clear when uncompleted
         tasks[index].completedAt = tasks[index].isCompleted ? Date() : nil
-        persistTasks()
 
         let descriptor = FetchDescriptor<SDTask>(predicate: #Predicate { $0.id == taskID })
         if let existing = try? modelContext.fetch(descriptor).first {
@@ -137,9 +132,5 @@ extension AppDataStore {
     }
 
     // MARK: - Task Persister
-
-    func persistTasks() {
-        persist(tasks, forKey: Self.tasksDefaultsKey)
-    }
 
 }

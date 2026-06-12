@@ -39,16 +39,14 @@ class PairingService: ObservableObject {
         let friendName: String
         let friendPublicKey: String
         let createdAt: Date
-        var pendingLetterCount: Int // こちらから送った未開封数
-        
-        init(id: String, odic: String, friendEmoji: String, friendName: String, friendPublicKey: String, createdAt: Date = Date(), pendingLetterCount: Int = 0) {
+
+        init(id: String, odic: String, friendEmoji: String, friendName: String, friendPublicKey: String, createdAt: Date = Date()) {
             self.id = id
             self.odic = odic
             self.friendEmoji = friendEmoji
             self.friendName = friendName
             self.friendPublicKey = friendPublicKey
             self.createdAt = createdAt
-            self.pendingLetterCount = pendingLetterCount
         }
     }
     
@@ -363,8 +361,7 @@ class PairingService: ObservableObject {
                         friendEmoji: data["friendEmoji"] as? String ?? "😊",
                         friendName: data["friendName"] as? String ?? "ユーザー",
                         friendPublicKey: data["friendPublicKey"] as? String ?? "",
-                        createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date(),
-                        pendingLetterCount: data["pendingLetterCount"] as? Int ?? 0
+                        createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
                     )
                 }
             }

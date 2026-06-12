@@ -15,7 +15,6 @@ extension AppDataStore {
     func addAnniversary(_ anniversary: Anniversary) {
         let newIndex = anniversaries.count
         anniversaries.append(anniversary)
-        persistAnniversaries()
         scheduleAnniversaryNotification(anniversary)
 
         let sdItem = SDAnniversary(domain: anniversary)
@@ -28,7 +27,6 @@ extension AppDataStore {
     func updateAnniversary(_ anniversary: Anniversary) {
         guard let index = anniversaries.firstIndex(where: { $0.id == anniversary.id }) else { return }
         anniversaries[index] = anniversary
-        persistAnniversaries()
         scheduleAnniversaryNotification(anniversary)
 
         let id = anniversary.id
@@ -42,7 +40,6 @@ extension AppDataStore {
 
     func deleteAnniversary(_ anniversaryID: UUID) {
         anniversaries.removeAll { $0.id == anniversaryID }
-        persistAnniversaries()
         NotificationService.shared.cancelAnniversaryReminder(anniversaryId: anniversaryID)
 
         let descriptor = FetchDescriptor<SDAnniversary>(predicate: #Predicate { $0.id == anniversaryID })
@@ -55,7 +52,6 @@ extension AppDataStore {
 
     func moveAnniversary(from source: IndexSet, to destination: Int) {
         anniversaries.move(fromOffsets: source, toOffset: destination)
-        persistAnniversaries()
 
         for (index, item) in anniversaries.enumerated() {
              let id = item.id
@@ -73,8 +69,10 @@ extension AppDataStore {
     // MARK: - Memo Pad
 
     func updateMemoPad(text: String, syncSwiftData: Bool = true) {
+        // syncSwiftData == false は打鍵ごとの軽量パス。下書きの
+        // UserDefaults 書き込みは読み戻し処理のない死に書き込みだったため
+        // 削除した(確定保存はエディタを閉じる時の true 呼び出しが行う)。
         if syncSwiftData == false {
-            persistMemoPadDraft(text: text)
             return
         }
 
@@ -84,35 +82,10 @@ extension AppDataStore {
         } else {
             guard syncSwiftData else { return }
         }
-        persistMemoPad(syncSwiftData: syncSwiftData)
+        persistMemoPad()
     }
 
-    private func persistMemoPadDraft(text: String) {
-        var draft = memoPad
-        if text != draft.text {
-            draft.text = text
-            draft.lastUpdatedAt = Date()
-        }
-        if let data = try? JSONEncoder().encode(draft) {
-            UserDefaults.standard.set(data, forKey: Self.memoPadDefaultsKey)
-        }
-    }
-
-    private static func loadMemoPad() -> MemoPad {
-        let defaults = UserDefaults.standard
-        if let data = defaults.data(forKey: memoPadDefaultsKey),
-           let memo = try? JSONDecoder().decode(MemoPad.self, from: data) {
-            return memo
-        }
-        return MemoPad()
-    }
-
-    func persistMemoPad(syncSwiftData: Bool = true) {
-        if let data = try? JSONEncoder().encode(memoPad) {
-            UserDefaults.standard.set(data, forKey: Self.memoPadDefaultsKey)
-        }
-        guard syncSwiftData else { return }
-
+    func persistMemoPad() {
         // SwiftData
         let descriptor = FetchDescriptor<SDMemoPad>()
         if let existing = try? modelContext.fetch(descriptor).first {
@@ -127,20 +100,8 @@ extension AppDataStore {
 
     // MARK: - App State
 
-    private static func loadAppState() -> AppState {
-        let defaults = UserDefaults.standard
-        if let data = defaults.data(forKey: appStateDefaultsKey),
-           let state = try? JSONDecoder().decode(AppState.self, from: data) {
-            return state
-        }
-        return AppState()
-    }
 
     func persistAppState() {
-        if let data = try? JSONEncoder().encode(appState) {
-            UserDefaults.standard.set(data, forKey: Self.appStateDefaultsKey)
-        }
-
         // SwiftData
         let descriptor = FetchDescriptor<SDAppState>()
         if let existing = try? modelContext.fetch(descriptor).first {
@@ -196,9 +157,5 @@ extension AppDataStore {
     }
 
     // MARK: - Anniversary Persister
-
-    func persistAnniversaries() {
-        persist(anniversaries, forKey: Self.anniversariesDefaultsKey)
-    }
 
 }
