@@ -52,8 +52,8 @@
 		0EB039712EE55C1200AFE3B0 /* LifelogWidgetsExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LifelogWidgetsExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		0EB039732EE55C1200AFE3B0 /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
 		0EB039752EE55C1200AFE3B0 /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
-		AB10000000000000000000A8 /* lifelogTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = lifelogTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		0EB039992EE55E6100AFE3B0 /* LifelogWidgetsExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LifelogWidgetsExtension.entitlements; sourceTree = "<group>"; };
+		AB10000000000000000000A8 /* lifelogTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = lifelogTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -102,8 +102,6 @@
 		};
 		AB10000000000000000000AB /* lifelogTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-			);
 			path = lifelogTests;
 			sourceTree = "<group>";
 		};
