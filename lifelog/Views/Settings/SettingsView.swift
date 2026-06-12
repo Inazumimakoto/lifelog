@@ -14,7 +14,7 @@ struct SettingsView: View {
     @EnvironmentObject private var store: AppDataStore
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var monetization = MonetizationService.shared
-    @StateObject private var appLockService = AppLockService.shared
+    @ObservedObject private var appLockService = AppLockService.shared
     @State private var showMailComposer = false
     @State private var showMailErrorAlert = false
     @State private var showCalendarSettings = false
@@ -44,7 +44,7 @@ struct SettingsView: View {
     @AppStorage(WallpaperCalendarAnnouncementState.hasSeenKey) private var hasSeenWallpaperCalendarAnnouncement = false
     @State private var showWallpaperCalendarAnnouncementDebug = false
 #endif
-    @StateObject private var githubService = GitHubService.shared
+    @ObservedObject private var githubService = GitHubService.shared
     
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"

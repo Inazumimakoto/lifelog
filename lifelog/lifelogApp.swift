@@ -19,14 +19,14 @@ struct lifelogApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     
     @StateObject private var store = AppDataStore()
-    @StateObject private var deepLinkManager = DeepLinkManager.shared
-    @StateObject private var monetizationService = MonetizationService.shared
+    @ObservedObject private var deepLinkManager = DeepLinkManager.shared
+    @ObservedObject private var monetizationService = MonetizationService.shared
     
     init() {
         CategoryPalette.initializeIfNeeded()
     }
 
-    @StateObject private var appLockService = AppLockService.shared
+    @ObservedObject private var appLockService = AppLockService.shared
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {

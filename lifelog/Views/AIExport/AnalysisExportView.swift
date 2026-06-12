@@ -30,7 +30,7 @@ struct AnalysisExportView: View {
     
     // GitHub設定
     @AppStorage("githubUsername") private var githubUsername: String = ""
-    @StateObject private var githubService = GitHubService.shared
+    @ObservedObject private var githubService = GitHubService.shared
     
     private var isGitHubEnabled: Bool {
         !githubUsername.isEmpty

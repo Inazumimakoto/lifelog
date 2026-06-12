@@ -12,7 +12,7 @@ struct TodayView: View {
     @StateObject private var viewModel: TodayViewModel
     @ObservedObject private var monetization = MonetizationService.shared
     @StateObject private var weatherService = WeatherService()
-    @StateObject private var appLockService = AppLockService.shared
+    @ObservedObject private var appLockService = AppLockService.shared
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage("isDiaryTextHidden") private var isDiaryTextHidden: Bool = false
     @AppStorage("requiresDiaryOpenAuthentication") private var requiresDiaryOpenAuthentication: Bool = false
