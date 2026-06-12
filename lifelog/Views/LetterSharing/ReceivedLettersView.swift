@@ -242,719 +242,168 @@ struct ReceivedLettersView: View {
     }
 }
 
-// MARK: - 共有手紙開封用パーティクル（既存のParticle/TearParticleは別ファイルにあるため再利用）
-
-fileprivate struct SharedParticle: Identifiable {
-    let id = UUID()
-    var x: CGFloat
-    var y: CGFloat
-    var scale: CGFloat
-    var opacity: Double
-    var speed: Double
-}
-
-fileprivate struct SharedTearParticle: Identifiable {
-    let id = UUID()
-    var x: CGFloat
-    var y: CGFloat
-    var rotation: Double
-    var scale: CGFloat
-    var opacity: Double
-}
-
-fileprivate struct SharedParticleView: View {
-    @State private var particles: [SharedParticle] = []
-    @State private var timer: Timer?
-    
-    var body: some View {
-        GeometryReader { geometry in
-            ZStack {
-                ForEach(particles) { particle in
-                    Circle()
-                        .fill(
-                            RadialGradient(
-                                colors: [.white, .blue.opacity(0.5), .clear],
-                                center: .center,
-                                startRadius: 0,
-                                endRadius: 4
-                            )
-                        )
-                        .frame(width: 8 * particle.scale, height: 8 * particle.scale)
-                        .position(x: particle.x, y: particle.y)
-                        .opacity(particle.opacity)
-                        .blur(radius: 0.5)
-                }
-            }
-            .onAppear {
-                startParticles(in: geometry.size)
-            }
-            .onDisappear {
-                timer?.invalidate()
-            }
-        }
-    }
-    
-    private func startParticles(in size: CGSize) {
-        for _ in 0..<15 {
-            addParticle(in: size)
-        }
-        
-        timer = Timer.scheduledTimer(withTimeInterval: 0.3, repeats: true) { _ in
-            if particles.count < 20 {
-                addParticle(in: size)
-            }
-            particles.removeAll { $0.opacity <= 0 }
-        }
-    }
-    
-    private func addParticle(in size: CGSize) {
-        let particle = SharedParticle(
-            x: CGFloat.random(in: 0...size.width),
-            y: CGFloat.random(in: 0...size.height),
-            scale: CGFloat.random(in: 0.5...1.5),
-            opacity: Double.random(in: 0.3...0.8),
-            speed: Double.random(in: 2...4)
-        )
-        particles.append(particle)
-        
-        withAnimation(.easeOut(duration: particle.speed)) {
-            if let index = particles.firstIndex(where: { $0.id == particle.id }) {
-                particles[index].y -= 100
-                particles[index].opacity = 0
-            }
-        }
-    }
-}
-
-// MARK: - 共有手紙開封画面（既存のLetterOpeningViewと同じアニメーション）
+// MARK: - 共有手紙開封画面（共通の EnvelopeOpeningView を使用）
 
 struct SharedLetterOpeningView: View {
     let letter: LetterReceivingService.ReceivedLetter
     @EnvironmentObject private var store: AppDataStore
-    @Environment(\.dismiss) private var dismiss
-    
-    // 登場アニメーション用
-    @State private var backgroundOpacity: Double = 0
-    @State private var envelopeOffset: CGFloat = -400
-    @State private var envelopeRotation: Double = -5
-    @State private var showEnvelope = false
-    @State private var showText = false
-    @State private var showParticles = false
-    @State private var glowOpacity: Double = 0
-    
-    // 開封アニメーション用
-    @State private var tearProgress: CGFloat = 0
-    @State private var isOpened = false
-    @State private var envelopeScale: CGFloat = 1
-    @State private var envelopeOpacity: Double = 1
-    @State private var letterPaperOffset: CGFloat = 40
-    @State private var letterPaperOpacity: Double = 0
-    @State private var letterScale: CGFloat = 1
-    @State private var showFullContent = false
-    @State private var fullContentOpacity: Double = 0
-    @State private var isLetterExpanded = false
-    @Namespace private var animation
-    
-    // 封筒の揺れ効果用
-    @State private var shakeOffset: CGFloat = 0
-    @State private var tearParticles: [SharedTearParticle] = []
-    
+
     // 復号用
     @State private var isDecrypting = false
     @State private var decryptedLetter: LetterReceivingService.DecryptedLetter?
     @State private var errorMessage: String?
-    
+
     // 写真用
     @State private var selectedPhotoIndex: Int = 0
     @State private var showFullscreenPhoto = false
-    
-    // ハプティクス
-    private let impactLight = UIImpactFeedbackGenerator(style: .light)
-    private let impactMedium = UIImpactFeedbackGenerator(style: .medium)
-    private let impactHeavy = UIImpactFeedbackGenerator(style: .heavy)
-    private let impactRigid = UIImpactFeedbackGenerator(style: .rigid)
-    private let notificationFeedback = UINotificationFeedbackGenerator()
-    
+
     var body: some View {
-        ZStack {
-            // 背景
-            Color.black
-                .opacity(backgroundOpacity)
-                .ignoresSafeArea()
-            
-            Color(uiColor: UIColor(red: 0.1, green: 0.1, blue: 0.18, alpha: 1))
-                .opacity(backgroundOpacity)
-                .ignoresSafeArea()
-            
-            // パーティクル効果
-            if showParticles && !showFullContent {
-                SharedParticleView()
-                    .opacity(0.6)
+        EnvelopeOpeningView(
+            accentColor: .blue,
+            headerTitle: "\(letter.senderEmoji) \(letter.senderName)さんから手紙が届きました",
+            headerSubtitle: letter.deliveredAt.jaFullDateString,
+            recipientLabel: "To: あなたへ",
+            senderValue: letter.senderName,
+            arrivalValue: letter.deliveredAt.jaShortDateString,
+            previewContent: { previewContent },
+            expandedContent: { expandedContent },
+            onOpenStart: {},
+            onExpand: {
+                // カード拡大タイミングで復号を開始
+                decryptLetter()
             }
-            
-            // 封筒の周りのグロー効果
-            if showEnvelope && !showFullContent {
-                Circle()
-                    .fill(
-                        RadialGradient(
-                            colors: [.blue.opacity(0.3), .clear],
-                            center: .center,
-                            startRadius: 50,
-                            endRadius: 200
-                        )
-                    )
-                    .frame(width: 400, height: 400)
-                    .opacity(glowOpacity)
-                    .blur(radius: 30)
-            }
-            
-            VStack {
-                // 閉じるボタン
-                HStack {
-                    Spacer()
-                    Button {
-                        dismiss()
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title)
-                            .foregroundStyle(.white.opacity(0.6))
-                    }
-                    .padding()
-                    .opacity(backgroundOpacity)
-                }
-                
-                Spacer()
-                
-                ZStack {
-                    // 1. 封筒上部（一番奥）
-                    if showEnvelope && !isLetterExpanded {
-                        envelopeTopLayer
-                            .scaleEffect(envelopeScale)
-                            .opacity(envelopeOpacity)
-                            .offset(y: envelopeOffset)
-                            .rotationEffect(.degrees(envelopeRotation))
-                            .zIndex(0)
-                    }
-                    
-                    // 2. 手紙カード
-                    if showEnvelope || isLetterExpanded {
-                        expandableLetterCard
-                            .opacity(letterPaperOpacity)
-                            .zIndex(1)
-                            .animation(.spring(response: 0.6, dampingFraction: 0.8), value: isLetterExpanded)
-                    }
-                    
-                    // 3. 封筒下部（一番手前）
-                    if showEnvelope && !isLetterExpanded {
-                        envelopeBottomLayer
-                            .scaleEffect(envelopeScale)
-                            .opacity(envelopeOpacity)
-                            .offset(y: envelopeOffset)
-                            .rotationEffect(.degrees(envelopeRotation))
-                            .zIndex(2)
-                    }
-                }
-                
-                Spacer()
-            }
-        }
-        .task {
-            // fullScreenCoverで開いた時に確実にアニメーションを開始
-            startEntranceAnimation()
-        }
+        )
         .fullScreenCover(isPresented: $showFullscreenPhoto) {
             fullscreenPhotoViewer
         }
     }
-    
-    // MARK: - 登場アニメーション
-    
-    private func startEntranceAnimation() {
-        impactRigid.prepare()
-        
-        withAnimation(.easeIn(duration: 0.3)) {
-            backgroundOpacity = 1
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            showEnvelope = true
-            showParticles = true
-            
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.6, blendDuration: 0)) {
-                envelopeOffset = 0
-                envelopeRotation = 0
-            }
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                impactRigid.impactOccurred(intensity: 0.8)
-            }
-            
-            withAnimation(.easeIn(duration: 0.8)) {
-                glowOpacity = 1
-            }
-            
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                withAnimation(.easeIn(duration: 0.3)) {
-                    letterPaperOpacity = 1
-                }
-            }
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-            withAnimation(.easeIn(duration: 0.4)) {
-                showText = true
-            }
-        }
+
+    // MARK: - プレビュー（折りたたみ時の手紙カード）
+
+    @ViewBuilder
+    private var previewContent: some View {
+        Text(letter.deliveredAt.jaFullDateString)
+            .font(.caption)
+            .foregroundColor(.gray)
+
+        Text("\(letter.senderEmoji) \(letter.senderName)さんからの手紙")
+            .font(.subheadline)
+            .foregroundColor(.black)
+            .lineLimit(6)
     }
-    
-    // MARK: - 封筒上部レイヤー
-    
-    private var envelopeTopLayer: some View {
-        VStack(spacing: 16) {
-            VStack(spacing: 8) {
-                Text("\(letter.senderEmoji) \(letter.senderName)さんから手紙が届きました")
+
+    // MARK: - 拡張時の手紙カード本文（復号状態に応じて切り替え）
+
+    @ViewBuilder
+    private var expandedContent: some View {
+        if isDecrypting {
+            VStack(spacing: 16) {
+                ProgressView()
+                    .scaleEffect(1.5)
+                Text("復号中...")
                     .font(.headline)
-                    .foregroundColor(.white)
-                
-                Text(letter.deliveredAt.jaFullDateString)
-                    .font(.subheadline)
-                    .foregroundColor(.white.opacity(0.7))
+                    .foregroundColor(.gray)
             }
-            .opacity(showText ? 1 : 0)
-            
-            ZStack {
-                VStack(spacing: 0) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 5)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color(red: 0.96, green: 0.91, blue: 0.84),
-                                        Color(red: 0.92, green: 0.86, blue: 0.78)
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                        
-                        RoundedRectangle(cornerRadius: 5)
-                            .fill(Color.white.opacity(0.15))
-                        
-                        RoundedRectangle(cornerRadius: 5)
-                            .stroke(Color.brown.opacity(0.25), lineWidth: 1.5)
-                    }
-                    .frame(width: 260, height: 40)
-                    .clipped()
-                    
-                    Rectangle()
-                        .fill(Color(red: 0.40, green: 0.35, blue: 0.30))
-                        .frame(width: 260, height: 24)
-                    
-                    Spacer()
-                }
-                .frame(width: 260, height: 340)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 40)
+        } else if let decrypted = decryptedLetter {
+            // ヘッダー
+            VStack(spacing: 4) {
+                Text(decrypted.senderEmoji)
+                    .font(.system(size: 40))
+
+                Text("\(decrypted.senderName)さんより")
+                    .font(.caption)
+                    .foregroundColor(.gray)
             }
-            .offset(x: shakeOffset)
-        }
-    }
-    
-    // MARK: - 封筒下部レイヤー
-    
-    private var envelopeBottomLayer: some View {
-        VStack(spacing: 16) {
-            VStack(spacing: 8) {
-                Text("\(letter.senderEmoji) \(letter.senderName)さんから手紙が届きました")
-                    .font(.headline)
-                    .foregroundColor(.clear)
-                
-                Text(letter.deliveredAt.jaFullDateString)
-                    .font(.subheadline)
-                    .foregroundColor(.clear)
-            }
-            
-            ZStack {
-                VStack(spacing: 0) {
-                    Spacer().frame(height: 64)
-                    
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 5)
-                            .fill(
-                                LinearGradient(
-                                    colors: [
-                                        Color(red: 0.92, green: 0.86, blue: 0.78),
-                                        Color(red: 0.88, green: 0.82, blue: 0.74)
-                                    ],
-                                    startPoint: .top,
-                                    endPoint: .bottom
-                                )
-                            )
-                        
-                        RoundedRectangle(cornerRadius: 5)
-                            .fill(
-                                LinearGradient(
-                                    colors: [.clear, .brown.opacity(0.08)],
-                                    startPoint: .topLeading,
-                                    endPoint: .bottomTrailing
-                                )
-                            )
-                        
-                        RoundedRectangle(cornerRadius: 5)
-                            .stroke(Color.brown.opacity(0.25), lineWidth: 1.5)
-                        
-                        VStack(alignment: .leading, spacing: 12) {
-                            Spacer().frame(height: 6)
-                            
-                            Text("To: あなたへ")
-                                .font(.system(size: 18, weight: .medium, design: .serif))
-                                .foregroundColor(.brown.opacity(0.85))
-                                .italic()
-                            
-                            Spacer()
-                            
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack(spacing: 8) {
-                                    Text("差出")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.brown.opacity(0.5))
-                                    Text(letter.senderName)
-                                        .font(.system(size: 11, weight: .medium, design: .serif))
-                                        .foregroundColor(.brown.opacity(0.7))
-                                }
-                                HStack(spacing: 8) {
-                                    Text("到着")
-                                        .font(.system(size: 10))
-                                        .foregroundColor(.brown.opacity(0.5))
-                                    Text(letter.deliveredAt.jaShortDateString)
-                                        .font(.system(size: 11, weight: .medium, design: .serif))
-                                        .foregroundColor(.brown.opacity(0.7))
-                                }
-                            }
-                            
-                            Spacer().frame(height: 24)
-                        }
-                        .padding(.horizontal, 28)
-                    }
-                    .frame(width: 260, height: 276)
-                    .shadow(color: .blue.opacity(0.15), radius: 30, y: 10)
-                    .shadow(color: .black.opacity(0.2), radius: 20, y: 10)
-                }
-                .frame(width: 260, height: 340)
-                
-                // 開封ジッパー
-                VStack(spacing: 0) {
-                    ZStack(alignment: .leading) {
-                        if tearProgress < 1.0 {
-                            HStack(spacing: 0) {
-                                Color.clear.frame(width: 260 * tearProgress)
-                                
-                                ZStack {
-                                    Color(red: 0.93, green: 0.88, blue: 0.80)
-                                    
-                                    VStack {
-                                        Rectangle()
-                                            .fill(Color.brown.opacity(0.4))
-                                            .frame(height: 1)
-                                            .mask(Rectangle().stroke(style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
-                                        Spacer()
-                                        Rectangle()
-                                            .fill(Color.brown.opacity(0.4))
-                                            .frame(height: 1)
-                                            .mask(Rectangle().stroke(style: StrokeStyle(lineWidth: 1, dash: [4, 3])))
-                                    }
-                                    .padding(.vertical, 1)
-                                    
-                                    HStack(spacing: 4) {
-                                        Text("OPEN")
-                                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                                            .foregroundColor(.brown.opacity(0.5))
-                                            .fixedSize()
-                                            .lineLimit(1)
-                                            .padding(.leading, 34)
-                                        
-                                        Image(systemName: "chevron.right.2")
-                                            .font(.caption2)
-                                            .foregroundColor(.brown.opacity(0.5))
-                                        
-                                        Spacer()
-                                        
-                                        Image(systemName: "chevron.right.2")
-                                            .font(.caption2)
-                                            .foregroundColor(.brown.opacity(0.3))
-                                            .padding(.trailing, 12)
-                                    }
-                                }
-                                .overlay(
-                                    HStack {
-                                        ZStack {
-                                            UnevenRoundedRectangle(
-                                                topLeadingRadius: 4,
-                                                bottomLeadingRadius: 4,
-                                                bottomTrailingRadius: 0,
-                                                topTrailingRadius: 0
-                                            )
-                                            .fill(Color(red: 0.88, green: 0.82, blue: 0.74))
-                                            .shadow(color: .black.opacity(0.1), radius: 1, x: -1, y: 0)
-                                            
-                                            HStack(spacing: 2) {
-                                                ForEach(0..<3, id: \.self) { _ in
-                                                    Rectangle()
-                                                        .fill(Color.brown.opacity(0.3))
-                                                        .frame(width: 1, height: 10)
-                                                }
-                                            }
-                                        }
-                                        .frame(width: 24)
-                                        
-                                        Spacer()
-                                    }
-                                )
-                            }
-                            .frame(height: 24)
-                            .shadow(color: .black.opacity(0.05), radius: 1, y: 1)
-                        }
-                        
-                        if tearProgress > 0 && tearProgress < 1.0 {
-                            Rectangle()
-                                .fill(
-                                    LinearGradient(
-                                        colors: [.clear, .blue.opacity(0.5), .clear],
-                                        startPoint: .leading,
-                                        endPoint: .trailing
-                                    )
-                                )
-                                .frame(width: 40, height: 24)
-                                .offset(x: 260 * tearProgress - 20)
-                        }
-                    }
-                    .frame(width: 260, height: 24)
-                    .clipped()
-                    .padding(.top, 40)
-                    
-                    Spacer()
-                }
-                .frame(width: 260, height: 340)
-                
-                VStack {
-                    Spacer()
-                    Text(tearProgress < 0.3 ? "👆 上をなぞって開封" : tearProgress < 1 ? "もう少し..." : "")
-                        .font(.caption)
-                        .fontWeight(.medium)
-                        .foregroundColor(.brown.opacity(0.6))
-                        .opacity(showText ? 1 : 0)
-                }
-                .frame(height: 340)
-                .padding(.bottom, -40)
-                
-                ForEach(tearParticles) { particle in
-                    RoundedRectangle(cornerRadius: 1)
-                        .fill(Color(white: 0.95))
-                        .frame(width: 5 * particle.scale, height: 8 * particle.scale)
-                        .rotationEffect(.degrees(particle.rotation))
-                        .shadow(color: .black.opacity(0.1), radius: 1, x: 0, y: 1)
-                        .offset(x: particle.x, y: particle.y)
-                        .opacity(particle.opacity)
-                }
-            }
-            .offset(x: shakeOffset)
-            .gesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { value in
-                        let progress = min(1, max(0, value.translation.width / 220))
-                        
-                        if progress > tearProgress {
-                            let progressDiff = progress - tearProgress
-                            let hapticThreshold = max(0.03, 0.08 - progress * 0.05)
-                            
-                            if progressDiff > hapticThreshold {
-                                let intensity = min(1.0, 0.3 + progress * 0.7)
-                                if progress < 0.3 {
-                                    impactLight.impactOccurred(intensity: intensity)
-                                } else if progress < 0.6 {
-                                    impactMedium.impactOccurred(intensity: intensity)
-                                } else if progress < 0.85 {
-                                    impactHeavy.impactOccurred(intensity: intensity)
-                                } else {
-                                    impactRigid.impactOccurred(intensity: 1.0)
-                                }
-                                
-                                addTearParticle(at: progress)
-                            }
-                        }
-                        
-                        let shakeIntensity = progress * 2.5
-                        withAnimation(.linear(duration: 0.05)) {
-                            shakeOffset = CGFloat.random(in: -shakeIntensity...shakeIntensity)
-                        }
-                        
-                        tearProgress = progress
-                    }
-                    .onEnded { value in
-                        withAnimation(.spring(response: 0.2, dampingFraction: 0.5)) {
-                            shakeOffset = 0
-                        }
-                        
-                        if tearProgress >= 0.95 {
-                            openEnvelope()
-                        } else {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
-                                tearProgress = 0
-                            }
-                            tearParticles.removeAll()
-                        }
-                    }
-            )
-        }
-    }
-    
-    // MARK: - 拡張可能な手紙カード
-    
-    private var expandableLetterCard: some View {
-        GeometryReader { geometry in
-            let screenWidth = geometry.size.width
-            let screenHeight = geometry.size.height
-            
-            let cardWidth: CGFloat = isLetterExpanded ? screenWidth - 32 : 220
-            let cardHeight: CGFloat = isLetterExpanded ? screenHeight - 100 : 180
-            
-            ScrollView(showsIndicators: isLetterExpanded) {
-                VStack(alignment: .leading, spacing: isLetterExpanded ? 20 : 12) {
-                    if isLetterExpanded {
-                        if isDecrypting {
-                            VStack(spacing: 16) {
-                                ProgressView()
-                                    .scaleEffect(1.5)
-                                Text("復号中...")
-                                    .font(.headline)
-                                    .foregroundColor(.gray)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 40)
-                        } else if let decrypted = decryptedLetter {
-                            // ヘッダー
-                            VStack(spacing: 4) {
-                                Text(decrypted.senderEmoji)
-                                    .font(.system(size: 40))
-                                
-                                Text("\(decrypted.senderName)さんより")
-                                    .font(.caption)
-                                    .foregroundColor(.gray)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 8)
-                            
-                            Text("Dear あなたへ")
-                                .font(.system(size: 18, weight: .semibold, design: .serif))
-                                .foregroundColor(.brown)
-                            
-                            Rectangle()
-                                .fill(Color.brown.opacity(0.2))
-                                .frame(height: 1)
-                            
-                            // 本文
-                            Text(decrypted.content)
-                                .font(.body)
-                                .foregroundColor(.black)
-                                .lineSpacing(6)
-                            
-                            // 写真
-                            if !decrypted.photos.isEmpty {
-                                VStack(spacing: 12) {
-                                    HStack {
-                                        Image(systemName: "photo.on.rectangle.angled")
-                                            .foregroundColor(.brown.opacity(0.6))
-                                        Text("添付写真")
-                                            .font(.system(size: 14, weight: .medium))
-                                            .foregroundColor(.brown.opacity(0.8))
-                                        Spacer()
-                                        Text("\(decrypted.photos.count)枚")
-                                            .font(.caption)
-                                            .foregroundColor(.gray)
-                                    }
-                                    
-                                    TabView(selection: $selectedPhotoIndex) {
-                                        ForEach(Array(decrypted.photos.enumerated()), id: \.offset) { index, photo in
-                                            Image(uiImage: photo)
-                                                .resizable()
-                                                .scaledToFill()
-                                                .frame(maxWidth: .infinity)
-                                                .frame(height: 200)
-                                                .clipped()
-                                                .tag(index)
-                                                .onTapGesture {
-                                                    showFullscreenPhoto = true
-                                                }
-                                        }
-                                    }
-                                    .tabViewStyle(.page(indexDisplayMode: .automatic))
-                                    .frame(height: 200)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                                }
-                                .padding(.top, 8)
-                            }
-                            
-                            Spacer().frame(height: 16)
-                            
-                            HStack {
-                                Spacer()
-                                VStack(alignment: .trailing, spacing: 4) {
-                                    Rectangle()
-                                        .fill(Color.brown.opacity(0.2))
-                                        .frame(width: 100, height: 1)
-                                    Text("\(decrypted.deliveredAt.jaFullDateString)に届いた手紙")
-                                        .font(.system(size: 12, design: .serif))
-                                        .foregroundColor(.gray)
-                                }
-                            }
-                            
-                            Spacer().frame(height: 60)
-                        } else if let error = errorMessage {
-                            VStack(spacing: 16) {
-                                Image(systemName: "exclamationmark.triangle")
-                                    .font(.largeTitle)
-                                    .foregroundColor(.red)
-                                Text(error)
-                                    .font(.headline)
-                                    .foregroundColor(.red)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.top, 40)
-                        }
-                    } else {
-                        // プレビュー
-                        Text(letter.deliveredAt.jaFullDateString)
+            .frame(maxWidth: .infinity)
+            .padding(.top, 8)
+
+            Text("Dear あなたへ")
+                .font(.system(size: 18, weight: .semibold, design: .serif))
+                .foregroundColor(.brown)
+
+            Rectangle()
+                .fill(Color.brown.opacity(0.2))
+                .frame(height: 1)
+
+            // 本文
+            Text(decrypted.content)
+                .font(.body)
+                .foregroundColor(.black)
+                .lineSpacing(6)
+
+            // 写真
+            if !decrypted.photos.isEmpty {
+                VStack(spacing: 12) {
+                    HStack {
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .foregroundColor(.brown.opacity(0.6))
+                        Text("添付写真")
+                            .font(.system(size: 14, weight: .medium))
+                            .foregroundColor(.brown.opacity(0.8))
+                        Spacer()
+                        Text("\(decrypted.photos.count)枚")
                             .font(.caption)
                             .foregroundColor(.gray)
-                        
-                        Text("\(letter.senderEmoji) \(letter.senderName)さんからの手紙")
-                            .font(.subheadline)
-                            .foregroundColor(.black)
-                            .lineLimit(6)
                     }
+
+                    TabView(selection: $selectedPhotoIndex) {
+                        ForEach(Array(decrypted.photos.enumerated()), id: \.offset) { index, photo in
+                            Image(uiImage: photo)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(maxWidth: .infinity)
+                                .frame(height: 200)
+                                .clipped()
+                                .tag(index)
+                                .onTapGesture {
+                                    showFullscreenPhoto = true
+                                }
+                        }
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .automatic))
+                    .frame(height: 200)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
-                .padding(isLetterExpanded ? 24 : 16)
+                .padding(.top, 8)
             }
-            .scrollDisabled(!isLetterExpanded)
-            .frame(width: cardWidth, height: isLetterExpanded ? cardHeight : 180)
-            .clipped()
-            .background(
-                RoundedRectangle(cornerRadius: isLetterExpanded ? 16 : 6)
-                    .fill(Color.white)
-                    .shadow(color: .black.opacity(isLetterExpanded ? 0.3 : 0.2), radius: isLetterExpanded ? 20 : 8, y: isLetterExpanded ? 10 : 4)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: isLetterExpanded ? 16 : 6))
-            .position(
-                x: geometry.size.width / 2,
-                y: isLetterExpanded ? geometry.size.height / 2 : geometry.size.height / 2 + letterPaperOffset
-            )
+
+            Spacer().frame(height: 16)
+
+            HStack {
+                Spacer()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Rectangle()
+                        .fill(Color.brown.opacity(0.2))
+                        .frame(width: 100, height: 1)
+                    Text("\(decrypted.deliveredAt.jaFullDateString)に届いた手紙")
+                        .font(.system(size: 12, design: .serif))
+                        .foregroundColor(.gray)
+                }
+            }
+
+            Spacer().frame(height: 60)
+        } else if let error = errorMessage {
+            VStack(spacing: 16) {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.largeTitle)
+                    .foregroundColor(.red)
+                Text(error)
+                    .font(.headline)
+                    .foregroundColor(.red)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.top, 40)
         }
     }
-    
+
     // MARK: - フルスクリーン写真ビューア
-    
+
     private var fullscreenPhotoViewer: some View {
         ZStack {
             Color.black.ignoresSafeArea()
-            
+
             if let decrypted = decryptedLetter {
                 TabView(selection: $selectedPhotoIndex) {
                     ForEach(Array(decrypted.photos.enumerated()), id: \.offset) { index, photo in
@@ -967,7 +416,7 @@ struct SharedLetterOpeningView: View {
                 }
                 .tabViewStyle(.page(indexDisplayMode: .automatic))
             }
-            
+
             VStack {
                 HStack {
                     Spacer()
@@ -981,7 +430,7 @@ struct SharedLetterOpeningView: View {
                     }
                 }
                 Spacer()
-                
+
                 if let decrypted = decryptedLetter {
                     Text("\(selectedPhotoIndex + 1) / \(decrypted.photos.count)")
                         .font(.caption)
@@ -991,92 +440,7 @@ struct SharedLetterOpeningView: View {
             }
         }
     }
-    
-    // MARK: - パーティクル追加
-    
-    private func addTearParticle(at progress: CGFloat) {
-        let tearX = -130 + (260 * progress)
-        let tearY: CGFloat = -115
-        
-        let particleCount = Int.random(in: 1...2)
-        for _ in 0..<particleCount {
-            let particle = SharedTearParticle(
-                x: tearX + CGFloat.random(in: -10...10),
-                y: tearY + CGFloat.random(in: -5...5),
-                rotation: Double.random(in: 0...360),
-                scale: CGFloat.random(in: 0.8...1.5),
-                opacity: 1.0
-            )
-            tearParticles.append(particle)
-            
-            withAnimation(.easeOut(duration: Double.random(in: 0.5...1.0))) {
-                if let index = tearParticles.firstIndex(where: { $0.id == particle.id }) {
-                    tearParticles[index].y += CGFloat.random(in: 40...80)
-                    tearParticles[index].x += CGFloat.random(in: -15...15)
-                    tearParticles[index].rotation += Double.random(in: 90...180)
-                    tearParticles[index].opacity = 0
-                }
-            }
-        }
-        
-        tearParticles.removeAll { $0.opacity <= 0 }
-    }
-    
-    // MARK: - 開封アニメーション
-    
-    private func openEnvelope() {
-        impactRigid.impactOccurred(intensity: 1.0)
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-            self.notificationFeedback.notificationOccurred(.success)
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-            self.impactHeavy.impactOccurred(intensity: 1.0)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            self.impactHeavy.impactOccurred(intensity: 0.9)
-        }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) {
-            self.impactRigid.impactOccurred(intensity: 1.0)
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            self.impactHeavy.impactOccurred(intensity: 0.8)
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                self.notificationFeedback.notificationOccurred(.success)
-            }
-        }
-        
-        showParticles = false
-        
-        withAnimation(.spring(response: 0.6, dampingFraction: 0.7)) {
-            letterPaperOpacity = 1
-            letterPaperOffset = -120
-            glowOpacity = 0
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-            withAnimation(.easeIn(duration: 0.6)) {
-                envelopeOffset = 1000
-            }
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-            withAnimation(.spring(response: 0.6, dampingFraction: 0.8)) {
-                isLetterExpanded = true
-                letterPaperOffset = 0
-            }
-            
-            // 復号開始
-            decryptLetter()
-        }
-        
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) {
-            showEnvelope = false
-        }
-    }
-    
+
     private func decryptLetter() {
         isDecrypting = true
         
