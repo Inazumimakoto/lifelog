@@ -30,12 +30,27 @@ class HealthKitManager {
         guard HKHealthStore.isHealthDataAvailable() else {
             return false
         }
-        
+
         do {
             try await healthStore.requestAuthorization(toShare: [], read: readTypes)
             return true
         } catch {
             AppLogger.health.error("Error requesting HealthKit authorization: \(error.localizedDescription)")
+            return false
+        }
+    }
+
+    /// 権限ダイアログを表示済みかどうか(読み取り権限の許可/拒否そのものは HealthKit が公開しない)
+    func hasPreviouslyRequestedAuthorization() async -> Bool {
+        guard HKHealthStore.isHealthDataAvailable() else {
+            return false
+        }
+
+        do {
+            let status = try await healthStore.statusForAuthorizationRequest(toShare: [], read: readTypes)
+            return status == .unnecessary
+        } catch {
+            AppLogger.health.error("Error checking HealthKit authorization request status: \(error.localizedDescription)")
             return false
         }
     }
@@ -150,30 +165,30 @@ class HealthKitManager {
     }
 
     private func isAsleepSample(_ sample: HKCategorySample) -> Bool {
-        guard let value = SleepStageValue(rawValue: sample.value) else { return false }
+        guard let value = HKCategoryValueSleepAnalysis(rawValue: sample.value) else { return false }
         switch value {
-        case .asleep, .asleepUnspecified, .core, .deep, .rem:
+        case .asleepUnspecified, .asleepCore, .asleepDeep, .asleepREM:
             return true
-        case .awake, .inBed:
+        default:
             return false
         }
     }
 
     private func sleepStageType(for sample: HKCategorySample) -> SleepStageType? {
-        guard let stageValue = SleepStageValue(rawValue: sample.value) else {
+        guard let stageValue = HKCategoryValueSleepAnalysis(rawValue: sample.value) else {
             return nil
         }
 
         switch stageValue {
         case .awake:
             return .awake
-        case .rem:
+        case .asleepREM:
             return .rem
-        case .deep:
+        case .asleepDeep:
             return .deep
-        case .core, .asleepUnspecified, .asleep:
+        case .asleepCore, .asleepUnspecified:
             return .core
-        case .inBed:
+        default:
             return nil
         }
     }
@@ -253,14 +268,4 @@ private struct SleepAggregate {
     var end: Date
     var duration: Double
     var stages: [SleepStage]
-}
-
-private enum SleepStageValue: Int {
-    case inBed
-    case asleep
-    case awake
-    case asleepUnspecified
-    case core
-    case deep
-    case rem
 }

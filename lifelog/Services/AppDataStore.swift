@@ -183,10 +183,16 @@ final class AppDataStore: ObservableObject {
         seedSampleDataIfNeeded()
         seedJapaneseScheduleForScreenshotsIfNeeded()
         #endif
-        loadCachedHealthData()
-        if UserDefaults.standard.bool(forKey: InitialPermissionsState.healthRequestedKey) {
-            _Concurrency.Task {
-                await loadHealthData()
+        _Concurrency.Task {
+            await backfillHealthRequestedFlagIfNeeded()
+            await loadHealthData()
+        }
+        _Concurrency.Task {
+            // 起動直後の描画やデータ読込と競合しないよう少し待ってから、
+            // 許可済みの場合のみ外部カレンダーを再読込する(権限ダイアログは出さない)
+            try? await _Concurrency.Task.sleep(nanoseconds: 2_000_000_000)
+            if await syncExternalCalendarsIfAuthorized() {
+                WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
             }
         }
     }
@@ -209,17 +215,17 @@ final class AppDataStore: ObservableObject {
         appState.diaryReminderEnabled
     }
 
-    private func loadCachedHealthData() {
-        let cached: [HealthSummary] = Self.loadValue(forKey: Self.healthSummariesDefaultsKey, defaultValue: [])
-        if !cached.isEmpty {
-            self.healthSummaries = cached
-        }
+    /// 初期権限セットアップ導入(v1.14)以前からのユーザーはセットアップ画面を
+    /// スキップするため healthRequestedKey が立たず、起動時のヘルスデータ取得が
+    /// 止まっていた。HealthKit に権限ダイアログ表示済みかを問い合わせて埋め戻す。
+    private func backfillHealthRequestedFlagIfNeeded() async {
+        guard UserDefaults.standard.bool(forKey: InitialPermissionsState.healthRequestedKey) == false else { return }
+        guard await HealthKitManager.shared.hasPreviouslyRequestedAuthorization() else { return }
+        UserDefaults.standard.set(true, forKey: InitialPermissionsState.healthRequestedKey)
     }
 
     @discardableResult
     func loadHealthData(requestAuthorizationIfNeeded: Bool = false) async -> Bool {
-        loadCachedHealthData()
-
         if requestAuthorizationIfNeeded {
             UserDefaults.standard.set(true, forKey: InitialPermissionsState.healthRequestedKey)
             let authorizationCompleted = await HealthKitManager.shared.requestAuthorization()
