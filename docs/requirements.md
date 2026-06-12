@@ -47,7 +47,7 @@
 ### 4.3 ToDo
 - CRUD + 完了チェック
 - タイトル必須、詳細/期限/優先度(低~高) 任意
-- DB 永続化 (現状: AppDataStore を模擬、将来: Core Data/Realm)
+- DB 永続化 (SwiftData。App Group 共有ストアでウィジェットからも読み取り)
 - Today では今日締切のみ、その他の日付タスクはタスクリストから追加する導線説明
 
 ### 4.4 日記 (Diary)
@@ -102,6 +102,16 @@
 - ヘルスケア: OS設定へのリンク案内
 - サポート: アプリ内レビュー依頼 (条件付き自動トリガー + 手動ボタン)、開発者への問い合わせメール作成 (端末情報自動挿入)
 
+### 4.10 大切な人への手紙 (Letter Sharing)
+- 友達ペアリング (招待リンク / 友達リクエスト)、E2EE 暗号化手紙の送受信、配信条件 (固定日時 / ランダム / 最終ログイン)
+- バックエンドは Firebase (Auth / Firestore / Storage / Cloud Functions)。ペアリング作成・配信判定はサーバーサイド
+- 詳細仕様: `docs/letter-sharing-spec.md`、未来への手紙 (ローカル) は `docs/letter-to-future-spec.md`、iCloud 同期は `docs/letter-icloud-sync-spec.md`
+- セキュリティ対応状況: `docs/security-audit-report.md`
+
+### 4.11 ウィジェット / 壁紙カレンダー
+- WidgetKit 拡張 (`LifelogWidgets/`): 予定 / 記念日 / メモ / 習慣の4種。App Group 経由で SwiftData ストアを共有
+- 壁紙カレンダー: App Intents (`UpdateWallpaperCalendarIntent`) + ショートカット連携で壁紙画像を生成
+
 ## 5. データモデル
 
 | エンティティ | 主なフィールド |
@@ -118,7 +128,7 @@
 
 ## 6. 非機能要件
 - iOS 17+ 推奨 (SwiftUI 最新機能)
-- 永続化: Core Data + CloudKit を視野／暫定的に AppDataStore (インメモリ)
+- 永続化: SwiftData (`Models/SwiftDataModels.swift` の `@Model` 群 + `Services/Persistence.swift`)。App Group 共有ストア。レガシー UserDefaults からの移行は `Services/MigrationManager.swift`
 - パフォーマンス: Today 画面 1 秒以内ロード。HealthKit フェッチはバックグラウンドで UI ブロック禁止
 - セキュリティ: ローカル保存、個人データを外部送信しない、写真はアプリ専用フォルダ
 - プライバシー: HealthKit / Photos アクセス文言整備 (選択写真推奨)
