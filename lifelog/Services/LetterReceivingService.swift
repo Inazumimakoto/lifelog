@@ -59,7 +59,10 @@ class LetterReceivingService {
         case letterNotFound
         case decryptionFailed
         case photoDownloadFailed
-        
+        // Firestoreドキュメントは過去に改ざん可能だったため、
+        // 添付URLは信頼できないデータとして扱い、許可ホスト以外を拒否する
+        case invalidAttachmentURL
+
         var errorDescription: String? {
             switch self {
             case .notAuthenticated:
@@ -70,9 +73,25 @@ class LetterReceivingService {
                 return "復号に失敗しました"
             case .photoDownloadFailed:
                 return "写真のダウンロードに失敗しました"
+            case .invalidAttachmentURL:
+                return "添付ファイルのURLが不正です"
             }
         }
     }
+
+    // MARK: - Attachment URL Validation
+
+    /// 添付URLの許可ホスト一覧
+    /// Firebase Storage が使用するドメインのみを許可する
+    private static let allowedAttachmentHosts: Set<String> = [
+        "firebasestorage.googleapis.com",
+        "storage.googleapis.com"
+    ]
+
+    /// 添付ファイルの最大サイズ（30 MB）
+    /// サーバー側ルールの20 MBより大きいが、
+    /// base64+暗号化ペイロード分の膨張を考慮した上限値
+    private static let maxAttachmentBytes = 30 * 1024 * 1024
     
     // MARK: - Get Received Letters
     
@@ -265,24 +284,45 @@ class LetterReceivingService {
         guard let downloadURL = URL(string: url) else {
             throw ReceiveError.photoDownloadFailed
         }
-        
+
+        // Firestoreドキュメントは過去に改ざん可能だったため、URLを信頼しない。
+        // Firebase Storage 以外のホストへのリクエストを防ぐためホストを検証する。
+        guard downloadURL.scheme == "https",
+              let host = downloadURL.host,
+              LetterReceivingService.allowedAttachmentHosts.contains(host) else {
+            throw ReceiveError.invalidAttachmentURL
+        }
+
         // ダウンロード
-        let (data, _) = try await URLSession.shared.data(from: downloadURL)
-        
+        let (data, response) = try await URLSession.shared.data(from: downloadURL)
+
+        // Content-Length ヘッダが取得できる場合は事前にサイズチェックする。
+        // ヘッダが存在しない場合でも、実際のデータサイズで後続の検証を行う。
+        if let httpResponse = response as? HTTPURLResponse,
+           httpResponse.expectedContentLength > 0,
+           httpResponse.expectedContentLength > LetterReceivingService.maxAttachmentBytes {
+            throw ReceiveError.photoDownloadFailed
+        }
+
+        // 実ダウンロードサイズによる上限チェック
+        if data.count > LetterReceivingService.maxAttachmentBytes {
+            throw ReceiveError.photoDownloadFailed
+        }
+
         // Base64文字列として解釈
         guard let serialized = String(data: data, encoding: .utf8) else {
             throw ReceiveError.photoDownloadFailed
         }
-        
+
         // 復号
         let encryptedMessage = try e2eeService.deserializeEncryptedMessage(serialized)
         let decryptedData = try e2eeService.decryptData(encryptedMessage: encryptedMessage)
-        
+
         // UIImageに変換
         guard let image = UIImage(data: decryptedData) else {
             throw ReceiveError.photoDownloadFailed
         }
-        
+
         return image
     }
     

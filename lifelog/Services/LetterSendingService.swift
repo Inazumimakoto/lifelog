@@ -64,7 +64,13 @@ class LetterSendingService {
         case uploadFailed
         case firestoreFailed
         case tooManyPendingLetters
-        
+        // 仕様上の添付上限: 最大5枚（SharedLetterEditorView の maxSelectionCount と対応）
+        case tooManyPhotos
+        // 仕様上の1枚あたりサイズ上限: 10 MB JPEG
+        // ストレージルールは暗号化+base64ペイロードで20 MBまで許可しているため、
+        // 元画像を10 MBに絞ることで余裕を持って収まる
+        case photoTooLarge
+
         var errorDescription: String? {
             switch self {
             case .notAuthenticated:
@@ -79,6 +85,10 @@ class LetterSendingService {
                 return "手紙の保存に失敗しました"
             case .tooManyPendingLetters:
                 return "未開封手紙が上限（5通）に達しています"
+            case .tooManyPhotos:
+                return "添付写真は最大5枚までです"
+            case .photoTooLarge:
+                return "1枚あたりの写真サイズは10 MB以内にしてください"
             }
         }
     }
@@ -110,13 +120,20 @@ class LetterSendingService {
         initialStatus: EncryptedLetter.LetterStatus = .pending
     ) async throws {
         
+        // 0. 添付枚数チェック（仕様: 最大5枚）
+        // UI 側の maxSelectionCount と対応するが、
+        // API 呼び出しを直接受けるサービス層でも強制する
+        guard photos.count <= 5 else {
+            throw SendError.tooManyPhotos
+        }
+
         // 1. 認証チェック
         guard let currentUser = Auth.auth().currentUser else {
             throw SendError.notAuthenticated
         }
         let senderEmoji = AuthService.shared.currentUser?.emoji ?? "😊"
         let senderName = AuthService.shared.currentUser?.displayName ?? "送信者"
-        
+
         // 2. 未開封上限チェック（5通）
         let pendingCount = try await getPendingLetterCount(
             senderId: currentUser.uid,
@@ -200,7 +217,14 @@ class LetterSendingService {
         guard let photoData = photo.jpegData(compressionQuality: 0.7) else {
             throw SendError.uploadFailed
         }
-        
+
+        // 仕様上の1枚あたりサイズ上限: 10 MB JPEG
+        // Storage ルールは暗号化+base64ペイロードで20 MBまで許可しているため、
+        // 元データを10 MBに制限することで余裕を持って収まる
+        guard photoData.count <= 10 * 1024 * 1024 else {
+            throw SendError.photoTooLarge
+        }
+
         // 2. E2EE暗号化
         let encryptedMessage: E2EEService.EncryptedMessage
         do {
@@ -290,7 +314,10 @@ class LetterSendingService {
     }
     
     // MARK: - Send Letter To Self (Debug)
-    
+
+    // リリースビルドでテスト用エントリーポイントを除外する。
+    // 本メソッドはデバッグ・QA 専用であり、製品フローでは呼び出されない。
+    #if DEBUG
     /// 自分自身に手紙を送る（テスト用）
     /// 即座に「配信済み」として保存され、受信一覧に表示される
     func sendLetterToSelf(content: String, photos: [UIImage] = []) async throws {
@@ -342,7 +369,8 @@ class LetterSendingService {
         ]
         
         try await db.collection("letters").document(letterId).setData(letterData)
-        
+
         print("✅ 自分自身への手紙送信完了: \(letterId)")
     }
+    #endif
 }
