@@ -91,43 +91,7 @@ struct PersistenceController {
             return
         }
         
-        // App Group Storage Logic
-        let storeURL: URL
-        if let groupURL = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: Self.appGroupIdentifier) {
-            storeURL = groupURL.appendingPathComponent("default.store")
-            
-            // Migration: Check if we need to move existing DB from Sandbox to App Group
-            let fileManager = FileManager.default
-            let sandboxURL = URL.applicationSupportDirectory.appendingPathComponent("default.store")
-            
-            // If App Group DB doesn't exist, but Sandbox DB does, move it.
-            if !fileManager.fileExists(atPath: storeURL.path) && fileManager.fileExists(atPath: sandboxURL.path) {
-                print("Moving SwiftData store from Sandbox to App Group...")
-                do {
-                    try fileManager.moveItem(at: sandboxURL, to: storeURL)
-                    // Also move aux files if they exist (-shm, -wal)
-                    let shmSource = sandboxURL.appendingPathExtension("shm")
-                    let shmDest = storeURL.appendingPathExtension("shm")
-                    if fileManager.fileExists(atPath: shmSource.path) {
-                        try fileManager.moveItem(at: shmSource, to: shmDest)
-                    }
-                    
-                    let walSource = sandboxURL.appendingPathExtension("wal")
-                    let walDest = storeURL.appendingPathExtension("wal")
-                    if fileManager.fileExists(atPath: walSource.path) {
-                        try fileManager.moveItem(at: walSource, to: walDest)
-                    }
-                    print("Successfully moved SwiftData store.")
-                } catch {
-                    print("Failed to move SwiftData store: \(error)")
-                    // Fallback to creating new or whatever system does
-                }
-            }
-        } else {
-            print("WARNING: App Group container not found. Falling back to default location.")
-            storeURL = URL.applicationSupportDirectory.appendingPathComponent("default.store")
-        }
-        
+        let storeURL = Self.resolveStoreURL()
         let modelConfiguration = ModelConfiguration(
             schema: schema,
             url: storeURL
@@ -137,10 +101,108 @@ struct PersistenceController {
         do {
             container = try ModelContainer(for: schema, configurations: [modelConfiguration])
         } catch {
-            fatalError("Could not create ModelContainer: \(error)")
+            // ここで落とすとアプリもウィジェットも起動不能ループに陥る。
+            // 破損ストアは「削除せず」退避して新しいストアで起動を続ける。
+            // 退避はアプリ本体のプロセスに限る: ウィジェット拡張が
+            // アプリの開いているストアファイルを動かすと二次破損しうる。
+            if Self.isRunningInExtension {
+                fatalError("Could not create ModelContainer (extension): \(error)")
+            }
+            print("ModelContainer creation failed, quarantining store: \(error)")
+            Self.quarantineStore(at: storeURL)
+            do {
+                container = try ModelContainer(for: schema, configurations: [modelConfiguration])
+                UserDefaults(suiteName: Self.appGroupIdentifier)?
+                    .set(true, forKey: Self.storeRecoveryOccurredKey)
+            } catch {
+                // 新規ストアすら作れないのはディスク満杯等の環境異常で、
+                // この先どの書き込みも成功しない。ここは落とすのが誠実。
+                fatalError("Could not create ModelContainer after store recovery: \(error)")
+            }
         }
     }
-    
+
+    /// 破損ストアを退避して新規作成したことを示すフラグ(App Group defaults)。
+    /// アプリ起動時に読み取り、ユーザーへ通知してからクリアする。
+    static let storeRecoveryOccurredKey = "lifelog.storeRecoveryOccurred"
+
+    /// App Group 内のストアURLを決定し、必要なら Sandbox からの移行を行う
+    private static func resolveStoreURL() -> URL {
+        let fileManager = FileManager.default
+        let sandboxURL = URL.applicationSupportDirectory.appendingPathComponent("default.store")
+
+        guard let groupURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier) else {
+            print("WARNING: App Group container not found. Falling back to default location.")
+            return sandboxURL
+        }
+        let storeURL = groupURL.appendingPathComponent("default.store")
+
+        // App Group 側にまだストアがなく Sandbox 側にある場合のみ移行する
+        if !fileManager.fileExists(atPath: storeURL.path) && fileManager.fileExists(atPath: sandboxURL.path) {
+            do {
+                try migrateStoreFiles(from: sandboxURL, to: storeURL)
+                print("Successfully moved SwiftData store to App Group.")
+            } catch {
+                // 移行に失敗したらこの起動は旧ストアをそのまま使う(データ優先)。
+                // 移行は次回起動時に再試行される。
+                print("Failed to move SwiftData store, using sandbox store this launch: \(error)")
+                return sandboxURL
+            }
+        }
+        return storeURL
+    }
+
+    /// Sandbox → App Group のストア移行。
+    /// 旧実装は move を3回逐次実行しており、途中で kill されると WAL が
+    /// 取り残されて直近の書き込みが消える恐れがあった(さらに aux ファイル名を
+    /// "default.store.shm" と誤っており実際には移せていなかった。正しくは
+    /// "default.store-shm")。コピー→本体を最後に配置→元を削除の順にし、
+    /// どの時点で中断しても次回起動でやり直せるようにする
+    /// (App Group 側 .store の存在が移行完了の印になるため本体は最後)。
+    private static func migrateStoreFiles(from source: URL, to destination: URL) throws {
+        let fileManager = FileManager.default
+        let auxSuffixes = ["-shm", "-wal"]
+
+        // 前回の移行が途中で死んだ場合の残骸を掃除してからコピーする
+        for suffix in auxSuffixes {
+            let dest = URL(fileURLWithPath: destination.path + suffix)
+            if fileManager.fileExists(atPath: dest.path) {
+                try fileManager.removeItem(at: dest)
+            }
+        }
+        for suffix in auxSuffixes {
+            let src = URL(fileURLWithPath: source.path + suffix)
+            let dest = URL(fileURLWithPath: destination.path + suffix)
+            if fileManager.fileExists(atPath: src.path) {
+                try fileManager.copyItem(at: src, to: dest)
+            }
+        }
+        try fileManager.copyItem(at: source, to: destination)
+
+        // コピー完了後に元を削除。ここの失敗は無害なので無視する
+        // (次回起動は App Group 側の存在チェックで移行をスキップする)
+        for suffix in auxSuffixes + [""] {
+            let src = URL(fileURLWithPath: source.path + suffix)
+            if fileManager.fileExists(atPath: src.path) {
+                try? fileManager.removeItem(at: src)
+            }
+        }
+    }
+
+    /// 開けなくなったストア一式をタイムスタンプ付きでリネーム退避する。
+    /// ユーザーデータを物理削除しないため(手動復旧・原因調査の余地を残す)。
+    private static func quarantineStore(at storeURL: URL) {
+        let fileManager = FileManager.default
+        let stamp = ISO8601DateFormatter().string(from: Date())
+            .replacingOccurrences(of: ":", with: "-")
+        for suffix in ["", "-shm", "-wal"] {
+            let src = URL(fileURLWithPath: storeURL.path + suffix)
+            guard fileManager.fileExists(atPath: src.path) else { continue }
+            let dest = URL(fileURLWithPath: storeURL.path + suffix + ".corrupt-" + stamp)
+            try? fileManager.moveItem(at: src, to: dest)
+        }
+    }
+
     // For SwiftUI Previews
     @MainActor
     static let preview: PersistenceController = {
