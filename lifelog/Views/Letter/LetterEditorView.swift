@@ -7,6 +7,7 @@
 
 import SwiftUI
 import PhotosUI
+import os
 
 struct LetterEditorView: View {
     @Environment(\.dismiss) private var dismiss
@@ -378,7 +379,7 @@ struct LetterEditorView: View {
                     // 相対パスを保存（リビルド後も有効）
                     paths.append("\(relativeDirPath)/\(fileName)")
                 } catch {
-                    print("写真保存エラー: \(error)")
+                    AppLogger.data.error("写真保存エラー: \(error)")
                 }
             }
         }

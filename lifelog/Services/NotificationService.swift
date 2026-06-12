@@ -8,6 +8,7 @@
 import Foundation
 import UserNotifications
 import UIKit
+import os
 
 /// 通知タイプの識別子
 enum NotificationType: String {
@@ -40,7 +41,7 @@ class NotificationService {
             }
             return granted
         } catch {
-            print("通知許可リクエストエラー: \(error)")
+            AppLogger.notifications.error("通知許可リクエストエラー: \(error)")
             return false
         }
     }
@@ -73,11 +74,11 @@ class NotificationService {
         
         center.add(request) { error in
             if let error = error {
-                print("予定通知スケジュールエラー: \(error)")
+                AppLogger.notifications.error("予定通知スケジュールエラー: \(error)")
             }
         }
     }
-    
+
     /// 予定の通知をスケジュール（日時指定）
     func scheduleEventReminderAtDate(eventId: UUID, title: String, reminderDate: Date) {
         guard reminderDate > Date() else { return }
@@ -95,11 +96,11 @@ class NotificationService {
         
         center.add(request) { error in
             if let error = error {
-                print("予定通知スケジュールエラー: \(error)")
+                AppLogger.notifications.error("予定通知スケジュールエラー: \(error)")
             }
         }
     }
-    
+
     /// 予定の通知をキャンセル
     func cancelEventReminder(eventId: UUID) {
         let identifier = "\(NotificationType.event.rawValue)-\(eventId.uuidString)"
@@ -126,7 +127,7 @@ class NotificationService {
 
         center.add(request) { error in
             if let error = error {
-                print("外部予定通知スケジュールエラー: \(error)")
+                AppLogger.notifications.error("外部予定通知スケジュールエラー: \(error)")
             }
         }
     }
@@ -148,11 +149,11 @@ class NotificationService {
 
         center.add(request) { error in
             if let error = error {
-                print("外部予定通知スケジュールエラー: \(error)")
+                AppLogger.notifications.error("外部予定通知スケジュールエラー: \(error)")
             }
         }
     }
-    
+
     // MARK: - タスクリマインダー
     
     /// タスクの通知をスケジュール
@@ -172,7 +173,7 @@ class NotificationService {
         
         center.add(request) { error in
             if let error = error {
-                print("タスク通知スケジュールエラー: \(error)")
+                AppLogger.notifications.error("タスク通知スケジュールエラー: \(error)")
             }
         }
     }
@@ -229,11 +230,11 @@ class NotificationService {
         
         center.add(request) { error in
             if let error = error {
-                print("記念日通知スケジュールエラー: \(error)")
+                AppLogger.notifications.error("記念日通知スケジュールエラー: \(error)")
             }
         }
     }
-    
+
     /// 記念日の通知をキャンセル
     func cancelAnniversaryReminder(anniversaryId: UUID) {
         let identifier = "\(NotificationType.anniversary.rawValue)-\(anniversaryId.uuidString)"
@@ -257,11 +258,11 @@ class NotificationService {
         
         center.add(request) { error in
             if let error = error {
-                print("記念日通知スケジュールエラー: \(error)")
+                AppLogger.notifications.error("記念日通知スケジュールエラー: \(error)")
             }
         }
     }
-    
+
     // MARK: - 日記リマインダー
     
     private let diaryReminderIdentifier = "diary-daily-reminder"
@@ -298,7 +299,7 @@ class NotificationService {
         
         center.add(request) { error in
             if let error = error {
-                print("日記通知スケジュールエラー: \(error)")
+                AppLogger.notifications.error("日記通知スケジュールエラー: \(error)")
             }
         }
     }
@@ -327,7 +328,7 @@ class NotificationService {
 
         center.add(request) { error in
             if let error = error {
-                print("今日の予定・タスク通知スケジュールエラー: \(error)")
+                AppLogger.notifications.error("今日の予定・タスク通知スケジュールエラー: \(error)")
             }
         }
     }

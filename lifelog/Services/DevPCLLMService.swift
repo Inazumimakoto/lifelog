@@ -9,6 +9,7 @@
 import Foundation
 import FirebaseFirestore
 import Combine
+import os
 
 /// 開発者PC LLMサービス
 /// Cloudflare Tunnel経由でOllama APIにアクセス
@@ -106,7 +107,7 @@ class DevPCLLMService: ObservableObject {
                 globalUsageCount = count
             }
         } catch {
-            print("⚠️ グローバルカウンター取得失敗: \(error)")
+            AppLogger.general.error("グローバルカウンター取得失敗: \(error)")
         }
     }
     
@@ -118,7 +119,7 @@ class DevPCLLMService: ObservableObject {
             ], merge: true)
             globalUsageCount += 1
         } catch {
-            print("⚠️ グローバルカウンター更新失敗: \(error)")
+            AppLogger.general.error("グローバルカウンター更新失敗: \(error)")
         }
     }
     
@@ -267,10 +268,8 @@ class DevPCLLMService: ObservableObject {
             isLoading = false
         } catch {
             let nsError = error as NSError
-            print("❌ LLM Error: \(error)")
-            print("❌ Error Domain: \(nsError.domain)")
-            print("❌ Error Code: \(nsError.code)")
-            print("❌ URL: \(urlString)")
+            AppLogger.general.error("LLM Error: \(error)")
+            AppLogger.general.error("Error Domain: \(nsError.domain), Code: \(nsError.code)")
             
             if nsError.code == NSURLErrorTimedOut {
                 errorMessage = "開発者のPC！遅い！タイムアウト！"

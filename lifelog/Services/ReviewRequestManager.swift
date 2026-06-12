@@ -8,6 +8,7 @@
 import Foundation
 import StoreKit
 import SwiftUI
+import os
 
 /// スマートなレビュー依頼を管理するクラス
 /// ユーザーが良い体験をした直後（ポジティブなアクション時）にのみレビューを依頼する
@@ -40,7 +41,7 @@ final class ReviewRequestManager {
         let newCount = currentCount + 1
         UserDefaults.standard.set(newCount, forKey: kActionCount)
         
-        print("ReviewRequestManager: Positive action registered. Total: \(newCount)")
+        AppLogger.general.debug("ReviewRequestManager: Positive action registered. Total: \(newCount)")
         
         // 条件チェック
         if shouldRequestReview() {
@@ -97,7 +98,7 @@ final class ReviewRequestManager {
             SKStoreReviewController.requestReview(in: scene)
             UserDefaults.standard.set(Date(), forKey: self.kLastRequestDate)
             UserDefaults.standard.set(0, forKey: self.kActionCount) // カウンタをリセット
-            print("ReviewRequestManager: Review requested")
+            AppLogger.general.info("ReviewRequestManager: Review requested")
         }
     }
 }

@@ -10,6 +10,7 @@ import Foundation
 import FirebaseFirestore
 import FirebaseStorage
 import FirebaseAuth
+import os
 
 /// 手紙受信サービス
 class LetterReceivingService {
@@ -273,7 +274,7 @@ class LetterReceivingService {
             let unreadCount = try await getUnreadCount()
             try await UNUserNotificationCenter.current().setBadgeCount(unreadCount)
         } catch {
-            print("バッジ更新エラー: \(error.localizedDescription)")
+            AppLogger.letters.error("バッジ更新エラー: \(error.localizedDescription)")
         }
     }
     

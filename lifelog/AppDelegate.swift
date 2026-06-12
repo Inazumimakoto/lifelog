@@ -9,65 +9,59 @@ import UIKit
 import FirebaseCore
 import FirebaseMessaging
 import UserNotifications
+import os
 
 class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNUserNotificationCenterDelegate {
-    
+
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
-        
-        print("🚀🚀🚀 AppDelegate didFinishLaunchingWithOptions 開始 🚀🚀🚀")
-        
+
         // Firebase初期化
         FirebaseApp.configure()
-        print("✅ Firebase初期化完了")
-        
+
         // Messagingデリゲート設定
         Messaging.messaging().delegate = self
-        print("✅ Messagingデリゲート設定完了")
-        
+
         // 通知デリゲート設定
         UNUserNotificationCenter.current().delegate = self
-        print("✅ 通知デリゲート設定完了")
-        
+
         // 通知許可の OS ダイアログは初期設定フローから順番に出す。
         // 既に許可済みの場合だけ APNs 登録を復元する。
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             switch settings.authorizationStatus {
             case .authorized, .provisional, .ephemeral:
                 DispatchQueue.main.async {
-                    print("📱 通知許可済みのため registerForRemoteNotifications を呼び出します...")
                     application.registerForRemoteNotifications()
                 }
             default:
                 break
             }
         }
-        
-        print("🚀🚀🚀 AppDelegate didFinishLaunchingWithOptions 終了 🚀🚀🚀")
+
         return true
     }
-    
+
     // MARK: - APNs Token
-    
+
     func application(_ application: UIApplication,
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {
-        print("✅ APNsトークン取得成功: \(deviceToken.map { String(format: "%02.2hhx", $0) }.joined())")
+        // トークン値はリリースで <private> に伏せられる
+        AppLogger.notifications.debug("APNsトークン取得成功: \(deviceToken.map { String(format: "%02.2hhx", $0) }.joined())")
         // APNsトークンをFirebase Messagingに設定
         Messaging.messaging().apnsToken = deviceToken
     }
-    
+
     func application(_ application: UIApplication,
                      didFailToRegisterForRemoteNotificationsWithError error: Error) {
-        print("❌❌❌ リモート通知の登録に失敗 ❌❌❌")
-        print("エラー詳細: \(error)")
-        print("エラーの説明: \(error.localizedDescription)")
+        AppLogger.notifications.error("リモート通知の登録に失敗: \(error)")
     }
-    
+
     // MARK: - MessagingDelegate
-    
+
     func messaging(_ messaging: Messaging, didReceiveRegistrationToken fcmToken: String?) {
         guard let token = fcmToken else { return }
-        print("✅ FCMトークン取得: \(token.prefix(20))...")
+        // トークン値はリリースで <private> に伏せられる
+        AppLogger.notifications.debug("FCMトークン取得: \(token.prefix(20))...")
         
         // トークンをFirestoreに保存
         _Concurrency.Task {

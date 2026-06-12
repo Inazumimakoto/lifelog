@@ -11,6 +11,7 @@ import AuthenticationServices
 import FirebaseAuth
 import FirebaseFirestore
 import CryptoKit
+import os
 
 /// 認証サービス
 /// Sign in with Apple と Firebase Auth の連携を管理
@@ -139,17 +140,17 @@ class AuthService: ObservableObject {
                 
             } catch {
                 // セキュリティ上、詳細なエラー情報は表示しない
-                print("Sign in error: \(error)")
+                AppLogger.auth.error("Sign in error: \(error)")
                 errorMessage = "サインインに失敗しました。しばらくしてから再度お試しください。"
             }
-            
+
         case .failure(let error):
             let nsError = error as NSError
             if nsError.code == ASAuthorizationError.canceled.rawValue {
                 // ユーザーがキャンセルした場合はエラーを表示しない
                 errorMessage = nil
             } else {
-                print("Apple Sign In error: \(error)")
+                AppLogger.auth.error("Apple Sign In error: \(error)")
                 errorMessage = "サインインに失敗しました。しばらくしてから再度お試しください。"
             }
         }
@@ -182,7 +183,7 @@ class AuthService: ObservableObject {
             currentUser = user
             
         } catch {
-            print("Create user error: \(error)")
+            AppLogger.auth.error("Create user error: \(error)")
             errorMessage = "ユーザー作成に失敗しました。しばらくしてから再度お試しください。"
         }
     }
@@ -245,9 +246,9 @@ class AuthService: ObservableObject {
             try await db.collection("users").document(userId).updateData([
                 "lastLoginAt": FieldValue.serverTimestamp()
             ])
-            print("✅ lastLoginAt 更新完了")
+            AppLogger.auth.info("lastLoginAt 更新完了")
         } catch {
-            print("⚠️ lastLoginAt 更新エラー: \(error.localizedDescription)")
+            AppLogger.auth.error("lastLoginAt 更新エラー: \(error.localizedDescription)")
         }
     }
     
@@ -267,9 +268,9 @@ class AuthService: ObservableObject {
                 currentUser = user
             }
             
-            print("✅ FCMトークン保存完了")
+            AppLogger.auth.info("FCMトークン保存完了")
         } catch {
-            print("⚠️ FCMトークン保存エラー: \(error.localizedDescription)")
+            AppLogger.auth.error("FCMトークン保存エラー: \(error.localizedDescription)")
         }
     }
     
@@ -284,9 +285,9 @@ class AuthService: ObservableObject {
             try await db.collection("users").document(userId).updateData([
                 "letterNotificationEnabled": enabled
             ])
-            print("✅ 手紙通知設定を更新: \(enabled)")
+            AppLogger.auth.info("手紙通知設定を更新: \(enabled)")
         } catch {
-            print("⚠️ 手紙通知設定更新エラー: \(error.localizedDescription)")
+            AppLogger.auth.error("手紙通知設定更新エラー: \(error.localizedDescription)")
         }
     }
     
@@ -310,9 +311,9 @@ class AuthService: ObservableObject {
             }
         }
         
-        print("✅ ユーザーをブロック: \(userId)")
+        AppLogger.auth.info("ユーザーをブロック: \(userId)")
     }
-    
+
     /// ユーザーのブロックを解除
     func unblockUser(_ userId: String) async throws {
         guard let currentUserId = Auth.auth().currentUser?.uid else {
@@ -329,7 +330,7 @@ class AuthService: ObservableObject {
             currentUser = user
         }
         
-        print("✅ ブロック解除: \(userId)")
+        AppLogger.auth.info("ブロック解除: \(userId)")
     }
     
     /// ユーザーがブロックされているか確認

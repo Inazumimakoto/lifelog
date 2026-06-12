@@ -7,6 +7,7 @@
 
 import SwiftUI
 import PhotosUI
+import os
 
 struct TodayView: View {
     @StateObject private var viewModel: TodayViewModel
@@ -823,7 +824,7 @@ struct TodayView: View {
             pruneDismissedSharedLetterIDs(using: fetchedLetters)
             receivedSharedLetters = fetchedLetters.filter { !dismissedSharedLetterIDs.contains($0.id) }
         } catch {
-            print("共有手紙の取得に失敗: \(error.localizedDescription)")
+            AppLogger.letters.error("共有手紙の取得に失敗: \(error.localizedDescription)")
         }
     }
     
