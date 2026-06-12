@@ -34,7 +34,6 @@ extension AppDataStore {
                 let createdDay = calendar.startOfDay(for: habits[habitIndex].createdAt)
                 if dateDay < createdDay {
                     habits[habitIndex].createdAt = dateDay
-                    persistHabits()
                 }
             }
         } else {
@@ -45,11 +44,9 @@ extension AppDataStore {
                 let createdDay = calendar.startOfDay(for: habits[habitIndex].createdAt)
                 if dateDay < createdDay {
                     habits[habitIndex].createdAt = dateDay
-                    persistHabits()
                 }
             }
         }
-        persistHabitRecords()
 
         // Switch execution to non-UI blocking task if possible, but for data safety we do it here
         // Mirror to SwiftData
@@ -177,7 +174,6 @@ extension AppDataStore {
             let createdDay = calendar.startOfDay(for: habits[habitIndex].createdAt)
             if dateDay < createdDay {
                 habits[habitIndex].createdAt = dateDay
-                persistHabits()
             }
         }
 
@@ -189,7 +185,6 @@ extension AppDataStore {
             let record = HabitRecord(habitID: habitID, date: date, isCompleted: true)
             habitRecords.append(record)
         }
-        persistHabitRecords()
 
         // Mirror to SwiftData
         if let updatedRecord = habitRecords.first(where: { $0.habitID == habitID && Calendar.current.isDate($0.date, inSameDayAs: date) }) {
@@ -218,7 +213,6 @@ extension AppDataStore {
     func addHabit(_ habit: Habit) {
         let newIndex = habits.count
         habits.append(habit)
-        persistHabits()
 
         let sdHabit = SDHabit(domain: habit)
         sdHabit.orderIndex = newIndex
@@ -230,7 +224,6 @@ extension AppDataStore {
     func updateHabit(_ habit: Habit) {
         guard let index = habits.firstIndex(where: { $0.id == habit.id }) else { return }
         habits[index] = habit
-        persistHabits()
 
         let habitID = habit.id
         let descriptor = FetchDescriptor<SDHabit>(predicate: #Predicate { $0.id == habitID })
@@ -246,7 +239,6 @@ extension AppDataStore {
         guard let index = habits.firstIndex(where: { $0.id == habitID }) else { return }
         habits[index].isArchived = true
         habits[index].archivedAt = Date()
-        persistHabits()
 
         let descriptor = FetchDescriptor<SDHabit>(predicate: #Predicate { $0.id == habitID })
         if let existing = try? modelContext.fetch(descriptor).first {
@@ -259,7 +251,6 @@ extension AppDataStore {
 
     func moveHabit(from source: IndexSet, to destination: Int) {
         habits.move(fromOffsets: source, toOffset: destination)
-        persistHabits()
 
         // Update SwiftData order
         for (index, habit) in habits.enumerated() {
@@ -282,13 +273,5 @@ extension AppDataStore {
     }
 
     // MARK: - Habit Persisters
-
-    func persistHabits() {
-        persist(habits, forKey: Self.habitsDefaultsKey)
-    }
-
-    func persistHabitRecords() {
-        persist(habitRecords, forKey: Self.habitRecordsDefaultsKey)
-    }
 
 }

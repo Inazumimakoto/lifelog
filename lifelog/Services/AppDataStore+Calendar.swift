@@ -328,7 +328,6 @@ extension AppDataStore {
 
         guard changedTaskIDs.isEmpty == false else { return }
 
-        persistTasks()
         for taskID in changedTaskIDs {
             let descriptor = FetchDescriptor<SDTask>(predicate: #Predicate { $0.id == taskID })
             if let existing = try? modelContext.fetch(descriptor).first,
@@ -513,8 +512,6 @@ extension AppDataStore {
     // MARK: - Calendar Persisters
 
     func persistCalendarEvents() {
-        persist(calendarEvents, forKey: Self.calendarEventsDefaultsKey)
-
         // Full Sync to SwiftData
         let descriptor = FetchDescriptor<SDCalendarEvent>()
         if let existingItems = try? modelContext.fetch(descriptor) {

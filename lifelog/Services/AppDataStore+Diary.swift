@@ -17,8 +17,10 @@ extension AppDataStore {
 
     func upsert(entry: DiaryEntry, syncSwiftData: Bool = true) {
         let normalized = normalizeDiaryEntry(entry)
+        // syncSwiftData == false は編集中の打鍵ごとに呼ばれる軽量パス。
+        // かつては UserDefaults へ下書きを書いていたが、読み戻す処理が
+        // 存在しない死に書き込みだったため削除した(リマインダー解除のみ残す)。
         if syncSwiftData == false {
-            persistDiaryEntryDraft(normalized)
             let isToday = Calendar.current.isDateInToday(entry.date)
             if isToday && diaryReminderEnabled && normalized.text.isEmpty == false {
                 NotificationService.shared.cancelDiaryReminder()
@@ -31,7 +33,6 @@ extension AppDataStore {
         } else {
             diaryEntries.append(normalized)
         }
-        persistDiaryEntries()
 
         let isToday = Calendar.current.isDateInToday(entry.date)
         let hasContent = !normalized.text.isEmpty
@@ -42,16 +43,6 @@ extension AppDataStore {
         guard syncSwiftData else { return }
         syncDiaryEntryToSwiftData(normalized)
         saveContext()
-    }
-
-    private func persistDiaryEntryDraft(_ entry: DiaryEntry) {
-        var draftEntries = diaryEntries
-        if let index = draftEntries.firstIndex(where: { $0.id == entry.id }) {
-            draftEntries[index] = entry
-        } else {
-            draftEntries.append(entry)
-        }
-        persist(draftEntries, forKey: Self.diaryDefaultsKey)
     }
 
     // MARK: - Location Visit Tags
@@ -216,7 +207,6 @@ extension AppDataStore {
             }
         }
         if changedEntries.isEmpty == false {
-            persistDiaryEntries()
         }
         return changedEntries
     }
@@ -283,10 +273,6 @@ extension AppDataStore {
     }
 
     // MARK: - Diary Persisters
-
-    func persistDiaryEntries() {
-        persist(diaryEntries, forKey: Self.diaryDefaultsKey)
-    }
 
     func persistLocationVisitTags() {
         persist(locationVisitTagDefinitions, forKey: Self.locationVisitTagsDefaultsKey)
