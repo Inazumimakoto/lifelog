@@ -7,6 +7,7 @@
 
 import Foundation
 import Combine
+import os
 
 /// GitHubコントリビューションの日別データ
 struct GitHubContribution: Identifiable {
@@ -214,8 +215,9 @@ class GitHubService: ObservableObject {
         
         contributions = parsedContributions.sorted { $0.date < $1.date }
         totalContributions = total
-        
-        print("🟢 GitHub GraphQL API: \(contributions.count)日分, 合計\(totalContributions)コミット")
+        let count1 = contributions.count
+        let total1 = totalContributions
+        AppLogger.general.info("GitHub GraphQL API: \(count1)日分, 合計\(total1)コミット")
     }
     
     // MARK: - Scraping (Fallback)
@@ -324,11 +326,12 @@ class GitHubService: ObservableObject {
             .sorted { $0.date < $1.date }
         
         contributions = Array(uniqueContributions)
-        
+
         // 全データの合計を計算（過去1年分）
         totalContributions = contributions.reduce(0) { $0 + $1.count }
-        
-        print("🟢 GitHubパース結果: \(contributions.count)日分, 合計\(totalContributions)コミット")
+        let count2 = contributions.count
+        let total2 = totalContributions
+        AppLogger.general.info("GitHubパース結果: \(count2)日分, 合計\(total2)コミット")
     }
     
     /// 今日のコントリビューション数

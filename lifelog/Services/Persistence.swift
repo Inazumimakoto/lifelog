@@ -7,6 +7,11 @@
 
 import Foundation
 import SwiftData
+import os
+
+// ウィジェット拡張ターゲットとファイルを共有するため、AppLogger は使用せず
+// ファイルローカルのロガーを定義する
+private let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "lifelog", category: "data")
 
 struct PersistenceController {
     static let shared = PersistenceController()
@@ -108,7 +113,7 @@ struct PersistenceController {
             if Self.isRunningInExtension {
                 fatalError("Could not create ModelContainer (extension): \(error)")
             }
-            print("ModelContainer creation failed, quarantining store: \(error)")
+            logger.error("ModelContainer creation failed, quarantining store: \(error)")
             Self.quarantineStore(at: storeURL)
             do {
                 container = try ModelContainer(for: schema, configurations: [modelConfiguration])
@@ -132,7 +137,7 @@ struct PersistenceController {
         let sandboxURL = URL.applicationSupportDirectory.appendingPathComponent("default.store")
 
         guard let groupURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier) else {
-            print("WARNING: App Group container not found. Falling back to default location.")
+            logger.error("WARNING: App Group container not found. Falling back to default location.")
             return sandboxURL
         }
         let storeURL = groupURL.appendingPathComponent("default.store")
@@ -141,11 +146,11 @@ struct PersistenceController {
         if !fileManager.fileExists(atPath: storeURL.path) && fileManager.fileExists(atPath: sandboxURL.path) {
             do {
                 try migrateStoreFiles(from: sandboxURL, to: storeURL)
-                print("Successfully moved SwiftData store to App Group.")
+                logger.info("Successfully moved SwiftData store to App Group.")
             } catch {
                 // 移行に失敗したらこの起動は旧ストアをそのまま使う(データ優先)。
                 // 移行は次回起動時に再試行される。
-                print("Failed to move SwiftData store, using sandbox store this launch: \(error)")
+                logger.error("Failed to move SwiftData store, using sandbox store this launch: \(error)")
                 return sandboxURL
             }
         }

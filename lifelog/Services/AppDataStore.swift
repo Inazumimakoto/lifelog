@@ -13,6 +13,7 @@ import UserNotifications
 import SwiftUI
 import SwiftData
 import WidgetKit
+import os
 
 @MainActor
 final class AppDataStore: ObservableObject {
@@ -158,7 +159,7 @@ final class AppDataStore: ObservableObject {
             }
             
         } catch {
-            print("Failed to fetch initial data from SwiftData: \(error)")
+            AppLogger.data.error("Failed to fetch initial data from SwiftData: \(error)")
         }
 
         self.externalCalendarEvents = Self.loadValue(forKey: Self.externalCalendarEventsDefaultsKey, defaultValue: [])
@@ -1345,7 +1346,7 @@ final class AppDataStore: ObservableObject {
         
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("日記通知スケジュールエラー: \(error)")
+                AppLogger.notifications.error("日記通知スケジュールエラー: \(error)")
             }
         }
     }
@@ -1595,7 +1596,7 @@ final class AppDataStore: ObservableObject {
         
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
-                print("手紙通知スケジュールエラー: \(error)")
+                AppLogger.notifications.error("手紙通知スケジュールエラー: \(error)")
             }
         }
     }
@@ -1605,7 +1606,7 @@ final class AppDataStore: ObservableObject {
     func addSharedLetter(_ letter: SharedLetter) {
         // 重複チェック
         guard !sharedLetters.contains(where: { $0.id == letter.id }) else {
-            print("⚠️ 共有手紙は既に保存済み: \(letter.id)")
+            AppLogger.letters.debug("共有手紙は既に保存済み: \(letter.id)")
             return
         }
         
@@ -1615,7 +1616,7 @@ final class AppDataStore: ObservableObject {
         modelContext.insert(sdLetter)
         try? modelContext.save()
         
-        print("✅ 共有手紙をローカルに保存: \(letter.id)")
+        AppLogger.letters.info("共有手紙をローカルに保存: \(letter.id)")
     }
 
     func deleteSharedLetter(_ letterID: String) {
@@ -1630,7 +1631,7 @@ final class AppDataStore: ObservableObject {
         // 写真も削除
         deleteSharedLetterPhotos(letterID: letterID)
         
-        print("✅ 共有手紙を削除: \(letterID)")
+        AppLogger.letters.info("共有手紙を削除: \(letterID)")
     }
 
     private func deleteSharedLetterPhotos(letterID: String) {

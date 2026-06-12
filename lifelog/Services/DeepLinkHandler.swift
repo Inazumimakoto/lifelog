@@ -9,6 +9,7 @@ import Foundation
 import Combine
 import SwiftUI
 import FirebaseAuth
+import os
 
 /// Deep Link ハンドラー
 class DeepLinkHandler: ObservableObject {
@@ -33,20 +34,21 @@ class DeepLinkHandler: ObservableObject {
     
     /// URLを処理
     func handleURL(_ url: URL) {
-        print("Handling URL: \(url)")
-        
+        // URLはリリースで <private> に伏せられる
+        AppLogger.general.debug("Handling URL: \(url)")
+
         // パスを解析: /invite/{linkId}
         let pathComponents = url.pathComponents
-        
+
         guard pathComponents.count >= 2,
               pathComponents[1] == "invite",
               pathComponents.count >= 3 else {
-            print("Invalid URL path")
+            AppLogger.general.error("Invalid URL path")
             return
         }
-        
+
         let linkId = pathComponents[2]
-        print("Extracted invite link ID: \(linkId)")
+        AppLogger.general.debug("Extracted invite link ID: \(linkId)")
         
         pendingInviteLinkId = linkId
         

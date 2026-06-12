@@ -8,6 +8,7 @@
 import Foundation
 import SwiftData
 import SwiftUI
+import os
 
 class MigrationManager {
     static let shared = MigrationManager()
@@ -28,11 +29,11 @@ class MigrationManager {
     @MainActor
     func migrate(modelContext: ModelContext) {
         if UserDefaults.standard.bool(forKey: migrationKey) {
-            print("Migration already completed.")
+            AppLogger.data.info("Migration already completed.")
             return
         }
-        
-        print("Starting migration from UserDefaults to SwiftData...")
+
+        AppLogger.data.info("Starting migration from UserDefaults to SwiftData...")
         
         do {
             // 1. Task
@@ -185,13 +186,13 @@ class MigrationManager {
 
             try modelContext.save()
             UserDefaults.standard.set(true, forKey: migrationKey)
-            print("Migration completed successfully.")
+            AppLogger.data.info("Migration completed successfully.")
 
         } catch {
             // 中途半端に挿入された分を捨てて、次回起動で最初から再試行する
             // (完了フラグは保存成功時にしか立てない)
             modelContext.rollback()
-            print("Migration failed: \(error)")
+            AppLogger.data.error("Migration failed: \(error)")
         }
     }
 }

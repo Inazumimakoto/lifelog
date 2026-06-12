@@ -9,6 +9,7 @@ import Foundation
 import WeatherKit
 import CoreLocation
 import Combine
+import os
 
 /// 天気情報を取得・管理するサービス
 final class WeatherService: NSObject, ObservableObject {
@@ -101,7 +102,7 @@ final class WeatherService: NSObject, ObservableObject {
             lastFetchDate = Date()
         } catch {
             errorMessage = "天気情報を取得できませんでした"
-            print("WeatherKit Error: \(error)")
+            AppLogger.general.error("WeatherKit Error: \(error)")
         }
         
         isLoading = false

@@ -7,6 +7,7 @@
 
 import Foundation
 import HealthKit
+import os
 
 @MainActor
 class HealthKitManager {
@@ -34,7 +35,7 @@ class HealthKitManager {
             try await healthStore.requestAuthorization(toShare: [], read: readTypes)
             return true
         } catch {
-            print("Error requesting HealthKit authorization: \(error.localizedDescription)")
+            AppLogger.health.error("Error requesting HealthKit authorization: \(error.localizedDescription)")
             return false
         }
     }

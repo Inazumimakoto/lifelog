@@ -7,6 +7,7 @@
 
 import SwiftUI
 import UIKit
+import os
 
 /// 受信した手紙一覧画面
 struct ReceivedLettersView: View {
@@ -222,7 +223,7 @@ struct ReceivedLettersView: View {
             let unreadCount = letters.filter { $0.status == "delivered" }.count
             try? await UNUserNotificationCenter.current().setBadgeCount(unreadCount)
         } catch {
-            print("手紙取得エラー: \(error.localizedDescription)")
+            AppLogger.letters.error("手紙取得エラー: \(error.localizedDescription)")
         }
         isLoading = false
     }
@@ -1105,7 +1106,7 @@ struct SharedLetterOpeningView: View {
                 
                 // Firestoreから削除
                 try await LetterReceivingService.shared.deleteLetter(letterId: letter.id)
-                print("✅ Firestoreから手紙を削除: \(letter.id)")
+                AppLogger.letters.info("Firestoreから手紙を削除: \(letter.id)")
                 
             } catch {
                 await MainActor.run {

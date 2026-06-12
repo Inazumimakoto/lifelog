@@ -10,6 +10,7 @@ import Foundation
 import FirebaseFirestore
 import FirebaseStorage
 import FirebaseAuth
+import os
 
 /// 手紙送信サービス
 class LetterSendingService {
@@ -200,7 +201,7 @@ class LetterSendingService {
             throw SendError.firestoreFailed
         }
         
-        print("✅ 手紙送信完了: \(letterId)")
+        AppLogger.letters.info("手紙送信完了: \(letterId)")
     }
     
     // MARK: - Upload Encrypted Photo
@@ -370,7 +371,7 @@ class LetterSendingService {
         
         try await db.collection("letters").document(letterId).setData(letterData)
 
-        print("✅ 自分自身への手紙送信完了: \(letterId)")
+        AppLogger.letters.info("自分自身への手紙送信完了: \(letterId)")
     }
     #endif
 }

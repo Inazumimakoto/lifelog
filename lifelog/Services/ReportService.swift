@@ -7,6 +7,7 @@
 
 import Foundation
 import FirebaseFirestore
+import os
 
 /// 通報機能を提供するサービス
 class ReportService {
@@ -66,6 +67,6 @@ class ReportService {
         
         try await db.collection("reports").addDocument(data: reportData)
         
-        print("✅ 通報を送信: \(userId) (理由: \(reason.rawValue))")
+        AppLogger.letters.info("通報を送信: \(userId) (理由: \(reason.rawValue))")
     }
 }

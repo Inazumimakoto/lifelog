@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import UIKit
+import os
 
 // MARK: - Thumbnail Cache
 final class PhotoThumbnailCache {
@@ -61,7 +62,7 @@ struct PhotoStorage {
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         } catch {
-            print("Failed to create photos directory:", error)
+            AppLogger.data.error("Failed to create photos directory: \(error)")
         }
         return dir
     }()
