@@ -394,7 +394,12 @@ class AuthService: ObservableObject {
         var randomBytes = [UInt8](repeating: 0, count: length)
         let errorCode = SecRandomCopyBytes(kSecRandomDefault, randomBytes.count, &randomBytes)
         if errorCode != errSecSuccess {
-            fatalError("Unable to generate nonce. SecRandomCopyBytes failed with OSStatus \(errorCode)")
+            // ここで落とすとサインイン操作がアプリクラッシュになる。
+            // SystemRandomNumberGenerator も Apple プラットフォームでは
+            // 暗号学的に安全な乱数源(arc4random系)なので、nonce の強度を
+            // 落とさずにフォールバックできる。
+            var generator = SystemRandomNumberGenerator()
+            randomBytes = (0..<length).map { _ in UInt8.random(in: .min ... .max, using: &generator) }
         }
         
         let charset: [Character] = Array("0123456789ABCDEFGHIJKLMNOPQRSTUVXYZabcdefghijklmnopqrstuvwxyz-._")

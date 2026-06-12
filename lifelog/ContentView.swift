@@ -38,6 +38,7 @@ struct ContentView: View {
     @State private var premiumAlertMessage: String?
     @State private var showMemoEditorFromWidget = false
     @State private var isHandlingWidgetDestination = false
+    @State private var showStoreRecoveryNotice = false
     @AppStorage(WallpaperCalendarAnnouncementState.hasSeenKey) private var hasSeenWallpaperCalendarAnnouncement = false
     @State private var showWallpaperCalendarAnnouncement = false
     @State private var showSettingsFromWallpaperCalendarAnnouncement = false
@@ -199,7 +200,16 @@ struct ContentView: View {
         } message: {
             Text(premiumAlertMessage ?? "")
         }
+        // データベース破損から自動復旧した場合の通知。
+        // 黙って空のデータで起動するとユーザーが「全部消えた」とだけ
+        // 受け取るため、何が起きたかを必ず伝える。
+        .alert("データベースを初期化しました", isPresented: $showStoreRecoveryNotice) {
+            Button("OK") { }
+        } message: {
+            Text("保存データの読み込みに失敗したため、新しいデータベースで起動しました。以前のデータファイルは端末内に退避されています。お問い合わせいただければ復旧を試みられる場合があります。")
+        }
         .onAppear {
+            consumeStoreRecoveryFlagIfNeeded()
             syncMemoPrivacySettingsToSharedDefaults()
             handleWidgetDestinationIfNeeded(deepLinkManager.pendingWidgetDestination)
             presentInitialPermissionsSetupIfNeeded()
@@ -346,6 +356,14 @@ struct ContentView: View {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
             showSettingsFromWallpaperCalendarAnnouncement = true
         }
+    }
+
+    /// ストア復旧フラグを読み取り、一度だけユーザーに通知する
+    private func consumeStoreRecoveryFlagIfNeeded() {
+        let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier)
+        guard defaults?.bool(forKey: PersistenceController.storeRecoveryOccurredKey) == true else { return }
+        defaults?.removeObject(forKey: PersistenceController.storeRecoveryOccurredKey)
+        showStoreRecoveryNotice = true
     }
 
     private func syncMemoPrivacySettingsToSharedDefaults() {

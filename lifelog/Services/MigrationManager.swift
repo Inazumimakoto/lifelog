@@ -47,7 +47,8 @@ class MigrationManager {
                         endDate: item.endDate,
                         priority: item.priority,
                         isCompleted: item.isCompleted,
-                        reminderDate: item.reminderDate
+                        reminderDate: item.reminderDate,
+                        completedAt: item.completedAt
                     )
                     modelContext.insert(newItem)
                 }
@@ -155,18 +156,23 @@ class MigrationManager {
             }
             
             // 8. MemoPad
+            // SDMemoPad / SDAppState は unique id を持たないため、保存失敗後の
+            // 再実行で行が二重に増えないよう既存行の有無を確認してから挿入する
+            // (unique id を持つ他モデルは再挿入が upsert になるので不要)
             if let data = UserDefaults.standard.data(forKey: memoPadKey),
-               let item = try? JSONDecoder().decode(MemoPad.self, from: data) {
+               let item = try? JSONDecoder().decode(MemoPad.self, from: data),
+               (try? modelContext.fetchCount(FetchDescriptor<SDMemoPad>())) ?? 0 == 0 {
                 let newItem = SDMemoPad(
                     text: item.text,
                     lastUpdatedAt: item.lastUpdatedAt
                 )
                 modelContext.insert(newItem)
             }
-            
+
             // 9. AppState
             if let data = UserDefaults.standard.data(forKey: appStateKey),
-               let item = try? JSONDecoder().decode(AppState.self, from: data) {
+               let item = try? JSONDecoder().decode(AppState.self, from: data),
+               (try? modelContext.fetchCount(FetchDescriptor<SDAppState>())) ?? 0 == 0 {
                 let newItem = SDAppState(
                     lastCalendarSyncDate: item.lastCalendarSyncDate,
                     calendarCategoryLinks: item.calendarCategoryLinks,
@@ -176,12 +182,15 @@ class MigrationManager {
                 )
                 modelContext.insert(newItem)
             }
-            
+
             try modelContext.save()
             UserDefaults.standard.set(true, forKey: migrationKey)
             print("Migration completed successfully.")
-            
+
         } catch {
+            // 中途半端に挿入された分を捨てて、次回起動で最初から再試行する
+            // (完了フラグは保存成功時にしか立てない)
+            modelContext.rollback()
             print("Migration failed: \(error)")
         }
     }
