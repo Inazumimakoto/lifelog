@@ -312,7 +312,7 @@ final class AppDataStore: ObservableObject {
                 modelContext.delete(orphaned)
             }
             
-            try? modelContext.save()
+            saveContext()
         }
     }
     
@@ -662,7 +662,7 @@ final class AppDataStore: ObservableObject {
                 existing.reminderDate = task.reminderDate
             }
         }
-        try? modelContext.save()
+        saveContext()
     }
 
     // MARK: - Task CRUD
@@ -673,7 +673,7 @@ final class AppDataStore: ObservableObject {
         
         let sdTask = SDTask(domain: task)
         modelContext.insert(sdTask)
-        try? modelContext.save()
+        saveContext()
         
         scheduleTaskNotification(task)
         rescheduleTodayOverviewReminderIfNeeded()
@@ -688,7 +688,7 @@ final class AppDataStore: ObservableObject {
         let descriptor = FetchDescriptor<SDTask>(predicate: #Predicate { $0.id == taskID })
         if let existing = try? modelContext.fetch(descriptor).first {
              existing.update(from: task)
-             try? modelContext.save()
+             saveContext()
         }
         
         scheduleTaskNotification(task)
@@ -713,7 +713,7 @@ final class AppDataStore: ObservableObject {
                  modelContext.delete(existing)
              }
         }
-        try? modelContext.save()
+        saveContext()
         rescheduleTodayOverviewReminderIfNeeded()
     }
 
@@ -730,7 +730,7 @@ final class AppDataStore: ObservableObject {
                  modelContext.delete(existing)
              }
         }
-        try? modelContext.save()
+        saveContext()
         rescheduleTodayOverviewReminderIfNeeded()
     }
 
@@ -745,7 +745,7 @@ final class AppDataStore: ObservableObject {
         if let existing = try? modelContext.fetch(descriptor).first {
              existing.isCompleted = tasks[index].isCompleted
              existing.completedAt = tasks[index].completedAt
-             try? modelContext.save()
+             saveContext()
         }
         rescheduleTodayOverviewReminderIfNeeded()
     }
@@ -782,7 +782,7 @@ final class AppDataStore: ObservableObject {
         }
         guard syncSwiftData else { return }
         syncDiaryEntryToSwiftData(normalized)
-        try? modelContext.save()
+        saveContext()
     }
 
     private func persistDiaryEntryDraft(_ entry: DiaryEntry) {
@@ -937,7 +937,7 @@ final class AppDataStore: ObservableObject {
                 }
             }
         }
-        try? modelContext.save()
+        saveContext()
         reloadHabitWidgetTimeline()
         
         // Haptic feedback
@@ -1074,7 +1074,7 @@ final class AppDataStore: ObservableObject {
                 }
             }
         }
-        try? modelContext.save()
+        saveContext()
         reloadHabitWidgetTimeline()
     }
 
@@ -1086,7 +1086,7 @@ final class AppDataStore: ObservableObject {
         let sdHabit = SDHabit(domain: habit)
         sdHabit.orderIndex = newIndex
         modelContext.insert(sdHabit)
-        try? modelContext.save()
+        saveContext()
         reloadHabitWidgetTimeline()
     }
 
@@ -1099,7 +1099,7 @@ final class AppDataStore: ObservableObject {
         let descriptor = FetchDescriptor<SDHabit>(predicate: #Predicate { $0.id == habitID })
         if let existing = try? modelContext.fetch(descriptor).first {
              existing.update(from: habit)
-             try? modelContext.save()
+             saveContext()
         }
         reloadHabitWidgetTimeline()
     }
@@ -1115,7 +1115,7 @@ final class AppDataStore: ObservableObject {
         if let existing = try? modelContext.fetch(descriptor).first {
              existing.isArchived = true
              existing.archivedAt = habits[index].archivedAt
-             try? modelContext.save()
+             saveContext()
         }
         reloadHabitWidgetTimeline()
     }
@@ -1134,7 +1134,7 @@ final class AppDataStore: ObservableObject {
                  }
              }
         }
-        try? modelContext.save()
+        saveContext()
         reloadHabitWidgetTimeline()
     }
 
@@ -1149,7 +1149,7 @@ final class AppDataStore: ObservableObject {
         let sdItem = SDAnniversary(domain: anniversary)
         sdItem.orderIndex = newIndex
         modelContext.insert(sdItem)
-        try? modelContext.save()
+        saveContext()
         reloadAnniversaryWidgetTimeline()
     }
 
@@ -1163,7 +1163,7 @@ final class AppDataStore: ObservableObject {
         let descriptor = FetchDescriptor<SDAnniversary>(predicate: #Predicate { $0.id == id })
         if let existing = try? modelContext.fetch(descriptor).first {
              existing.update(from: anniversary)
-             try? modelContext.save()
+             saveContext()
         }
         reloadAnniversaryWidgetTimeline()
     }
@@ -1176,7 +1176,7 @@ final class AppDataStore: ObservableObject {
         let descriptor = FetchDescriptor<SDAnniversary>(predicate: #Predicate { $0.id == anniversaryID })
         if let existing = try? modelContext.fetch(descriptor).first {
              modelContext.delete(existing)
-             try? modelContext.save()
+             saveContext()
         }
         reloadAnniversaryWidgetTimeline()
     }
@@ -1194,7 +1194,7 @@ final class AppDataStore: ObservableObject {
                  }
              }
         }
-        try? modelContext.save()
+        saveContext()
         reloadAnniversaryWidgetTimeline()
     }
 
@@ -1250,7 +1250,7 @@ final class AppDataStore: ObservableObject {
              let newPad = SDMemoPad(text: memoPad.text, lastUpdatedAt: memoPad.lastUpdatedAt)
              modelContext.insert(newPad)
         }
-        try? modelContext.save()
+        saveContext()
     }
 
     // MARK: - App State
@@ -1287,7 +1287,7 @@ final class AppDataStore: ObservableObject {
              )
              modelContext.insert(newState)
         }
-        try? modelContext.save()
+        saveContext()
     }
 
     // MARK: - Diary Reminder Settings
@@ -1503,7 +1503,7 @@ final class AppDataStore: ObservableObject {
         
         let sdLetter = SDLetter(domain: letter)
         modelContext.insert(sdLetter)
-        try? modelContext.save()
+        saveContext()
     }
 
     func updateLetter(_ letter: Letter) {
@@ -1514,7 +1514,7 @@ final class AppDataStore: ObservableObject {
         let descriptor = FetchDescriptor<SDLetter>(predicate: #Predicate { $0.id == letterID })
         if let existing = try? modelContext.fetch(descriptor).first {
             existing.update(from: letter)
-            try? modelContext.save()
+            saveContext()
         }
     }
     
@@ -1525,7 +1525,7 @@ final class AppDataStore: ObservableObject {
         let descriptor = FetchDescriptor<SDLetter>(predicate: #Predicate { $0.id == letterID })
         if let existing = try? modelContext.fetch(descriptor).first {
             existing.update(from: letters[index])
-            try? modelContext.save()
+            saveContext()
         }
     }
 
@@ -1538,7 +1538,7 @@ final class AppDataStore: ObservableObject {
         let descriptor = FetchDescriptor<SDLetter>(predicate: #Predicate { $0.id == letterID })
         if let existing = try? modelContext.fetch(descriptor).first {
             existing.update(from: letter)
-            try? modelContext.save()
+            saveContext()
         }
         
         // 通知をスケジュール
@@ -1554,7 +1554,7 @@ final class AppDataStore: ObservableObject {
         let descriptor = FetchDescriptor<SDLetter>(predicate: #Predicate { $0.id == letterID })
         if let existing = try? modelContext.fetch(descriptor).first {
             existing.update(from: letter)
-            try? modelContext.save()
+            saveContext()
         }
         
         // 通知をキャンセル
@@ -1567,7 +1567,7 @@ final class AppDataStore: ObservableObject {
         let descriptor = FetchDescriptor<SDLetter>(predicate: #Predicate { $0.id == letterID })
         if let existing = try? modelContext.fetch(descriptor).first {
             modelContext.delete(existing)
-            try? modelContext.save()
+            saveContext()
         }
         
         // 通知をキャンセル
@@ -1614,7 +1614,7 @@ final class AppDataStore: ObservableObject {
         
         let sdLetter = SDSharedLetter(domain: letter)
         modelContext.insert(sdLetter)
-        try? modelContext.save()
+        saveContext()
         
         AppLogger.letters.info("共有手紙をローカルに保存: \(letter.id)")
     }
@@ -1625,7 +1625,7 @@ final class AppDataStore: ObservableObject {
         let descriptor = FetchDescriptor<SDSharedLetter>(predicate: #Predicate { $0.id == letterID })
         if let existing = try? modelContext.fetch(descriptor).first {
             modelContext.delete(existing)
-            try? modelContext.save()
+            saveContext()
         }
         
         // 写真も削除
@@ -1638,6 +1638,19 @@ final class AppDataStore: ObservableObject {
         guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else { return }
         let letterDir = documentsDir.appendingPathComponent("SharedLetterPhotos/\(letterID)")
         try? FileManager.default.removeItem(at: letterDir)
+    }
+
+    /// SwiftData への保存を一元化する。
+    /// 以前は全保存箇所が `try? modelContext.save()` で失敗を黙殺しており、
+    /// メモリ上の @Published 配列と DB が乖離しても気づく手段がなかった。
+    /// クラッシュはさせない(UI 上は操作が成功して見えるため、落とすより
+    /// ログに残して次回起動時の SwiftData 再読込に委ねる方が被害が小さい)。
+    private func saveContext(operation: StaticString = #function) {
+        do {
+            try modelContext.save()
+        } catch {
+            AppLogger.data.error("SwiftData保存に失敗 (\(operation)): \(error)")
+        }
     }
 
     private static func loadValue<T: Decodable>(forKey key: String, defaultValue: T) -> T {
@@ -1740,7 +1753,7 @@ final class AppDataStore: ObservableObject {
         for entry in entries {
             syncDiaryEntryToSwiftData(entry)
         }
-        try? modelContext.save()
+        saveContext()
     }
     
     private func applyVisitTagMutation(_ mutate: (inout [String]) -> Bool) -> [DiaryEntry] {
@@ -1882,7 +1895,7 @@ final class AppDataStore: ObservableObject {
                     modelContext.delete(existing)
                 }
             }
-            try? modelContext.save()
+            saveContext()
         }
     }
 
