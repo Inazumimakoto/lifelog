@@ -111,8 +111,6 @@ final class AppDataStore: ObservableObject {
             // DiaryEntries
             let sdDiaries = try modelContext.fetch(FetchDescriptor<SDDiaryEntry>())
             let mappedDiaries = sdDiaries.map { DiaryEntry(sd: $0) }
-            // Normalization logic is still useful
-            let needsNormalization = mappedDiaries.contains { $0.mood == nil || $0.conditionScore == nil }
             self.diaryEntries = Self.normalizeDiaryEntries(mappedDiaries)
             
             // Habits
@@ -157,19 +155,6 @@ final class AppDataStore: ObservableObject {
                 self.appState = AppState(sd: first)
             } else {
                 self.appState = AppState()
-            }
-            
-            // If diary normalization happened (in memory), we should update DB?
-            // Since we just loaded from DB, if DB had nil, we normalized in memory.
-            // We should save back to DB if normalized.
-            // However, SDDiaryEntry properties are optional?
-            // Struct DiaryEntry has optional mood?
-            // normalizeDiaryEntries fills nil with default.
-            // If we want to persist this fix, we should update SDDiaryEntries.
-            // Ideally migration handles this, but legacy normalization logic is safe to keep.
-            if needsNormalization {
-                // Bulk update logic? Or just iterate and save.
-                // For now, assume migration likely handled it or lazy update on edit.
             }
             
         } catch {
