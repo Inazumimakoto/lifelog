@@ -141,6 +141,7 @@ class MigrationManager {
                     let newItem = SDCalendarEvent(
                         id: item.id,
                         title: item.title,
+                        detail: item.detail,
                         startDate: item.startDate,
                         endDate: item.endDate,
                         calendarName: item.calendarName,

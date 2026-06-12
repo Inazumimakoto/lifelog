@@ -41,7 +41,7 @@
 ### 4.2 カレンダー (月ビュー)
 - 月表示 (標準 or カスタム)・日付タップで詳細へ
 - EventKit で予定を読み取り (タイトル / 時間 / カレンダー名)
-- アプリ内から予定作成・編集を可能にする (カレンダー名の代わりにカテゴリ表記)
+- アプリ内から予定作成・編集を可能にする (カレンダー名の代わりにカテゴリ表記、詳細メモ対応)
 - Today と同様に右下に FAB、右上に統一されたツールバー (メモ/リスト/設定) を配置
 
 ### 4.3 ToDo
@@ -114,7 +114,7 @@
 | HabitRecord | id, habitID, date, isCompleted |
 | Anniversary | id, title, targetDate, type(countdown/since), repeatsYearly |
 | HealthSummary | date, steps, sleepHours, sleepStart/End, activeEnergy, fitnessリング相当値 |
-| CalendarEvent | id, title, startDate, endDate, calendarName/カテゴリ |
+| CalendarEvent | id, title, detail, startDate, endDate, calendarName/カテゴリ |
 
 ## 6. 非機能要件
 - iOS 17+ 推奨 (SwiftUI 最新機能)

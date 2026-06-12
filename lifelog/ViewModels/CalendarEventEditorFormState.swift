@@ -13,6 +13,7 @@ import Combine
 class CalendarEventEditorFormState: ObservableObject {
     struct Draft: Equatable {
         var title: String
+        var detail: String
         var category: String
         var startDate: Date
         var endDate: Date
@@ -24,6 +25,7 @@ class CalendarEventEditorFormState: ObservableObject {
     }
 
     @Published var title: String = ""
+    @Published var detail: String = ""
     @Published var category: String = CategoryPalette.defaultCategoryName
     @Published var startDate: Date = Date()
     @Published var endDate: Date = Date()
@@ -43,6 +45,7 @@ class CalendarEventEditorFormState: ObservableObject {
 
     var draft: Draft {
         Draft(title: title,
+              detail: detail,
               category: category,
               startDate: startDate,
               endDate: endDate,
@@ -68,6 +71,7 @@ class CalendarEventEditorFormState: ObservableObject {
         }()
         
         title = event?.title ?? ""
+        detail = event?.detail ?? ""
         category = event?.calendarName ?? CategoryPalette.defaultCategoryName
         startDate = event?.isAllDay == true ? calendar.startOfDay(for: initialStart) : initialStart
         endDate = event?.isAllDay == true ? calendar.startOfDay(for: allDayEndForState) : initialEnd
@@ -117,7 +121,11 @@ class CalendarEventEditorFormState: ObservableObject {
         restoreCachedDraftIfAvailable()
     }
 
-    func cacheDraft() {
+    func cacheDraft(detailOverride: String? = nil) {
+        var draft = draft
+        if let detailOverride {
+            draft.detail = detailOverride
+        }
         CalendarEventEditorDraftCache.drafts[draftKey] = draft
     }
 
@@ -130,6 +138,7 @@ class CalendarEventEditorFormState: ObservableObject {
         clearCachedDraft()
         isConfigured = false
         title = ""
+        detail = ""
         category = CategoryPalette.defaultCategoryName
         startDate = Date()
         endDate = Date()
@@ -143,6 +152,7 @@ class CalendarEventEditorFormState: ObservableObject {
     private func restoreCachedDraftIfAvailable() {
         guard let cached = CalendarEventEditorDraftCache.drafts[draftKey] else { return }
         title = cached.title
+        detail = cached.detail
         category = cached.category
         startDate = cached.startDate
         endDate = cached.endDate

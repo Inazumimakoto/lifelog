@@ -269,6 +269,7 @@ final class SDHealthSummary {
 final class SDCalendarEvent {
     @Attribute(.unique) var id: UUID
     var title: String
+    var detail: String?
     var startDate: Date
     var endDate: Date
     var calendarName: String
@@ -279,6 +280,7 @@ final class SDCalendarEvent {
 
     init(id: UUID = UUID(),
          title: String,
+         detail: String = "",
          startDate: Date,
          endDate: Date,
          calendarName: String,
@@ -288,6 +290,7 @@ final class SDCalendarEvent {
          reminderDate: Date? = nil) {
         self.id = id
         self.title = title
+        self.detail = detail
         self.startDate = startDate
         self.endDate = endDate
         self.calendarName = calendarName

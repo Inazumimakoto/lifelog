@@ -137,7 +137,7 @@ struct TodayTimelineView: View {
             ForEach(items) { item in
                 let (offset, blockHeight) = position(for: item, contentHeight: height)
                 if blockHeight > 0 {
-                    let detailText = item.detail == "__completed__" ? nil : item.detail
+                    let detailText = timelineDetailText(for: item)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(item.title)
                             .font(.caption.weight(.semibold))
@@ -159,6 +159,15 @@ struct TodayTimelineView: View {
             }
         }
         .frame(width: 220, height: height)
+    }
+
+    private func timelineDetailText(for item: JournalViewModel.TimelineItem) -> String? {
+        if item.kind == .event,
+           let eventDetail = item.eventDetail,
+           eventDetail.isEmpty == false {
+            return eventDetail
+        }
+        return item.detail == "__completed__" ? nil : item.detail
     }
 
     private func intervalText(start: Date, end: Date) -> String {

@@ -231,6 +231,7 @@ final class WallpaperCalendarDataProvider {
                 CalendarEvent(
                     id: $0.id,
                     title: $0.title,
+                    detail: $0.detail ?? "",
                     startDate: $0.startDate,
                     endDate: $0.endDate,
                     calendarName: $0.calendarName,

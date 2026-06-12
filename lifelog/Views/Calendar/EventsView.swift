@@ -100,6 +100,11 @@ struct EventsView: View {
                 Label(eventTimeLabel(event), systemImage: "clock")
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                if event.detail.isEmpty == false {
+                    Text(event.detail)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 HStack(spacing: 4) {
                     Text(event.calendarName)
                         .font(.caption2)

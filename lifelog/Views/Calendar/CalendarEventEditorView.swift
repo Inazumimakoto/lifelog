@@ -10,6 +10,7 @@ import SwiftUI
 struct CalendarEventEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var formState: CalendarEventEditorFormState
+    @StateObject private var detailDraft: LongFormTextDraft
     @State private var isShowingCategorySelection = false
     @State private var showDeleteConfirmation = false
 
@@ -27,13 +28,28 @@ struct CalendarEventEditorView: View {
         self.onDelete = onDelete
         self.originalEvent = event
         self.defaultDate = defaultDate
-        _formState = StateObject(wrappedValue: CalendarEventEditorFormState(event: event, defaultDate: defaultDate))
+        let formState = CalendarEventEditorFormState(event: event, defaultDate: defaultDate)
+        _formState = StateObject(wrappedValue: formState)
+        _detailDraft = StateObject(wrappedValue: LongFormTextDraft(text: formState.detail))
     }
 
     var body: some View {
         Form {
             Section("予定") {
                 TextField("タイトル", text: $formState.title)
+                ZStack(alignment: .topLeading) {
+                    Text("詳細メモ（任意）")
+                        .foregroundStyle(.tertiary)
+                        .opacity(detailDraft.isEmpty ? 1 : 0)
+                        .allowsHitTesting(false)
+                    LongFormTextView(text: detailDraft.text,
+                                     textVersion: detailDraft.version,
+                                     onTextChange: { newValue in
+                                         detailDraft.updateFromEditor(newValue)
+                                         formState.cacheDraft(detailOverride: newValue)
+                                     })
+                        .frame(minHeight: 56, alignment: .topLeading)
+                }
                 Button(action: { isShowingCategorySelection = true }) {
                     HStack {
                         Text("カテゴリ")
@@ -127,10 +143,12 @@ struct CalendarEventEditorView: View {
                     }()
                     let event = CalendarEvent(id: originalEvent?.id ?? UUID(),
                                               title: formState.title.isEmpty ? "予定" : formState.title,
+                                              detail: detailDraft.text,
                                               startDate: normalizedStart,
                                               endDate: normalizedEnd,
                                               calendarName: formState.category,
                                               isAllDay: formState.isAllDay,
+                                              sourceCalendarIdentifier: originalEvent?.sourceCalendarIdentifier,
                                               reminderMinutes: formState.hasReminder && formState.useRelativeReminder ? formState.reminderMinutes : nil,
                                               reminderDate: formState.hasReminder && !formState.useRelativeReminder ? formState.reminderDate : nil)
                     onSave(event)
@@ -147,7 +165,7 @@ struct CalendarEventEditorView: View {
             }
         }
         .onChange(of: formState.draft) { _, _ in
-            formState.cacheDraft()
+            formState.cacheDraft(detailOverride: detailDraft.text)
         }
         .onChange(of: formState.isAllDay) { _, newValue in
             if newValue {

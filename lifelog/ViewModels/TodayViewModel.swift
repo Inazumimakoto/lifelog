@@ -213,6 +213,7 @@ final class TodayViewModel: ObservableObject {
                                end: sleepEnd,
                                kind: .sleep,
                                detail: nil,
+                               eventDetail: nil,
                                isAllDay: false))
         }
 
@@ -223,6 +224,7 @@ final class TodayViewModel: ObservableObject {
                                           end: $0.endDate,
                                           kind: .event,
                                           detail: $0.calendarName,
+                                          eventDetail: $0.detail,
                                           isAllDay: $0.isAllDay)
         })
 
@@ -237,6 +239,7 @@ final class TodayViewModel: ObservableObject {
                                                  end: anchorDate,
                                                  kind: .task,
                                                  detail: detail,
+                                                 eventDetail: nil,
                                                  isAllDay: false)
         }
         items.append(contentsOf: taskItems)

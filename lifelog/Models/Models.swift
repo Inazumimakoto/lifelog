@@ -533,6 +533,7 @@ struct HealthSummary: Identifiable, Hashable, Codable {
 struct CalendarEvent: Identifiable, Hashable, Codable {
     let id: UUID
     var title: String
+    var detail: String
     var startDate: Date
     var endDate: Date
     var calendarName: String
@@ -543,6 +544,7 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
 
     init(id: UUID = UUID(),
          title: String,
+         detail: String = "",
          startDate: Date,
          endDate: Date,
          calendarName: String,
@@ -552,6 +554,7 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
          reminderDate: Date? = nil) {
         self.id = id
         self.title = title
+        self.detail = detail
         self.startDate = startDate
         self.endDate = endDate
         self.calendarName = calendarName
@@ -560,12 +563,56 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
         self.reminderMinutes = reminderMinutes
         self.reminderDate = reminderDate
     }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case title
+        case detail
+        case startDate
+        case endDate
+        case calendarName
+        case isAllDay
+        case sourceCalendarIdentifier
+        case reminderMinutes
+        case reminderDate
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(UUID.self, forKey: .id),
+            title: try container.decode(String.self, forKey: .title),
+            detail: try container.decodeIfPresent(String.self, forKey: .detail) ?? "",
+            startDate: try container.decode(Date.self, forKey: .startDate),
+            endDate: try container.decode(Date.self, forKey: .endDate),
+            calendarName: try container.decode(String.self, forKey: .calendarName),
+            isAllDay: try container.decodeIfPresent(Bool.self, forKey: .isAllDay) ?? false,
+            sourceCalendarIdentifier: try container.decodeIfPresent(String.self, forKey: .sourceCalendarIdentifier),
+            reminderMinutes: try container.decodeIfPresent(Int.self, forKey: .reminderMinutes),
+            reminderDate: try container.decodeIfPresent(Date.self, forKey: .reminderDate)
+        )
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(title, forKey: .title)
+        try container.encode(detail, forKey: .detail)
+        try container.encode(startDate, forKey: .startDate)
+        try container.encode(endDate, forKey: .endDate)
+        try container.encode(calendarName, forKey: .calendarName)
+        try container.encode(isAllDay, forKey: .isAllDay)
+        try container.encodeIfPresent(sourceCalendarIdentifier, forKey: .sourceCalendarIdentifier)
+        try container.encodeIfPresent(reminderMinutes, forKey: .reminderMinutes)
+        try container.encodeIfPresent(reminderDate, forKey: .reminderDate)
+    }
 }
 
 extension CalendarEvent {
     init(event: EKEvent, categoryName: String) {
         self.init(id: UUID(),
                   title: event.title,
+                  detail: event.notes ?? "",
                   startDate: event.startDate,
                   endDate: event.endDate,
                   calendarName: categoryName,

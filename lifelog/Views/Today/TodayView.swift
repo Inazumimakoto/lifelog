@@ -366,6 +366,11 @@ struct TodayView: View {
                                     Label(eventTimeLabel(event), systemImage: "clock")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
+                                    if event.detail.isEmpty == false {
+                                        Text(event.detail)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
                                     HStack(spacing: 6) {
                                         if event.calendarName.isEmpty == false {
                                             Text(event.calendarName)

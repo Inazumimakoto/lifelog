@@ -344,6 +344,7 @@ extension CalendarEvent {
         self.init(
             id: sd.id,
             title: sd.title,
+            detail: sd.detail ?? "",
             startDate: sd.startDate,
             endDate: sd.endDate,
             calendarName: sd.calendarName,
@@ -360,6 +361,7 @@ extension SDCalendarEvent {
         self.init(
             id: domain.id,
             title: domain.title,
+            detail: domain.detail,
             startDate: domain.startDate,
             endDate: domain.endDate,
             calendarName: domain.calendarName,
@@ -372,6 +374,7 @@ extension SDCalendarEvent {
     
     func update(from domain: CalendarEvent) {
         self.title = domain.title
+        self.detail = domain.detail
         self.startDate = domain.startDate
         self.endDate = domain.endDate
         self.calendarName = domain.calendarName

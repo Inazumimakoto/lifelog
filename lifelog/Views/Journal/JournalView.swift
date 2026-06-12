@@ -2130,6 +2130,15 @@ private struct TimelineItemDetailView: View {
         return "\(item.start.formatted(date: .omitted, time: .shortened)) - \(item.end.formatted(date: .omitted, time: .shortened))"
     }
 
+    private var presentationHeight: CGFloat {
+        if item.kind == .event,
+           let eventDetail = item.eventDetail,
+           eventDetail.isEmpty == false {
+            return 220
+        }
+        return 180
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             VStack(alignment: .leading, spacing: 4) {
@@ -2145,6 +2154,14 @@ private struct TimelineItemDetailView: View {
                         .font(.callout)
                         .foregroundStyle(Color.accentColor)
                 }
+
+                if item.kind == .event,
+                   let eventDetail = item.eventDetail,
+                   eventDetail.isEmpty == false {
+                    Label(eventDetail, systemImage: "note.text")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                }
             }
             
             if item.kind != .sleep {
@@ -2156,7 +2173,7 @@ private struct TimelineItemDetailView: View {
             }
         }
         .padding()
-        .presentationDetents([.height(180)])
+        .presentationDetents([.height(presentationHeight)])
     }
 }
 
@@ -2242,6 +2259,11 @@ private struct CalendarDetailPanel: View {
                                         Label(eventTimeLabel(for: event), systemImage: "clock")
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
+                                        if event.detail.isEmpty == false {
+                                            Text(event.detail)
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
                                         HStack(spacing: 6) {
                                             Text(event.calendarName)
                                                 .font(.caption2)
@@ -2631,6 +2653,16 @@ private struct TimelineColumnView: View {
                                     .font(.caption2.weight(.medium))
                                     .foregroundStyle(.primary)
                                     .lineLimit(blockHeight < threshold ? 1 : 2)
+
+                                if item.kind == .event,
+                                   let eventDetail = item.eventDetail,
+                                   eventDetail.isEmpty == false,
+                                   blockHeight >= threshold {
+                                    Text(eventDetail)
+                                        .font(.system(size: 9))
+                                        .foregroundStyle(.secondary)
+                                        .lineLimit(1)
+                                }
                                 
                                 // 開始時間
                                 if item.isAllDay {
@@ -3145,9 +3177,13 @@ private struct ReviewMapView: View {
     @State private var cameraPosition: MapCameraPosition = .region(Self.defaultRegion)
     @State private var selectedGroup: ReviewLocationGroup?
     @State private var detailGroup: ReviewLocationGroup?
+    @State private var fullScreenSelectedGroup: ReviewLocationGroup?
+    @State private var fullScreenDetailGroup: ReviewLocationGroup?
     @State private var hasAppliedRegion = false
     @State private var selectedTagFilters: [String] = []
     @State private var showTagFilterSheet = false
+    @State private var showFullScreenTagFilterSheet = false
+    @State private var showFullScreenMap = false
 
     private static let defaultRegion = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: 36.2048, longitude: 138.2529),
                                                           span: MKCoordinateSpan(latitudeDelta: 12, longitudeDelta: 12))
@@ -3156,43 +3192,10 @@ private struct ReviewMapView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Map(position: $cameraPosition,
-                interactionModes: .all,
-                selection: $selectedGroup) {
-                ForEach(filteredGroups) { group in
-                    Annotation(group.name, coordinate: group.coordinate) {
-                        VStack(spacing: 0) {
-                            HStack(spacing: 4) {
-                                Text(group.dateSummary)
-                                    .font(.system(size: 9, weight: .semibold))
-                                    .foregroundStyle(.white)
-                                    .padding(.horizontal, 5)
-                                    .padding(.vertical, 1)
-                                    .background(.black.opacity(0.7), in: Capsule())
-                                    .lineLimit(1)
-                            }
-                            .padding(.bottom, -5)
-                            .zIndex(1)
-                            Image(systemName: "mappin.circle.fill")
-                                .font(.title2)
-                                .foregroundStyle(.red)
-                                .zIndex(0)
-                        }
-                    }
-                    .tag(group)
-                }
-            }
-            .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
-            .overlay(alignment: .topTrailing) {
-                periodMenu
-                    .padding(.top, 8)
-                    .padding(.trailing, 12)
-            }
-            .overlay(alignment: .topLeading) {
-                tagFilterOverlay
-                    .padding(.top, 8)
-                    .padding(.leading, 12)
-            }
+            mapCanvas(selection: $selectedGroup,
+                      showsExpandButton: true,
+                      showsEmptyOverlay: false,
+                      onFilterTap: { showTagFilterSheet = true })
             .onChange(of: selectedGroup) { _, newValue in
                 guard let group = newValue else { return }
                 detailGroup = group
@@ -3210,7 +3213,6 @@ private struct ReviewMapView: View {
             .onChange(of: selectedTagFilters) { _, _ in
                 applyRegion(force: true)
             }
-            .frame(minHeight: 420)
 
             if filteredGroups.isEmpty {
                 emptyState
@@ -3233,6 +3235,122 @@ private struct ReviewMapView: View {
                                     untaggedLabel: Self.untaggedFilterLabel)
                 .presentationDetents([.medium, .large])
         }
+        .fullScreenCover(isPresented: $showFullScreenMap) {
+            fullScreenMap
+        }
+    }
+
+    private func mapCanvas(selection: Binding<ReviewLocationGroup?>,
+                           showsExpandButton: Bool,
+                           showsEmptyOverlay: Bool,
+                           onFilterTap: @escaping () -> Void) -> some View {
+        Map(position: $cameraPosition,
+            interactionModes: .all,
+            selection: selection) {
+            ForEach(filteredGroups) { group in
+                Annotation(group.name, coordinate: group.coordinate) {
+                    VStack(spacing: 0) {
+                        HStack(spacing: 4) {
+                            Text(group.dateSummary)
+                                .font(.system(size: 9, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 1)
+                                .background(.black.opacity(0.7), in: Capsule())
+                                .lineLimit(1)
+                        }
+                        .padding(.bottom, -5)
+                        .zIndex(1)
+                        Image(systemName: "mappin.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.red)
+                            .zIndex(0)
+                    }
+                }
+                .tag(group)
+            }
+        }
+        .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+        .overlay(alignment: .topTrailing) {
+            periodMenu
+                .padding(.top, 8)
+                .padding(.trailing, 12)
+        }
+        .overlay(alignment: .topLeading) {
+            tagFilterOverlay(onTap: onFilterTap)
+                .padding(.top, 8)
+                .padding(.leading, 12)
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if showsExpandButton {
+                expandMapButton
+                    .padding(.trailing, 12)
+                    .padding(.bottom, 12)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            if showsEmptyOverlay && filteredGroups.isEmpty {
+                emptyState
+                    .padding(.bottom, 16)
+            }
+        }
+        .frame(minHeight: 420)
+    }
+
+    private var fullScreenMap: some View {
+        NavigationStack {
+            mapCanvas(selection: $fullScreenSelectedGroup,
+                      showsExpandButton: false,
+                      showsEmptyOverlay: true,
+                      onFilterTap: { showFullScreenTagFilterSheet = true })
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .ignoresSafeArea(edges: .bottom)
+            .navigationTitle("振り返り地図")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完了") {
+                        showFullScreenMap = false
+                    }
+                }
+            }
+        }
+        .onChange(of: fullScreenSelectedGroup) { _, newValue in
+            guard let group = newValue else { return }
+            fullScreenDetailGroup = group
+            fullScreenSelectedGroup = nil
+        }
+        .onDisappear {
+            fullScreenSelectedGroup = nil
+            fullScreenDetailGroup = nil
+            showFullScreenTagFilterSheet = false
+        }
+        .sheet(item: $fullScreenDetailGroup) { group in
+            ReviewMapPlaceDetailSheet(group: group, onOpenDiary: openDiaryFromFullScreenMap)
+                .presentationDetents([.medium, .large])
+        }
+        .sheet(isPresented: $showFullScreenTagFilterSheet) {
+            ReviewMapTagFilterSheet(tags: availableFilterTags,
+                                    selectedFilters: $selectedTagFilters,
+                                    untaggedToken: Self.untaggedFilterToken,
+                                    untaggedLabel: Self.untaggedFilterLabel)
+                .presentationDetents([.medium, .large])
+        }
+    }
+
+    private var expandMapButton: some View {
+        Button {
+            showFullScreenMap = true
+        } label: {
+            Label("全画面", systemImage: "arrow.up.left.and.arrow.down.right")
+                .font(.caption.weight(.semibold))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 7)
+                .background(.ultraThinMaterial, in: Capsule())
+                .overlay(Capsule().stroke(.white.opacity(0.15), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("地図を全画面表示")
     }
 
     private var periodMenu: some View {
@@ -3257,10 +3375,10 @@ private struct ReviewMapView: View {
         .buttonStyle(.plain)
     }
     
-    private var tagFilterOverlay: some View {
+    private func tagFilterOverlay(onTap: @escaping () -> Void) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Button {
-                showTagFilterSheet = true
+                onTap()
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "line.3.horizontal.decrease.circle")
@@ -3448,6 +3566,14 @@ private struct ReviewMapView: View {
         return MKCoordinateRegion(center: center,
                                   span: MKCoordinateSpan(latitudeDelta: latDelta,
                                                          longitudeDelta: lonDelta))
+    }
+
+    private func openDiaryFromFullScreenMap(_ date: Date) {
+        fullScreenDetailGroup = nil
+        showFullScreenMap = false
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+            onOpenDiary(date)
+        }
     }
 }
 

@@ -40,6 +40,7 @@ final class JournalViewModel: ObservableObject {
         let end: Date
         let kind: ItemKind
         let detail: String?
+        let eventDetail: String?
         let isAllDay: Bool
     }
 
@@ -206,6 +207,7 @@ final class JournalViewModel: ObservableObject {
                                           end: stage.end,
                                           kind: .sleep,
                                           detail: nil,
+                                          eventDetail: nil,
                                           isAllDay: false))
             }
         }
@@ -219,6 +221,7 @@ final class JournalViewModel: ObservableObject {
                                           end: event.endDate,
                                           kind: .event,
                                           detail: event.calendarName,
+                                          eventDetail: event.detail,
                                           isAllDay: event.isAllDay))
             }
         }
@@ -232,6 +235,7 @@ final class JournalViewModel: ObservableObject {
                                       end: anchor,
                                       kind: .task,
                                       detail: task.detail,
+                                      eventDetail: nil,
                                       isAllDay: false))
         }
         return items.sorted(by: { $0.start < $1.start })
