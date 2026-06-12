@@ -6,26 +6,44 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
-    
+
     // ペアリングコレクション
+    // 注意: write が広いのは既知の脆弱性 (security-audit-report.md)。
+    // 現行クライアントが相互ペアリングで「相手側の行」も直接書く設計のため、
+    // 書き込みフローを再設計しないと締められない。別PRで対応予定。
     match /pairings/{pairingId} {
       // 読み込み: 自分のデータのみ (userIdフィールドが自分)
       allow read: if request.auth != null && resource.data.userId == request.auth.uid;
       // 書き込み: ログイン必須 (アプリロジック上、相手のデータも書く必要があるので広めに許可)
       allow write: if request.auth != null;
     }
-    
+
     // 友達リクエスト
     match /friendRequests/{requestId} {
       // 読み込み: 送信者か受信者ならOK
       allow read: if request.auth != null && (
-        resource.data.fromUserId == request.auth.uid || 
+        resource.data.fromUserId == request.auth.uid ||
         resource.data.toUserId == request.auth.uid
       );
-      // 書き込み: ログイン必須
-      allow write: if request.auth != null;
+      // 作成: 送信者本人のみ。fromUserPublicKey の偽装(鍵注入)を防ぐため
+      // fromUserId == auth.uid を必須にする。status は pending 固定。
+      allow create: if request.auth != null
+        && request.resource.data.fromUserId == request.auth.uid
+        && request.resource.data.toUserId is string
+        && request.resource.data.status == 'pending';
+      // 更新: 受信者が status を accepted / rejected に変える操作のみ。
+      // 公開鍵などリクエスト内容の書き換えは status 以外の変更を禁止して防ぐ。
+      allow update: if request.auth != null
+        && resource.data.toUserId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.status in ['accepted', 'rejected'];
+      // 削除: 当事者のみ(現行クライアントに削除機能はないが、当事者に限る分には無害)
+      allow delete: if request.auth != null && (
+        resource.data.fromUserId == request.auth.uid ||
+        resource.data.toUserId == request.auth.uid
+      );
     }
-    
+
     // 招待リンク
     match /inviteLinks/{linkId} {
       // 読み込み: 知ってる人は誰でもOK（ログイン必須）
@@ -35,39 +53,63 @@ service cloud.firestore {
       // 更新・削除: 自分のリンクのみ
       allow update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
-    
-    // 暗号化手紙（旧）: 認証済みユーザーのみ
-    match /encryptedLetters/{letterId} {
-      allow read, write: if request.auth != null;
-    }
-    
+
+    // encryptedLetters(旧コレクション)はルールを削除し全アクセス拒否に変更。
+    // git 全履歴を含めクライアント/Functions から参照されたことがなく、
+    // 旧ルールは全認証ユーザーに read/write を許す穴だった。
+
     // 手紙コレクション: 送信者または受信者のみ読み書き可能
     match /letters/{letterId} {
-      allow create: if request.auth != null;
-      allow read: if request.auth != null && 
-        (resource.data.senderId == request.auth.uid || 
+      // 作成: 送信者本人のみ(senderId の偽装＝なりすまし手紙を防ぐ)。
+      // recipientId / encryptedContent / encryptedPhotoURLs の型と、
+      // UI 上限(写真5枚)を検証する。status は開封前の3状態のみ許可。
+      allow create: if request.auth != null
+        && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.recipientId is string
+        && request.resource.data.encryptedContent is string
+        && request.resource.data.encryptedPhotoURLs is list
+        && request.resource.data.encryptedPhotoURLs.size() <= 5
+        && request.resource.data.status in ['pending', 'scheduled', 'delivered'];
+      allow read: if request.auth != null &&
+        (resource.data.senderId == request.auth.uid ||
          resource.data.recipientId == request.auth.uid);
-      allow update: if request.auth != null && 
-        (resource.data.senderId == request.auth.uid || 
-         resource.data.recipientId == request.auth.uid);
-      allow delete: if request.auth != null && 
+      // 更新: クライアントから行う更新は「受信者による開封」のみ
+      // (status を opened にし openedAt を打つ)。配信処理は Admin SDK の
+      // Cloud Functions が行うためルールの影響を受けない。
+      // 送信者・受信者による本文や宛先の書き換えを防ぐ。
+      allow update: if request.auth != null
+        && resource.data.recipientId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'openedAt'])
+        && request.resource.data.status == 'opened';
+      allow delete: if request.auth != null &&
         (resource.data.senderId == request.auth.uid ||
          // 受信者のブロックによる削除も許可
          resource.data.recipientId == request.auth.uid);
     }
-    
-    // 通報: 認証済みユーザーのみ作成可能
+
+    // 通報: 認証済みユーザーが自分名義でのみ作成可能
     match /reports/{reportId} {
-      allow create: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.reporterId == request.auth.uid
+        && request.resource.data.reportedUserId is string
+        && request.resource.data.reason is string;
       allow read: if false; // 運営のみ
     }
-    
+
     // 統計: グローバルカウンター（開発者PC LLM使用回数）
     match /stats/{docId} {
       // 読み込み: 誰でもOK（カウンター表示用）
       allow read: if true;
-      // 書き込み: 認証済みユーザーのみ（incrementに使う）
-      allow write: if request.auth != null;
+      // 書き込み: llm_usage の totalRequests を +1 する操作だけ許可
+      // (クライアントは FieldValue.increment(1) を使用。任意値の上書きを防ぐ)
+      allow write: if request.auth != null
+        && docId == 'llm_usage'
+        && request.resource.data.keys().hasOnly(['totalRequests'])
+        && request.resource.data.totalRequests is int
+        && (
+          (resource == null && request.resource.data.totalRequests == 1) ||
+          (resource != null && request.resource.data.totalRequests == resource.data.totalRequests + 1)
+        );
     }
   }
 }
