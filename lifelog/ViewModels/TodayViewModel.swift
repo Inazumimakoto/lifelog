@@ -54,7 +54,19 @@ final class TodayViewModel: ObservableObject {
     // MARK: - Bindings
 
     private func bind() {
-        store.objectWillChange
+        // refreshAll() が実際に読むストアのプロパティだけを購読する。
+        // 以前は store.objectWillChange を購読しており、無関係なミューテーション
+        // (letters / anniversaries / appState など) でも全体を再計算していた。
+        // refreshAll が参照するのは tasks / calendarEvents / externalCalendarEvents /
+        // habits / habitRecords / healthSummaries / diaryEntries / memoPad の8つ。
+        // combineLatest は一度に4ソースまでなのでチェーンして合成する。
+        let taskGroup = store.$tasks
+            .combineLatest(store.$calendarEvents, store.$externalCalendarEvents, store.$memoPad)
+        let habitGroup = store.$habits
+            .combineLatest(store.$habitRecords, store.$healthSummaries, store.$diaryEntries)
+
+        taskGroup
+            .combineLatest(habitGroup)
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.refreshAll()
