@@ -3,7 +3,22 @@
 **監査日**: 2025-12-13
 **対象バージョン**: v1.7
 **監査者**: 外部AI（セキュリティレビュー）
-**ステータス**: 未対応
+**ステータス**: 対応済み（#5の署名検証のみリスク評価のうえ見送り） — 2026-06-12 更新
+
+## 対応状況サマリ（2026-06-12）
+
+| # | 指摘 | 状況 |
+|---|------|------|
+| 1 | pairings / inviteLinks ルール | ✅ 対応済み。inviteLinks は作成者のみ書き込み可。pairings は**クライアント書き込みを全面禁止**し、ペアリング作成を Cloud Functions（onFriendRequestCreated / onFriendRequestAccepted / onPairingDeleted）に移管。公開鍵は invite/request のコピーではなく users/{uid}.publicKey（正本）から取得 |
+| 2 | letters 作成の senderId 未検証 | ✅ 対応済み。create に senderId == auth.uid + 型検証 + 写真5枚上限。update は受信者の開封操作（status/openedAt）のみに制限 |
+| 3 | Storage ルール | ✅ 対応済み。letters/{letterId}/ 配下のみ、read/delete は Firestore の送受信者照合、create はファイル名パターン + 20MB + contentType 制限（写真は手紙ドキュメントより先にアップロードされるため存在チェックは不可） |
+| 4 | サインアウト時の鍵未削除 | ✅ 対応済み（選択制）。鍵は iCloud キーチェーン同期のため無条件削除は他デバイスの未開封手紙を読めなくする恐れがあり、サインアウト時に「暗号鍵も削除」を警告つきで選択させる方式を採用 |
+| 5 | 公開鍵・メッセージの真正性 | ⚠️ 一部対応 + **見送り（リスク評価済み）**。鍵注入経路は #1 の対応で遮断済み。送信者署名・鍵フィンガープリント照合は、残る脅威が「Firebase アカウント自体の乗っ取り・運営者・Google」に限られること、署名導入は手紙データ形式の互換性を壊すリスクがあること、フィンガープリント照合は自動テスト不能で QA 負担が大きいことから、現在の利用規模（開発者+知人）では見送りと判断（2026-06-12） |
+| 6 | 添付 URL 検証なし | ✅ 対応済み。https + Firebase Storage ドメインのホワイトリスト + 30MB 上限 |
+
+追加で対応した監査対象外の問題: encryptedLetters 旧コレクションの全開放ルールを撤去（全履歴で参照ゼロを確認）、friendRequests の作成者検証と status 限定 update、reports の reporterId 検証、stats のインクリメント限定化、Cloud Functions のクエリ limit 付与。
+
+---
 
 ---
 
