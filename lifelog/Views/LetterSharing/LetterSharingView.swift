@@ -93,11 +93,14 @@ struct LetterSharingView: View {
             }
             .alert("サインアウト", isPresented: $showingSignOutConfirmation) {
                 Button("キャンセル", role: .cancel) { }
-                Button("サインアウト", role: .destructive) {
+                Button("サインアウト") {
                     try? authService.signOut()
                 }
+                Button("暗号鍵も削除してサインアウト", role: .destructive) {
+                    try? authService.signOut(deletingEncryptionKey: true)
+                }
             } message: {
-                Text("再度サインインすればデータは復元されます")
+                Text("再度サインインすればデータは復元されます。\n\n家族など共有の端末では「暗号鍵も削除」を選ぶと、この端末に手紙の暗号鍵が残りません。ただし削除はiCloudキーチェーン経由で自分の他のデバイスにも反映され、未開封の手紙が読めなくなる可能性があります。")
             }
             .alert("E2EE（エンドツーエンド暗号化）", isPresented: $showingE2EEInfo) {
                 Button("OK") { }

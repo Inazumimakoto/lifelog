@@ -340,7 +340,16 @@ class AuthService: ObservableObject {
     // MARK: - Sign Out
     
     /// サインアウト
-    func signOut() throws {
+    /// - Parameter deletingEncryptionKey: true なら E2EE 秘密鍵も Keychain から削除する。
+    ///   共有端末で次の利用者に鍵を残さないための選択肢。鍵は iCloud キーチェーンで
+    ///   同期されているため、削除は他のデバイスにも伝播し、未開封の手紙が二度と
+    ///   復号できなくなる可能性がある。UI 側で必ず警告のうえユーザーに選ばせること。
+    func signOut(deletingEncryptionKey: Bool = false) throws {
+        // 鍵削除を先に行う: サインアウト成功後に鍵削除だけ失敗すると
+        // 「削除したつもりで鍵が残る」状態になりユーザーに気づく手段がない
+        if deletingEncryptionKey {
+            try E2EEService.shared.deletePrivateKey()
+        }
         try Auth.auth().signOut()
         isSignedIn = false
         currentUser = nil
