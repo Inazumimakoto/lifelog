@@ -53,7 +53,6 @@ struct TodayView: View {
                     letterSection
                     sharedLetterSection
                     eventsSection
-                    //                todayTimelineSection
                     tasksSection
                     memoSection
                     habitsSection
