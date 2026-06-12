@@ -5,7 +5,7 @@ The repo root stays lean: `lifelog/` hosts the SwiftUI app and `docs/` stores re
 
 ## Build, Test, and Development Commands
 - `xcodebuild -project lifelog.xcodeproj -scheme lifelog -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO` – CI-friendly release build; fails fast on missing assets or compile errors.
-- `xcodebuild test -project lifelog.xcodeproj -scheme lifelog -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO` – Runs XCTest suites; prefer the same simulator name locally to match snapshots.
+- `xcodebuild test -project lifelog.xcodeproj -scheme lifelog -destination 'platform=iOS Simulator,name=iPhone 17 Pro'` – Runs the `lifelogTests` XCTest suite. Do NOT pass `CODE_SIGNING_ALLOWED=NO` here: the E2EE tests use the Keychain, which requires the (simulator-signed) app entitlements; unsigned test hosts fail with errSecMissingEntitlement (-34018). Use whatever iPhone simulator is installed locally.
 - `xed lifelog.xcodeproj` – Opens the project in Xcode, which is still the fastest way to tweak previews, inspect Core Data models, and regenerate asset catalogs.
 
 ## Coding Style & Naming Conventions
