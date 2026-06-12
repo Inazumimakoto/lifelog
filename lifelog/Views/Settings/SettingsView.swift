@@ -17,6 +17,7 @@ struct SettingsView: View {
     @ObservedObject private var appLockService = AppLockService.shared
     @State private var showMailComposer = false
     @State private var showMailErrorAlert = false
+    @State private var showAppLockUnavailableAlert = false
     @State private var showCalendarSettings = false
     @State private var showWallpaperCalendarSettings = false
     @State private var showNotificationSettings = false
@@ -48,6 +49,22 @@ struct SettingsView: View {
     
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    }
+
+    /// アプリロックのトグル。認証手段のない端末でオンにすると
+    /// fail-open により「ロックしたつもりで素通し」になるため、
+    /// オン操作だけを弾いて理由をアラートで伝える(オフは常に許可)。
+    private var appLockToggleBinding: Binding<Bool> {
+        Binding(
+            get: { appLockService.isAppLockEnabled },
+            set: { newValue in
+                if newValue && appLockService.isDeviceAuthAvailable == false {
+                    showAppLockUnavailableAlert = true
+                } else {
+                    appLockService.isAppLockEnabled = newValue
+                }
+            }
+        )
     }
 
     init(openWallpaperCalendarOnAppear: Bool = false) {
@@ -488,9 +505,23 @@ struct SettingsView: View {
             }
             .foregroundStyle(.primary)
             
-            Toggle(isOn: $appLockService.isAppLockEnabled) {
+            Toggle(isOn: appLockToggleBinding) {
                 Label("アプリロック", systemImage: "lock.fill")
                     .foregroundStyle(.primary)
+            }
+            .alert("アプリロックを有効にできません", isPresented: $showAppLockUnavailableAlert) {
+                Button("OK") { }
+            } message: {
+                Text("この端末にはパスコードまたはFace ID / Touch IDが設定されていません。iOSの「設定」でパスコードを設定してからお試しください。")
+            }
+
+            if appLockService.isAppLockEnabled && appLockService.isDeviceAuthAvailable == false {
+                // パスコードを後から外した既存ユーザー向けの警告。
+                // 締め出し防止のため認証はfail-openのままなので、
+                // 「ロックが効いていない」ことを明示する
+                Label("端末にパスコードが未設定のため、アプリロックは現在機能していません", systemImage: "exclamationmark.triangle.fill")
+                    .font(.footnote)
+                    .foregroundStyle(.orange)
             }
 
             Toggle(isOn: $isDiaryTextHidden) {

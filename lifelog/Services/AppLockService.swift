@@ -16,9 +16,18 @@ class AppLockService: ObservableObject {
     
     @AppStorage("isAppLockEnabled") var isAppLockEnabled: Bool = false
     @Published var isUnlocked: Bool = false
-    
+
     private init() {}
-    
+
+    /// 端末に生体認証またはパスコードが設定されているか。
+    /// false のままロックを有効化すると authenticateForSensitiveAction の
+    /// fail-open(閉じ込め防止)により素通しになるため、設定画面は
+    /// これを見てオン操作を拒否し、既にオンの場合は警告を表示する。
+    var isDeviceAuthAvailable: Bool {
+        var error: NSError?
+        return LAContext().canEvaluatePolicy(.deviceOwnerAuthentication, error: &error)
+    }
+
     func authenticate() {
         _Concurrency.Task {
             let success = await authenticateForSensitiveAction(reason: "アプリのロックを解除します")
