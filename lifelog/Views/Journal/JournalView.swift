@@ -158,7 +158,7 @@ private enum CalendarCellRowContent {
 struct JournalView: View {
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject private var monetization = MonetizationService.shared
-    @StateObject private var appLockService = AppLockService.shared
+    @ObservedObject private var appLockService = AppLockService.shared
     @AppStorage("isDiaryTextHidden") private var isDiaryTextHidden: Bool = false
     @AppStorage("requiresDiaryOpenAuthentication") private var requiresDiaryOpenAuthentication: Bool = false
     @AppStorage("isMemoTextHidden") private var isMemoTextHidden: Bool = false
@@ -406,14 +406,22 @@ struct JournalView: View {
             }
             ensureDetailPagerIncludes(date: newDate)
         }
+        // monthAnchor の onChange は1つに統合してある。同じ値に対する
+        // .onChange を複数並べると SwiftUI がどれを呼ぶか保証されないため、
+        // スケジュール側(ページャ同期・外部カレンダー同期)とレビュー側
+        // (選択日の追従)をここでまとめて処理する。
         .onChange(of: viewModel.monthAnchor) { _, newAnchor in
-            guard viewModel.displayMode == .month else { return }
-            ensureMonthPagerIncludes(date: newAnchor)
-            _Concurrency.Task {
-                await viewModel.syncExternalCalendarsIfNeeded(anchorDate: newAnchor)
+            if viewModel.displayMode == .month {
+                ensureMonthPagerIncludes(date: newAnchor)
+                _Concurrency.Task {
+                    await viewModel.syncExternalCalendarsIfNeeded(anchorDate: newAnchor)
+                }
+                if calendarMode != .review {
+                    scheduleDeferredPreload()
+                }
             }
-            if calendarMode != .review {
-                scheduleDeferredPreload()
+            if calendarMode == .review {
+                syncReviewSelection(to: newAnchor)
             }
         }
         .onChange(of: calendarMode) { _, newMode in
@@ -442,20 +450,20 @@ struct JournalView: View {
                 viewModel.displayMode = .month
             }
         }
-        .onChange(of: viewModel.monthAnchor) { _, newAnchor in
-            guard calendarMode == .review else { return }
-            if let selected = selectedReviewDate,
-               Calendar.current.isDate(selected, equalTo: newAnchor, toGranularity: .month) == false {
-                selectedReviewDate = newAnchor
-                reviewPhotoIndex = preferredPhotoIndex(for: store.entry(for: newAnchor))
-            } else if selectedReviewDate == nil {
-                selectedReviewDate = newAnchor
-                reviewPhotoIndex = preferredPhotoIndex(for: store.entry(for: newAnchor))
-            }
-        }
         .onChange(of: selectedReviewDate) { _, newDate in
             reviewPhotoIndex = preferredPhotoIndex(for: store.entry(for: newDate ?? viewModel.monthAnchor))
         }
+    }
+
+    /// レビューモードで月を移動したとき、選択日が表示中の月から外れていれば
+    /// 月初(アンカー)に追従させる。
+    private func syncReviewSelection(to newAnchor: Date) {
+        let selectionIsOutsideMonth = selectedReviewDate.map {
+            Calendar.current.isDate($0, equalTo: newAnchor, toGranularity: .month) == false
+        } ?? true
+        guard selectionIsOutsideMonth else { return }
+        selectedReviewDate = newAnchor
+        reviewPhotoIndex = preferredPhotoIndex(for: store.entry(for: newAnchor))
     }
 
     @ViewBuilder

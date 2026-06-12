@@ -8,7 +8,7 @@
 import SwiftUI
 
 struct GitHubContributionsView: View {
-    @StateObject private var githubService = GitHubService.shared
+    @ObservedObject private var githubService = GitHubService.shared
     @AppStorage("githubUsername") private var githubUsername: String = ""
     
     private let columns = 53 // 1年間の週数

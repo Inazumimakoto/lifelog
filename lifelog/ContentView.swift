@@ -17,7 +17,7 @@ struct ContentView: View {
     @EnvironmentObject private var deepLinkManager: DeepLinkManager
     @ObservedObject private var monetization = MonetizationService.shared
     @ObservedObject private var deepLinkHandler = DeepLinkHandler.shared
-    @StateObject private var appLockService = AppLockService.shared
+    @ObservedObject private var appLockService = AppLockService.shared
     @AppStorage("isMemoTextHidden") private var isMemoTextHidden: Bool = false
     @AppStorage("requiresMemoOpenAuthentication") private var requiresMemoOpenAuthentication: Bool = false
     @State private var selection: Int = 0

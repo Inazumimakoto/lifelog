@@ -26,7 +26,7 @@ struct HabitsCountdownView: View {
     @State private var premiumAlertMessage: String?
     @State private var showPaywall = false
     @AppStorage("githubUsername") private var githubUsername: String = ""
-    @StateObject private var githubService = GitHubService.shared
+    @ObservedObject private var githubService = GitHubService.shared
 
     init(store: AppDataStore, resetTrigger: Int = 0) {
         self.store = store
