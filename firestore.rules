@@ -8,14 +8,15 @@ service cloud.firestore {
     }
 
     // ペアリングコレクション
-    // 注意: write が広いのは既知の脆弱性 (security-audit-report.md)。
-    // 現行クライアントが相互ペアリングで「相手側の行」も直接書く設計のため、
-    // 書き込みフローを再設計しないと締められない。別PRで対応予定。
+    // 作成・更新は Cloud Functions (Admin SDK) のみが行う。
+    // クライアントに書かせると、他人の友達リストに偽の公開鍵を注入して
+    // 手紙を傍受する攻撃が可能になるため全面禁止。
     match /pairings/{pairingId} {
       // 読み込み: 自分のデータのみ (userIdフィールドが自分)
       allow read: if request.auth != null && resource.data.userId == request.auth.uid;
-      // 書き込み: ログイン必須 (アプリロジック上、相手のデータも書く必要があるので広めに許可)
-      allow write: if request.auth != null;
+      allow create, update: if false;
+      // 削除: 自分の行のみ(相手側の行は onPairingDeleted が鏡像削除する)
+      allow delete: if request.auth != null && resource.data.userId == request.auth.uid;
     }
 
     // 友達リクエスト

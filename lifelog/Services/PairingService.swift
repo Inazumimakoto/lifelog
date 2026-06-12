@@ -219,108 +219,122 @@ class PairingService: ObservableObject {
         try await db.collection("friendRequests").document(requestId).setData(data)
     }
     
-    /// 招待リンクから即時友達追加（相互にペアリング作成）
+    /// 招待リンクから即時友達追加。
+    /// pairings はルール上クライアントから書けないため、source ==
+    /// "inviteLink" の friendRequest を作成し、Cloud Functions
+    /// (onFriendRequestCreated) がリンクを検証して双方向ペアリングを
+    /// 作成するのを待つ。公開鍵はサーバーが users コレクションの正本
+    /// から取得する(偽の鍵を注入する攻撃への対策)。
     func addFriendFromInvite(inviteLinkId: String) async throws {
         guard let currentUser = Auth.auth().currentUser,
               let userData = AuthService.shared.currentUser else {
             throw PairingError.notAuthenticated
         }
-        
+
         // 招待リンクを取得
         guard let inviteLink = try await getInviteLink(id: inviteLinkId) else {
             throw PairingError.inviteLinkNotFound
         }
-        
+
         // 有効期限チェック
         if inviteLink.isExpired {
             throw PairingError.inviteLinkExpired
         }
-        
+
         // 自分自身への招待チェック
         if inviteLink.userId == currentUser.uid {
             throw PairingError.cannotAddSelf
         }
-        
+
         // 既に友達かチェック
         let existingFriend = try await db.collection("pairings")
             .whereField("userId", isEqualTo: currentUser.uid)
             .whereField("friendId", isEqualTo: inviteLink.userId)
             .getDocuments()
-        
+
         if !existingFriend.documents.isEmpty {
             throw PairingError.alreadyFriends
         }
-        
-        // 相互にペアリングを作成（即時友達追加）
-        let pairingId1 = UUID().uuidString
-        let pairingId2 = UUID().uuidString
-        
-        // 自分 → 相手
-        let pairing1Data: [String: Any] = [
-            "userId": currentUser.uid,
-            "friendId": inviteLink.userId,
-            "friendEmoji": inviteLink.userEmoji,
-            "friendName": inviteLink.userName,
-            "friendPublicKey": inviteLink.userPublicKey,
-            "pendingLetterCount": 0,
+
+        let requestId = UUID().uuidString
+        let data: [String: Any] = [
+            "fromUserId": currentUser.uid,
+            "fromUserEmoji": userData.emoji,
+            "fromUserName": userData.displayName,
+            "fromUserPublicKey": userData.publicKey,
+            "toUserId": inviteLink.userId,
+            "status": FriendRequest.RequestStatus.pending.rawValue,
+            "source": "inviteLink",
+            "inviteLinkId": inviteLinkId,
             "createdAt": Timestamp(date: Date())
         ]
-        
-        // 相手 → 自分
-        let pairing2Data: [String: Any] = [
-            "userId": inviteLink.userId,
-            "friendId": currentUser.uid,
-            "friendEmoji": userData.emoji,
-            "friendName": userData.displayName,
-            "friendPublicKey": userData.publicKey,
-            "pendingLetterCount": 0,
-            "createdAt": Timestamp(date: Date())
-        ]
-        
-        try await db.collection("pairings").document(pairingId1).setData(pairing1Data)
-        try await db.collection("pairings").document(pairingId2).setData(pairing2Data)
+
+        try await db.collection("friendRequests").document(requestId).setData(data)
+        try await waitForRequestResolution(requestId: requestId)
     }
-    
-    /// 友達リクエストを承認
-    func acceptFriendRequest(_ request: FriendRequest) async throws {
-        guard let currentUser = Auth.auth().currentUser,
-              let userData = AuthService.shared.currentUser else {
+
+    /// サーバー(Cloud Functions)が friendRequest を処理して status を
+    /// accepted / rejected にするのを待つ。accepted はペアリング作成後に
+    /// 付くため、戻った時点で友達追加は完了している。
+    private func waitForRequestResolution(requestId: String, timeoutSeconds: Int = 15) async throws {
+        let ref = db.collection("friendRequests").document(requestId)
+        for _ in 0..<(timeoutSeconds * 2) {
+            try await _Concurrency.Task.sleep(nanoseconds: 500_000_000)
+            let doc = try await ref.getDocument()
+            switch doc.data()?["status"] as? String {
+            case FriendRequest.RequestStatus.accepted.rawValue:
+                return
+            case FriendRequest.RequestStatus.rejected.rawValue:
+                throw Self.pairingError(forRejectReason: doc.data()?["rejectReason"] as? String)
+            default:
+                continue
+            }
+        }
+        throw PairingError.serverTimeout
+    }
+
+    /// サーバーが返した拒否理由をクライアントのエラーに対応付ける
+    private static func pairingError(forRejectReason reason: String?) -> PairingError {
+        switch reason {
+        case "inviteLinkNotFound": return .inviteLinkNotFound
+        case "inviteLinkExpired": return .inviteLinkExpired
+        case "cannotAddSelf": return .cannotAddSelf
+        default: return .pairingFailed
+        }
+    }
+
+    /// 自分側の pairings 行がサーバーによって作成されるのを待つ
+    private func waitForPairing(friendId: String, timeoutSeconds: Int = 15) async throws {
+        guard let currentUser = Auth.auth().currentUser else {
             throw PairingError.notAuthenticated
         }
-        
-        // リクエストのステータスを更新
+        for _ in 0..<(timeoutSeconds * 2) {
+            try await _Concurrency.Task.sleep(nanoseconds: 500_000_000)
+            let docs = try await db.collection("pairings")
+                .whereField("userId", isEqualTo: currentUser.uid)
+                .whereField("friendId", isEqualTo: friendId)
+                .limit(to: 1)
+                .getDocuments()
+            if !docs.documents.isEmpty {
+                return
+            }
+        }
+        throw PairingError.serverTimeout
+    }
+    
+    /// 友達リクエストを承認。
+    /// ペアリング作成はサーバー(onFriendRequestAccepted)が行うため、
+    /// クライアントは status の更新と、自分側の行ができるのを待つだけ。
+    func acceptFriendRequest(_ request: FriendRequest) async throws {
+        guard Auth.auth().currentUser != nil else {
+            throw PairingError.notAuthenticated
+        }
+
         try await db.collection("friendRequests").document(request.id).updateData([
-            "status": "accepted"
+            "status": FriendRequest.RequestStatus.accepted.rawValue
         ])
-        
-        // 相互にペアリングを作成
-        let pairingId1 = UUID().uuidString
-        let pairingId2 = UUID().uuidString
-        
-        // 自分 → 相手
-        let pairing1Data: [String: Any] = [
-            "userId": currentUser.uid,
-            "friendId": request.fromUserId,
-            "friendEmoji": request.fromUserEmoji,
-            "friendName": request.fromUserName,
-            "friendPublicKey": request.fromUserPublicKey,
-            "pendingLetterCount": 0,
-            "createdAt": Timestamp(date: Date())
-        ]
-        
-        // 相手 → 自分
-        let pairing2Data: [String: Any] = [
-            "userId": request.fromUserId,
-            "friendId": currentUser.uid,
-            "friendEmoji": userData.emoji,
-            "friendName": userData.displayName,
-            "friendPublicKey": userData.publicKey,
-            "pendingLetterCount": 0,
-            "createdAt": Timestamp(date: Date())
-        ]
-        
-        try await db.collection("pairings").document(pairingId1).setData(pairing1Data)
-        try await db.collection("pairings").document(pairingId2).setData(pairing2Data)
+
+        try await waitForPairing(friendId: request.fromUserId)
     }
     
     /// 友達リクエストを拒否
@@ -415,24 +429,15 @@ class PairingService: ObservableObject {
         sentListener?.remove()
     }
     
-    /// 友達を削除
+    /// 友達を削除。
+    /// ルール上、削除できるのは自分側の行のみ。相手側(鏡像)の行は
+    /// Cloud Functions (onPairingDeleted) が削除する。
     func removeFriend(_ friend: Friend) async throws {
-        guard let currentUser = Auth.auth().currentUser else {
+        guard Auth.auth().currentUser != nil else {
             throw PairingError.notAuthenticated
         }
-        
-        // 自分側のペアリングを削除
+
         try await db.collection("pairings").document(friend.id).delete()
-        
-        // 相手側のペアリングも削除
-        let otherPairings = try await db.collection("pairings")
-            .whereField("userId", isEqualTo: friend.odic)
-            .whereField("friendId", isEqualTo: currentUser.uid)
-            .getDocuments()
-        
-        for doc in otherPairings.documents {
-            try await db.collection("pairings").document(doc.documentID).delete()
-        }
     }
     
     // MARK: - Errors
@@ -444,7 +449,9 @@ class PairingService: ObservableObject {
         case cannotAddSelf
         case alreadyFriends
         case requestAlreadySent
-        
+        case serverTimeout
+        case pairingFailed
+
         var errorDescription: String? {
             switch self {
             case .notAuthenticated:
@@ -459,6 +466,10 @@ class PairingService: ObservableObject {
                 return "既に友達です"
             case .requestAlreadySent:
                 return "既にリクエストを送信済みです"
+            case .serverTimeout:
+                return "サーバーの応答がありません。通信環境を確認してもう一度お試しください"
+            case .pairingFailed:
+                return "友達追加に失敗しました。しばらくしてからもう一度お試しください"
             }
         }
     }
