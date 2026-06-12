@@ -77,6 +77,8 @@
 				Models/Models.swift,
 				Models/SwiftDataModels.swift,
 				Services/Persistence.swift,
+				Services/ColorHex.swift,
+				Services/EventQuerying.swift,
 			);
 			target = 0EB039702EE55C1200AFE3B0 /* LifelogWidgetsExtension */;
 		};

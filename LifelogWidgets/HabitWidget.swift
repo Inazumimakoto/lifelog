@@ -648,28 +648,7 @@ struct HabitWidgetEntryView: View {
     }
 }
 
-private extension Color {
-    init?(hex: String) {
-        let sanitized = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        guard let value = UInt64(sanitized, radix: 16) else { return nil }
-
-        let r, g, b: Double
-        switch sanitized.count {
-        case 3:
-            r = Double((value >> 8) & 0xF) / 15
-            g = Double((value >> 4) & 0xF) / 15
-            b = Double(value & 0xF) / 15
-        case 6:
-            r = Double((value >> 16) & 0xFF) / 255
-            g = Double((value >> 8) & 0xFF) / 255
-            b = Double(value & 0xFF) / 255
-        default:
-            return nil
-        }
-
-        self.init(red: r, green: g, blue: b)
-    }
-}
+// Color(hex:) は共有ファイル ColorHex.swift へ移動した。
 
 struct HabitWidget: Widget {
     let kind: String = "HabitWidget"

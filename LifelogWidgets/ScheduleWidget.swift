@@ -33,7 +33,6 @@ struct ScheduleEntry: TimelineEntry {
 }
 
 struct ScheduleProvider: TimelineProvider {
-    private static let externalCalendarEventsDefaultsKey = "ExternalCalendarEvents_Storage_V1"
 
     func placeholder(in context: Context) -> ScheduleEntry {
         let sampleEvent = ScheduleEventItem(
@@ -92,23 +91,28 @@ struct ScheduleProvider: TimelineProvider {
 
     @MainActor
     private func fetchEvents(from rangeStart: Date, to rangeEnd: Date) -> [ScheduleEventItem] {
+        // マージ・重複排除・整列は共有 EventQuerying に一本化する。
+        // 内部/外部は CalendarEvent でマージしてから表示用 ScheduleEventItem へ変換する。
         let internalEvents = fetchInternalEvents(from: rangeStart, to: rangeEnd)
         let externalEvents = fetchExternalEvents(from: rangeStart, to: rangeEnd)
-        let merged = (internalEvents + externalEvents).reduce(into: [UUID: ScheduleEventItem]()) { result, item in
-            if let existing = result[item.id] {
-                result[item.id] = existing.startDate <= item.startDate ? existing : item
-            } else {
-                result[item.id] = item
-            }
-        }
-        return merged.values.sorted {
-            if $0.startDate != $1.startDate { return $0.startDate < $1.startDate }
-            return $0.title < $1.title
+        let merged = EventQuerying.mergedDedupedSorted(
+            internalEvents: internalEvents,
+            externalEvents: externalEvents
+        )
+        return merged.map {
+            ScheduleEventItem(
+                id: $0.id,
+                title: $0.title,
+                startDate: $0.startDate,
+                endDate: $0.endDate,
+                isAllDay: $0.isAllDay,
+                categoryName: $0.calendarName
+            )
         }
     }
 
     @MainActor
-    private func fetchInternalEvents(from rangeStart: Date, to rangeEnd: Date) -> [ScheduleEventItem] {
+    private func fetchInternalEvents(from rangeStart: Date, to rangeEnd: Date) -> [CalendarEvent] {
         do {
             let context = PersistenceController.shared.container.mainContext
             let descriptor = FetchDescriptor<SDCalendarEvent>(
@@ -117,13 +121,17 @@ struct ScheduleProvider: TimelineProvider {
             )
 
             return try context.fetch(descriptor).map {
-                ScheduleEventItem(
+                CalendarEvent(
                     id: $0.id,
                     title: $0.title,
+                    detail: $0.detail ?? "",
                     startDate: $0.startDate,
                     endDate: $0.endDate,
+                    calendarName: $0.calendarName,
                     isAllDay: $0.isAllDay,
-                    categoryName: $0.calendarName
+                    sourceCalendarIdentifier: $0.sourceCalendarIdentifier,
+                    reminderMinutes: $0.reminderMinutes,
+                    reminderDate: $0.reminderDate
                 )
             }
         } catch {
@@ -131,27 +139,11 @@ struct ScheduleProvider: TimelineProvider {
         }
     }
 
-    private func fetchExternalEvents(from rangeStart: Date, to rangeEnd: Date) -> [ScheduleEventItem] {
-        let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier) ?? UserDefaults.standard
-        guard let data = defaults.data(forKey: Self.externalCalendarEventsDefaultsKey) else { return [] }
-        guard let externalEvents = try? JSONDecoder().decode([CalendarEvent].self, from: data) else { return [] }
-
-        return externalEvents
-            .filter { $0.startDate < rangeEnd && $0.endDate > rangeStart }
-            .sorted {
-                if $0.startDate != $1.startDate { return $0.startDate < $1.startDate }
-                return $0.title < $1.title
-            }
-            .map {
-                ScheduleEventItem(
-                    id: $0.id,
-                    title: $0.title,
-                    startDate: $0.startDate,
-                    endDate: $0.endDate,
-                    isAllDay: $0.isAllDay,
-                    categoryName: $0.calendarName
-                )
-            }
+    private func fetchExternalEvents(from rangeStart: Date, to rangeEnd: Date) -> [CalendarEvent] {
+        // 外部イベントの読み出しとデコード・期間フィルタは共有 EventQuerying に集約。
+        let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier)
+        let events = EventQuerying.loadExternalEvents(from: defaults)
+        return EventQuerying.overlapping(events, rangeStart: rangeStart, rangeEndExclusive: rangeEnd)
     }
 
     @MainActor
@@ -285,23 +277,7 @@ private enum ScheduleCategoryPalette {
     }
 }
 
-private extension UIColor {
-    convenience init?(hex: String) {
-        var normalized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        if normalized.hasPrefix("#") {
-            normalized.removeFirst()
-        }
-
-        guard normalized.count == 6, let raw = UInt64(normalized, radix: 16) else {
-            return nil
-        }
-
-        let red = CGFloat((raw & 0xFF0000) >> 16) / 255.0
-        let green = CGFloat((raw & 0x00FF00) >> 8) / 255.0
-        let blue = CGFloat(raw & 0x0000FF) / 255.0
-        self.init(red: red, green: green, blue: blue, alpha: 1.0)
-    }
-}
+// UIColor(hex:) は共有ファイル ColorHex.swift へ移動した。
 
 struct ScheduleWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
