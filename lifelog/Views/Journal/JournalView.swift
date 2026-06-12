@@ -8,6 +8,7 @@
 import SwiftUI
 import UIKit
 import MapKit
+import Combine
 
 enum CalendarMode: Equatable {
     case schedule
@@ -228,7 +229,19 @@ struct JournalView: View {
     private let backgroundReviewPhotoPrefetchLimit = 24
     @State private var showPaywall = false
     @State private var premiumAlertMessage: String?
-    
+
+    // detailPager は ~15 アンカー分の calendarSnapshot(for:) を毎レンダーで再計算するため、
+    // 同一データに対する重複スキャンをキャッシュで防ぐ。キーは startOfDay。
+    // 無効化はストアのデータ変更時（store.objectWillChange）にのみ行う。レンダーや
+    // ページ切替では再計算しないため、表示内容は従来と完全に一致する。
+    @State private var snapshotCache: [Date: CalendarDetailSnapshot] = [:]
+    // reviewMapGroups は store.diaryEntries 全件から毎レンダー再構築するため、period 単位でメモ化する。
+    // 無効化条件は snapshotCache と同じ（ストアのデータ変更時のみ）。
+    @State private var reviewMapGroupsCache: [ReviewMapPeriod: [ReviewLocationGroup]] = [:]
+    // weekTimeline は 7 日分の timelineItems(for:) を毎レンダー再計算するため、startOfDay 単位でキャッシュする。
+    // 無効化条件は上記と同じ。
+    @State private var weekTimelineItemsCache: [Date: [JournalViewModel.TimelineItem]] = [:]
+
     private let resetTrigger: Int
 
     init(store: AppDataStore, resetTrigger: Int = 0) {
@@ -363,6 +376,16 @@ struct JournalView: View {
         } message: {
             Text(premiumAlertMessage ?? "")
         }
+        .onReceive(store.objectWillChange) { _ in
+            // ストアのデータが変化した時のみ、各種スナップショットキャッシュを破棄する。
+            // これにより calendarSnapshot / reviewMapGroups / weekTimeline の計算は
+            // 「データ変更ごとに最大1回」に抑えられ、毎レンダーの全件スキャンを排除する。
+            // objectWillChange は変更の「直前」に発火するが、キャッシュは次回参照時に
+            // 最新ストアから再計算されるため、表示が古くなることはない。
+            snapshotCache.removeAll()
+            reviewMapGroupsCache.removeAll()
+            weekTimelineItemsCache.removeAll()
+        }
         .onAppear {
             if didInitialSetup == false {
                 didInitialSetup = true
@@ -421,6 +444,9 @@ struct JournalView: View {
                 }
             }
             if calendarMode == .review {
+                // selectedReviewDate が nil の場合 reviewMapGroups(.month) は monthAnchor を
+                // 月境界の基準にフォールバックするため、月移動時もメモ化結果を破棄する。
+                reviewMapGroupsCache.removeAll()
                 syncReviewSelection(to: newAnchor)
             }
         }
@@ -451,6 +477,9 @@ struct JournalView: View {
             }
         }
         .onChange(of: selectedReviewDate) { _, newDate in
+            // reviewMapGroups(.month) は selectedReviewDate を月境界の基準に使うため、
+            // 選択日が変わったらメモ化結果を破棄する（ストア変更以外の無効化要因）。
+            reviewMapGroupsCache.removeAll()
             reviewPhotoIndex = preferredPhotoIndex(for: store.entry(for: newDate ?? viewModel.monthAnchor))
         }
     }
@@ -1180,6 +1209,16 @@ struct JournalView: View {
     }
 
     private func reviewMapGroups(for period: ReviewMapPeriod) -> [ReviewLocationGroup] {
+        // diaryEntries 全件からの再構築はストア変更まで不変なので period 単位でメモ化する。
+        if let cached = reviewMapGroupsCache[period] {
+            return cached
+        }
+        let groups = computeReviewMapGroups(for: period)
+        reviewMapGroupsCache[period] = groups
+        return groups
+    }
+
+    private func computeReviewMapGroups(for period: ReviewMapPeriod) -> [ReviewLocationGroup] {
         let calendar = Calendar.current
         let anchor = selectedReviewDate ?? viewModel.monthAnchor
         let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: anchor)) ?? anchor
@@ -1279,7 +1318,7 @@ struct JournalView: View {
                     ForEach(dates, id: \.self) { date in
                         TimelineColumnView(
                             date: date,
-                            items: viewModel.timelineItems(for: date).filter { $0.kind != .task },
+                            items: weekTimelineItems(for: date),
                             isSelected: date.startOfDay == viewModel.selectedDate.startOfDay,
                             timelineHeight: timelineHeight,
                             onTapItem: { item in
@@ -1300,6 +1339,19 @@ struct JournalView: View {
             }
             .frame(height: timelineHeight + 96)
         }
+    }
+
+    // 週タイムラインは 7 日分を毎レンダー再計算するため、startOfDay 単位でキャッシュする。
+    // タスク種別は週タイムラインに表示しない仕様なのでフィルタ後の結果を保持する。
+    // 無効化はストア変更時（store.objectWillChange）に行うため表示内容は不変。
+    private func weekTimelineItems(for date: Date) -> [JournalViewModel.TimelineItem] {
+        let cacheKey = date.startOfDay
+        if let cached = weekTimelineItemsCache[cacheKey] {
+            return cached
+        }
+        let items = viewModel.timelineItems(for: date).filter { $0.kind != .task }
+        weekTimelineItemsCache[cacheKey] = items
+        return items
     }
 
     private func toggleTask(_ task: Task) {
@@ -1375,6 +1427,17 @@ struct JournalView: View {
     }
 
     private func calendarSnapshot(for date: Date) -> CalendarDetailSnapshot {
+        // 同一日のスナップショットはストア変更まで不変なので、キャッシュ命中時は再スキャンしない。
+        let cacheKey = date.startOfDay
+        if let cached = snapshotCache[cacheKey] {
+            return cached
+        }
+        let snapshot = computeCalendarSnapshot(for: date)
+        snapshotCache[cacheKey] = snapshot
+        return snapshot
+    }
+
+    private func computeCalendarSnapshot(for date: Date) -> CalendarDetailSnapshot {
         let events = store.events(on: date)
         // 詳細シートでは開始〜終了日の範囲内のタスクを表示
         let sortedTasks = viewModel.tasksInRange(on: date).sorted(by: calendarTaskSort)
