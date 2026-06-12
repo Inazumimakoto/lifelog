@@ -124,14 +124,14 @@ MIT License. See [`LICENSE`](LICENSE).
 <!-- dir-loc-start -->
 | Directory | LOC |
 |:--|--:|
-| `lifelog` | 53,364 |
-| `functions` | 10,349 |
+| `lifelog` | 53,378 |
+| `functions` | 10,348 |
 | `docs` | 2,682 |
-| `LifelogWidgets` | 2,305 |
+| `LifelogWidgets` | 2,260 |
 | `assets` | 1,714 |
-| `lifelog.xcodeproj` | 1,061 |
-| `(root)` | 498 |
-| `lifelogTests` | 194 |
+| `lifelog.xcodeproj` | 1,063 |
+| `(root)` | 499 |
+| `lifelogTests` | 391 |
 | `public` | 163 |
 | `.github` | 132 |
 <!-- dir-loc-end -->
