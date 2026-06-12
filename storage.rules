@@ -4,7 +4,6 @@ service firebase.storage {
   match /b/{bucket}/o {
     match /letters/{letterId}/{fileName} {
       // 読み込み: Firestoreの手紙データの送信者か受信者ならOK
-      // allow read: if request.auth != null; // 一旦デバッグのため緩める場合はこちら
       allow read: if request.auth != null && (
         firestore.exists(/databases/(default)/documents/letters/$(letterId)) && (
           firestore.get(/databases/(default)/documents/letters/$(letterId)).data.senderId == request.auth.uid ||
@@ -20,8 +19,15 @@ service firebase.storage {
           firestore.get(/databases/(default)/documents/letters/$(letterId)).data.recipientId == request.auth.uid
         );
 
-      // 作成: 認証済みならOK (UUIDファイル名なので上書きリスクは低い)
-      allow create: if request.auth != null;
+      // 作成: 認証済み + 暗号化写真の形式に限定。
+      // 写真は手紙ドキュメント作成「前」にアップロードされるため、
+      // ここで Firestore の手紙存在チェックはできない(送信フローが壊れる)。
+      // 代わりにファイル名パターン・サイズ上限・contentType で乱用を防ぐ。
+      // 既存オブジェクトの上書き(update)は従来どおり全面拒否。
+      allow create: if request.auth != null
+        && fileName.matches('photo_[0-9]+\\.enc')
+        && request.resource.size < 20 * 1024 * 1024
+        && request.resource.contentType == 'application/octet-stream';
     }
 
     // NOTE: catch-all ルールは letters の制限を無効化するため削除
