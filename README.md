@@ -4,6 +4,15 @@
 
 毎日の予定確認、ちょっとしたメモ、タスク管理、習慣の積み上げ、歩数や睡眠の振り返り、日記と写真の記録までを、落ち着いたカードレイアウトでまとめて扱えます。
 
+### flat
+![Platform](https://img.shields.io/badge/platform-iOS_17+-blue?style=flat) ![Swift](https://img.shields.io/badge/Swift-5.9-orange?style=flat) ![Downloads](https://img.shields.io/badge/downloads-200+-brightgreen?style=flat)
+
+### for-the-badge
+![Platform](https://img.shields.io/badge/platform-iOS_17+-blue?style=for-the-badge) ![Swift](https://img.shields.io/badge/Swift-5.9-orange?style=for-the-badge) ![Downloads](https://img.shields.io/badge/downloads-200+-brightgreen?style=for-the-badge)
+
+### plastic
+![Platform](https://img.shields.io/badge/platform-iOS_17+-blue?style=plastic) ![Swift](https://img.shields.io/badge/Swift-5.9-orange?style=plastic) ![Downloads](https://img.shields.io/badge/downloads-200+-brightgreen?style=plastic)
+
 <p align="center">
   <a href="https://apps.apple.com/jp/app/lifelog-%E6%97%A5%E8%A8%98-%E4%BA%88%E5%AE%9A-todo-%E7%BF%92%E6%85%A3-%E5%81%A5%E5%BA%B7-%E3%83%A1%E3%83%A2/id6755782099">
     <img src="https://developer.apple.com/assets/elements/badges/download-on-the-app-store.svg" alt="Download on the App Store" height="48">
@@ -12,7 +21,7 @@
 
 ## Milestone
 
-130ダウンロード & 10レビューいただきました！皆さん本当にありがとうございます！このまま高評価を維持できるように頑張ります！
+200ダウンロード & 10レビューいただきました！皆さん本当にありがとうございます！このまま高評価を維持できるように頑張ります！
 
 <p align="center">
   <img src="https://is1-ssl.mzstatic.com/image/thumb/PurpleSource221/v4/5a/ce/26/5ace26e1-cb6b-5aa3-edee-d195e854785a/Apple_iPhone_16_Pro_Max_Screenshot_1.png/600x1300bb.webp" width="23%" alt="lifelify home screenshot">
