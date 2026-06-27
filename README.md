@@ -139,7 +139,7 @@ MIT License. See [`LICENSE`](LICENSE).
 | `LifelogWidgets` | 2,260 |
 | `assets` | 1,714 |
 | `lifelog.xcodeproj` | 1,063 |
-| `(root)` | 499 |
+| `(root)` | 508 |
 | `lifelogTests` | 391 |
 | `public` | 163 |
 | `.github` | 132 |
