@@ -4,14 +4,11 @@
 
 毎日の予定確認、ちょっとしたメモ、タスク管理、習慣の積み上げ、歩数や睡眠の振り返り、日記と写真の記録までを、落ち着いたカードレイアウトでまとめて扱えます。
 
-### flat
-![Platform](https://img.shields.io/badge/platform-iOS_17+-blue?style=flat) ![Swift](https://img.shields.io/badge/Swift-5.9-orange?style=flat) ![Downloads](https://img.shields.io/badge/downloads-200+-brightgreen?style=flat)
-
-### for-the-badge
-![Platform](https://img.shields.io/badge/platform-iOS_17+-blue?style=for-the-badge) ![Swift](https://img.shields.io/badge/Swift-5.9-orange?style=for-the-badge) ![Downloads](https://img.shields.io/badge/downloads-200+-brightgreen?style=for-the-badge)
-
-### plastic
-![Platform](https://img.shields.io/badge/platform-iOS_17+-blue?style=plastic) ![Swift](https://img.shields.io/badge/Swift-5.9-orange?style=plastic) ![Downloads](https://img.shields.io/badge/downloads-200+-brightgreen?style=plastic)
+<p align="center">
+  <img src="https://img.shields.io/badge/platform-iOS_17+-blue?style=plastic" alt="Platform iOS 17+">
+  <img src="https://img.shields.io/badge/Swift-5.9-orange?style=plastic" alt="Swift 5.9">
+  <img src="https://img.shields.io/badge/downloads-200+-brightgreen?style=plastic" alt="200+ downloads">
+</p>
 
 <p align="center">
   <a href="https://apps.apple.com/jp/app/lifelog-%E6%97%A5%E8%A8%98-%E4%BA%88%E5%AE%9A-todo-%E7%BF%92%E6%85%A3-%E5%81%A5%E5%BA%B7-%E3%83%A1%E3%83%A2/id6755782099">
