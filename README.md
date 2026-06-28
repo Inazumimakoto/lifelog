@@ -144,7 +144,7 @@ MIT License. See [`LICENSE`](LICENSE).
 | `docs` | 2,909 |
 | `assets` | 1,714 |
 | `lifelog.xcodeproj` | 1,067 |
-| `(root)` | 513 |
+| `(root)` | 516 |
 | `lifelogTests` | 391 |
 | `public` | 163 |
 | `.github` | 132 |
