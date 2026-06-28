@@ -166,19 +166,19 @@ private enum AnniversaryCalculation {
             let days = max(0, dayDiff(from: today, to: effectiveTarget))
             valuePrefixText = resolvedEndLabelPrefix(endLabel)
             valueText = "\(days)"
-            valueSuffixText = "日"
-            subtitleText = days == 0 ? "今日です" : nil
-            anchorText = "\(endLabel ?? "終了"): \(AnniversaryFormatter.fullDate.string(from: effectiveTarget))"
+            valueSuffixText = String(localized: "日")
+            subtitleText = days == 0 ? String(localized: "今日です") : nil
+            anchorText = String(localized: "\(endLabel ?? String(localized: "終了")): \(AnniversaryFormatter.fullDate.string(from: effectiveTarget))")
             accent = .blue
 
         case .since:
             let startPoint = resolvedSinceBaseDate(for: model, today: today)
             let days = max(0, dayDiff(from: startPoint, to: today))
-            valuePrefixText = startLabel ?? "開始から"
+            valuePrefixText = startLabel ?? String(localized: "開始から")
             valueText = "\(days)"
-            valueSuffixText = "日"
-            subtitleText = "経過"
-            anchorText = "\(endLabel ?? "起点"): \(AnniversaryFormatter.fullDate.string(from: startPoint))"
+            valueSuffixText = String(localized: "日")
+            subtitleText = String(localized: "経過")
+            anchorText = String(localized: "\(endLabel ?? String(localized: "起点")): \(AnniversaryFormatter.fullDate.string(from: startPoint))")
             accent = .orange
         }
 
@@ -189,12 +189,12 @@ private enum AnniversaryCalculation {
         if let configuredStart = model.startDate {
             let startPoint = resolvedProgressStartDate(configuredStart, model: model, effectiveTarget: effectiveTarget)
             let elapsed = max(0, dayDiff(from: startPoint, to: today))
-            elapsedFromStartText = "\(startLabel ?? "開始から") \(elapsed)日"
+            elapsedFromStartText = String(localized: "\(startLabel ?? String(localized: "開始から")) \(elapsed)日")
             if let rate = progressRate(start: startPoint, end: effectiveTarget, now: today) {
                 progress = rate
                 progressText = "\(Int(rate * 100))%"
-                let startName = startLabel ?? "開始"
-                let endName = endLabel ?? "終了"
+                let startName = startLabel ?? String(localized: "開始")
+                let endName = endLabel ?? String(localized: "終了")
                 rangeText = "\(startName) \(AnniversaryFormatter.shortDate.string(from: startPoint)) - \(endName) \(AnniversaryFormatter.shortDate.string(from: effectiveTarget))"
             }
         }
@@ -221,11 +221,11 @@ private enum AnniversaryCalculation {
     }
 
     private static func resolvedEndLabelPrefix(_ endLabel: String?) -> String {
-        guard let endLabel else { return "あと" }
-        if endLabel.hasSuffix("まで") {
+        guard let endLabel else { return String(localized: "あと") }
+        if Locale.autoupdatingCurrent.language.languageCode?.identifier == "ja", endLabel.hasSuffix("まで") {
             return endLabel
         }
-        return "\(endLabel)まで"
+        return String(localized: "\(endLabel)まで")
     }
 
     private static func resolvedTargetDate(for model: AnniversaryWidgetModel, today: Date) -> Date {
@@ -290,15 +290,15 @@ private enum AnniversaryCalculation {
 private enum AnniversaryFormatter {
     static let fullDate: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "yyyy/MM/dd"
+        formatter.locale = .autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("yMd")
         return formatter
     }()
 
     static let shortDate: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "M/d"
+        formatter.locale = .autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("Md")
         return formatter
     }()
 }
@@ -534,13 +534,13 @@ private struct AnniversaryProvider: AppIntentTimelineProvider {
             date: Date(),
             anniversary: AnniversaryWidgetModel(
                 id: UUID(),
-                title: "誕生日",
+                title: String(localized: "誕生日"),
                 targetDate: Date().addingTimeInterval(60 * 60 * 24 * 10),
                 type: .countdown,
                 repeatsYearly: true,
                 startDate: Date().addingTimeInterval(-60 * 60 * 24 * 20),
-                startLabel: "開始から",
-                endLabel: "誕生日まで"
+                startLabel: String(localized: "開始から"),
+                endLabel: String(localized: "誕生日まで")
             ),
             isPremiumUnlocked: true
         )

@@ -132,8 +132,8 @@ struct ReviewLocationVisitSnapshot: Hashable {
 enum ReviewDateFormatter {
     private static let monthDay: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "MM/dd"
+        formatter.locale = .autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("Md")
         return formatter
     }()
 

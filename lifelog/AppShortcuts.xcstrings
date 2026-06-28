@@ -1,0 +1,55 @@
+{
+  "sourceLanguage": "ja",
+  "strings": {
+    "${applicationName}で壁紙カレンダーを更新": {
+      "localizations": {
+        "en": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "Update wallpaper calendar with ${applicationName}",
+              "Update ${applicationName} lock screen calendar"
+            ]
+          }
+        },
+        "ja": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}で壁紙カレンダーを更新",
+              "${applicationName}のロック画面カレンダーを更新"
+            ]
+          }
+        },
+        "ko": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "${applicationName}로 배경화면 캘린더 업데이트",
+              "${applicationName}의 잠금 화면 캘린더 업데이트"
+            ]
+          }
+        },
+        "zh-Hans": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "使用 ${applicationName} 更新壁纸日历",
+              "更新 ${applicationName} 的锁屏日历"
+            ]
+          }
+        },
+        "zh-Hant": {
+          "stringSet": {
+            "state": "translated",
+            "values": [
+              "使用 ${applicationName} 更新桌布日曆",
+              "更新 ${applicationName} 的鎖定畫面日曆"
+            ]
+          }
+        }
+      }
+    }
+  },
+  "version": "1.1"
+}

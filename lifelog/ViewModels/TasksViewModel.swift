@@ -19,6 +19,15 @@ final class TasksViewModel: ObservableObject {
         case completed = "完了済み"
 
         var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .upcoming: return String(localized: "今後のタスク")
+            case .overdue: return String(localized: "期限切れ")
+            case .someday: return String(localized: "いつかやる")
+            case .completed: return String(localized: "完了済み")
+            }
+        }
     }
 
     @Published private(set) var tasks: [Task] = []

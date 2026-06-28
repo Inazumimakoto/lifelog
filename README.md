@@ -4,6 +4,8 @@
 
 毎日の予定確認、ちょっとしたメモ、タスク管理、習慣の積み上げ、歩数や睡眠の振り返り、日記と写真の記録までを、落ち着いたカードレイアウトでまとめて扱えます。
 
+対応言語: 日本語、English、한국어、简体中文、繁體中文。アプリ内の独自言語切替は持たず、iOS のアプリ言語設定に従います。
+
 <p align="center">
   <img src="https://img.shields.io/badge/platform-iOS_17+-blue?style=plastic" alt="Platform iOS 17+">
   <img src="https://img.shields.io/badge/Swift-5.9-orange?style=plastic" alt="Swift 5.9">
@@ -35,6 +37,8 @@
 
 ロック画面からもカレンダーを確認できる機能を追加しました。予定やタスクを壁紙カレンダーとして表示できるので、アプリを開かなくても直近の予定をすぐに見られます。
 
+海外公開準備として、アプリ本体、Widget、通知、App Intents、権限文言、AIプロンプト、課金導線、サポート文書、App Store metadata 草案を 5 言語に対応しました。既存ユーザーの本文、カテゴリ名、タグ名、保存済みデータは翻訳・上書きしません。
+
 <p align="center">
   <img src="assets/lock-screen-calendar.png" width="32%" alt="lifelify lock screen calendar">
 </p>
@@ -53,6 +57,7 @@
 | ウィジェット | ホーム画面やロック画面で予定、タスク、習慣、記念日、メモを確認 |
 | ロック画面カレンダー | 予定やタスクを壁紙カレンダーとして表示し、ロック画面から確認 |
 | プライバシー | アプリロック、日記・メモ本文の非表示、ローカル中心のデータ管理 |
+| 多言語 | ja / en / ko / zh-Hans / zh-Hant。台湾向けは v1 では zh-Hant として扱います |
 
 ## Concept
 
@@ -101,6 +106,9 @@ lifelog/
 | --- | --- |
 | 要件定義・機能一覧 | [`docs/requirements.md`](docs/requirements.md) |
 | UI / 操作ガイドライン | [`docs/ui-guidelines.md`](docs/ui-guidelines.md) |
+| サポート / プライバシー | [`docs/lifelog-support.md`](docs/lifelog-support.md) |
+| App Store ローカライズ草案 | [`docs/app-store-localization.md`](docs/app-store-localization.md) |
+| 海外公開チェックリスト | [`docs/app-store-connect-rollout-checklist.md`](docs/app-store-connect-rollout-checklist.md) |
 | コントリビューターガイド | [`AGENTS.md`](AGENTS.md) |
 | 変更履歴 | [`docs/CHANGELOG.md`](docs/CHANGELOG.md) |
 
@@ -115,10 +123,10 @@ xcodebuild -project lifelog.xcodeproj -scheme lifelog -destination 'generic/plat
 ## Test
 
 ```sh
-xcodebuild test -project lifelog.xcodeproj -scheme lifelog -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO
+xcodebuild test -project lifelog.xcodeproj -scheme lifelog -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
 ```
 
-シミュレータが利用できない環境では CoreSimulatorService まわりで失敗することがあります。その場合はローカルの Xcode または実機環境で確認してください。
+E2EE / Keychain を使うテストがあるため、test では `CODE_SIGNING_ALLOWED=NO` を付けないでください。指定シミュレータがない場合は、インストール済みの iPhone Simulator に置き換えて実行してください。
 
 ## License
 

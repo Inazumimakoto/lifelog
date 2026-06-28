@@ -35,7 +35,9 @@ struct TodayView: View {
     @State private var showSharedLetterOpening = false
     @State private var sharedLetterToOpen: LetterReceivingService.ReceivedLetter?
     @State private var receivedSharedLetters: [LetterReceivingService.ReceivedLetter] = []
-    private let memoPlaceholder = "買い物リストや気づいたことを書いておけます"
+    private var memoPlaceholder: String {
+        String(localized: "買い物リストや気づいたことを書いておけます")
+    }
     private let store: AppDataStore
     @State private var didAppear = false
     @State private var calendarSyncTrigger = 0
@@ -373,7 +375,7 @@ struct TodayView: View {
                                     }
                                     HStack(spacing: 6) {
                                         if event.calendarName.isEmpty == false {
-                                            Text(event.calendarName)
+                                            Text(CategoryPalette.displayName(for: event.calendarName))
                                                 .font(.caption2)
                                                 .foregroundStyle(color(for: event.calendarName))
                                                 .padding(.horizontal, 6)
@@ -575,9 +577,9 @@ struct TodayView: View {
                 }
             }
             if hiddenCount > 0 {
-                PremiumLockCard(title: "非表示の習慣があります",
-                                message: "無料プランでは\(monetization.freeHabitLimit)件まで表示されます。\(hiddenCount)件は非表示です。",
-                                actionTitle: "プランを見る") {
+                PremiumLockCard(title: String(localized: "非表示の習慣があります"),
+                                message: String(localized: "無料プランでは\(monetization.freeHabitLimit)件まで表示されます。\(hiddenCount)件は非表示です。"),
+                                actionTitle: String(localized: "プランを見る")) {
                     showPaywall = true
                 }
             }
@@ -639,7 +641,7 @@ struct TodayView: View {
 
     private func eventTimeLabel(_ event: CalendarEvent) -> String {
         if event.isAllDay {
-            return "終日"
+            return String(localized: "終日")
         }
         return "\(event.startDate.formattedTime()) - \(event.endDate.formattedTime())"
     }
@@ -660,9 +662,9 @@ struct TodayView: View {
         let deliverableLetters = store.deliverableLetters()
         if monetization.canUseLetters == false {
             if !deliverableLetters.isEmpty {
-                PremiumLockCard(title: "未来への手紙",
+                PremiumLockCard(title: String(localized: "未来への手紙"),
                                 message: monetization.lettersMessage(),
-                                actionTitle: "プランを見る") {
+                                actionTitle: String(localized: "プランを見る")) {
                     showPaywall = true
                 }
             }
@@ -744,9 +746,9 @@ struct TodayView: View {
         let unreadLetters = receivedSharedLetters.filter { $0.status == "delivered" }
         if monetization.canUseLetters == false {
             if !unreadLetters.isEmpty {
-                PremiumLockCard(title: "大切な人への手紙",
+                PremiumLockCard(title: String(localized: "大切な人への手紙"),
                                 message: monetization.lettersMessage(),
-                                actionTitle: "プランを見る") {
+                                actionTitle: String(localized: "プランを見る")) {
                     showPaywall = true
                 }
             }

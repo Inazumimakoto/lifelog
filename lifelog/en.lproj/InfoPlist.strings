@@ -1,0 +1,7 @@
+"CFBundleName" = "lifelify";
+"NSCalendarsFullAccessUsageDescription" = "Used to read events from external calendars and display them on Home and Calendar.";
+"NSCalendarsUsageDescription" = "Used to read events from an external calendar and display them in Today.";
+"NSFaceIDUsageDescription" = "Use to unlock apps";
+"NSHealthShareUsageDescription" = "Used to read healthcare data and display it within the app.";
+"NSHealthUpdateUsageDescription" = "This app does not write healthcare data.";
+"NSLocationWhenInUseUsageDescription" = "We use location information to obtain and display weather information for your current location.";

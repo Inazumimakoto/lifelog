@@ -1,0 +1,7 @@
+"CFBundleName" = "lifelify";
+"NSCalendarsFullAccessUsageDescription" = "用于从外部日历读取事件并将其显示在主页和日历上。";
+"NSCalendarsUsageDescription" = "用于从外部日历读取事件并在“今天”中显示它们。";
+"NSFaceIDUsageDescription" = "用于解锁应用程序";
+"NSHealthShareUsageDescription" = "用于读取医疗保健数据并将其显示在应用程序中。";
+"NSHealthUpdateUsageDescription" = "此应用程序不写入医疗保健数据。";
+"NSLocationWhenInUseUsageDescription" = "我们使用位置信息来获取和显示您当前位置的天气信息。";

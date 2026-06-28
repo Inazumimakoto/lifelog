@@ -114,9 +114,9 @@ struct HabitDetailView: View {
                         .foregroundStyle(.secondary)
                 }
             } else {
-                PremiumLockCard(title: "直近の積み上げ",
+                PremiumLockCard(title: String(localized: "直近の積み上げ"),
                                 message: monetization.habitGrassMessage(),
-                                actionTitle: "プランを見る") {
+                                actionTitle: String(localized: "プランを見る")) {
                     showPaywall = true
                 }
             }
@@ -188,9 +188,9 @@ struct HabitDetailView: View {
     private func scheduleDescription(for schedule: HabitSchedule) -> String {
         switch schedule {
         case .daily:
-            return "毎日"
+            return String(localized: "毎日")
         case .weekdays:
-            return "平日"
+            return String(localized: "平日")
         case .custom(let days):
             let labels = days.sorted { $0.rawValue < $1.rawValue }.map(\.shortLabel)
             return labels.joined(separator: " ")

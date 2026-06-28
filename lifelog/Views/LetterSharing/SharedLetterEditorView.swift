@@ -59,6 +59,14 @@ struct SharedLetterEditorView: View {
         case lastLogin = "最終ログイン"
         
         var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .fixedDate: return String(localized: "日時指定")
+            case .random: return String(localized: "ランダム")
+            case .lastLogin: return String(localized: "最終ログイン")
+            }
+        }
         
         var icon: String {
             switch self {
@@ -70,9 +78,9 @@ struct SharedLetterEditorView: View {
         
         var description: String {
             switch self {
-            case .fixedDate: return "指定した日時に届く"
-            case .random: return "期間内のランダムな日時に届く"
-            case .lastLogin: return "あなたがアプリを開かなかったら届く"
+            case .fixedDate: return String(localized: "指定した日時に届く")
+            case .random: return String(localized: "期間内のランダムな日時に届く")
+            case .lastLogin: return String(localized: "あなたがアプリを開かなかったら届く")
             }
         }
     }
@@ -81,12 +89,26 @@ struct SharedLetterEditorView: View {
         case fixed = "固定"
         case random = "ランダム"
         var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .fixed: return String(localized: "固定")
+            case .random: return String(localized: "ランダム")
+            }
+        }
     }
     
     enum TimeMode: String, CaseIterable, Identifiable {
         case fixed = "固定"
         case random = "ランダム"
         var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .fixed: return String(localized: "固定")
+            case .random: return String(localized: "ランダム")
+            }
+        }
     }
     
     // MARK: - Initializer
@@ -256,7 +278,7 @@ struct SharedLetterEditorView: View {
         Section {
             Picker("配信条件", selection: $deliveryCondition) {
                 ForEach(DeliveryCondition.allCases) { condition in
-                    Label(condition.rawValue, systemImage: condition.icon)
+                    Label(condition.displayName, systemImage: condition.icon)
                         .tag(condition)
                 }
             }
@@ -293,7 +315,7 @@ struct SharedLetterEditorView: View {
         Section {
             Picker("時間", selection: $timeMode) {
                 ForEach(TimeMode.allCases) { mode in
-                    Text(mode.rawValue).tag(mode)
+                    Text(mode.displayName).tag(mode)
                 }
             }
             .pickerStyle(.segmented)
@@ -342,62 +364,63 @@ struct SharedLetterEditorView: View {
         guard let friend = selectedFriend else { return "" }
         
         var lines: [String] = []
-        lines.append("宛先: \(friend.friendEmoji) \(friend.friendName)")
+        lines.append(String(localized: "宛先: \(friend.friendEmoji) \(friend.friendName)"))
         lines.append("")
         
         switch deliveryCondition {
         case .fixedDate:
             let dateFormatter = DateFormatter()
-            dateFormatter.locale = Locale(identifier: "ja_JP")
-            dateFormatter.dateFormat = "M月d日"
+            dateFormatter.locale = .autoupdatingCurrent
+            dateFormatter.setLocalizedDateFormatFromTemplate("Md")
             let dateText = dateFormatter.string(from: fixedDeliveryDay)
             
             if timeMode == .fixed {
                 let timeFormatter = DateFormatter()
-                timeFormatter.locale = Locale(identifier: "ja_JP")
-                timeFormatter.dateFormat = "H:mm"
-                lines.append("📅 \(dateText) \(timeFormatter.string(from: fixedTime)) に届きます")
+                timeFormatter.locale = .autoupdatingCurrent
+                timeFormatter.setLocalizedDateFormatFromTemplate("Hm")
+                lines.append(String(localized: "📅 \(dateText) \(timeFormatter.string(from: fixedTime)) に届きます"))
             } else if useTimeRange {
                 let timeFormatter = DateFormatter()
-                timeFormatter.locale = Locale(identifier: "ja_JP")
-                timeFormatter.dateFormat = "H:mm"
-                lines.append("📅 \(dateText) の \(timeFormatter.string(from: startTime))〜\(timeFormatter.string(from: endTime)) のどこかに届きます")
+                timeFormatter.locale = .autoupdatingCurrent
+                timeFormatter.setLocalizedDateFormatFromTemplate("Hm")
+                lines.append(String(localized: "📅 \(dateText) の \(timeFormatter.string(from: startTime))〜\(timeFormatter.string(from: endTime)) のどこかに届きます"))
             } else {
-                lines.append("📅 \(dateText) のどこかの時間に届きます")
+                lines.append(String(localized: "📅 \(dateText) のどこかの時間に届きます"))
             }
             
         case .random:
             var deliveryDescription: String
             if useDateRange {
                 let dateFormatter = DateFormatter()
-                dateFormatter.dateFormat = "M/d"
+                dateFormatter.locale = .autoupdatingCurrent
+                dateFormatter.setLocalizedDateFormatFromTemplate("Md")
                 deliveryDescription = "\(dateFormatter.string(from: randomStartDate))〜\(dateFormatter.string(from: randomEndDate))"
             } else {
-                deliveryDescription = "いつか（1日後〜3年後）"
+                deliveryDescription = String(localized: "いつか（1日後〜3年後）")
             }
             
             if timeMode == .fixed {
                 let timeFormatter = DateFormatter()
-                timeFormatter.locale = Locale(identifier: "ja_JP")
-                timeFormatter.dateFormat = "H:mm"
-                lines.append("🎲 \(deliveryDescription) の \(timeFormatter.string(from: fixedTime)) ごろに届きます")
+                timeFormatter.locale = .autoupdatingCurrent
+                timeFormatter.setLocalizedDateFormatFromTemplate("Hm")
+                lines.append(String(localized: "🎲 \(deliveryDescription) の \(timeFormatter.string(from: fixedTime)) ごろに届きます"))
             } else if useTimeRange {
                 let timeFormatter = DateFormatter()
-                timeFormatter.locale = Locale(identifier: "ja_JP")
-                timeFormatter.dateFormat = "H:mm"
-                lines.append("🎲 \(deliveryDescription) の \(timeFormatter.string(from: startTime))〜\(timeFormatter.string(from: endTime)) のどこかに届きます")
+                timeFormatter.locale = .autoupdatingCurrent
+                timeFormatter.setLocalizedDateFormatFromTemplate("Hm")
+                lines.append(String(localized: "🎲 \(deliveryDescription) の \(timeFormatter.string(from: startTime))〜\(timeFormatter.string(from: endTime)) のどこかに届きます"))
             } else {
-                lines.append("🎲 \(deliveryDescription) に届きます")
+                lines.append(String(localized: "🎲 \(deliveryDescription) に届きます"))
             }
             
         case .lastLogin:
-            lines.append("⏳ あなたが\(lastLoginDays)日間ログインしなかった場合に届きます")
+            lines.append(String(localized: "⏳ あなたが\(lastLoginDays)日間ログインしなかった場合に届きます"))
             lines.append("")
-            lines.append("大切な人へのメッセージとして送信されます")
+            lines.append(String(localized: "大切な人へのメッセージとして送信されます"))
         }
         
         lines.append("")
-        lines.append("E2EE暗号化で安全に送信されます 🔒")
+        lines.append(String(localized: "E2EE暗号化で安全に送信されます 🔒"))
         
         return lines.joined(separator: "\n")
     }

@@ -62,7 +62,7 @@ class NotificationService {
         guard notificationDate > Date() else { return }
         
         let content = UNMutableNotificationContent()
-        content.title = "予定のリマインダー"
+        content.title = String(localized: "予定のリマインダー")
         content.body = title
         content.sound = .default
         
@@ -84,7 +84,7 @@ class NotificationService {
         guard reminderDate > Date() else { return }
         
         let content = UNMutableNotificationContent()
-        content.title = "予定のリマインダー"
+        content.title = String(localized: "予定のリマインダー")
         content.body = title
         content.sound = .default
         
@@ -115,7 +115,7 @@ class NotificationService {
         guard notificationDate > Date() else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "予定のリマインダー"
+        content.title = String(localized: "予定のリマインダー")
         content.body = title
         content.sound = .default
 
@@ -137,7 +137,7 @@ class NotificationService {
         guard reminderDate > Date() else { return }
 
         let content = UNMutableNotificationContent()
-        content.title = "予定のリマインダー"
+        content.title = String(localized: "予定のリマインダー")
         content.body = title
         content.sound = .default
 
@@ -161,7 +161,7 @@ class NotificationService {
         guard reminderDate > Date() else { return }
         
         let content = UNMutableNotificationContent()
-        content.title = "タスクのリマインダー"
+        content.title = String(localized: "タスクのリマインダー")
         content.body = title
         content.sound = .default
         
@@ -215,9 +215,9 @@ class NotificationService {
         
         let content = UNMutableNotificationContent()
         if daysBefore == 0 {
-            content.title = "今日は記念日です"
+            content.title = String(localized: "今日は記念日です")
         } else {
-            content.title = "記念日まであと\(daysBefore)日"
+            content.title = String(localized: "記念日まであと\(daysBefore)日")
         }
         content.body = title
         content.sound = .default
@@ -246,7 +246,7 @@ class NotificationService {
         guard reminderDate > Date() else { return }
         
         let content = UNMutableNotificationContent()
-        content.title = "記念日のリマインダー"
+        content.title = String(localized: "記念日のリマインダー")
         content.body = title
         content.sound = .default
         
@@ -289,8 +289,8 @@ class NotificationService {
         }
         
         let content = UNMutableNotificationContent()
-        content.title = "日記を書きましょう"
-        content.body = "今日の出来事を振り返ってみませんか？"
+        content.title = String(localized: "日記を書きましょう")
+        content.body = String(localized: "今日の出来事を振り返ってみませんか？")
         content.sound = .default
         
         let triggerComponents = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: targetDate)
@@ -318,7 +318,7 @@ class NotificationService {
         cancelTodayOverviewReminder()
 
         let content = UNMutableNotificationContent()
-        content.title = "今日の予定・タスク"
+        content.title = String(localized: "今日の予定・タスク")
         content.body = body
         content.sound = .default
 

@@ -30,6 +30,99 @@ const db = getFirestore();
 // Global options for cost control
 setGlobalOptions({ maxInstances: 10 });
 
+type SupportedLanguageCode = "ja" | "en" | "ko" | "zh-Hans" | "zh-Hant";
+
+function normalizedLanguageCode(value: unknown): SupportedLanguageCode {
+  if (typeof value !== "string") {
+    return "en";
+  }
+  const normalized = value.replace(/_/g, "-").toLowerCase();
+  if (normalized.startsWith("ja")) return "ja";
+  if (normalized.startsWith("ko")) return "ko";
+  if (normalized.startsWith("zh-hant") ||
+      normalized.includes("-tw") ||
+      normalized.includes("-hk") ||
+      normalized.includes("-mo")) {
+    return "zh-Hant";
+  }
+  if (normalized.startsWith("zh")) return "zh-Hans";
+  return "en";
+}
+
+function fallbackSenderName(languageCode: SupportedLanguageCode): string {
+  switch (languageCode) {
+  case "ja": return "誰か";
+  case "ko": return "누군가";
+  case "zh-Hans": return "某个人";
+  case "zh-Hant": return "某個人";
+  case "en":
+  default:
+    return "Someone";
+  }
+}
+
+function deliveredLetterNotification(languageCode: SupportedLanguageCode, senderEmoji: string, senderName: string) {
+  switch (languageCode) {
+  case "ja":
+    return {
+      title: `${senderEmoji} 手紙が届きました`,
+      body: `${senderName}さんからの手紙です`,
+    };
+  case "ko":
+    return {
+      title: `${senderEmoji} 편지가 도착했습니다`,
+      body: `${senderName}님의 편지입니다`,
+    };
+  case "zh-Hans":
+    return {
+      title: `${senderEmoji} 收到一封信`,
+      body: `这是来自 ${senderName} 的信`,
+    };
+  case "zh-Hant":
+    return {
+      title: `${senderEmoji} 收到一封信`,
+      body: `這是來自 ${senderName} 的信`,
+    };
+  case "en":
+  default:
+    return {
+      title: `${senderEmoji} A letter arrived`,
+      body: `A letter from ${senderName}`,
+    };
+  }
+}
+
+function deliveryWarningNotification(languageCode: SupportedLanguageCode, daysRemaining: number) {
+  switch (languageCode) {
+  case "ja":
+    return {
+      title: "⚠️ 手紙が配信されます",
+      body: `あと${daysRemaining}日ログインがないと、大切な人への手紙が配信されます`,
+    };
+  case "ko":
+    return {
+      title: "⚠️ 편지가 배달될 예정입니다",
+      body: `${daysRemaining}일 동안 로그인하지 않으면 소중한 사람에게 보내는 편지가 배달됩니다`,
+    };
+  case "zh-Hans":
+    return {
+      title: "⚠️ 信件即将送达",
+      body: `如果你再 ${daysRemaining} 天没有登录，给重要之人的信将会送达`,
+    };
+  case "zh-Hant":
+    return {
+      title: "⚠️ 信件即將送達",
+      body: `如果你再 ${daysRemaining} 天沒有登入，給重要之人的信將會送達`,
+    };
+  case "en":
+  default:
+    return {
+      title: "⚠️ Your letter will be delivered",
+      body: `If you do not log in for ${daysRemaining} more days, your letter to a loved one will be delivered.`,
+    };
+  }
+}
+
 // ============================================================
 // 配信判定（毎分実行）
 // ============================================================
@@ -391,6 +484,7 @@ async function sendPushNotification(userId: string, letterId: string) {
     const userData = userDoc.data();
     const fcmToken = userData?.fcmToken;
     const letterNotificationEnabled = userData?.letterNotificationEnabled ?? true;
+    const languageCode = normalizedLanguageCode(userData?.preferredLanguageCode);
 
     if (!fcmToken) {
       logger.info(`FCMトークンなし: ${userId}`);
@@ -411,8 +505,9 @@ async function sendPushNotification(userId: string, letterId: string) {
     // 送信者名を取得
     const senderDoc = await db.collection("users").doc(senderId).get();
     const senderData = senderDoc.data();
-    const senderName = senderData?.displayName || "誰か";
+    const senderName = senderData?.displayName || fallbackSenderName(languageCode);
     const senderEmoji = senderData?.emoji || "💌";
+    const notification = deliveredLetterNotification(languageCode, senderEmoji, senderName);
 
     // プッシュ通知を送信
     // 未開封手紙数を取得してバッジに設定
@@ -425,8 +520,8 @@ async function sendPushNotification(userId: string, letterId: string) {
     const message = {
       token: fcmToken,
       notification: {
-        title: `${senderEmoji} 手紙が届きました`,
-        body: `${senderName}さんからの手紙です`,
+        title: notification.title,
+        body: notification.body,
       },
       data: {
         type: "letter",
@@ -457,6 +552,8 @@ async function sendDeliveryWarning(userId: string, letterId: string, daysRemaini
     const userDoc = await db.collection("users").doc(userId).get();
     const userData = userDoc.data();
     const fcmToken = userData?.fcmToken;
+    const languageCode = normalizedLanguageCode(userData?.preferredLanguageCode);
+    const notification = deliveryWarningNotification(languageCode, daysRemaining);
 
     if (!fcmToken) {
       logger.info(`FCMトークンなし（警告）: ${userId}`);
@@ -466,8 +563,8 @@ async function sendDeliveryWarning(userId: string, letterId: string, daysRemaini
     const message = {
       token: fcmToken,
       notification: {
-        title: "⚠️ 手紙が配信されます",
-        body: `あと${daysRemaining}日ログインがないと、大切な人への手紙が配信されます`,
+        title: notification.title,
+        body: notification.body,
       },
       data: {
         type: "delivery_warning",

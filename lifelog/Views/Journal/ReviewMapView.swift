@@ -12,6 +12,13 @@ enum ReviewMapPeriod: String, CaseIterable, Identifiable {
     case all = "すべて"
 
     var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .month: return String(localized: "今月")
+        case .all: return String(localized: "すべて")
+        }
+    }
 }
 
 struct ReviewMapPlaceDetailSheet: View {
@@ -71,7 +78,7 @@ struct ReviewMapVisitRow: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(visit.tags, id: \.self) { tag in
-                            Text(tag)
+                            Text(BuiltInDisplayName.locationVisitTag(tag))
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 8)
@@ -463,13 +470,13 @@ struct ReviewMapView: View {
     private var periodMenu: some View {
         Menu {
             ForEach(ReviewMapPeriod.allCases) { option in
-                Button(option.rawValue) {
+                Button(option.displayName) {
                     period = option
                 }
             }
         } label: {
             HStack(spacing: 6) {
-                Text(period.rawValue)
+                Text(period.displayName)
                     .font(.caption.weight(.semibold))
                 Image(systemName: "chevron.down")
                     .font(.caption2.weight(.semibold))

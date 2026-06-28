@@ -14,12 +14,20 @@ enum DiaryScoreMode: String, CaseIterable, Identifiable {
     case analysis = "🔬 分析モード"
     
     var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .strict: return String(localized: "📚 しっかり添削")
+        case .gentle: return String(localized: "🌸 やさしめ")
+        case .analysis: return String(localized: "🔬 分析モード")
+        }
+    }
     
     var description: String {
         switch self {
-        case .strict: return "論理的で解像度の高い文章を目指す"
-        case .gentle: return "励まし多め、改善点はやさしく"
-        case .analysis: return "感情パターンや傾向を分析"
+        case .strict: return String(localized: "論理的で解像度の高い文章を目指す")
+        case .gentle: return String(localized: "励まし多め、改善点はやさしく")
+        case .analysis: return String(localized: "感情パターンや傾向を分析")
         }
     }
 }
@@ -30,6 +38,13 @@ enum AIProvider: String, CaseIterable, Identifiable {
     case devpc = "直接分析"
     
     var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .chatgpt: return String(localized: "コピー")
+        case .devpc: return String(localized: "直接分析")
+        }
+    }
     
     var icon: String {
         switch self {
@@ -46,7 +61,7 @@ enum DiaryScorePrompt {
     static let defaultPrompt = strictPrompt
     
     /// 📚 しっかり添削モード
-    static let strictPrompt = """
+    static let strictPrompt = String(localized: """
 # 命令書
 あなたは論理的思考力と高度な言語化能力を持つ専属のライティングコーチです。
 私の「今日の日記（メモ）」を読み、以下の3つの観点で厳しく、かつ建設的に採点・添削してください。
@@ -82,10 +97,10 @@ enum DiaryScorePrompt {
 ---
 # 今日の日記
 
-"""
+""")
     
     /// 🌸 やさしめモード
-    static let gentlePrompt = """
+    static let gentlePrompt = String(localized: """
 # お願い
 あなたは優しく励ましてくれる日記の読者です。
 私の「今日の日記（メモ）」を読んで、温かいフィードバックをください。
@@ -108,10 +123,10 @@ enum DiaryScorePrompt {
 ---
 # 今日の日記
 
-"""
+""")
     
     /// 🔬 分析モード
-    static let analysisPrompt = """
+    static let analysisPrompt = String(localized: """
 # 命令書
 あなたは心理分析の専門家です。
 私の「今日の日記（メモ）」を読んで、客観的に分析してください。
@@ -142,7 +157,7 @@ enum DiaryScorePrompt {
 ---
 # 今日の日記
 
-"""
+""")
     
     /// モードに応じたプロンプトを取得
     static func prompt(for mode: DiaryScoreMode) -> String {

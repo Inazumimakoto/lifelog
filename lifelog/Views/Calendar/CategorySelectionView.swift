@@ -63,7 +63,7 @@ struct CategorySelectionView: View {
                                 Circle()
                                     .fill(CategoryPalette.color(for: category.name))
                                     .frame(width: 20, height: 20)
-                                Text(category.name)
+                                Text(CategoryPalette.displayName(for: category.name))
                                 Spacer()
                                 if selectedCategory == category.name {
                                     Image(systemName: "checkmark")

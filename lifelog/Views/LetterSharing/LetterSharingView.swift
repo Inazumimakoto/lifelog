@@ -32,9 +32,9 @@ struct LetterSharingView: View {
         NavigationStack {
             Group {
                 if !monetization.canUseLetters {
-                    PremiumLockCard(title: "大切な人への手紙",
+                    PremiumLockCard(title: String(localized: "大切な人への手紙"),
                                     message: monetization.lettersMessage(),
-                                    actionTitle: "プランを見る") {
+                                    actionTitle: String(localized: "プランを見る")) {
                         showPaywall = true
                     }
                     .padding()

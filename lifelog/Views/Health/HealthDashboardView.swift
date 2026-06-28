@@ -205,7 +205,7 @@ struct HealthDashboardView: View {
                     }
                 }
             }
-            .environment(\.locale, Locale(identifier: "ja_JP"))
+            .environment(\.locale, .autoupdatingCurrent)
             .frame(height: 260)
         )
     }
@@ -398,7 +398,8 @@ struct HealthDashboardView: View {
         
         // 時刻フォーマッター
         let timeFormatter = DateFormatter()
-        timeFormatter.dateFormat = "HH:mm"
+        timeFormatter.locale = .autoupdatingCurrent
+        timeFormatter.setLocalizedDateFormatFromTemplate("Hm")
         
         // 就寝/起床時刻の平均を計算
         let sleepStarts = allSummaries.compactMap { $0.sleepStart }

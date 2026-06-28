@@ -33,7 +33,7 @@ struct MemoProvider: TimelineProvider {
     func placeholder(in context: Context) -> MemoEntry {
         MemoEntry(
             date: Date(),
-            text: "買い物メモ\n・牛乳\n・キッチンペーパー",
+            text: String(localized: "買い物メモ\n・牛乳\n・キッチンペーパー"),
             updatedAt: Date(),
             isHidden: false,
             requiresOpenAuth: false,
@@ -106,7 +106,7 @@ struct MemoProvider: TimelineProvider {
             )
         } catch {
             return MemoWidgetData(
-                text: "読み込みエラー",
+                text: String(localized: "読み込みエラー"),
                 updatedAt: nil,
                 isHidden: privacy.isHidden,
                 requiresOpenAuth: privacy.requiresOpenAuth
@@ -127,8 +127,8 @@ struct MemoEntry: TimelineEntry {
 private enum MemoWidgetFormatter {
     static let updatedAt: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "M/d HH:mm"
+        formatter.locale = .autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("MdHm")
         return formatter
     }()
 }
@@ -139,11 +139,11 @@ struct MemoWidgetEntryView : View {
 
     private var normalizedText: String {
         if entry.isHidden {
-            return "メモ本文は非表示です。"
+            return String(localized: "メモ本文は非表示です。")
         }
         let trimmed = entry.text.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            return "メモはありません"
+            return String(localized: "メモはありません")
         }
         return trimmed
     }
@@ -222,7 +222,7 @@ struct MemoWidgetEntryView : View {
         Text(text)
             .font(bodyFont)
             .foregroundStyle(
-                normalizedText == "メモはありません" || entry.isHidden ? .secondary : .primary
+                normalizedText == String(localized: "メモはありません") || entry.isHidden ? .secondary : .primary
             )
             .lineLimit(lineLimit)
             .lineSpacing(0.5)

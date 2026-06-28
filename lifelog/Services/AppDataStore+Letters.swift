@@ -115,12 +115,12 @@ extension AppDataStore {
 
         let content = UNMutableNotificationContent()
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "yyyy年M月d日"
+        formatter.locale = .autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("yMd")
         let dateString = formatter.string(from: letter.createdAt)
 
-        content.title = "📨 手紙が届きました"
-        content.body = "\(dateString)のあなたから手紙が届きました"
+        content.title = String(localized: "📨 手紙が届きました")
+        content.body = String(localized: "\(dateString)のあなたから手紙が届きました")
         content.sound = .default
         content.userInfo = ["letterID": letter.id.uuidString]
 

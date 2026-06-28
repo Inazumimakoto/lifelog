@@ -78,7 +78,8 @@
 - 予定/タスク/習慣などの編集シートのタイトル・説明は日本語で統一。
 
 ## 表記ルール
-- 日付・曜日・時間はすべて日本語ロケール (`ja-JP`) で表記する。 `DateFormatter` や `.formatted(.dateTime…)` を利用する場合も、必ずロケール設定を見直し、月や曜日が英語にならないようにする。
+- 日付・曜日・時間は iOS のアプリ言語・地域設定に従って表記する。表示用途の `DateFormatter` は `Locale.autoupdatingCurrent` または `Date.FormatStyle` を使い、固定の `ja_JP` / `dateFormat` に戻さない。
+- ユーザーが保存した本文、カテゴリ名、タグ名、場所名、手紙本文は翻訳・上書きしない。組み込みカテゴリや組み込みタグは保存キーと表示名を分け、表示名だけ `Localizable.xcstrings` で翻訳する。
 
 ## 参照
 - 仕様書: `/docs/requirements.md`

@@ -130,7 +130,7 @@ struct AnalysisExportView: View {
                         ForEach(AI_Persona.allCases) { persona in
                             HStack {
                                 Image(systemName: persona.icon)
-                                Text(persona.rawValue)
+                                Text(persona.displayName)
                             }
                             .tag(persona)
                         }
@@ -298,4 +298,3 @@ struct AnalysisExportView: View {
         // showDevPCSheet は onChange で設定される
     }
 }
-

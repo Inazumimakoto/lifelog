@@ -70,11 +70,11 @@ struct WallpaperCalendarItem: Identifiable {
             return title
         case .categoryOnly:
             if kind == .task {
-                return "タスク"
+                return String(localized: "タスク")
             }
-            return categoryName?.isEmpty == false ? categoryName! : "予定"
+            return categoryName?.isEmpty == false ? CategoryPalette.displayName(for: categoryName!) : String(localized: "予定")
         case .hidden:
-            return kind == .task ? "タスクあり" : "予定あり"
+            return kind == .task ? String(localized: "タスクあり") : String(localized: "予定あり")
         }
     }
 }
@@ -115,9 +115,9 @@ struct WallpaperCalendarWeekMultiDaySegment: Identifiable {
         case .details:
             return title
         case .categoryOnly:
-            return categoryName.isEmpty ? "予定" : categoryName
+            return categoryName.isEmpty ? String(localized: "予定") : CategoryPalette.displayName(for: categoryName)
         case .hidden:
-            return "予定あり"
+            return String(localized: "予定あり")
         }
     }
 }
@@ -164,9 +164,7 @@ final class WallpaperCalendarDataProvider {
     static let itemLimit = 4
 
     nonisolated static var calendar: Calendar {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.locale = Locale(identifier: "ja_JP")
-        calendar.firstWeekday = 1
+        var calendar = Calendar.autoupdatingCurrent
         calendar.timeZone = .current
         return calendar
     }

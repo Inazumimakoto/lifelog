@@ -101,7 +101,7 @@ final class WeatherService: NSObject, ObservableObject {
             
             lastFetchDate = Date()
         } catch {
-            errorMessage = "天気情報を取得できませんでした"
+            errorMessage = String(localized: "天気情報を取得できませんでした")
             AppLogger.general.error("WeatherKit Error: \(error)")
         }
         
@@ -134,7 +134,7 @@ extension WeatherService: CLLocationManagerDelegate {
     
     nonisolated func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         _Concurrency.Task { @MainActor in
-            self.errorMessage = "位置情報を取得できませんでした"
+            self.errorMessage = String(localized: "位置情報を取得できませんでした")
             self.isLoading = false
         }
     }
@@ -173,24 +173,24 @@ struct CurrentWeatherData {
     
     var conditionDescription: String {
         switch condition {
-        case .clear: return "晴れ"
-        case .mostlyClear: return "おおむね晴れ"
-        case .partlyCloudy: return "一部曇り"
-        case .mostlyCloudy: return "おおむね曇り"
-        case .cloudy: return "曇り"
-        case .rain: return "雨"
-        case .drizzle: return "霧雨"
-        case .heavyRain: return "大雨"
-        case .snow: return "雪"
-        case .heavySnow: return "大雪"
-        case .sleet: return "みぞれ"
-        case .thunderstorms: return "雷雨"
-        case .foggy: return "霧"
-        case .haze: return "もや"
-        case .windy: return "強風"
-        case .hot: return "猛暑"
-        case .frigid: return "極寒"
-        default: return "不明"
+        case .clear: return String(localized: "晴れ")
+        case .mostlyClear: return String(localized: "おおむね晴れ")
+        case .partlyCloudy: return String(localized: "一部曇り")
+        case .mostlyCloudy: return String(localized: "おおむね曇り")
+        case .cloudy: return String(localized: "曇り")
+        case .rain: return String(localized: "雨")
+        case .drizzle: return String(localized: "霧雨")
+        case .heavyRain: return String(localized: "大雨")
+        case .snow: return String(localized: "雪")
+        case .heavySnow: return String(localized: "大雪")
+        case .sleet: return String(localized: "みぞれ")
+        case .thunderstorms: return String(localized: "雷雨")
+        case .foggy: return String(localized: "霧")
+        case .haze: return String(localized: "もや")
+        case .windy: return String(localized: "強風")
+        case .hot: return String(localized: "猛暑")
+        case .frigid: return String(localized: "極寒")
+        default: return String(localized: "不明")
         }
     }
 }

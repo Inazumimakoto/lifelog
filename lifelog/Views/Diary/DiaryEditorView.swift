@@ -298,7 +298,7 @@ struct DiaryEditorView: View {
             // モード選択
             Picker("モード", selection: $selectedScoreMode) {
                 ForEach(DiaryScoreMode.allCases) { mode in
-                    Text(mode.rawValue).tag(mode)
+                    Text(mode.displayName).tag(mode)
                 }
             }
             .pickerStyle(.menu)
@@ -307,7 +307,7 @@ struct DiaryEditorView: View {
             if DevPCLLMService.shared.isAvailable {
                 Picker("AI", selection: $selectedAIProvider) {
                     ForEach(AIProvider.allCases) { provider in
-                        Text(provider.rawValue).tag(provider)
+                        Text(provider.displayName).tag(provider)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -509,9 +509,9 @@ struct DiaryEditorView: View {
                     Label("場所を追加", systemImage: "mappin.and.ellipse")
                 }
             } else {
-                PremiumLockCard(title: "場所保存",
+                PremiumLockCard(title: String(localized: "場所保存"),
                                 message: monetization.diaryLocationMessage(),
-                                actionTitle: "プランを見る") {
+                                actionTitle: String(localized: "プランを見る")) {
                     showPaywall = true
                 }
             }
@@ -747,7 +747,7 @@ private struct DiaryLocationRow: View, Equatable {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(location.visitTags, id: \.self) { tag in
-                            Text(tag)
+                            Text(BuiltInDisplayName.locationVisitTag(tag))
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 8)
@@ -894,7 +894,7 @@ private struct LocationVisitTagPickerSheet: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(workingTags, id: \.self) { tag in
-                            Text(tag)
+                            Text(BuiltInDisplayName.locationVisitTag(tag))
                                 .font(.caption.weight(.semibold))
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
@@ -914,7 +914,7 @@ private struct LocationVisitTagPickerSheet: View {
                     toggleTag(definition.name)
                 } label: {
                     HStack {
-                        Text(definition.name)
+                        Text(BuiltInDisplayName.locationVisitTag(definition.name))
                         Spacer()
                         if containsTag(named: definition.name) {
                             Image(systemName: "checkmark")
@@ -1049,7 +1049,7 @@ private struct LocationVisitTagManagerView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "line.3.horizontal")
                                 .foregroundStyle(.tertiary)
-                            Text(definition.name)
+                            Text(BuiltInDisplayName.locationVisitTag(definition.name))
                             Spacer()
                             Button {
                                 renameDraft = definition.name

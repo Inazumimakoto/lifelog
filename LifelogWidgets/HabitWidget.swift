@@ -50,10 +50,7 @@ struct HabitProvider: TimelineProvider {
     }
 
     private static var widgetCalendar: Calendar {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.locale = Locale(identifier: "ja_JP")
-        calendar.firstWeekday = 1 // Sunday start
-        return calendar
+        Calendar.autoupdatingCurrent
     }
 
     func placeholder(in context: Context) -> HabitEntry {
@@ -67,14 +64,14 @@ struct HabitProvider: TimelineProvider {
             habits: [
                 HabitWidgetModel(
                     id: UUID(),
-                    title: "運動",
+                    title: String(localized: "運動"),
                     iconName: "figure.run",
                     colorHex: "#22C55E",
                     completions: [true, false, true, false, true, false, false]
                 ),
                 HabitWidgetModel(
                     id: UUID(),
-                    title: "読書",
+                    title: String(localized: "読書"),
                     iconName: "book",
                     colorHex: "#3B82F6",
                     completions: [false, true, true, true, false, false, false]

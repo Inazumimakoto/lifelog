@@ -160,15 +160,15 @@ struct LetterContentView: View {
 extension Date {
     var jaFullDateString: String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "yyyy年M月d日"
+        formatter.locale = .autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("yMd")
         return formatter.string(from: self)
     }
     
     var jaShortDateString: String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "yyyy/M/d"
+        formatter.locale = .autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("yMd")
         return formatter.string(from: self)
     }
 }

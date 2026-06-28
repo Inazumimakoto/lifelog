@@ -26,77 +26,77 @@ struct WallpaperCalendarSettingsView: View {
 
     private static let shortcutGuideSteps: [ShortcutGuideStep] = [
         ShortcutGuideStep(
-            actionTitle: "ショートカット作成画面を開く",
+            actionTitle: String(localized: "ショートカット作成画面を開く"),
             actionSystemImage: "square.grid.2x2",
             centersAction: true
         ),
         ShortcutGuideStep(
             assetName: "WallpaperShortcutGuide00",
-            title: "lifelifyで検索",
-            detail: "検索欄に「lifelify」と入力して「壁紙カレンダーを更新」を選びます。"
+            title: String(localized: "lifelifyで検索"),
+            detail: String(localized: "検索欄に「lifelify」と入力して「壁紙カレンダーを更新」を選びます。")
         ),
         ShortcutGuideStep(
             assetName: "WallpaperShortcutGuide01",
-            title: "実行時に表示をオフ",
-            detail: "「壁紙カレンダーを更新」を追加したら、「実行時に表示」をオフにします。"
+            title: String(localized: "実行時に表示をオフ"),
+            detail: String(localized: "「壁紙カレンダーを更新」を追加したら、「実行時に表示」をオフにします。")
         ),
         ShortcutGuideStep(
             assetName: "WallpaperShortcutGuide02",
-            title: "壁紙を設定を追加",
-            detail: "検索欄に「壁紙を設定」と入力し、iOS標準の「壁紙に写真を設定」を選びます。"
+            title: String(localized: "壁紙を設定を追加"),
+            detail: String(localized: "検索欄に「壁紙を設定」と入力し、iOS標準の「壁紙に写真を設定」を選びます。")
         ),
         ShortcutGuideStep(
             assetName: "WallpaperShortcutGuide03",
-            title: "設定先を開く",
-            detail: "「ロック画面、ホーム画面」と表示されている部分をタップします。"
+            title: String(localized: "設定先を開く"),
+            detail: String(localized: "「ロック画面、ホーム画面」と表示されている部分をタップします。")
         ),
         ShortcutGuideStep(
             assetName: "WallpaperShortcutGuide04",
-            title: "ロック画面だけにする",
-            detail: "ホーム画面のチェックを外して、ロック画面だけに設定します。"
+            title: String(localized: "ロック画面だけにする"),
+            detail: String(localized: "ホーム画面のチェックを外して、ロック画面だけに設定します。")
         ),
         ShortcutGuideStep(
             assetName: "WallpaperShortcutGuide05",
-            title: "詳細を開く",
-            detail: "右側の「>」を押して、壁紙設定アクションの詳細を開きます。"
+            title: String(localized: "詳細を開く"),
+            detail: String(localized: "右側の「>」を押して、壁紙設定アクションの詳細を開きます。")
         ),
         ShortcutGuideStep(
             assetName: "WallpaperShortcutGuide06",
-            title: "追加オプションをオフ",
-            detail: "「プレビューを表示」と「被写体を切り取る」をどちらもオフにします。"
+            title: String(localized: "追加オプションをオフ"),
+            detail: String(localized: "「プレビューを表示」と「被写体を切り取る」をどちらもオフにします。")
         ),
         ShortcutGuideStep(
             assetName: "WallpaperShortcutGuide07",
-            title: "再生して確認",
-            detail: "右下の再生ボタンを押して、ロック画面が変わることを確認します。確認できたら下の「自動更新を設定」へ進んでください。"
+            title: String(localized: "再生して確認"),
+            detail: String(localized: "右下の再生ボタンを押して、ロック画面が変わることを確認します。確認できたら下の「自動更新を設定」へ進んでください。")
         )
     ]
 
     private static let shortcutAutomationSteps: [ShortcutGuideStep] = [
         ShortcutGuideStep(
             assetName: "WallpaperAutomationGuide01",
-            title: "オートメーションを開く",
-            detail: "下の「オートメーション」を選び、「新規オートメーション」をタップします。既にある場合は右上の「＋」を押します。"
+            title: String(localized: "オートメーションを開く"),
+            detail: String(localized: "下の「オートメーション」を選び、「新規オートメーション」をタップします。既にある場合は右上の「＋」を押します。")
         ),
         ShortcutGuideStep(
             assetName: "WallpaperAutomationGuide02",
-            title: "アプリを選ぶ",
-            detail: "予定を追加してlifelifyを閉じた時に更新するため、トリガーは「アプリ」を選びます。"
+            title: String(localized: "アプリを選ぶ"),
+            detail: String(localized: "予定を追加してlifelifyを閉じた時に更新するため、トリガーは「アプリ」を選びます。")
         ),
         ShortcutGuideStep(
             assetName: "WallpaperAutomationGuide03",
-            title: "閉じた時にすぐ実行",
-            detail: "①lifelifyを選択。②「開いている」を外して「閉じている」をオン。③「すぐに実行」を選び、通知をオフにして「次へ」を押します。"
+            title: String(localized: "閉じた時にすぐ実行"),
+            detail: String(localized: "①lifelifyを選択。②「開いている」を外して「閉じている」をオン。③「すぐに実行」を選び、通知をオフにして「次へ」を押します。")
         ),
         ShortcutGuideStep(
             assetName: "WallpaperAutomationGuide04",
-            title: "ショートカットを選択",
-            detail: "上で作った「壁紙カレンダーを更新」のショートカットを選びます。"
+            title: String(localized: "ショートカットを選択"),
+            detail: String(localized: "上で作った「壁紙カレンダーを更新」のショートカットを選びます。")
         ),
         ShortcutGuideStep(
             assetName: "WallpaperAutomationGuide05",
-            title: "完成を確認",
-            detail: "一覧に「lifelifyが閉じられたとき」と作成したショートカットが表示されていれば完了です。"
+            title: String(localized: "完成を確認"),
+            detail: String(localized: "一覧に「lifelifyが閉じられたとき」と作成したショートカットが表示されていれば完了です。")
         )
     ]
 
@@ -1137,15 +1137,15 @@ struct WallpaperCalendarLockScreenPreview: View {
 
     private var previewDateText: String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "M月d日(E)"
+        formatter.locale = .autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("MdE")
         return formatter.string(from: snapshot.generatedAt)
     }
 
     private var previewTimeText: String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "H:mm"
+        formatter.locale = .autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("Hm")
         return formatter.string(from: snapshot.generatedAt)
     }
 

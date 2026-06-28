@@ -167,7 +167,11 @@ struct TodayTimelineView: View {
            eventDetail.isEmpty == false {
             return eventDetail
         }
-        return item.detail == "__completed__" ? nil : item.detail
+        guard item.detail != "__completed__" else { return nil }
+        if item.kind == .event, let detail = item.detail {
+            return CategoryPalette.displayName(for: detail)
+        }
+        return item.detail
     }
 
     private func intervalText(start: Date, end: Date) -> String {

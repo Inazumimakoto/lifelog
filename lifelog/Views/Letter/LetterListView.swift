@@ -88,9 +88,9 @@ struct LetterListView: View {
                 }
             } else {
                 ScrollView {
-                    PremiumLockCard(title: "未来への手紙",
+                    PremiumLockCard(title: String(localized: "未来への手紙"),
                                     message: monetization.lettersMessage(),
-                                    actionTitle: "プランを見る") {
+                                    actionTitle: String(localized: "プランを見る")) {
                         showPaywall = true
                     }
                     .padding()
@@ -191,9 +191,9 @@ struct LetterListView: View {
     /// 届いた日時の表示
     private func deliveredDescription(for letter: Letter) -> String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "M月d日"
-        return "\(formatter.string(from: letter.deliveryDate))に届きました"
+        formatter.locale = .autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("Md")
+        return String(localized: "\(formatter.string(from: letter.deliveryDate))に届きました")
     }
     
     /// 開封済みの手紙行
@@ -225,8 +225,8 @@ struct LetterListView: View {
 extension Date {
     var jaDateTimeString: String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "M月d日 H:mm"
+        formatter.locale = .autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("MdHm")
         return formatter.string(from: self)
     }
 }

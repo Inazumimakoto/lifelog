@@ -24,7 +24,11 @@ struct EmotionTag: Identifiable, Codable, Hashable {
     }
     
     var displayText: String {
-        "\(emoji)\(name)"
+        "\(emoji)\(localizedName)"
+    }
+
+    var localizedName: String {
+        BuiltInDisplayName.emotionTag(name)
     }
     
     var hashTag: String {

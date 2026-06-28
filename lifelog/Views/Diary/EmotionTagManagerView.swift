@@ -178,10 +178,10 @@ struct EmotionTagManagerView: View {
     
     private func moodRangeLabel(_ range: ClosedRange<Int>) -> String {
         switch range {
-        case 1...2: return "気分1-2"
-        case 3...3: return "気分3"
-        case 4...5: return "気分4-5"
-        default: return "気分\(range.lowerBound)-\(range.upperBound)"
+        case 1...2: return String(localized: "気分1-2")
+        case 3...3: return String(localized: "気分3")
+        case 4...5: return String(localized: "気分4-5")
+        default: return String(localized: "気分\(range.lowerBound)-\(range.upperBound)")
         }
     }
 }
@@ -214,7 +214,7 @@ private struct EmojiGridPickerSheet: View {
                             Button {
                                 selectedCategory = index
                             } label: {
-                                Text(category.name)
+                                Text(localizedCategoryName(category.name))
                                     .font(.subheadline)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
@@ -257,5 +257,18 @@ private struct EmojiGridPickerSheet: View {
             }
         }
         .presentationDetents([.medium, .large])
+    }
+
+    private func localizedCategoryName(_ name: String) -> String {
+        switch name {
+        case "顔": return String(localized: "顔")
+        case "感情": return String(localized: "感情")
+        case "ジェスチャー": return String(localized: "ジェスチャー")
+        case "自然": return String(localized: "自然")
+        case "食べ物": return String(localized: "食べ物")
+        case "活動": return String(localized: "活動")
+        case "記号": return String(localized: "記号")
+        default: return name
+        }
     }
 }

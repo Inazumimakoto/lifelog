@@ -17,7 +17,7 @@ struct TimelineItemDetailView: View {
 
     private var timeLabel: String {
         if item.isAllDay {
-            return "終日"
+            return String(localized: "終日")
         }
         return "\(item.start.formatted(date: .omitted, time: .shortened)) - \(item.end.formatted(date: .omitted, time: .shortened))"
     }
@@ -42,7 +42,7 @@ struct TimelineItemDetailView: View {
                     .foregroundStyle(.secondary)
 
                 if let detail = item.detail, detail.isEmpty == false, detail != "__completed__" {
-                    Label(detail, systemImage: "tag")
+                    Label(item.kind == .event ? CategoryPalette.displayName(for: detail) : detail, systemImage: "tag")
                         .font(.callout)
                         .foregroundStyle(Color.accentColor)
                 }
@@ -153,7 +153,7 @@ struct CalendarDetailPanel: View {
                                                 .foregroundStyle(.secondary)
                                         }
                                         HStack(spacing: 6) {
-                                            Text(event.calendarName)
+                                            Text(CategoryPalette.displayName(for: event.calendarName))
                                                 .font(.caption2)
                                                 .foregroundStyle(color(for: event.calendarName))
                                                 .padding(.horizontal, 6)
@@ -372,7 +372,7 @@ struct CalendarDetailPanel: View {
 
     private func taskGroup(title: String, tasks: [Task]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(title)
+            Text(LocalizedStringKey(title))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
             ForEach(tasks) { task in
@@ -394,7 +394,7 @@ struct CalendarDetailPanel: View {
     }
 
     private func placeholder(_ text: String) -> some View {
-        Text(text)
+        Text(LocalizedStringKey(text))
             .font(.subheadline)
             .foregroundStyle(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -409,9 +409,9 @@ struct CalendarDetailPanel: View {
             let calendar = Calendar.current
             let endDay = calendar.date(byAdding: .second, value: -1, to: event.endDate) ?? event.endDate
             if calendar.isDate(event.startDate, inSameDayAs: endDay) {
-                return "終日"
+                return String(localized: "終日")
             }
-            return "終日 \(event.startDate.jaMonthDayString) - \(endDay.jaMonthDayString)"
+            return String(localized: "終日 \(event.startDate.jaMonthDayString) - \(endDay.jaMonthDayString)")
         }
         return "\(event.startDate.formattedTime()) - \(event.endDate.formattedTime())"
     }
@@ -431,7 +431,7 @@ struct CalendarDetailPanel: View {
     private func locationLabel(for entry: DiaryEntry) -> String? {
         if let first = entry.locations.first {
             if entry.locations.count > 1 {
-                return "\(first.name) ほか\(entry.locations.count - 1)件"
+                return String(localized: "\(first.name) ほか\(entry.locations.count - 1)件")
             }
             return first.name
         }
@@ -455,7 +455,7 @@ struct SummaryChip: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(value)")
                     .font(.headline.bold())
-                Text(label)
+                Text(LocalizedStringKey(label))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -477,12 +477,18 @@ struct OverviewSection<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label(title, systemImage: icon)
+                Label {
+                    Text(LocalizedStringKey(title))
+                } icon: {
+                    Image(systemName: icon)
+                }
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.secondary)
                 Spacer()
                 if let actionTitle, let action {
-                    Button(actionTitle, action: action)
+                    Button(action: action) {
+                        Text(LocalizedStringKey(actionTitle))
+                    }
                         .font(.subheadline.weight(.semibold))
                 }
             }

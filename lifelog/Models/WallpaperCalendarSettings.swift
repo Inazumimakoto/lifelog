@@ -171,7 +171,7 @@ enum WallpaperCalendarWeekCount: Int, Codable, CaseIterable, Identifiable {
     var id: Int { rawValue }
 
     var title: String {
-        "\(rawValue)週"
+        String(localized: "\(rawValue)週")
     }
 }
 
@@ -196,22 +196,22 @@ enum WallpaperCalendarLayoutPreset: String, Codable, CaseIterable, Identifiable 
     var title: String {
         switch self {
         case .standard, .avoidWidgets:
-            return "標準"
+            return String(localized: "標準")
         case .avoidMedia:
-            return "再生バーあり"
+            return String(localized: "再生バーあり")
         case .avoidWidgetsAndMedia:
-            return "両方あり"
+            return String(localized: "両方あり")
         }
     }
 
     var detail: String {
         switch self {
         case .standard, .avoidWidgets:
-            return "時計とウィジェットの下に4週分を表示"
+            return String(localized: "時計とウィジェットの下に4週分を表示")
         case .avoidMedia:
-            return "下の再生バー領域を避けて3週分を表示"
+            return String(localized: "下の再生バー領域を避けて3週分を表示")
         case .avoidWidgetsAndMedia:
-            return "上下どちらも避けて2週分を表示"
+            return String(localized: "上下どちらも避けて2週分を表示")
         }
     }
 
@@ -245,11 +245,11 @@ enum WallpaperCalendarPrivacyMode: String, Codable, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .details:
-            return "予定名"
+            return String(localized: "予定名")
         case .categoryOnly:
-            return "カテゴリのみ"
+            return String(localized: "カテゴリのみ")
         case .hidden:
-            return "非表示"
+            return String(localized: "非表示")
         }
     }
 }
@@ -264,11 +264,11 @@ enum WallpaperCalendarAppearance: String, Codable, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .system:
-            return "端末に合わせる"
+            return String(localized: "端末に合わせる")
         case .dark:
-            return "黒"
+            return String(localized: "黒")
         case .light:
-            return "白"
+            return String(localized: "白")
         }
     }
 }

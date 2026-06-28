@@ -173,7 +173,7 @@ struct FriendRequestsView: View {
     
     private func formatDate(_ date: Date) -> String {
         let formatter = RelativeDateTimeFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.locale = .autoupdatingCurrent
         formatter.unitsStyle = .short
         return formatter.localizedString(for: date, relativeTo: Date())
     }

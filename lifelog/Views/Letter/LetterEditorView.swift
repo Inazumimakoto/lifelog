@@ -44,6 +44,13 @@ struct LetterEditorView: View {
         case fixed = "固定"
         case random = "ランダム"
         var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .fixed: return String(localized: "固定")
+            case .random: return String(localized: "ランダム")
+            }
+        }
     }
     
     init(letter: Letter? = nil) {
@@ -211,7 +218,7 @@ struct LetterEditorView: View {
             Section {
                 Picker("日付", selection: $dateMode) {
                     ForEach(DeliveryMode.allCases) { mode in
-                        Text(mode.rawValue).tag(mode)
+                        Text(mode.displayName).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -242,7 +249,7 @@ struct LetterEditorView: View {
             Section {
                 Picker("時間", selection: $timeMode) {
                     ForEach(DeliveryMode.allCases) { mode in
-                        Text(mode.rawValue).tag(mode)
+                        Text(mode.displayName).tag(mode)
                     }
                 }
                 .pickerStyle(.segmented)
@@ -277,22 +284,23 @@ struct LetterEditorView: View {
         
         // 日付部分
         let dateFormatter = DateFormatter()
-        dateFormatter.locale = Locale(identifier: "ja_JP")
-        dateFormatter.dateFormat = "M月d日"
+        dateFormatter.locale = .autoupdatingCurrent
+        dateFormatter.setLocalizedDateFormatFromTemplate("Md")
         
         var datePart: String
         if dateMode == .fixed {
             datePart = dateFormatter.string(from: fixedDate)
         } else if useDateRange {
-            dateFormatter.dateFormat = "M/d"
+            dateFormatter.setLocalizedDateFormatFromTemplate("Md")
             datePart = "\(dateFormatter.string(from: randomStartDate))〜\(dateFormatter.string(from: randomEndDate))"
         } else {
-            datePart = "1日後〜3年後"
+            datePart = String(localized: "1日後〜3年後")
         }
         
         // 時間部分
         let timeFormatter = DateFormatter()
-        timeFormatter.dateFormat = "H:mm"
+        timeFormatter.locale = .autoupdatingCurrent
+        timeFormatter.setLocalizedDateFormatFromTemplate("Hm")
         
         var timePart: String
         if timeMode == .fixed {
@@ -300,20 +308,20 @@ struct LetterEditorView: View {
         } else if useTimeRange {
             timePart = "\(timeFormatter.string(from: startTime))〜\(timeFormatter.string(from: endTime))"
         } else {
-            timePart = "終日"
+            timePart = String(localized: "終日")
         }
         
         // メッセージ組み立て
         if dateMode == .fixed && timeMode == .fixed {
-            lines.append("📅 \(datePart) \(timePart) に届きます")
+            lines.append(String(localized: "📅 \(datePart) \(timePart) に届きます"))
         } else if dateMode == .random && timeMode == .random && !useDateRange && !useTimeRange {
-            lines.append("✨ いつか届きます（1日後〜3年後）")
+            lines.append(String(localized: "✨ いつか届きます（1日後〜3年後）"))
         } else {
-            lines.append("🎲 \(datePart) \(timePart) に届きます")
+            lines.append(String(localized: "🎲 \(datePart) \(timePart) に届きます"))
         }
         
         lines.append("")
-        lines.append("届くまで編集・削除ができません。")
+        lines.append(String(localized: "届くまで編集・削除ができません。"))
         
         return lines.joined(separator: "\n")
     }

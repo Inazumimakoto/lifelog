@@ -30,7 +30,7 @@ struct EventsView: View {
             ForEach(EventsViewModel.EventSection.allCases) { section in
                 let events = viewModel.events(for: section)
                 if events.isEmpty == false {
-                    Section(section.rawValue) {
+                    Section(section.displayName) {
                         ForEach(events) { event in
                             eventRow(event)
                         }
@@ -106,7 +106,7 @@ struct EventsView: View {
                         .foregroundStyle(.secondary)
                 }
                 HStack(spacing: 4) {
-                    Text(event.calendarName)
+                    Text(CategoryPalette.displayName(for: event.calendarName))
                         .font(.caption2)
                         .foregroundStyle(CategoryPalette.color(for: event.calendarName))
                         .padding(.horizontal, 6)
@@ -143,14 +143,14 @@ struct EventsView: View {
             let startDay = calendar.startOfDay(for: event.startDate)
             let endDay = calendar.startOfDay(for: calendar.date(byAdding: .second, value: -1, to: event.endDate) ?? event.endDate)
             if startDay == endDay {
-                return "終日"
+                return String(localized: "終日")
             } else {
-                return "終日 (\(event.startDate.jaMonthDayString) - \(endDay.jaMonthDayString))"
+                return String(localized: "終日 (\(event.startDate.jaMonthDayString) - \(endDay.jaMonthDayString))")
             }
         }
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "M/d H:mm"
+        formatter.locale = .autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("MdHm")
         return "\(formatter.string(from: event.startDate)) - \(formatter.string(from: event.endDate))"
     }
 }

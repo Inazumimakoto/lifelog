@@ -87,19 +87,19 @@ struct ScheduleProvider: TimelineProvider {
     func placeholder(in context: Context) -> ScheduleEntry {
         let sampleEvent = ScheduleEventItem(
             id: UUID(),
-            title: "10:00 チームMTG",
+            title: String(localized: "10:00 チームMTG"),
             startDate: Date(),
             endDate: Date().addingTimeInterval(60 * 60),
             isAllDay: false,
-            categoryName: "仕事"
+            categoryName: String(localized: "仕事")
         )
 
         return ScheduleEntry(
             date: Date(),
             events: [sampleEvent],
             tasks: [
-                ScheduleTaskItem(id: UUID(), title: "週次レポート提出", priority: .high),
-                ScheduleTaskItem(id: UUID(), title: "買い物メモ整理", priority: .medium)
+                ScheduleTaskItem(id: UUID(), title: String(localized: "週次レポート提出"), priority: .high),
+                ScheduleTaskItem(id: UUID(), title: String(localized: "買い物メモ整理"), priority: .medium)
             ],
             nextInlineEvent: sampleEvent,
             isPremiumUnlocked: true
@@ -273,15 +273,15 @@ struct ScheduleProvider: TimelineProvider {
 private enum ScheduleWidgetFormatter {
     static let headerDate: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "MM/dd (E)"
+        formatter.locale = .autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("MdE")
         return formatter
     }()
 
     static let time: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "HH:mm"
+        formatter.locale = .autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("Hm")
         return formatter
     }()
 }
@@ -431,10 +431,10 @@ struct ScheduleWidgetEntryView: View {
     private var overflowSummaryText: String? {
         var parts: [String] = []
         if hiddenEventCount > 0 {
-            parts.append("+予定\(hiddenEventCount)件")
+            parts.append(String(localized: "+予定\(hiddenEventCount)件"))
         }
         if hiddenTaskCount > 0 {
-            parts.append("+タスク\(hiddenTaskCount)件")
+            parts.append(String(localized: "+タスク\(hiddenTaskCount)件"))
         }
         guard parts.isEmpty == false else { return nil }
         return parts.joined(separator: " ")
@@ -456,7 +456,7 @@ struct ScheduleWidgetEntryView: View {
                     rows
                     overflowSummary
                 } else {
-                    emptyLine("予定・タスクはありません")
+                    emptyLine(String(localized: "予定・タスクはありません"))
                 }
                 Spacer(minLength: 0)
             }
@@ -472,14 +472,14 @@ struct ScheduleWidgetEntryView: View {
 
         if let nextEvent = entry.nextInlineEvent {
             let dayPrefix = inlineDayPrefix(for: nextEvent.startDate)
-            let timeText: String = nextEvent.isAllDay ? "終日" : ScheduleWidgetFormatter.time.string(from: nextEvent.startDate)
+            let timeText: String = nextEvent.isAllDay ? String(localized: "終日") : ScheduleWidgetFormatter.time.string(from: nextEvent.startDate)
             return (
                 Text("\(taskPrefix)\(dayPrefix)\(timeText) \(nextEvent.title)")
             )
             .lineLimit(1)
         } else {
             return (
-                Text("\(taskPrefix)予定なし")
+                Text("\(taskPrefix)\(String(localized: "予定なし"))")
             )
             .lineLimit(1)
         }
@@ -500,7 +500,7 @@ struct ScheduleWidgetEntryView: View {
 
         if let tomorrow = calendar.date(byAdding: .day, value: 1, to: entry.date),
            calendar.isDate(eventDate, inSameDayAs: tomorrow) {
-            return "明日 "
+            return String(localized: "明日 ")
         }
 
         return ""
@@ -585,7 +585,7 @@ struct ScheduleWidgetEntryView: View {
 
     private func eventTimeLabel(_ event: ScheduleEventItem) -> String {
         if event.isAllDay {
-            return "終日"
+            return String(localized: "終日")
         }
         let start = ScheduleWidgetFormatter.time.string(from: event.startDate)
         let end = ScheduleWidgetFormatter.time.string(from: event.endDate)

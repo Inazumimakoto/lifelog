@@ -18,6 +18,14 @@ final class EventsViewModel: ObservableObject {
         case past = "過去の予定"
 
         var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .today: return String(localized: "今日の予定")
+            case .upcoming: return String(localized: "今後の予定")
+            case .past: return String(localized: "過去の予定")
+            }
+        }
     }
 
     @Published private(set) var events: [CalendarEvent] = []

@@ -1,0 +1,7 @@
+"CFBundleName" = "lifelify";
+"NSCalendarsFullAccessUsageDescription" = "외부 캘린더 일정을 읽고 홈 및 캘린더에 표시하는 데 사용합니다.";
+"NSCalendarsUsageDescription" = "외부 캘린더 일정을 읽고 오늘에 표시하는 데 사용합니다.";
+"NSFaceIDUsageDescription" = "앱 잠금 해제에 사용";
+"NSHealthShareUsageDescription" = "건강 관리 데이터를 읽고 앱에 표시하는 데 사용합니다.";
+"NSHealthUpdateUsageDescription" = "이 응용 프로그램은 건강 관리 데이터를 쓰지 않습니다.";
+"NSLocationWhenInUseUsageDescription" = "현재 위치의 날씨 정보를 취득·표시하기 위해서 위치 정보를 사용합니다.";

@@ -38,7 +38,7 @@ struct CalendarCategorySettingsView: View {
                             .frame(width: 18, height: 18)
                         VStack(alignment: .leading, spacing: 2) {
                             Text(link.calendarTitle)
-                            Text(link.categoryId ?? "表示しない")
+                            Text(link.categoryId.map { CategoryPalette.displayName(for: $0) } ?? String(localized: "表示しない"))
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -55,7 +55,7 @@ struct CalendarCategorySettingsView: View {
                 get: { tempCategory },
                 set: { newValue in
                     tempCategory = newValue
-                }), noneLabel: "表示しない")
+                }), noneLabel: String(localized: "表示しない"))
             .onDisappear {
                 let categoryName = tempCategory.isEmpty ? nil : tempCategory
                 store.updateCalendarLinkCategory(calendarIdentifier: link.calendarIdentifier, categoryName: categoryName)

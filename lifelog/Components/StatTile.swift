@@ -44,7 +44,7 @@ struct StatTile: View {
             Text(value)
                 .font(.title2.bold())
                 .foregroundStyle(.primary)
-            Text(title)
+            Text(LocalizedStringKey(title))
                 .font(.caption)
                 .foregroundStyle(.secondary)
             if let subtitle {

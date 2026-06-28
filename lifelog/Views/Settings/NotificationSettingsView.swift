@@ -183,7 +183,7 @@ struct NotificationSettingsView: View {
                             Circle()
                                 .fill(CategoryPalette.color(for: setting.categoryName))
                                 .frame(width: 12, height: 12)
-                            Text(setting.categoryName)
+                            Text(CategoryPalette.displayName(for: setting.categoryName))
                             Spacer()
                             Toggle("", isOn: $setting.enabled)
                                 .labelsHidden()

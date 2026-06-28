@@ -28,12 +28,14 @@ struct SectionCard<Content: View>: View {
             if title != nil || actionTitle != nil {
                 HStack {
                     if let title {
-                        Text(title)
+                        Text(LocalizedStringKey(title))
                             .font(.headline)
                     }
                     Spacer()
                     if let actionTitle {
-                        Button(actionTitle, action: { action?() })
+                        Button(action: { action?() }) {
+                            Text(LocalizedStringKey(actionTitle))
+                        }
                             .font(.subheadline.weight(.semibold))
                     }
                 }
@@ -44,4 +46,3 @@ struct SectionCard<Content: View>: View {
         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
-

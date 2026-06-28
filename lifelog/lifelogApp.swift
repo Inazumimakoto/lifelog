@@ -35,7 +35,6 @@ struct lifelogApp: App {
                 ContentView()
                     .environmentObject(store)
                     .environmentObject(deepLinkManager)
-                    .environment(\.locale, Locale(identifier: "ja_JP"))
                     .onAppear {
                         // 日記リマインダーを再スケジュール（今日書いていなければ通知）
                         syncMemoPrivacySettingsToSharedDefaults()

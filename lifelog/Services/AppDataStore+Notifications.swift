@@ -56,8 +56,8 @@ extension AppDataStore {
 
     private func scheduleDiaryReminderForDate(components: DateComponents) {
         let content = UNMutableNotificationContent()
-        content.title = "日記を書きましょう"
-        content.body = "今日の出来事を振り返ってみませんか？"
+        content.title = String(localized: "日記を書きましょう")
+        content.body = String(localized: "今日の出来事を振り返ってみませんか？")
         content.sound = .default
 
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
@@ -133,9 +133,9 @@ extension AppDataStore {
         let eventLines = summarizedEventLines(events, on: targetDate, limit: 3)
         let taskLines = summarizedTaskLines(tasks, limit: 3)
         return [
-            "予定",
+            String(localized: "予定"),
             eventLines.joined(separator: "\n"),
-            "タスク",
+            String(localized: "タスク"),
             taskLines.joined(separator: "\n")
         ].joined(separator: "\n")
     }
@@ -150,7 +150,7 @@ extension AppDataStore {
         }
 
         guard normalizedEvents.isEmpty == false else {
-            return ["なし"]
+            return [String(localized: "なし")]
         }
 
         let listedLines = Array(normalizedEvents.prefix(limit)).map { event in
@@ -158,7 +158,7 @@ extension AppDataStore {
         }
         let remainderCount = normalizedEvents.count - listedLines.count
         if remainderCount > 0 {
-            return listedLines + ["ほか\(remainderCount)件"]
+            return listedLines + [String(localized: "ほか\(remainderCount)件")]
         }
         return listedLines
     }
@@ -169,13 +169,13 @@ extension AppDataStore {
             .filter { !$0.isEmpty }
 
         guard normalizedTitles.isEmpty == false else {
-            return ["なし"]
+            return [String(localized: "なし")]
         }
 
         let listedLines = Array(normalizedTitles.prefix(limit)).map { "・\($0)" }
         let remainderCount = normalizedTitles.count - listedLines.count
         if remainderCount > 0 {
-            return listedLines + ["ほか\(remainderCount)件"]
+            return listedLines + [String(localized: "ほか\(remainderCount)件")]
         }
         return listedLines
     }
@@ -184,11 +184,11 @@ extension AppDataStore {
         let calendar = Calendar.current
         let timeLabel: String
         if event.isAllDay {
-            timeLabel = "終日"
+            timeLabel = String(localized: "終日")
         } else if calendar.isDate(event.startDate, inSameDayAs: date) {
             timeLabel = event.startDate.formattedTime()
         } else {
-            timeLabel = "継続"
+            timeLabel = String(localized: "継続")
         }
         return "・\(timeLabel) \(event.title)"
     }

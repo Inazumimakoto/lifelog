@@ -25,9 +25,9 @@ enum TaskPriority: Int, Codable, CaseIterable, Identifiable, Comparable {
 
     var label: String {
         switch self {
-        case .low: return "低"
-        case .medium: return "中"
-        case .high: return "高"
+        case .low: return String(localized: "低")
+        case .medium: return String(localized: "中")
+        case .high: return String(localized: "高")
         }
     }
 
@@ -107,6 +107,15 @@ enum AnniversaryType: String, Codable, CaseIterable, Identifiable {
     case since
 
     var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .countdown:
+            return String(localized: "カウントダウン")
+        case .since:
+            return String(localized: "経過")
+        }
+    }
 }
 
 enum MoodLevel: Int, Codable, CaseIterable, Identifiable {
@@ -147,13 +156,13 @@ enum Weekday: Int, CaseIterable, Identifiable, Codable {
 
     var shortLabel: String {
         switch self {
-        case .sunday: return "日"
-        case .monday: return "月"
-        case .tuesday: return "火"
-        case .wednesday: return "水"
-        case .thursday: return "木"
-        case .friday: return "金"
-        case .saturday: return "土"
+        case .sunday: return String(localized: "日")
+        case .monday: return String(localized: "月")
+        case .tuesday: return String(localized: "火")
+        case .wednesday: return String(localized: "水")
+        case .thursday: return String(localized: "木")
+        case .friday: return String(localized: "金")
+        case .saturday: return String(localized: "土")
         }
     }
 }

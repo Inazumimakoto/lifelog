@@ -44,7 +44,7 @@ struct PremiumPaywallView: View {
             }
             .onChange(of: monetization.isPremiumUnlocked) { _, unlocked in
                 if unlocked {
-                    ToastManager.shared.show(emoji: "🎉", message: "プレミアムが有効になりました")
+                    ToastManager.shared.show(emoji: "🎉", message: String(localized: "プレミアムが有効になりました"))
                     dismiss()
                 }
             }
@@ -71,14 +71,14 @@ struct PremiumPaywallView: View {
 
     private var featureList: some View {
         VStack(alignment: .leading, spacing: 8) {
-            premiumFeatureRow("習慣の草表示を解放")
-            premiumFeatureRow("振り返りカレンダーの地図表示を解放")
-            premiumFeatureRow("未来への手紙 / 大切な人への手紙を解放")
-            premiumFeatureRow("ロック画面カレンダーを解放")
-            premiumFeatureRow("ホーム画面 / ロック画面ウィジェットを解放")
-            premiumFeatureRow("習慣とカウントダウンの登録上限を解除")
-            premiumFeatureRow("日記写真の上限を3枚から10枚に拡張")
-            premiumFeatureRow("日記の場所保存を解放")
+            premiumFeatureRow(String(localized: "習慣の草表示を解放"))
+            premiumFeatureRow(String(localized: "振り返りカレンダーの地図表示を解放"))
+            premiumFeatureRow(String(localized: "未来への手紙 / 大切な人への手紙を解放"))
+            premiumFeatureRow(String(localized: "ロック画面カレンダーを解放"))
+            premiumFeatureRow(String(localized: "ホーム画面 / ロック画面ウィジェットを解放"))
+            premiumFeatureRow(String(localized: "習慣とカウントダウンの登録上限を解除"))
+            premiumFeatureRow(String(localized: "日記写真の上限を3枚から10枚に拡張"))
+            premiumFeatureRow(String(localized: "日記の場所保存を解放"))
         }
     }
 
@@ -94,9 +94,9 @@ struct PremiumPaywallView: View {
     @ViewBuilder
     private var productsSection: some View {
         if monetization.isJapanStorefront {
-            PremiumLockCard(title: "日本ストアは無料です",
-                            message: "日本ストアでは全機能を無料で利用できます。",
-                            actionTitle: "閉じる",
+            PremiumLockCard(title: String(localized: "日本ストアは無料です"),
+                            message: String(localized: "日本ストアでは全機能を無料で利用できます。"),
+                            actionTitle: String(localized: "閉じる"),
                             action: { dismiss() })
         } else if monetization.isLoadingProducts && monetization.availableProducts.isEmpty {
             HStack(spacing: 10) {
@@ -106,9 +106,9 @@ struct PremiumPaywallView: View {
             }
             .padding(.vertical, 12)
         } else if monetization.availableProducts.isEmpty {
-            PremiumLockCard(title: "プラン情報を取得できませんでした",
-                            message: "通信状況を確認して、しばらくしてから再試行してください。",
-                            actionTitle: "再読み込み",
+            PremiumLockCard(title: String(localized: "プラン情報を取得できませんでした"),
+                            message: String(localized: "通信状況を確認して、しばらくしてから再試行してください。"),
+                            actionTitle: String(localized: "再読み込み"),
                             action: { _Concurrency.Task { await monetization.loadProductsIfNeeded(force: true) } })
         } else {
             VStack(spacing: 10) {
@@ -176,7 +176,7 @@ struct PremiumPaywallView: View {
             let purchased = await monetization.purchase(product)
             isPurchasing = false
             if purchased == false && monetization.errorMessage == nil {
-                alertMessage = "購入は完了しませんでした。"
+                alertMessage = String(localized: "購入は完了しませんでした。")
             }
         }
     }

@@ -27,7 +27,7 @@ struct TasksView: View {
             ForEach(TasksViewModel.TaskSection.allCases) { section in
                 let tasks = viewModel.tasks(for: section)
                 if tasks.isEmpty == false {
-                    Section(section.rawValue) {
+                    Section(section.displayName) {
                         ForEach(tasks) { task in
                             HStack {
                                 TaskRowView(task: task, onToggle: {

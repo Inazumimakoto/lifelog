@@ -11,42 +11,42 @@ import WidgetKit
 
 // Color(hex:) は共有ファイル ColorHex.swift へ移動した。
 
-private enum JapaneseLocaleProvider {
-    static let locale = Locale(identifier: "ja_JP")
+private enum AppLocaleProvider {
+    static let locale = Locale.autoupdatingCurrent
 }
 
 extension DateFormatter {
     static let japaneseMonthDay: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = JapaneseLocaleProvider.locale
-        formatter.dateFormat = "M月d日"
+        formatter.locale = AppLocaleProvider.locale
+        formatter.setLocalizedDateFormatFromTemplate("Md")
         return formatter
     }()
 
     static let japaneseYearMonthDay: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = JapaneseLocaleProvider.locale
-        formatter.dateFormat = "yyyy年M月d日"
+        formatter.locale = AppLocaleProvider.locale
+        formatter.setLocalizedDateFormatFromTemplate("yMd")
         return formatter
     }()
 
     static let japaneseWeekdayWide: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = JapaneseLocaleProvider.locale
+        formatter.locale = AppLocaleProvider.locale
         formatter.dateFormat = "EEEE"
         return formatter
     }()
 
     static let japaneseWeekdayNarrow: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = JapaneseLocaleProvider.locale
+        formatter.locale = AppLocaleProvider.locale
         formatter.dateFormat = "EEEEE"
         return formatter
     }()
 
     static let japaneseTime: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = JapaneseLocaleProvider.locale
+        formatter.locale = AppLocaleProvider.locale
         formatter.dateStyle = .none
         formatter.timeStyle = .short
         return formatter
@@ -54,15 +54,15 @@ extension DateFormatter {
 
     static let memoPadDateTime: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = JapaneseLocaleProvider.locale
-        formatter.dateFormat = "M/d HH:mm"
+        formatter.locale = AppLocaleProvider.locale
+        formatter.setLocalizedDateFormatFromTemplate("MdHm")
         return formatter
     }()
 
     static let compactDate: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = JapaneseLocaleProvider.locale
-        formatter.dateFormat = "yyyy/MM/dd"
+        formatter.locale = AppLocaleProvider.locale
+        formatter.setLocalizedDateFormatFromTemplate("yMd")
         return formatter
     }()
 }
@@ -110,16 +110,16 @@ extension Date {
     /// 12月5日(火) 形式
     var jaMonthDayWeekdayString: String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "M月d日(EEE)"
+        formatter.locale = AppLocaleProvider.locale
+        formatter.setLocalizedDateFormatFromTemplate("MdEEE")
         return formatter.string(from: self)
     }
 
     /// 2024年 形式
     var jaYearString: String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "yyyy年"
+        formatter.locale = AppLocaleProvider.locale
+        formatter.setLocalizedDateFormatFromTemplate("y")
         return formatter.string(from: self)
     }
 
@@ -140,8 +140,8 @@ extension Date {
     /// 12/07(日) 形式
     var slashMonthDayWeekdayString: String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "MM/dd"
+        formatter.locale = AppLocaleProvider.locale
+        formatter.setLocalizedDateFormatFromTemplate("Md")
         let dateStr = formatter.string(from: self)
         let weekday = DateFormatter.japaneseWeekdayNarrow.string(from: self)
         return "\(dateStr)(\(weekday))"
@@ -157,8 +157,8 @@ extension Date {
     /// MM/DD(曜日) 形式
     var monthDayWeekdayString: String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "MM/dd"
+        formatter.locale = AppLocaleProvider.locale
+        formatter.setLocalizedDateFormatFromTemplate("Md")
         let dateStr = formatter.string(from: self)
         let weekday = DateFormatter.japaneseWeekdayNarrow.string(from: self)
         return "\(dateStr)(\(weekday))"
@@ -330,6 +330,10 @@ enum CategoryPalette {
         allCategories().map { $0.name }
     }
 
+    static func displayName(for name: String) -> String {
+        BuiltInDisplayName.category(name)
+    }
+
     static func saveCategory(name: String, colorName: String) {
         var map = allCategoriesMapping()
         map[name] = colorName
@@ -386,4 +390,57 @@ enum CategoryPalette {
         return categories.keys.sorted().first ?? "仕事"
     }
 
+}
+
+enum BuiltInDisplayName {
+    static func category(_ key: String) -> String {
+        switch key {
+        case "仕事": return String(localized: "仕事")
+        case "趣味": return String(localized: "趣味")
+        case "旅行": return String(localized: "旅行")
+        case "プライベート": return String(localized: "プライベート")
+        case "健康": return String(localized: "健康")
+        case "学習": return String(localized: "学習")
+        case "習慣": return String(localized: "習慣")
+        case "タイムカプセル": return String(localized: "タイムカプセル")
+        default: return key
+        }
+    }
+
+    static func locationVisitTag(_ key: String) -> String {
+        switch key {
+        case "ご飯": return String(localized: "ご飯")
+        case "カフェ": return String(localized: "カフェ")
+        case "仕事": return String(localized: "仕事")
+        case "勉強": return String(localized: "勉強")
+        case "買い物": return String(localized: "買い物")
+        case "旅行": return String(localized: "旅行")
+        case "観光": return String(localized: "観光")
+        case "運動": return String(localized: "運動")
+        case "用事": return String(localized: "用事")
+        case "友人": return String(localized: "友人")
+        case "家族": return String(localized: "家族")
+        case "デート": return String(localized: "デート")
+        default: return key
+        }
+    }
+
+    static func emotionTag(_ key: String) -> String {
+        switch key {
+        case "悲しい": return String(localized: "悲しい")
+        case "イライラ": return String(localized: "イライラ")
+        case "不安": return String(localized: "不安")
+        case "疲れた": return String(localized: "疲れた")
+        case "落ち込み": return String(localized: "落ち込み")
+        case "普通": return String(localized: "普通")
+        case "モヤモヤ": return String(localized: "モヤモヤ")
+        case "まあまあ": return String(localized: "まあまあ")
+        case "楽しい": return String(localized: "楽しい")
+        case "嬉しい": return String(localized: "嬉しい")
+        case "穏やか": return String(localized: "穏やか")
+        case "やる気": return String(localized: "やる気")
+        case "充実": return String(localized: "充実")
+        default: return key
+        }
+    }
 }

@@ -40,6 +40,7 @@ class AuthService: ObservableObject {
         var publicKey: String
         var fcmToken: String?
         var blockedUsers: [String]
+        var preferredLanguageCode: String
         let createdAt: Date
         var lastActiveAt: Date
         
@@ -50,6 +51,7 @@ class AuthService: ObservableObject {
             self.publicKey = publicKey
             self.fcmToken = nil
             self.blockedUsers = []
+            self.preferredLanguageCode = AuthService.normalizedPreferredLanguageCode()
             self.createdAt = Date()
             self.lastActiveAt = Date()
         }
@@ -196,9 +198,10 @@ class AuthService: ObservableObject {
             if document.exists, let data = document.data() {
                 currentUser = parseUserData(data: data, userId: userId)
                 
-                // lastActiveAtを更新
+                // lastActiveAtと言語設定を更新
                 try? await db.collection("users").document(userId).updateData([
-                    "lastActiveAt": FieldValue.serverTimestamp()
+                    "lastActiveAt": FieldValue.serverTimestamp(),
+                    "preferredLanguageCode": Self.normalizedPreferredLanguageCode()
                 ])
             } else {
                 // ドキュメントがない場合は新規作成
@@ -217,6 +220,7 @@ class AuthService: ObservableObject {
             "publicKey": user.publicKey,
             "fcmToken": user.fcmToken as Any,
             "blockedUsers": user.blockedUsers,
+            "preferredLanguageCode": Self.normalizedPreferredLanguageCode(),
             "createdAt": Timestamp(date: user.createdAt),
             "lastActiveAt": FieldValue.serverTimestamp()
         ]
@@ -244,7 +248,8 @@ class AuthService: ObservableObject {
         
         do {
             try await db.collection("users").document(userId).updateData([
-                "lastLoginAt": FieldValue.serverTimestamp()
+                "lastLoginAt": FieldValue.serverTimestamp(),
+                "preferredLanguageCode": Self.normalizedPreferredLanguageCode()
             ])
             AppLogger.auth.info("lastLoginAt 更新完了")
         } catch {
@@ -260,7 +265,8 @@ class AuthService: ObservableObject {
         
         do {
             try await db.collection("users").document(userId).updateData([
-                "fcmToken": token
+                "fcmToken": token,
+                "preferredLanguageCode": Self.normalizedPreferredLanguageCode()
             ])
             
             if var user = currentUser {
@@ -365,13 +371,33 @@ class AuthService: ObservableObject {
         let publicKey = data["publicKey"] as? String ?? ""
         let fcmToken = data["fcmToken"] as? String
         let blockedUsers = data["blockedUsers"] as? [String] ?? []
+        let preferredLanguageCode = data["preferredLanguageCode"] as? String ?? Self.normalizedPreferredLanguageCode()
         let createdAt = (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
         let lastActiveAt = (data["lastActiveAt"] as? Timestamp)?.dateValue() ?? Date()
         
         var user = LetterUser(id: userId, emoji: emoji, displayName: displayName, publicKey: publicKey)
         user.fcmToken = fcmToken
         user.blockedUsers = blockedUsers
+        user.preferredLanguageCode = Self.normalizedLanguageCode(preferredLanguageCode)
         return user
+    }
+
+    static func normalizedPreferredLanguageCode() -> String {
+        let preferred = Locale.preferredLanguages.first ?? Locale.autoupdatingCurrent.identifier
+        return normalizedLanguageCode(preferred)
+    }
+
+    static func normalizedLanguageCode(_ identifier: String) -> String {
+        let normalized = identifier.replacingOccurrences(of: "_", with: "-").lowercased()
+        if normalized.hasPrefix("ja") { return "ja" }
+        if normalized.hasPrefix("ko") { return "ko" }
+        if normalized.hasPrefix("zh-hant") || normalized.contains("-tw") || normalized.contains("-hk") || normalized.contains("-mo") {
+            return "zh-Hant"
+        }
+        if normalized.hasPrefix("zh") {
+            return "zh-Hans"
+        }
+        return "en"
     }
     
     /// PersonNameComponentsから表示名を構築

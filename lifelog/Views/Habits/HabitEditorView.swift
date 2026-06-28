@@ -211,9 +211,9 @@ private enum HabitScheduleOption: Int, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .daily: return "毎日"
-        case .weekdays: return "平日"
-        case .custom: return "カスタム"
+        case .daily: return String(localized: "毎日")
+        case .weekdays: return String(localized: "平日")
+        case .custom: return String(localized: "カスタム")
         }
     }
 

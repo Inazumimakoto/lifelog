@@ -165,8 +165,8 @@ struct InviteFriendView: View {
     
     private func formatExpiry(_ date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "M/d HH:mm"
+        formatter.locale = .autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("MdHm")
         return formatter.string(from: date)
     }
 }

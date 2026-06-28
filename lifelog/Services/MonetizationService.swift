@@ -157,39 +157,39 @@ final class MonetizationService: ObservableObject {
     }
 
     func habitLimitMessage() -> String {
-        "海外版の無料プランでは習慣は\(freeHabitLimit)件までです。プレミアムで無制限になります。"
+        String(localized: "海外版の無料プランでは習慣は\(freeHabitLimit)件までです。プレミアムで無制限になります。")
     }
 
     func countdownLimitMessage() -> String {
-        "海外版の無料プランではカウントダウンは\(freeCountdownLimit)件までです。プレミアムで無制限になります。"
+        String(localized: "海外版の無料プランではカウントダウンは\(freeCountdownLimit)件までです。プレミアムで無制限になります。")
     }
 
     func diaryPhotoLimitMessage() -> String {
-        "海外版の無料プランでは日記写真は\(freeDiaryPhotoLimit)枚までです。プレミアムで\(premiumDiaryPhotoLimit)枚まで追加できます。"
+        String(localized: "海外版の無料プランでは日記写真は\(freeDiaryPhotoLimit)枚までです。プレミアムで\(premiumDiaryPhotoLimit)枚まで追加できます。")
     }
 
     func diaryLocationMessage() -> String {
-        "日記の場所保存はプレミアム機能です。"
+        String(localized: "日記の場所保存はプレミアム機能です。")
     }
 
     func reviewMapMessage() -> String {
-        "振り返りカレンダーの地図表示はプレミアム機能です。"
+        String(localized: "振り返りカレンダーの地図表示はプレミアム機能です。")
     }
 
     func lettersMessage() -> String {
-        "手紙機能はプレミアム機能です。"
+        String(localized: "手紙機能はプレミアム機能です。")
     }
 
     func habitGrassMessage() -> String {
-        "習慣の草表示はプレミアム機能です。"
+        String(localized: "習慣の草表示はプレミアム機能です。")
     }
 
     func wallpaperCalendarMessage() -> String {
-        "ロック画面カレンダーはプレミアム機能です。"
+        String(localized: "ロック画面カレンダーはプレミアム機能です。")
     }
 
     func widgetsMessage() -> String {
-        "ウィジェットはプレミアム機能です。"
+        String(localized: "ウィジェットはプレミアム機能です。")
     }
 
     func loadProductsIfNeeded(force: Bool) async {
@@ -221,7 +221,7 @@ final class MonetizationService: ObservableObject {
             availableProducts = sortProducts(products)
             hasLoadedProducts = true
         } catch {
-            errorMessage = "プラン情報の取得に失敗しました。時間をおいて再試行してください。"
+            errorMessage = String(localized: "プラン情報の取得に失敗しました。時間をおいて再試行してください。")
         }
     }
 
@@ -239,7 +239,7 @@ final class MonetizationService: ObservableObject {
                 await refreshEntitlements()
                 return isPremiumUnlocked
             case .pending:
-                errorMessage = "購入は保留中です。承認後に有効化されます。"
+                errorMessage = String(localized: "購入は保留中です。承認後に有効化されます。")
                 return false
             case .userCancelled:
                 return false
@@ -247,7 +247,7 @@ final class MonetizationService: ObservableObject {
                 return false
             }
         } catch {
-            errorMessage = "購入に失敗しました。通信状態を確認して再試行してください。"
+            errorMessage = String(localized: "購入に失敗しました。通信状態を確認して再試行してください。")
             return false
         }
     }
@@ -261,11 +261,11 @@ final class MonetizationService: ObservableObject {
             try await AppStore.sync()
             await refreshEntitlements()
             if isPremiumUnlocked == false {
-                errorMessage = "復元できる購入が見つかりませんでした。"
+                errorMessage = String(localized: "復元できる購入が見つかりませんでした。")
             }
             return isPremiumUnlocked
         } catch {
-            errorMessage = "購入の復元に失敗しました。しばらくして再試行してください。"
+            errorMessage = String(localized: "購入の復元に失敗しました。しばらくして再試行してください。")
             return false
         }
     }

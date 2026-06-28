@@ -17,9 +17,9 @@ enum WallpaperCalendarRendererError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .failedToRenderImage:
-            return "壁紙カレンダー画像を作成できませんでした。"
+            return String(localized: "壁紙カレンダー画像を作成できませんでした。")
         case .failedToEncodeImage:
-            return "壁紙カレンダー画像を書き出せませんでした。"
+            return String(localized: "壁紙カレンダー画像を書き出せませんでした。")
         }
     }
 }

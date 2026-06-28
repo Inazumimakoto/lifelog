@@ -181,9 +181,9 @@ struct HabitsCountdownView: View {
                     }
                 }
             } else {
-                PremiumLockCard(title: "今年の習慣の積み上げ",
+                PremiumLockCard(title: String(localized: "今年の習慣の積み上げ"),
                                 message: monetization.habitGrassMessage(),
-                                actionTitle: "プランを見る") {
+                                actionTitle: String(localized: "プランを見る")) {
                     showPaywall = true
                 }
             }
@@ -313,9 +313,9 @@ struct HabitsCountdownView: View {
                     }
                 }
                 if hiddenCount > 0 {
-                    PremiumLockCard(title: "非表示の習慣があります",
+                    PremiumLockCard(title: String(localized: "非表示の習慣があります"),
                                     message: hiddenHabitMessage(hiddenCount),
-                                    actionTitle: "プランを見る") {
+                                    actionTitle: String(localized: "プランを見る")) {
                         showPaywall = true
                     }
                 }
@@ -427,9 +427,9 @@ struct HabitsCountdownView: View {
                 }
             }
             if hiddenCount > 0 {
-                PremiumLockCard(title: "非表示のカウントダウンがあります",
+                PremiumLockCard(title: String(localized: "非表示のカウントダウンがあります"),
                                 message: hiddenCountdownMessage(hiddenCount),
-                                actionTitle: "プランを見る") {
+                                actionTitle: String(localized: "プランを見る")) {
                     showPaywall = true
                 }
             }
@@ -449,9 +449,9 @@ extension HabitsCountdownView {
     private func scheduleDescription(for schedule: HabitSchedule) -> String {
         switch schedule {
         case .daily:
-            return "毎日"
+            return String(localized: "毎日")
         case .weekdays:
-            return "平日"
+            return String(localized: "平日")
         case .custom(let days):
             let labels = days.sorted { $0.rawValue < $1.rawValue }.map(\.shortLabel)
             return labels.joined(separator: " ")
@@ -551,11 +551,11 @@ extension HabitsCountdownView {
     }
 
     private func hiddenHabitMessage(_ hiddenCount: Int) -> String {
-        "無料プランでは\(monetization.freeHabitLimit)件まで表示されます。\(hiddenCount)件は非表示です。プレミアムで再表示できます。"
+        String(localized: "無料プランでは\(monetization.freeHabitLimit)件まで表示されます。\(hiddenCount)件は非表示です。プレミアムで再表示できます。")
     }
 
     private func hiddenCountdownMessage(_ hiddenCount: Int) -> String {
-        "無料プランでは\(monetization.freeCountdownLimit)件まで表示されます。\(hiddenCount)件は非表示です。プレミアムで再表示できます。"
+        String(localized: "無料プランでは\(monetization.freeCountdownLimit)件まで表示されます。\(hiddenCount)件は非表示です。プレミアムで再表示できます。")
     }
 
     private func weekRow(for status: HabitsViewModel.HabitWeekStatus) -> some View {

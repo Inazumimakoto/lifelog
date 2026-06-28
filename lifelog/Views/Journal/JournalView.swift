@@ -15,6 +15,13 @@ private enum ReviewContentMode: String, CaseIterable, Identifiable {
     case map = "地図"
 
     var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .diary: return String(localized: "日記")
+        case .map: return String(localized: "地図")
+        }
+    }
 }
 
 struct JournalView: View {
@@ -386,9 +393,9 @@ struct JournalView: View {
                     } else if monetization.canUseReviewMap {
                         reviewMap
                     } else {
-                        PremiumLockCard(title: "振り返り地図",
+                        PremiumLockCard(title: String(localized: "振り返り地図"),
                                         message: monetization.reviewMapMessage(),
-                                        actionTitle: "プランを見る") {
+                                        actionTitle: String(localized: "プランを見る")) {
                             showPaywall = true
                         }
                     }
@@ -606,7 +613,7 @@ struct JournalView: View {
     private var modePicker: some View {
         Picker("表示切替", selection: $viewModel.displayMode) {
             ForEach(JournalViewModel.DisplayMode.allCases) { mode in
-                Text(mode.rawValue).tag(mode)
+                Text(mode.displayName).tag(mode)
             }
         }
         .pickerStyle(.segmented)
@@ -614,9 +621,9 @@ struct JournalView: View {
 
     private var reviewModePicker: some View {
         Picker("表示切替", selection: $reviewContentMode) {
-            Text(ReviewContentMode.diary.rawValue).tag(ReviewContentMode.diary)
+            Text(ReviewContentMode.diary.displayName).tag(ReviewContentMode.diary)
             if monetization.canUseReviewMap {
-                Text(ReviewContentMode.map.rawValue).tag(ReviewContentMode.map)
+                Text(ReviewContentMode.map.displayName).tag(ReviewContentMode.map)
             } else {
                 Text("地図🔒").tag(ReviewContentMode.map)
             }
@@ -637,8 +644,7 @@ struct JournalView: View {
     }
 
     private var weekdayHeader: some View {
-        var calendar = Calendar.current
-        calendar.locale = Locale(identifier: "ja_JP")
+        let calendar = Calendar.autoupdatingCurrent
         let weekdays = calendar.shortWeekdaySymbols
         return HStack(spacing: 0) {
             ForEach(weekdays, id: \.self) { weekday in
@@ -799,7 +805,7 @@ struct JournalView: View {
                         Circle()
                             .fill(CategoryPalette.color(for: category))
                             .frame(width: 8, height: 8)
-                        Text(category)
+                        Text(CategoryPalette.displayName(for: category))
                             .font(.caption2)
                             .foregroundStyle(.secondary)
                     }

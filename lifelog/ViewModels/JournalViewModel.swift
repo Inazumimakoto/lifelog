@@ -49,6 +49,13 @@ final class JournalViewModel: ObservableObject {
         case month = "月"
 
         var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .week: return String(localized: "週")
+            case .month: return String(localized: "月")
+            }
+        }
     }
 
     @Published private(set) var days: [CalendarDay] = []
@@ -431,8 +438,8 @@ final class JournalViewModel: ObservableObject {
 private extension DateFormatter {
     static let monthAndYear: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.locale = Locale(identifier: "ja_JP")
-        formatter.dateFormat = "yyyy年M月"
+        formatter.locale = .autoupdatingCurrent
+        formatter.setLocalizedDateFormatFromTemplate("yM")
         return formatter
     }()
 }

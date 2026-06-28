@@ -57,7 +57,7 @@ struct CalendarEventEditorView: View {
                         Circle()
                             .fill(CategoryPalette.color(for: formState.category))
                             .frame(width: 10, height: 10)
-                        Text(formState.category)
+                        Text(CategoryPalette.displayName(for: formState.category))
                             .foregroundStyle(.secondary)
                     }
                 }

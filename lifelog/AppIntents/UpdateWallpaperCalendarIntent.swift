@@ -38,7 +38,7 @@ struct UpdateWallpaperCalendarIntent: AppIntent {
 
 private struct WallpaperCalendarPremiumRequiredError: LocalizedError {
     var errorDescription: String? {
-        "ロック画面カレンダーはプレミアム機能です。アプリでプレミアムを有効にしてください。"
+        String(localized: "ロック画面カレンダーはプレミアム機能です。アプリでプレミアムを有効にしてください。")
     }
 }
 
