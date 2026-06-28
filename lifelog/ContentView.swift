@@ -324,6 +324,7 @@ struct ContentView: View {
 
     private func presentWallpaperCalendarAnnouncementIfNeeded() {
         guard hasCompletedInitialPermissionsSetup,
+              monetization.canUseWallpaperCalendar,
               hasSeenWallpaperCalendarAnnouncement == false,
               showWallpaperCalendarAnnouncement == false,
               showSettingsFromWallpaperCalendarAnnouncement == false,
@@ -334,6 +335,7 @@ struct ContentView: View {
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
             guard hasCompletedInitialPermissionsSetup,
+                  monetization.canUseWallpaperCalendar,
                   hasSeenWallpaperCalendarAnnouncement == false,
                   showWallpaperCalendarAnnouncement == false,
                   showSettingsFromWallpaperCalendarAnnouncement == false,

@@ -1,6 +1,6 @@
 # Global Monetization Spec
 
-Updated: 2026-02-06
+Updated: 2026-06-28
 
 ## 1. Goal
 - Keep Japan free.
@@ -32,6 +32,8 @@ Updated: 2026-02-06
   - Review calendar map view.
   - Letter to the Future.
   - Letter to Loved One (shared letters).
+  - Lock Screen calendar wallpaper generation.
+  - Home Screen and Lock Screen widgets.
   - Diary photo upload: up to 10 photos per day.
   - Diary location save.
   - Unlimited habits/countdowns.
@@ -58,11 +60,14 @@ Updated: 2026-02-06
   - Review map tab
   - Letter feature screens
   - Habit heatmap sections
+  - Lock Screen calendar settings and App Intent generation
+  - Widget content surfaces
 
 ## 7. App Store Connect Setup
 - Create products:
-  - Subscription SKU(s)
-  - Lifetime unlock SKU
+  - `com.inazumimakoto.lifelify.premium.monthly`
+  - `com.inazumimakoto.lifelify.premium.yearly`
+  - `com.inazumimakoto.lifelify.premium.lifetime`
 - Set availability:
   - Non-JP regions: products available
   - JP: products unavailable (Japan remains free)
@@ -80,7 +85,8 @@ Updated: 2026-02-06
 - No ads or ad-removal SKU.
 - No AI quota-based monetization.
 
-## 10. Open Items
-- Final product IDs for StoreKit.
-- Exact subscription lineup (monthly/yearly).
-- Price points by region.
+## 10. Product Lineup
+- Monthly subscription: `US$1.99`
+- Yearly subscription: `US$14.99`
+- Lifetime unlock: `US$29.99`
+- Pricing is USD-based and Apple-adjusted for other available storefronts.

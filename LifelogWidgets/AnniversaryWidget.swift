@@ -91,7 +91,9 @@ struct AnniversaryEntity: AppEntity, Identifiable {
 
 struct AnniversaryEntityQuery: EntityQuery {
     func entities(for identifiers: [AnniversaryEntity.ID]) async throws -> [AnniversaryEntity] {
-        await MainActor.run {
+        guard WidgetPremiumAccess.isUnlocked else { return [] }
+
+        return await MainActor.run {
             let targets = Set(identifiers)
             return AnniversaryWidgetStore.fetchAll()
                 .map(AnniversaryEntity.init(model:))
@@ -100,13 +102,16 @@ struct AnniversaryEntityQuery: EntityQuery {
     }
 
     func suggestedEntities() async throws -> [AnniversaryEntity] {
-        await MainActor.run {
+        guard WidgetPremiumAccess.isUnlocked else { return [] }
+
+        return await MainActor.run {
             AnniversaryWidgetStore.fetchAll().map(AnniversaryEntity.init(model:))
         }
     }
 
     func defaultResult() async -> AnniversaryEntity? {
-        try? await suggestedEntities().first
+        guard WidgetPremiumAccess.isUnlocked else { return nil }
+        return try? await suggestedEntities().first
     }
 }
 
@@ -123,6 +128,7 @@ struct AnniversarySelectionIntent: WidgetConfigurationIntent {
 private struct AnniversaryEntry: TimelineEntry {
     let date: Date
     let anniversary: AnniversaryWidgetModel?
+    let isPremiumUnlocked: Bool
 }
 
 private struct AnniversaryPresentation {
@@ -320,7 +326,9 @@ private struct AnniversaryWidgetEntryView: View {
     let entry: AnniversaryEntry
 
     var body: some View {
-        if let model = entry.anniversary {
+        if entry.isPremiumUnlocked == false {
+            PremiumWidgetLockView()
+        } else if let model = entry.anniversary {
             let presentation = AnniversaryCalculation.presentation(for: model, now: entry.date)
             switch family {
             case .systemSmall:
@@ -533,19 +541,31 @@ private struct AnniversaryProvider: AppIntentTimelineProvider {
                 startDate: Date().addingTimeInterval(-60 * 60 * 24 * 20),
                 startLabel: "開始から",
                 endLabel: "誕生日まで"
-            )
+            ),
+            isPremiumUnlocked: true
         )
     }
 
     func snapshot(for configuration: AnniversarySelectionIntent, in context: Context) async -> AnniversaryEntry {
+        guard WidgetPremiumAccess.isUnlocked else {
+            return AnniversaryEntry(date: Date(), anniversary: nil, isPremiumUnlocked: false)
+        }
+
         let selected = await resolveAnniversary(for: configuration)
-        return AnniversaryEntry(date: Date(), anniversary: selected)
+        return AnniversaryEntry(date: Date(), anniversary: selected, isPremiumUnlocked: true)
     }
 
     func timeline(for configuration: AnniversarySelectionIntent, in context: Context) async -> Timeline<AnniversaryEntry> {
         let now = Date()
+        guard WidgetPremiumAccess.isUnlocked else {
+            return Timeline(
+                entries: [AnniversaryEntry(date: now, anniversary: nil, isPremiumUnlocked: false)],
+                policy: .after(Calendar.current.date(byAdding: .minute, value: 30, to: now) ?? now.addingTimeInterval(60 * 30))
+            )
+        }
+
         let selected = await resolveAnniversary(for: configuration)
-        let entry = AnniversaryEntry(date: now, anniversary: selected)
+        let entry = AnniversaryEntry(date: now, anniversary: selected, isPremiumUnlocked: true)
         let next = Calendar.current.startOfDay(for: Calendar.current.date(byAdding: .day, value: 1, to: now) ?? now)
         return Timeline(entries: [entry], policy: .after(next))
     }

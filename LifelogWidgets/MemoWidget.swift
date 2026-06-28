@@ -36,7 +36,8 @@ struct MemoProvider: TimelineProvider {
             text: "買い物メモ\n・牛乳\n・キッチンペーパー",
             updatedAt: Date(),
             isHidden: false,
-            requiresOpenAuth: false
+            requiresOpenAuth: false,
+            isPremiumUnlocked: true
         )
     }
 
@@ -60,13 +61,25 @@ struct MemoProvider: TimelineProvider {
 
     @MainActor
     private func loadEntry(at date: Date) -> MemoEntry {
+        guard WidgetPremiumAccess.isUnlocked else {
+            return MemoEntry(
+                date: date,
+                text: "",
+                updatedAt: nil,
+                isHidden: false,
+                requiresOpenAuth: false,
+                isPremiumUnlocked: false
+            )
+        }
+
         let memo = fetchMemo()
         return MemoEntry(
             date: date,
             text: memo.text,
             updatedAt: memo.updatedAt,
             isHidden: memo.isHidden,
-            requiresOpenAuth: memo.requiresOpenAuth
+            requiresOpenAuth: memo.requiresOpenAuth,
+            isPremiumUnlocked: true
         )
     }
 
@@ -108,6 +121,7 @@ struct MemoEntry: TimelineEntry {
     let updatedAt: Date?
     let isHidden: Bool
     let requiresOpenAuth: Bool
+    let isPremiumUnlocked: Bool
 }
 
 private enum MemoWidgetFormatter {
@@ -162,30 +176,34 @@ struct MemoWidgetEntryView : View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            header
+        if entry.isPremiumUnlocked == false {
+            PremiumWidgetLockView()
+        } else {
+            VStack(alignment: .leading, spacing: 3) {
+                header
 
-            if family == .systemMedium {
-                mediumTwoColumnText
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            } else {
-                memoText(normalizedText, lineLimit: nil)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            }
-
-            if entry.isHidden && entry.requiresOpenAuth {
-                HStack(spacing: 4) {
-                    Image(systemName: "lock.fill")
-                        .font(.system(size: 10, weight: .semibold))
-                    Text("タップ後に認証して開く")
-                        .font(.system(size: 10, weight: .regular, design: .rounded))
+                if family == .systemMedium {
+                    mediumTwoColumnText
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                } else {
+                    memoText(normalizedText, lineLimit: nil)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                 }
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+
+                if entry.isHidden && entry.requiresOpenAuth {
+                    HStack(spacing: 4) {
+                        Image(systemName: "lock.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                        Text("タップ後に認証して開く")
+                            .font(.system(size: 10, weight: .regular, design: .rounded))
+                    }
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                }
             }
+            .padding(.horizontal, horizontalPadding)
+            .padding(.vertical, verticalPadding)
         }
-        .padding(.horizontal, horizontalPadding)
-        .padding(.vertical, verticalPadding)
     }
 
     private var mediumTwoColumnText: some View {
@@ -323,11 +341,11 @@ struct MemoWidget: Widget {
             if #available(iOS 17.0, *) {
                 MemoWidgetEntryView(entry: entry)
                     .containerBackground(Color(uiColor: .systemBackground), for: .widget)
-                    .widgetURL(destinationURL)
+                    .widgetURL(entry.isPremiumUnlocked ? destinationURL : nil)
             } else {
                 MemoWidgetEntryView(entry: entry)
                     .background(Color(uiColor: .systemBackground))
-                    .widgetURL(destinationURL)
+                    .widgetURL(entry.isPremiumUnlocked ? destinationURL : nil)
             }
         }
         .configurationDisplayName("メモ")

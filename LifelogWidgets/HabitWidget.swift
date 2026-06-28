@@ -34,6 +34,7 @@ struct HabitEntry: TimelineEntry {
     let date: Date
     let habits: [HabitWidgetModel]
     let grassDays: [HabitGrassDay]
+    let isPremiumUnlocked: Bool
 }
 
 struct HabitProvider: TimelineProvider {
@@ -79,7 +80,8 @@ struct HabitProvider: TimelineProvider {
                     completions: [false, true, true, true, false, false, false]
                 )
             ],
-            grassDays: makePlaceholderGrassDays(start: grassStart, weeks: grassWeeks, today: today, calendar: calendar)
+            grassDays: makePlaceholderGrassDays(start: grassStart, weeks: grassWeeks, today: today, calendar: calendar),
+            isPremiumUnlocked: true
         )
     }
 
@@ -100,6 +102,15 @@ struct HabitProvider: TimelineProvider {
 
     @MainActor
     private func buildEntry(at date: Date) -> HabitEntry {
+        guard WidgetPremiumAccess.isUnlocked else {
+            return HabitEntry(
+                date: date,
+                habits: [],
+                grassDays: [],
+                isPremiumUnlocked: false
+            )
+        }
+
         do {
             let context = PersistenceController.shared.container.mainContext
             let activeHabitsDesc = FetchDescriptor<SDHabit>(
@@ -165,13 +176,15 @@ struct HabitProvider: TimelineProvider {
             return HabitEntry(
                 date: date,
                 habits: habitRows,
-                grassDays: grassDays
+                grassDays: grassDays,
+                isPremiumUnlocked: true
             )
         } catch {
             return HabitEntry(
                 date: date,
                 habits: [],
-                grassDays: []
+                grassDays: [],
+                isPremiumUnlocked: true
             )
         }
     }
@@ -543,7 +556,9 @@ struct HabitWidgetEntryView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            if family == .systemMedium {
+            if entry.isPremiumUnlocked == false {
+                PremiumWidgetLockView()
+            } else if family == .systemMedium {
                 mediumContent(size: proxy.size)
             } else {
                 let metrics = HabitWidgetLayoutMetrics(

@@ -63,7 +63,7 @@ struct PremiumPaywallView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("海外版プレミアム")
                 .font(.title3.bold())
-            Text("習慣の草表示、振り返り地図、手紙機能、登録上限の解除が使えるようになります。")
+            Text("習慣の草表示、振り返り地図、手紙機能、ロック画面カレンダー、ウィジェット、登録上限の解除が使えるようになります。")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -74,6 +74,8 @@ struct PremiumPaywallView: View {
             premiumFeatureRow("習慣の草表示を解放")
             premiumFeatureRow("振り返りカレンダーの地図表示を解放")
             premiumFeatureRow("未来への手紙 / 大切な人への手紙を解放")
+            premiumFeatureRow("ロック画面カレンダーを解放")
+            premiumFeatureRow("ホーム画面 / ロック画面ウィジェットを解放")
             premiumFeatureRow("習慣とカウントダウンの登録上限を解除")
             premiumFeatureRow("日記写真の上限を3枚から10枚に拡張")
             premiumFeatureRow("日記の場所保存を解放")

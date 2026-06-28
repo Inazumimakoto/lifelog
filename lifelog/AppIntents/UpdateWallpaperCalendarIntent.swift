@@ -15,6 +15,14 @@ struct UpdateWallpaperCalendarIntent: AppIntent {
     static var openAppWhenRun = false
 
     func perform() async throws -> some IntentResult & ReturnsValue<IntentFile> & ProvidesDialog {
+        let canUseWallpaperCalendar = await MainActor.run {
+            MonetizationService.shared.canUseWallpaperCalendar
+        }
+
+        guard canUseWallpaperCalendar else {
+            throw WallpaperCalendarPremiumRequiredError()
+        }
+
         let url = try await MainActor.run {
             try WallpaperCalendarRenderer().render(force: false)
         }
@@ -25,6 +33,12 @@ struct UpdateWallpaperCalendarIntent: AppIntent {
             type: .jpeg
         )
         return .result(value: file, dialog: "壁紙カレンダーを作成しました。")
+    }
+}
+
+private struct WallpaperCalendarPremiumRequiredError: LocalizedError {
+    var errorDescription: String? {
+        "ロック画面カレンダーはプレミアム機能です。アプリでプレミアムを有効にしてください。"
     }
 }
 

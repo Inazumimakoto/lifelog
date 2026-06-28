@@ -10,6 +10,55 @@ import SwiftUI
 import SwiftData
 import UIKit
 
+enum WidgetPremiumAccess {
+    static let storageKey = "monetization.isPremiumUnlockedForSharedSurfaces"
+
+    static var isUnlocked: Bool {
+        let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier) ?? .standard
+        return defaults.object(forKey: storageKey) as? Bool ?? false
+    }
+}
+
+struct PremiumWidgetLockView: View {
+    @Environment(\.widgetFamily) private var family
+
+    var body: some View {
+        if family == .accessoryInline {
+            Text("Premiumで解放")
+                .lineLimit(1)
+        } else {
+            VStack(spacing: 7) {
+                Image(systemName: "lock.fill")
+                    .font(.system(size: iconSize, weight: .semibold))
+                    .foregroundStyle(.yellow)
+                Text("プレミアムで解放")
+                    .font(.system(size: titleSize, weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
+                Text("アプリでプランを確認")
+                    .font(.system(size: messageSize, weight: .regular, design: .rounded))
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .lineLimit(2)
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        }
+    }
+
+    private var iconSize: CGFloat {
+        family == .systemSmall ? 20 : 24
+    }
+
+    private var titleSize: CGFloat {
+        family == .systemSmall ? 12 : 14
+    }
+
+    private var messageSize: CGFloat {
+        family == .systemSmall ? 10 : 11
+    }
+}
+
 struct ScheduleEventItem: Identifiable {
     let id: UUID
     let title: String
@@ -30,6 +79,7 @@ struct ScheduleEntry: TimelineEntry {
     let events: [ScheduleEventItem]
     let tasks: [ScheduleTaskItem]
     let nextInlineEvent: ScheduleEventItem?
+    let isPremiumUnlocked: Bool
 }
 
 struct ScheduleProvider: TimelineProvider {
@@ -51,7 +101,8 @@ struct ScheduleProvider: TimelineProvider {
                 ScheduleTaskItem(id: UUID(), title: "週次レポート提出", priority: .high),
                 ScheduleTaskItem(id: UUID(), title: "買い物メモ整理", priority: .medium)
             ],
-            nextInlineEvent: sampleEvent
+            nextInlineEvent: sampleEvent,
+            isPremiumUnlocked: true
         )
     }
 
@@ -72,12 +123,23 @@ struct ScheduleProvider: TimelineProvider {
 
     @MainActor
     private func loadEntry(for date: Date) -> ScheduleEntry {
+        guard WidgetPremiumAccess.isUnlocked else {
+            return ScheduleEntry(
+                date: date,
+                events: [],
+                tasks: [],
+                nextInlineEvent: nil,
+                isPremiumUnlocked: false
+            )
+        }
+
         let todayEvents = fetchEvents(on: date)
         return ScheduleEntry(
             date: date,
             events: todayEvents,
             tasks: fetchTasks(on: date),
-            nextInlineEvent: fetchNextInlineEvent(from: date)
+            nextInlineEvent: fetchNextInlineEvent(from: date),
+            isPremiumUnlocked: true
         )
     }
 
@@ -383,7 +445,9 @@ struct ScheduleWidgetEntryView: View {
     }
 
     var body: some View {
-        if family == .accessoryInline {
+        if entry.isPremiumUnlocked == false {
+            PremiumWidgetLockView()
+        } else if family == .accessoryInline {
             inlineLockScreenText
         } else {
             VStack(alignment: .leading, spacing: 4) {

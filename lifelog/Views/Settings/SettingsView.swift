@@ -398,7 +398,11 @@ struct SettingsView: View {
 #if DEBUG
         .modifier(DebugWallpaperCalendarAnnouncementOverlayModifier(
             isPresented: $showWallpaperCalendarAnnouncementDebug,
-            showWallpaperCalendarSettings: $showWallpaperCalendarSettings
+            openWallpaperCalendarSettings: {
+                openWallpaperCalendarFeatureIfNeeded {
+                    showWallpaperCalendarSettings = true
+                }
+            }
         ))
 #endif
         .sheet(isPresented: $showNotificationSettings) {
@@ -494,7 +498,9 @@ struct SettingsView: View {
             .foregroundStyle(.primary)
 
             Button {
-                showWallpaperCalendarSettings = true
+                openWallpaperCalendarFeatureIfNeeded {
+                    showWallpaperCalendarSettings = true
+                }
             } label: {
                 HStack {
                     Label("ロック画面カレンダー", systemImage: "rectangle.stack.fill")
@@ -570,6 +576,14 @@ struct SettingsView: View {
         openAction()
     }
 
+    private func openWallpaperCalendarFeatureIfNeeded(_ openAction: () -> Void) {
+        guard monetization.canUseWallpaperCalendar else {
+            premiumAlertMessage = monetization.wallpaperCalendarMessage()
+            return
+        }
+        openAction()
+    }
+
     private func startOptimization() {
         isOptimizing = true
         optimizeCurrent = 0
@@ -612,7 +626,9 @@ struct SettingsView: View {
 
         didHandleInitialWallpaperCalendarNavigation = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
-            showWallpaperCalendarSettings = true
+            openWallpaperCalendarFeatureIfNeeded {
+                showWallpaperCalendarSettings = true
+            }
         }
     }
 
@@ -641,7 +657,7 @@ struct SettingsView: View {
 #if DEBUG
 private struct DebugWallpaperCalendarAnnouncementOverlayModifier: ViewModifier {
     @Binding var isPresented: Bool
-    @Binding var showWallpaperCalendarSettings: Bool
+    let openWallpaperCalendarSettings: () -> Void
 
     func body(content: Content) -> some View {
         content.modifier(WallpaperCalendarAnnouncementOverlayModifier(
@@ -652,7 +668,7 @@ private struct DebugWallpaperCalendarAnnouncementOverlayModifier: ViewModifier {
             onOpenSettings: {
                 isPresented = false
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) {
-                    showWallpaperCalendarSettings = true
+                    openWallpaperCalendarSettings()
                 }
             }
         ))

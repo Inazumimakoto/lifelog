@@ -8,17 +8,36 @@
 import Foundation
 import Combine
 import StoreKit
+import WidgetKit
+
+enum SharedPremiumAccess {
+    static let storageKey = "monetization.isPremiumUnlockedForSharedSurfaces"
+
+    private static var defaults: UserDefaults {
+        UserDefaults(suiteName: PersistenceController.appGroupIdentifier) ?? .standard
+    }
+
+    static var isUnlocked: Bool {
+        defaults.object(forKey: storageKey) as? Bool ?? false
+    }
+
+    @discardableResult
+    static func updateUnlocked(_ unlocked: Bool) -> Bool {
+        guard isUnlocked != unlocked else { return false }
+        defaults.set(unlocked, forKey: storageKey)
+        return true
+    }
+}
 
 @MainActor
 final class MonetizationService: ObservableObject {
     static let shared = MonetizationService()
 
-    // Replace these IDs with the final App Store Connect product IDs.
     private let subscriptionProductIDs: Set<String> = [
-        "com.inazumimakoto.lifelog.premium.monthly",
-        "com.inazumimakoto.lifelog.premium.yearly"
+        "com.inazumimakoto.lifelify.premium.monthly",
+        "com.inazumimakoto.lifelify.premium.yearly"
     ]
-    private let lifetimeProductID = "com.inazumimakoto.lifelog.premium.lifetime"
+    private let lifetimeProductID = "com.inazumimakoto.lifelify.premium.lifetime"
     // Temporary release mode: all premium features are unlocked and billing is disabled.
     private let isBillingTemporarilyDisabled = true
 
@@ -30,8 +49,12 @@ final class MonetizationService: ObservableObject {
 
     private var transactionUpdatesTask: _Concurrency.Task<Void, Never>?
 
-    @Published private(set) var storefrontCountryCode: String = "JP"
-    @Published private(set) var hasPremiumEntitlement: Bool = false
+    @Published private(set) var storefrontCountryCode: String = "JP" {
+        didSet { syncSharedPremiumAccessIfNeeded() }
+    }
+    @Published private(set) var hasPremiumEntitlement: Bool = false {
+        didSet { syncSharedPremiumAccessIfNeeded() }
+    }
     @Published private(set) var availableProducts: [Product] = []
     @Published private(set) var isLoadingProducts: Bool = false
     @Published private(set) var isRefreshingStatus: Bool = false
@@ -76,12 +99,21 @@ final class MonetizationService: ObservableObject {
         isPremiumUnlocked
     }
 
+    var canUseWallpaperCalendar: Bool {
+        isPremiumUnlocked
+    }
+
+    var canUseWidgets: Bool {
+        isPremiumUnlocked
+    }
+
     var diaryPhotoLimit: Int {
         isPremiumUnlocked ? premiumDiaryPhotoLimit : freeDiaryPhotoLimit
     }
 
     private init() {
         refreshStorefrontCountry()
+        syncSharedPremiumAccessIfNeeded()
         startTransactionListener()
         _Concurrency.Task {
             await refreshStatus()
@@ -150,6 +182,14 @@ final class MonetizationService: ObservableObject {
 
     func habitGrassMessage() -> String {
         "習慣の草表示はプレミアム機能です。"
+    }
+
+    func wallpaperCalendarMessage() -> String {
+        "ロック画面カレンダーはプレミアム機能です。"
+    }
+
+    func widgetsMessage() -> String {
+        "ウィジェットはプレミアム機能です。"
     }
 
     func loadProductsIfNeeded(force: Bool) async {
@@ -291,6 +331,12 @@ final class MonetizationService: ObservableObject {
             return safe
         case .unverified:
             throw MonetizationError.unverifiedTransaction
+        }
+    }
+
+    private func syncSharedPremiumAccessIfNeeded() {
+        if SharedPremiumAccess.updateUnlocked(isPremiumUnlocked) {
+            WidgetCenter.shared.reloadAllTimelines()
         }
     }
 
