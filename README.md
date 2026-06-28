@@ -138,13 +138,13 @@ MIT License. See [`LICENSE`](LICENSE).
 <!-- dir-loc-start -->
 | Directory | LOC |
 |:--|--:|
-| `lifelog` | 53,502 |
-| `functions` | 10,348 |
-| `docs` | 2,685 |
-| `LifelogWidgets` | 2,377 |
+| `lifelog` | 95,758 |
+| `functions` | 10,445 |
+| `LifelogWidgets` | 4,624 |
+| `docs` | 2,909 |
 | `assets` | 1,714 |
-| `lifelog.xcodeproj` | 1,063 |
-| `(root)` | 505 |
+| `lifelog.xcodeproj` | 1,067 |
+| `(root)` | 513 |
 | `lifelogTests` | 391 |
 | `public` | 163 |
 | `.github` | 132 |
