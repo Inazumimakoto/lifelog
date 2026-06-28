@@ -76,9 +76,9 @@
 			membershipExceptions = (
 				Models/Models.swift,
 				Models/SwiftDataModels.swift,
-				Services/Persistence.swift,
 				Services/ColorHex.swift,
 				Services/EventQuerying.swift,
+				Services/Persistence.swift,
 			);
 			target = 0EB039702EE55C1200AFE3B0 /* LifelogWidgetsExtension */;
 		};
@@ -488,7 +488,7 @@
 				CODE_SIGN_ENTITLEMENTS = lifelog/lifelog.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 48;
+				CURRENT_PROJECT_VERSION = 49;
 				DEVELOPMENT_TEAM = V7XG8HDQL4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -508,7 +508,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.14.0;
+				MARKETING_VERSION = 1.14.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.inazumimakoto.lifelog;
 				PRODUCT_NAME = lifelify;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -530,7 +530,7 @@
 				CODE_SIGN_ENTITLEMENTS = lifelog/lifelog.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 48;
+				CURRENT_PROJECT_VERSION = 49;
 				DEVELOPMENT_TEAM = V7XG8HDQL4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -550,7 +550,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.14.0;
+				MARKETING_VERSION = 1.14.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.inazumimakoto.lifelog;
 				PRODUCT_NAME = lifelify;
 				PROVISIONING_PROFILE_SPECIFIER = "";

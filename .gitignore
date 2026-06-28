@@ -29,4 +29,4 @@ functions/lib/
 GoogleService-Info.plist
 
 # LLM Config (contains Cloudflare Tunnel URL)
-lifelog/Services/LLMConfig.swift
+lifelog/Services/LLMConfig.plist
