@@ -14,6 +14,7 @@ import SwiftUI
 final class DeepLinkManager: ObservableObject {
     enum WidgetDestination: Equatable {
         case memo
+        case calendar(date: Date)
     }
 
     static let shared = DeepLinkManager()
@@ -60,6 +61,12 @@ final class DeepLinkManager: ObservableObject {
 
         if host == "memo" || path == "/memo" {
             pendingWidgetDestination = .memo
+            return true
+        }
+
+        if host == "calendar" || path == "/calendar" {
+            guard let date = CalendarDayLink.date(from: url) else { return false }
+            pendingWidgetDestination = .calendar(date: date)
             return true
         }
 

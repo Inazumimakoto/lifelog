@@ -65,6 +65,8 @@ class AuthService: ObservableObject {
     
     /// 認証状態をチェック
     func checkAuthState() {
+        // デモ起動では保存済みの認証を変更せず、実アカウントへの自動アクセスを止める。
+        guard PersistenceController.isSimulatorDemoMode == false else { return }
         if let user = Auth.auth().currentUser {
             isSignedIn = true
             _Concurrency.Task {
@@ -192,6 +194,8 @@ class AuthService: ObservableObject {
     
     /// Firestoreからユーザーデータを取得
     func fetchUserData(userId: String) async {
+        // 読込時にも活動日時・言語を更新するため、デモからは実行しない。
+        guard PersistenceController.isSimulatorDemoMode == false else { return }
         do {
             let document = try await db.collection("users").document(userId).getDocument()
             
@@ -244,6 +248,7 @@ class AuthService: ObservableObject {
     /// 最終ログイン日時を更新
     /// アプリ起動時に呼び出す（最終ログイン配信の判定に使用）
     func updateLastLoginAt() async {
+        guard PersistenceController.isSimulatorDemoMode == false else { return }
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
         do {
@@ -261,6 +266,8 @@ class AuthService: ObservableObject {
     
     /// FCMトークンを保存
     func saveFCMToken(_ token: String) async {
+        // 実機が使用している通知先を、デモ用シミュレータのトークンで上書きしない。
+        guard PersistenceController.isSimulatorDemoMode == false else { return }
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
         do {

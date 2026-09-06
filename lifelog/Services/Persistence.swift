@@ -22,6 +22,7 @@ struct PersistenceController {
     private static let defaultAppGroupIdentifier = "group.lifelog.share"
     private static let screenshotsAppGroupIdentifier = "group.lifelog.screenshots"
     private static let activeAppGroupDefaultsKey = "lifelog.activeAppGroupIdentifier"
+    private static let simulatorDemoModeKey = "lifelog.simulatorDemoMode"
     private static let screenshotsLaunchArguments: Set<String> = [
         "-screenshots-mode",
         "-ScreenshotsMode",
@@ -30,6 +31,28 @@ struct PersistenceController {
     private static var isRunningInExtension: Bool {
         Bundle.main.bundleURL.pathExtension == "appex" ||
         Bundle.main.object(forInfoDictionaryKey: "NSExtension") != nil
+    }
+
+    /// Explicitly enabled on the simulator only; the shared flag also survives widget/date-link launches.
+    static var isSimulatorDemoMode: Bool {
+        #if DEBUG && targetEnvironment(simulator)
+        guard let defaults = UserDefaults(suiteName: screenshotsAppGroupIdentifier) else { return false }
+        if !isRunningInExtension,
+           ProcessInfo.processInfo.arguments.contains("-simulator-demo-off") {
+            if defaults.bool(forKey: simulatorDemoModeKey) {
+                defaults.removeObject(forKey: simulatorDemoModeKey)
+            }
+            return false
+        }
+        if !isRunningInExtension,
+           ProcessInfo.processInfo.arguments.contains("-simulator-demo-data"),
+           !defaults.bool(forKey: simulatorDemoModeKey) {
+            defaults.set(true, forKey: simulatorDemoModeKey)
+        }
+        return defaults.bool(forKey: simulatorDemoModeKey)
+        #else
+        return false
+        #endif
     }
 
     private static var isScreenshotsModeLaunch: Bool {
@@ -46,7 +69,7 @@ struct PersistenceController {
     ///   - follows the latest app selection stored in shared defaults.
     static var appGroupIdentifier: String {
         let selected: String
-        if isScreenshotsModeLaunch {
+        if isSimulatorDemoMode || isScreenshotsModeLaunch {
             selected = screenshotsAppGroupIdentifier
         } else if isRunningInExtension {
             selected = persistedActiveAppGroupIdentifier ?? defaultAppGroupIdentifier
@@ -99,7 +122,8 @@ struct PersistenceController {
         let storeURL = Self.resolveStoreURL()
         let modelConfiguration = ModelConfiguration(
             schema: schema,
-            url: storeURL
+            url: storeURL,
+            cloudKitDatabase: Self.isSimulatorDemoMode ? .none : .automatic
             // CloudKit同期は追加設定が必要 - 後日対応
         )
 
@@ -134,6 +158,15 @@ struct PersistenceController {
     /// App Group 内のストアURLを決定し、必要なら Sandbox からの移行を行う
     private static func resolveStoreURL() -> URL {
         let fileManager = FileManager.default
+
+        // A demo must never import, move, or fall back to the user's normal store.
+        if isSimulatorDemoMode {
+            guard let groupURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: screenshotsAppGroupIdentifier) else {
+                fatalError("Simulator demo App Group is unavailable")
+            }
+            return groupURL.appendingPathComponent("simulator-demo.store")
+        }
+
         let sandboxURL = URL.applicationSupportDirectory.appendingPathComponent("default.store")
 
         guard let groupURL = fileManager.containerURL(forSecurityApplicationGroupIdentifier: appGroupIdentifier) else {

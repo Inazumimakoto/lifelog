@@ -23,6 +23,7 @@ struct ContentView: View {
     @State private var selection: Int = 0
     @State private var lastSelection: Int = 0
     @State private var calendarResetTrigger: Int = 0
+    @State private var calendarDateFromWidget: Date?
     @State private var habitsResetTrigger: Int = 0
     
     /// ディープリンクで開く手紙
@@ -56,7 +57,9 @@ struct ContentView: View {
             .tag(0)
 
             navigationStack(for: 1) {
-                JournalView(store: store, resetTrigger: calendarResetTrigger)
+                JournalView(store: store,
+                            resetTrigger: calendarResetTrigger,
+                            requestedDate: $calendarDateFromWidget)
             }
             .tabItem {
                 Label("カレンダー", systemImage: "calendar")
@@ -286,6 +289,9 @@ struct ContentView: View {
             defer { isHandlingWidgetDestination = false }
 
             switch destination {
+            case .calendar(let date):
+                calendarDateFromWidget = date
+                selection = 1
             case .memo:
                 if isMemoTextHidden, requiresMemoOpenAuthentication {
                     let isAuthorized = await appLockService.authenticateForSensitiveAction(reason: "メモを開くには認証が必要です")

@@ -74,7 +74,9 @@
 		0EB039962EE55DEE00AFE3B0 /* Exceptions for "lifelog" folder in "LifelogWidgetsExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				Models/CalendarDayLink.swift,
 				Models/Models.swift,
+				Models/ScheduleMonth.swift,
 				Models/SwiftDataModels.swift,
 				Services/ColorHex.swift,
 				Services/EventQuerying.swift,
@@ -492,7 +494,7 @@
 				CODE_SIGN_ENTITLEMENTS = lifelog/lifelog.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 49;
+				CURRENT_PROJECT_VERSION = 50;
 				DEVELOPMENT_TEAM = V7XG8HDQL4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -512,7 +514,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.14.1;
+				MARKETING_VERSION = 1.15.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.inazumimakoto.lifelog;
 				PRODUCT_NAME = lifelify;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -534,7 +536,7 @@
 				CODE_SIGN_ENTITLEMENTS = lifelog/lifelog.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 49;
+				CURRENT_PROJECT_VERSION = 50;
 				DEVELOPMENT_TEAM = V7XG8HDQL4;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -554,7 +556,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				MARKETING_VERSION = 1.14.1;
+				MARKETING_VERSION = 1.15.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.inazumimakoto.lifelog;
 				PRODUCT_NAME = lifelify;
 				PROVISIONING_PROFILE_SPECIFIER = "";
@@ -577,7 +579,7 @@
 				CODE_SIGN_ENTITLEMENTS = LifelogWidgetsExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 49;
+				CURRENT_PROJECT_VERSION = 50;
 				DEVELOPMENT_TEAM = V7XG8HDQL4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LifelogWidgets/Info.plist;
@@ -589,7 +591,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.14.1;
+				MARKETING_VERSION = 1.15.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.inazumimakoto.lifelog.LifelogWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
@@ -612,7 +614,7 @@
 				CODE_SIGN_ENTITLEMENTS = LifelogWidgetsExtension.entitlements;
 				CODE_SIGN_IDENTITY = "Apple Development";
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 49;
+				CURRENT_PROJECT_VERSION = 50;
 				DEVELOPMENT_TEAM = V7XG8HDQL4;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = LifelogWidgets/Info.plist;
@@ -624,7 +626,7 @@
 					"@executable_path/Frameworks",
 					"@executable_path/../../Frameworks",
 				);
-				MARKETING_VERSION = 1.14.1;
+				MARKETING_VERSION = 1.15.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.inazumimakoto.lifelog.LifelogWidgets;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;

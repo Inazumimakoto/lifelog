@@ -80,6 +80,7 @@ struct ScheduleEntry: TimelineEntry {
     let tasks: [ScheduleTaskItem]
     let nextInlineEvent: ScheduleEventItem?
     let isPremiumUnlocked: Bool
+    var month: ScheduleMonth? = nil
 }
 
 struct ScheduleProvider: TimelineProvider {
@@ -102,27 +103,35 @@ struct ScheduleProvider: TimelineProvider {
                 ScheduleTaskItem(id: UUID(), title: String(localized: "買い物メモ整理"), priority: .medium)
             ],
             nextInlineEvent: sampleEvent,
-            isPremiumUnlocked: true
+            isPremiumUnlocked: true,
+            month: ScheduleMonth(
+                containing: sampleEvent.startDate,
+                eventIntervals: [DateInterval(start: sampleEvent.startDate, end: sampleEvent.endDate)]
+            )
         )
     }
 
     func getSnapshot(in context: Context, completion: @escaping (ScheduleEntry) -> Void) {
+        let includeMonth = context.family == .systemMedium
         _Concurrency.Task { @MainActor in
-            completion(loadEntry(for: Date()))
+            completion(loadEntry(for: Date(), includeMonth: includeMonth))
         }
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<ScheduleEntry>) -> Void) {
+        let includeMonth = context.family == .systemMedium
         _Concurrency.Task { @MainActor in
             let now = Date()
-            let entry = loadEntry(for: now)
-            let nextRefresh = Calendar.current.date(byAdding: .minute, value: 15, to: now) ?? now.addingTimeInterval(60 * 15)
+            let entry = loadEntry(for: now, includeMonth: includeMonth)
+            let regularRefresh = now.addingTimeInterval(60 * 15)
+            let nextMidnight = Calendar.current.dateInterval(of: .day, for: now)?.end ?? regularRefresh
+            let nextRefresh = min(regularRefresh, nextMidnight)
             completion(Timeline(entries: [entry], policy: .after(nextRefresh)))
         }
     }
 
     @MainActor
-    private func loadEntry(for date: Date) -> ScheduleEntry {
+    private func loadEntry(for date: Date, includeMonth: Bool) -> ScheduleEntry {
         guard WidgetPremiumAccess.isUnlocked else {
             return ScheduleEntry(
                 date: date,
@@ -139,8 +148,22 @@ struct ScheduleProvider: TimelineProvider {
             events: todayEvents,
             tasks: fetchTasks(on: date),
             nextInlineEvent: fetchNextInlineEvent(from: date),
-            isPremiumUnlocked: true
+            isPremiumUnlocked: true,
+            month: includeMonth ? fetchMonth(containing: date) : nil
         )
+    }
+
+    @MainActor
+    private func fetchMonth(containing date: Date) -> ScheduleMonth {
+        let calendar = Calendar.autoupdatingCurrent
+        guard let interval = calendar.dateInterval(of: .month, for: date) else {
+            return ScheduleMonth(containing: date, calendar: calendar)
+        }
+        let intervals = fetchEvents(from: interval.start, to: interval.end).compactMap { event in
+            guard event.endDate > event.startDate else { return nil as DateInterval? }
+            return DateInterval(start: event.startDate, end: event.endDate)
+        }
+        return ScheduleMonth(containing: date, eventIntervals: intervals, calendar: calendar)
     }
 
     @MainActor
@@ -344,8 +367,10 @@ private enum ScheduleCategoryPalette {
 struct ScheduleWidgetEntryView: View {
     @Environment(\.widgetFamily) private var family
     let entry: ScheduleProvider.Entry
+    var rowLimit: Int? = nil
 
     private var maxVisibleRows: Int {
+        if let rowLimit { return rowLimit }
         switch family {
         case .systemSmall, .systemMedium:
             return 5
@@ -449,6 +474,30 @@ struct ScheduleWidgetEntryView: View {
             PremiumWidgetLockView()
         } else if family == .accessoryInline {
             inlineLockScreenText
+        } else if family == .systemMedium, rowLimit == nil {
+            // docs/ui-guidelines.md: 予定ウィジェット（中サイズ）
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 0) {
+                    ViewThatFits(in: .vertical) {
+                        ForEach([5, 4, 3, 2], id: \.self) { limit in
+                            ScheduleWidgetEntryView(entry: entry, rowLimit: limit)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+
+                Divider()
+
+                ScheduleMonthCalendarView(
+                    month: entry.month ?? ScheduleMonth(containing: entry.date),
+                    today: entry.date
+                )
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 9)
         } else {
             VStack(alignment: .leading, spacing: 4) {
                 header
@@ -458,12 +507,14 @@ struct ScheduleWidgetEntryView: View {
                 } else {
                     emptyLine(String(localized: "予定・タスクはありません"))
                 }
-                Spacer(minLength: 0)
+                if rowLimit == nil {
+                    Spacer(minLength: 0)
+                }
             }
             .foregroundStyle(.primary)
-            .padding(.vertical, family == .systemSmall ? 7 : 8)
-            .padding(.horizontal, family == .systemSmall ? 8 : 9)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.vertical, rowLimit != nil ? 0 : (family == .systemSmall ? 7 : 8))
+            .padding(.horizontal, rowLimit != nil ? 0 : (family == .systemSmall ? 8 : 9))
+            .frame(maxWidth: .infinity, alignment: .topLeading)
         }
     }
 
@@ -632,7 +683,7 @@ struct ScheduleWidget: Widget {
             }
         }
         .configurationDisplayName("今日の予定とタスク")
-        .description("日付・曜日・当日の予定・未完了タスクを表示します。")
+        .description("今日の予定と未完了タスクを表示。中サイズでは月間カレンダーも確認できます。")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .accessoryInline])
         .contentMarginsDisabled()
     }

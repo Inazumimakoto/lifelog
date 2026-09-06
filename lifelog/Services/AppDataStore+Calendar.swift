@@ -82,6 +82,7 @@ extension AppDataStore {
         requestPermissionIfNeeded: Bool = false,
         anchorDate: Date = Date()
     ) async -> Bool {
+        guard !PersistenceController.isSimulatorDemoMode else { return false }
         let calendarService = CalendarEventService()
         let granted = await calendarService.requestAccessIfNeeded(shouldPrompt: requestPermissionIfNeeded)
         guard granted else { return false }

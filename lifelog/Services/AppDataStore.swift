@@ -99,7 +99,9 @@ final class AppDataStore: ObservableObject {
         self.modelContext = container.mainContext
 
         // 1. Run Migration (if needed)
-        MigrationManager.shared.migrate(modelContext: modelContext)
+        if !PersistenceController.isSimulatorDemoMode {
+            MigrationManager.shared.migrate(modelContext: modelContext)
+        }
 
         // 2. Load Data from SwiftData
         // We load into the existing @Published properties to maintain View compatibility
@@ -166,6 +168,10 @@ final class AppDataStore: ObservableObject {
         self.externalCalendarEvents = Self.loadValue(forKey: Self.externalCalendarEventsDefaultsKey, defaultValue: [])
         let storedRange: ExternalCalendarRange? = Self.loadValue(forKey: Self.externalCalendarRangeDefaultsKey, defaultValue: nil)
         self.externalCalendarRange = storedRange
+        if PersistenceController.isSimulatorDemoMode {
+            self.externalCalendarEvents = []
+            self.externalCalendarRange = nil
+        }
         self.locationVisitTagDefinitions = Self.loadValue(forKey: Self.locationVisitTagsDefaultsKey, defaultValue: [])
         normalizeLocationVisitTagOrderIfNeeded()
         let hasSeenInitialPermissionsFeature = UserDefaults.standard.bool(forKey: InitialPermissionsState.featureSeenKey)
@@ -179,9 +185,13 @@ final class AppDataStore: ObservableObject {
         reapplyEventCategoryNotificationSettings()
         rescheduleTodayOverviewReminderIfNeeded()
 
-        #if DEBUG
-        seedSampleDataIfNeeded()
-        seedJapaneseScheduleForScreenshotsIfNeeded()
+        #if DEBUG && targetEnvironment(simulator)
+        if PersistenceController.isSimulatorDemoMode {
+            seedSimulatorDemoDataIfNeeded()
+        } else if !Self.screenshotsModeLaunchArguments.isDisjoint(with: Set(ProcessInfo.processInfo.arguments)) {
+            seedSampleDataIfNeeded()
+            seedJapaneseScheduleForScreenshotsIfNeeded()
+        }
         #endif
         _Concurrency.Task {
             await backfillHealthRequestedFlagIfNeeded()
@@ -219,6 +229,7 @@ final class AppDataStore: ObservableObject {
     /// スキップするため healthRequestedKey が立たず、起動時のヘルスデータ取得が
     /// 止まっていた。HealthKit に権限ダイアログ表示済みかを問い合わせて埋め戻す。
     private func backfillHealthRequestedFlagIfNeeded() async {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         guard UserDefaults.standard.bool(forKey: InitialPermissionsState.healthRequestedKey) == false else { return }
         guard await HealthKitManager.shared.hasPreviouslyRequestedAuthorization() else { return }
         UserDefaults.standard.set(true, forKey: InitialPermissionsState.healthRequestedKey)
@@ -226,6 +237,7 @@ final class AppDataStore: ObservableObject {
 
     @discardableResult
     func loadHealthData(requestAuthorizationIfNeeded: Bool = false) async -> Bool {
+        guard !PersistenceController.isSimulatorDemoMode else { return false }
         if requestAuthorizationIfNeeded {
             UserDefaults.standard.set(true, forKey: InitialPermissionsState.healthRequestedKey)
             let authorizationCompleted = await HealthKitManager.shared.requestAuthorization()

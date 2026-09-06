@@ -111,10 +111,12 @@ struct JournalView: View {
     @State private var weekTimelineItemsCache: [Date: [JournalViewModel.TimelineItem]] = [:]
 
     private let resetTrigger: Int
+    @Binding private var requestedDate: Date?
 
-    init(store: AppDataStore, resetTrigger: Int = 0) {
+    init(store: AppDataStore, resetTrigger: Int = 0, requestedDate: Binding<Date?> = .constant(nil)) {
         self.store = store
         self.resetTrigger = resetTrigger
+        _requestedDate = requestedDate
         _viewModel = StateObject(wrappedValue: JournalViewModel(store: store))
     }
 
@@ -261,8 +263,12 @@ struct JournalView: View {
                 prepareWeekPagerIfNeeded()
                 prepareDetailPagerIfNeeded()
             }
+            openRequestedDateIfNeeded()
             scheduleDeferredPreload()
             scheduleDeferredCalendarSync()
+        }
+        .onChange(of: requestedDate) { _, _ in
+            openRequestedDateIfNeeded()
         }
         .onDisappear {
             deferredCalendarSyncTask?.cancel()
@@ -1285,6 +1291,16 @@ struct JournalView: View {
         selectedReviewDate = target
         ensureDetailPagerIncludes(date: target)
         showingDetailPanel = true
+    }
+
+    /// docs/requirements.md: a widget calendar date opens that day's schedule.
+    private func openRequestedDateIfNeeded() {
+        guard didInitialSetup, let date = requestedDate else { return }
+        requestedDate = nil
+        calendarMode = .schedule
+        viewModel.displayMode = .month
+        viewModel.setMonthAnchor(date)
+        openDayDetail(for: date)
     }
 
     private func weekDates(for anchor: Date) -> [Date] {

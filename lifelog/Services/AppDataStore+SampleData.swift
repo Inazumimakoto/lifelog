@@ -9,7 +9,7 @@ extension AppDataStore {
 
     // MARK: - Sample Data (DEBUG only)
 
-    #if DEBUG
+    #if DEBUG && targetEnvironment(simulator)
     func seedJapaneseScheduleForScreenshotsIfNeeded() {
         let arguments = Set(ProcessInfo.processInfo.arguments)
         guard Self.screenshotsModeLaunchArguments.isDisjoint(with: arguments) == false else { return }

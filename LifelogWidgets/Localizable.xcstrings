@@ -413,6 +413,40 @@
         }
       }
     },
+    "この日の予定を開く": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open this day’s schedule"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "この日の予定を開く"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "이 날짜의 일정 열기"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "打开当天的日程"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "開啟當天的行程"
+          }
+        }
+      }
+    },
     "まで": {
       "comment": "Literal from LifelogWidgets/AnniversaryWidget.swift",
       "extractionState": "stale",
@@ -549,6 +583,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "點擊後，驗證並打開"
+          }
+        }
+      }
+    },
+    "チームMTG": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Team meeting"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "チームMTG"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "팀 미팅"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "团队会议"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "團隊會議"
           }
         }
       }
@@ -762,6 +830,40 @@
         }
       }
     },
+    "予定あり": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Events scheduled"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "予定あり"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "일정 있음"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有日程"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "有行程"
+          }
+        }
+      }
+    },
     "予定なし": {
       "localizations": {
         "en": {
@@ -827,6 +929,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "沒有計劃/任務"
+          }
+        }
+      }
+    },
+    "今日": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Today"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오늘"
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今天"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今天"
           }
         }
       }
@@ -897,6 +1033,40 @@
           "stringUnit": {
             "state": "translated",
             "value": "今天的日程和任務"
+          }
+        }
+      }
+    },
+    "今日の予定と未完了タスクを表示。中サイズでは月間カレンダーも確認できます。": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "See today’s events and unfinished tasks, plus a month calendar in the medium widget."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "今日の予定と未完了タスクを表示。中サイズでは月間カレンダーも確認できます。"
+          }
+        },
+        "ko": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "오늘의 일정과 미완료 작업을 표시합니다. 중간 크기에서는 월간 캘린더도 볼 수 있습니다."
+          }
+        },
+        "zh-Hans": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "显示今天的日程和未完成的任务。中号小组件还可显示月历。"
+          }
+        },
+        "zh-Hant": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "顯示今天的行程和未完成的任務。中型小工具還可顯示月曆。"
           }
         }
       }

@@ -253,6 +253,7 @@ final class JournalViewModel: ObservableObject {
         anchorDate: Date? = nil,
         allowPermissionPrompt: Bool = false
     ) async {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
         let anchor = anchorDate ?? monthAnchor

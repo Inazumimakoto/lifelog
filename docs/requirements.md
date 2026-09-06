@@ -110,6 +110,9 @@
 
 ### 4.11 ウィジェット / 壁紙カレンダー
 - WidgetKit 拡張 (`LifelogWidgets/`): 予定 / 記念日 / メモ / 習慣の4種。App Group 経由で SwiftData ストアを共有
+- 予定ウィジェットの中サイズ: 左に今日の予定・未完了タスク、右に当月のミニカレンダーを表示。今日を丸で強調し、予定のある日に点を付ける。日付タップでアプリの該当日を開く
+- シミュレーターの表示確認: Debug + iOS Simulator で `-simulator-demo-data` を付けて起動すると、`group.lifelog.screenshots/simulator-demo.store` のみに予定・タスクを投入する。設定はシミュレーター内に保持し、日付タップやアイコンからの再起動でも同じデモを表示する。実機・Release は無効。通常ストアの移行・CloudKit・外部カレンダー/ヘルス取得・実アカウントの自動更新はデモ中に行わない
+- デモを終了する場合はシミュレーターのアプリを終了し、`-simulator-demo-off` を付けて再起動する。通常ストアに戻り、デモデータ自体は専用ストアに残す
 - 壁紙カレンダー: App Intents (`UpdateWallpaperCalendarIntent`) + ショートカット連携で壁紙画像を生成
 
 ## 5. データモデル
