@@ -8,10 +8,11 @@
 import Foundation
 import SwiftUI
 import UIKit
+import CryptoKit
 import os
 
 // MARK: - Thumbnail Cache
-final class PhotoThumbnailCache {
+nonisolated final class PhotoThumbnailCache: @unchecked Sendable {
     static let shared = PhotoThumbnailCache()
     
     private let fullSizeCache = NSCache<NSString, UIImage>()
@@ -41,6 +42,15 @@ final class PhotoThumbnailCache {
         thumbnailCache.setObject(image, forKey: path as NSString)
     }
     
+    func removeFullImage(for path: String) {
+        fullSizeCache.removeObject(forKey: path as NSString)
+    }
+
+    func removeImages(for path: String) {
+        removeFullImage(for: path)
+        thumbnailCache.removeObject(forKey: path as NSString)
+    }
+
     func clearAll() {
         fullSizeCache.removeAllObjects()
         thumbnailCache.removeAllObjects()
@@ -48,24 +58,27 @@ final class PhotoThumbnailCache {
 }
 
 // MARK: - Photo Storage
-struct PhotoStorage {
+nonisolated struct PhotoStorage {
+    private static let logger = Logger(subsystem: Bundle.main.bundleIdentifier ?? "lifelog", category: "photos")
     private static let directoryName = "DiaryPhotos"
-    private static let thumbnailSize: CGFloat = 200  // サムネイルサイズ
     private static let jpegCompressionQuality: CGFloat = 0.8  // JPEG圧縮品質
     private static let assetIdentifierFilename = "PhotoAssetIdentifiers.json"
     private static let assetIdentifierQueue = DispatchQueue(label: "PhotoStorage.AssetIdentifierQueue")
-    private static var cachedAssetIdentifierMap: [String: String]?
+    nonisolated(unsafe) private static var cachedAssetIdentifierMap: [String: String]?
 
-    private static var photosDirectory: URL = {
+    private static let photosDirectory: URL = {
         let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
         let dir = documents.appendingPathComponent(directoryName, isDirectory: true)
         do {
             try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         } catch {
-            AppLogger.data.error("Failed to create photos directory: \(error)")
+            logger.error("Failed to create photos directory: \(error)")
         }
         return dir
     }()
+
+    private static let files = DiaryPhotoFiles(directory: photosDirectory)
+    private static let photoFilesQueue = DispatchQueue(label: "PhotoStorage.Files")
 
     private static var assetIdentifierFileURL: URL {
         photosDirectory.appendingPathComponent(assetIdentifierFilename)
@@ -74,7 +87,6 @@ struct PhotoStorage {
     // MARK: - Save
     static func save(data: Data, sourceAssetIdentifier: String? = nil) throws -> String {
         let filename = UUID().uuidString + ".jpg"
-        let url = photosDirectory.appendingPathComponent(filename)
         // JPEG 0.8で再エンコードして容量削減（解像度は維持）
         let dataToWrite: Data
         if let uiImage = UIImage(data: data),
@@ -84,7 +96,9 @@ struct PhotoStorage {
             // UIImage化できない場合は元データをそのまま保存
             dataToWrite = data
         }
-        try dataToWrite.write(to: url, options: .atomic)
+        try files.writeOriginal(dataToWrite, at: filename)
+        // A failed preview never discards the only original; sync retries generation.
+        try? ensureThumbnail(at: filename)
         if let sourceAssetIdentifier, sourceAssetIdentifier.isEmpty == false {
             setAssetIdentifier(sourceAssetIdentifier, for: filename)
         }
@@ -146,70 +160,75 @@ struct PhotoStorage {
         return try? Data(contentsOf: url, options: .mappedIfSafe)
     }
     
-    // MARK: - Load Thumbnail (Async)
+    // MARK: - Persistent thumbnails and on-demand originals
+    static func localFileURL(for path: String) -> URL { files.fullImageURL(for: path) }
+    static func thumbnailFileURL(for path: String) -> URL { files.thumbnailURL(for: path) }
+
+    static func ensureThumbnail(at path: String) throws {
+        try photoFilesQueue.sync {
+            try files.prepareThumbnail(at: path)
+            _ = fingerprint(for: path)
+        }
+    }
+
+    static func removeLocalFullImage(at path: String) throws {
+        try photoFilesQueue.sync {
+            try files.removeOriginal(at: path)
+            PhotoThumbnailCache.shared.removeFullImage(for: path)
+        }
+    }
+
+    static func storeDownloadedData(_ data: Data, at path: String) throws {
+        try photoFilesQueue.sync {
+            try files.writeOriginal(data, at: path)
+            try files.prepareThumbnail(at: path)
+            _ = fingerprint(for: path)
+        }
+    }
+
     static func loadThumbnail(at path: String) async -> UIImage? {
-        // キャッシュチェック
-        if let cached = PhotoThumbnailCache.shared.thumbnail(for: path) {
-            return cached
-        }
-        
-        // バックグラウンドで読み込み＆リサイズ
-        return await withCheckedContinuation { continuation in
+        guard !PhotoSyncManifest.shared.isDeleted(path: path) else { return nil }
+        if let cached = PhotoThumbnailCache.shared.thumbnail(for: path) { return cached }
+        let local: UIImage? = await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
-                let url = photosDirectory.appendingPathComponent(path)
-                guard let uiImage = UIImage(contentsOfFile: url.path) else {
-                    continuation.resume(returning: nil)
-                    return
-                }
-                
-                // サムネイル生成
-                let thumbnail = resizeImage(uiImage, to: thumbnailSize)
-                PhotoThumbnailCache.shared.setThumbnail(thumbnail, for: path)
-                
-                continuation.resume(returning: thumbnail)
+                try? ensureThumbnail(at: path)
+                continuation.resume(returning: UIImage(contentsOfFile: thumbnailFileURL(for: path).path))
             }
         }
+        var image = local
+        if image == nil, PhotoSyncManifest.shared.isCloudBacked(path: path),
+           let data = try? await PhotoCloudSyncService.shared.fetchThumbnailData(at: path) {
+            if let account = PhotoSyncManifest.shared.accountIdentifier {
+                _ = try? PhotoSyncManifest.shared.withLivePhoto(path: path, accountIdentifier: account) {
+                    try photoFilesQueue.sync { try files.writeThumbnail(data, at: path) }
+                }
+            }
+            image = UIImage(data: data)
+        }
+        guard !PhotoSyncManifest.shared.isDeleted(path: path) else { return nil }
+        if let image { PhotoThumbnailCache.shared.setThumbnail(image, for: path) }
+        return image
     }
-    
-    // MARK: - Load Full Image (Async)
+
     static func loadFullImage(at path: String) async -> UIImage? {
-        // キャッシュチェック
-        if let cached = PhotoThumbnailCache.shared.fullImage(for: path) {
-            return cached
-        }
-        
-        return await withCheckedContinuation { continuation in
+        guard !PhotoSyncManifest.shared.isDeleted(path: path) else { return nil }
+        if let cached = PhotoThumbnailCache.shared.fullImage(for: path) { return cached }
+        let local: UIImage? = await withCheckedContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
-                let url = photosDirectory.appendingPathComponent(path)
-                guard let uiImage = UIImage(contentsOfFile: url.path) else {
-                    continuation.resume(returning: nil)
-                    return
-                }
-                
-                PhotoThumbnailCache.shared.setFullImage(uiImage, for: path)
-                continuation.resume(returning: uiImage)
+                continuation.resume(returning: UIImage(contentsOfFile: localFileURL(for: path).path))
             }
         }
-    }
-    
-    // MARK: - Resize Helper
-    private static func resizeImage(_ image: UIImage, to maxSize: CGFloat) -> UIImage {
-        let size = image.size
-        let scale = min(maxSize / size.width, maxSize / size.height)
-        
-        // 既に十分小さい場合はそのまま返す
-        if scale >= 1.0 {
-            return image
+        if let local {
+            // Only retain a memory cache while the original still exists on disk.
+            if fileExists(for: path) { PhotoThumbnailCache.shared.setFullImage(local, for: path) }
+            return local
         }
-        
-        let newSize = CGSize(width: size.width * scale, height: size.height * scale)
-        
-        let renderer = UIGraphicsImageRenderer(size: newSize)
-        return renderer.image { _ in
-            image.draw(in: CGRect(origin: .zero, size: newSize))
-        }
+        guard let data = try? await PhotoCloudSyncService.shared.fetchPhotoData(at: path),
+              !PhotoSyncManifest.shared.isDeleted(path: path) else { return nil }
+        // Optimized downloads are owned only by the visible viewer, never a disk cache.
+        return UIImage(data: data)
     }
-    
+
     // MARK: - Prefetch (バックグラウンドで並列先読み)
     private static let prefetchQueue: OperationQueue = {
         let queue = OperationQueue()
@@ -243,26 +262,38 @@ struct PhotoStorage {
 
             // 並列でキューに追加
             queue.addOperation {
-                let url = photosDirectory.appendingPathComponent(path)
-                guard let uiImage = UIImage(contentsOfFile: url.path) else { return }
-
-                let thumbnail = resizeImage(uiImage, to: thumbnailSize)
+                guard !PhotoSyncManifest.shared.isDeleted(path: path) else { return }
+                try? ensureThumbnail(at: path)
+                guard let thumbnail = UIImage(contentsOfFile: thumbnailFileURL(for: path).path) else { return }
                 PhotoThumbnailCache.shared.setThumbnail(thumbnail, for: path)
             }
         }
     }
 
     // MARK: - Delete
-    static func delete(at path: String) {
-        let url = photosDirectory.appendingPathComponent(path)
-        try? FileManager.default.removeItem(at: url)
+    /// The durable deletion intent is saved before the diary drops its reference.
+    @discardableResult
+    static func delete(at path: String) -> Bool {
+        do {
+            try PhotoSyncManifest.shared.markDeleted(path: path)
+        } catch {
+            _Concurrency.Task { @MainActor in PhotoCloudSyncService.shared.report(error: error) }
+            return false
+        }
+        photoFilesQueue.sync { try? files.removeFiles(at: path) }
         removeAssetIdentifier(for: path)
+        fingerprintQueue.sync {
+            cachedFingerprints.removeValue(forKey: path)
+            let url = photosDirectory.appendingPathComponent("Fingerprints", isDirectory: true)
+                .appendingPathComponent((path as NSString).lastPathComponent + ".json")
+            try? FileManager.default.removeItem(at: url)
+        }
+        PhotoThumbnailCache.shared.removeImages(for: path)
+        _Concurrency.Task { @MainActor in PhotoCloudSyncService.shared.resumeSync() }
+        return true
     }
 
-    static func fileExists(for path: String) -> Bool {
-        let url = photosDirectory.appendingPathComponent(path)
-        return FileManager.default.fileExists(atPath: url.path)
-    }
+    static func fileExists(for path: String) -> Bool { files.originalExists(at: path) }
 
     private static func loadAssetIdentifierMapUnlocked() -> [String: String] {
         if let cachedAssetIdentifierMap {
@@ -298,64 +329,60 @@ struct PhotoStorage {
             persistAssetIdentifierMapUnlocked(map)
         }
     }
-    // MARK: - Optimize Existing Photos
-    /// 既存の全写真をJPEG 0.8で再エンコードしてストレージを最適化する
-    /// - Parameter progress: (処理済み枚数, 総枚数, 削減バイト数) を報告するコールバック
-    /// - Returns: 合計削減バイト数
-    @discardableResult
-    static func optimizeExistingPhotos(progress: @escaping (Int, Int, Int64) -> Void) async -> Int64 {
-        await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .utility).async {
-                let fileManager = FileManager.default
-                let dir = photosDirectory
-                guard let files = try? fileManager.contentsOfDirectory(atPath: dir.path) else {
-                    continuation.resume(returning: 0)
-                    return
-                }
-                
-                let jpgFiles = files.filter { $0.hasSuffix(".jpg") || $0.hasSuffix(".jpeg") }
-                let total = jpgFiles.count
-                var totalSaved: Int64 = 0
-                
-                for (index, filename) in jpgFiles.enumerated() {
-                    let fileURL = dir.appendingPathComponent(filename)
-                    guard let originalData = try? Data(contentsOf: fileURL),
-                          let uiImage = UIImage(data: originalData),
-                          let compressed = uiImage.jpegData(compressionQuality: jpegCompressionQuality) else {
-                        progress(index + 1, total, totalSaved)
-                        continue
-                    }
-                    
-                    // 再エンコード後のほうが小さい場合のみ上書き
-                    let saved = Int64(originalData.count) - Int64(compressed.count)
-                    if saved > 0 {
-                        try? compressed.write(to: fileURL, options: .atomic)
-                        totalSaved += saved
-                    }
-                    
-                    progress(index + 1, total, totalSaved)
-                }
-                
-                continuation.resume(returning: totalSaved)
+    /// Includes persistent thumbnails; cloud assets are not counted as local storage.
+    static func totalStorageSize() -> Int64 { files.totalSize() }
+
+    // Identity is preserved when a full image is evicted, so location linking keeps working.
+    struct Fingerprint: Codable, Sendable {
+        let digest: String
+        let visualDigest: String?
+    }
+
+    private static let fingerprintQueue = DispatchQueue(label: "PhotoStorage.Fingerprints")
+    nonisolated(unsafe) private static var cachedFingerprints: [String: Fingerprint] = [:]
+
+    static func fingerprint(for path: String) -> Fingerprint? {
+        fingerprintQueue.sync {
+            if let existing = cachedFingerprints[path] { return existing }
+            let directory = photosDirectory.appendingPathComponent("Fingerprints", isDirectory: true)
+            let url = directory.appendingPathComponent((path as NSString).lastPathComponent + ".json")
+            if let data = try? Data(contentsOf: url),
+               let stored = try? JSONDecoder().decode(Fingerprint.self, from: data) {
+                cachedFingerprints[path] = stored
+                return stored
             }
+            guard let data = loadData(at: path) else { return nil }
+            let value = Fingerprint(digest: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined(),
+                                    visualDigest: visualDigest(for: data))
+            // One tiny sidecar per image avoids rewriting the whole index during bulk migration.
+            if let encoded = try? JSONEncoder().encode(value) {
+                try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+                try? encoded.write(to: url, options: .atomic)
+            }
+            cachedFingerprints[path] = value
+            return value
         }
     }
 
-    /// DiaryPhotos ディレクトリの合計サイズ（バイト）を返す
-    static func totalStorageSize() -> Int64 {
-        let fileManager = FileManager.default
-        let dir = photosDirectory
-        guard let files = try? fileManager.contentsOfDirectory(atPath: dir.path) else { return 0 }
-        var total: Int64 = 0
-        for filename in files {
-            let path = dir.appendingPathComponent(filename).path
-            if let attrs = try? fileManager.attributesOfItem(atPath: path),
-               let size = attrs[.size] as? Int64 {
-                total += size
-            }
+    static func visualDigest(for data: Data) -> String? {
+        guard let image = UIImage(data: data), image.size.width > 0, image.size.height > 0 else { return nil }
+        let targetSize = CGSize(width: 256, height: 256)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        format.opaque = true
+        let rendered = UIGraphicsImageRenderer(size: targetSize, format: format).image { _ in
+            UIColor.black.setFill()
+            UIRectFill(CGRect(origin: .zero, size: targetSize))
+            let scale = min(targetSize.width / image.size.width, targetSize.height / image.size.height)
+            let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+            image.draw(in: CGRect(x: (targetSize.width - size.width) / 2,
+                                  y: (targetSize.height - size.height) / 2,
+                                  width: size.width, height: size.height))
         }
-        return total
+        guard let normalized = rendered.pngData() else { return nil }
+        return SHA256.hash(data: normalized).map { String(format: "%02x", $0) }.joined()
     }
+
 }
 
 // MARK: - Async Image View (SwiftUI)

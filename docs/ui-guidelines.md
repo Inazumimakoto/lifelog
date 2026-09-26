@@ -92,3 +92,9 @@
 ## 参照
 - 仕様書: `/docs/requirements.md`
 - 実装: `Views/Today/TodayView.swift`, `Views/Journal/JournalView.swift`, `Views/Health/`, `Views/Habits/`, `Views/Diary/DiaryEditorView.swift`
+
+## 日記写真の保存設定
+- 設定のストレージ欄から「日記の写真とiCloud」を開き、2種類の保存方法と「すべての写真をiCloudに同期」を表示する。未同期枚数・進捗・失敗時の再試行を同じ画面にまとめる。
+- 容量節約でもカレンダーには全写真分の永続サムネイルを使う。拡大表示ではサムネイルを先に表示し、取得中・取得失敗・再試行を写真上に表示する。
+- 独自ログイン画面は追加しない。iCloud容量の使用、日記から削除した写真のクラウドコピーも削除されることを説明する。
+- 仕様と5言語の表示範囲は `docs/diary-photo-icloud-sync.md` を参照。

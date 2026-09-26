@@ -35,7 +35,8 @@ struct DiaryPhotoViewerView: View {
                 if viewModel.entry.photoPaths.isEmpty == false {
                     TabView(selection: $currentIndex) {
                         ForEach(Array(viewModel.entry.photoPaths.enumerated()), id: \.element) { index, path in
-                            FullImagePage(path: path,
+                            DiaryPhotoImagePage(path: path,
+                                          isActive: currentIndex == index,
                                           chromeVisible: $chromeVisible,
                                           isZoomed: zoomStateBinding(for: index))
                                 .tag(index)
@@ -184,44 +185,5 @@ struct DiaryPhotoViewerView: View {
             guard currentIndex == index else { return }
             isCurrentPhotoZoomed = newValue
         })
-    }
-}
-
-// 非同期でフルサイズ画像を読み込むページ
-private struct FullImagePage: View {
-    let path: String
-    @Binding var chromeVisible: Bool
-    @Binding var isZoomed: Bool
-    
-    @State private var image: UIImage?
-    @State private var isLoading = true
-    
-    var body: some View {
-        Group {
-            if let image = image {
-                ZoomableImageScrollView(image: image, isZoomed: $isZoomed) {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        chromeVisible.toggle()
-                    }
-                }
-                .id(path)
-            } else if isLoading {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-            } else {
-                Color.black
-            }
-        }
-        .background(Color.black)
-        .onDisappear {
-            isZoomed = false
-        }
-        .task(id: path) {
-            image = nil
-            isLoading = true
-            isZoomed = false
-            image = await PhotoStorage.loadFullImage(at: path)
-            isLoading = false
-        }
     }
 }

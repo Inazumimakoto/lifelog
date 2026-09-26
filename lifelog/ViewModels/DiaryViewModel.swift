@@ -397,12 +397,13 @@ final class DiaryViewModel: ObservableObject {
         let sortedOffsets = offsets.sorted(by: >)
         for index in sortedOffsets {
             guard entry.photoPaths.indices.contains(index) else { continue }
+            let previous = entry
             let path = entry.photoPaths[index]
             if entry.favoritePhotoPath == path {
                 entry.favoritePhotoPath = nil
             }
             entry.photoPaths.remove(at: index)
-            removePhotoAssetIfUnreferenced(path)
+            if !removePhotoAssetIfUnreferenced(path) { entry = previous }
         }
         persist()
     }
@@ -411,9 +412,10 @@ final class DiaryViewModel: ObservableObject {
         let sortedOffsets = offsets.sorted(by: >)
         for index in sortedOffsets {
             guard entry.locationPhotoPaths.indices.contains(index) else { continue }
+            let previous = entry
             let path = entry.locationPhotoPaths[index]
             entry.locationPhotoPaths.remove(at: index)
-            removePhotoAssetIfUnreferenced(path)
+            if !removePhotoAssetIfUnreferenced(path) { entry = previous }
         }
         persist()
     }
@@ -437,8 +439,10 @@ final class DiaryViewModel: ObservableObject {
     func cleanupMissingPhotos() {
         let originalDiary = entry.photoPaths
         let originalLocation = entry.locationPhotoPaths
-        let keptDiary = originalDiary.filter { PhotoStorage.fileExists(for: $0) }
-        let keptLocation = originalLocation.filter { PhotoStorage.fileExists(for: $0) }
+        // Missing local files can be deliberately offloaded or awaiting restoration.
+        // Only an explicit, durable deletion proves a photo should leave the diary.
+        let keptDiary = originalDiary.filter { !PhotoSyncManifest.shared.isDeleted(path: $0) }
+        let keptLocation = originalLocation.filter { !PhotoSyncManifest.shared.isDeleted(path: $0) }
         let allKept = Set(keptDiary + keptLocation)
         let didChange = keptDiary.count != originalDiary.count
             || keptLocation.count != originalLocation.count
@@ -459,9 +463,8 @@ final class DiaryViewModel: ObservableObject {
     private func makeLocationPhotoDigestIndex() -> [String: [String]] {
         var index: [String: [String]] = [:]
         for path in entry.locationPhotoPaths {
-            guard let data = PhotoStorage.loadData(at: path) else { continue }
-            let digest = sha256DigestHex(data: data)
-            index[digest, default: []].append(path)
+            guard let fingerprint = PhotoStorage.fingerprint(for: path) else { continue }
+            index[fingerprint.digest, default: []].append(path)
         }
         return index
     }
@@ -480,12 +483,12 @@ final class DiaryViewModel: ObservableObject {
                 identityByPath[path] = "asset:\(identifier)"
                 continue
             }
-            guard let data = PhotoStorage.loadData(at: path) else { continue }
-            if let visualDigest = normalizedImageDigestHex(data: data), visualDigest.isEmpty == false {
+            guard let fingerprint = PhotoStorage.fingerprint(for: path) else { continue }
+            if let visualDigest = fingerprint.visualDigest, visualDigest.isEmpty == false {
                 identityByPath[path] = "visual:\(visualDigest)"
                 continue
             }
-            identityByPath[path] = "digest:\(sha256DigestHex(data: data))"
+            identityByPath[path] = "digest:\(fingerprint.digest)"
         }
         return identityByPath
     }
@@ -494,8 +497,7 @@ final class DiaryViewModel: ObservableObject {
     private func makeLocationPhotoVisualDigestIndex() -> [String: [String]] {
         var index: [String: [String]] = [:]
         for path in entry.locationPhotoPaths {
-            guard let data = PhotoStorage.loadData(at: path),
-                  let digest = normalizedImageDigestHex(data: data) else { continue }
+            guard let digest = PhotoStorage.fingerprint(for: path)?.visualDigest else { continue }
             index[digest, default: []].append(path)
         }
         return index
@@ -522,30 +524,8 @@ final class DiaryViewModel: ObservableObject {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
-    /// 画像を一定サイズへ正規化した後にハッシュ化し、エンコード差分に強い識別子を作る。
     private func normalizedImageDigestHex(data: Data) -> String? {
-        guard let image = UIImage(data: data) else { return nil }
-        let targetSize = CGSize(width: 256, height: 256)
-        let format = UIGraphicsImageRendererFormat.default()
-        format.scale = 1
-        format.opaque = true
-        let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
-        let rendered = renderer.image { _ in
-            UIColor.black.setFill()
-            UIRectFill(CGRect(origin: .zero, size: targetSize))
-            let drawRect = aspectFitRect(for: image.size, in: CGRect(origin: .zero, size: targetSize))
-            image.draw(in: drawRect)
-        }
-        guard let normalizedData = rendered.pngData() else { return nil }
-        return sha256DigestHex(data: normalizedData)
-    }
-
-    private func aspectFitRect(for imageSize: CGSize, in bounds: CGRect) -> CGRect {
-        guard imageSize.width > 0, imageSize.height > 0 else { return bounds }
-        let scale = min(bounds.width / imageSize.width, bounds.height / imageSize.height)
-        let size = CGSize(width: imageSize.width * scale, height: imageSize.height * scale)
-        let origin = CGPoint(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2)
-        return CGRect(origin: origin, size: size)
+        PhotoStorage.visualDigest(for: data)
     }
 
     private var allPhotoPathsInOrder: [String] {
@@ -562,11 +542,16 @@ final class DiaryViewModel: ObservableObject {
         }
     }
 
-    private func removePhotoAssetIfUnreferenced(_ path: String) {
-        guard entry.photoPaths.contains(path) == false,
-              entry.locationPhotoPaths.contains(path) == false else { return }
-        PhotoStorage.delete(at: path)
+    @discardableResult
+    private func removePhotoAssetIfUnreferenced(_ path: String) -> Bool {
+        guard !entry.photoPaths.contains(path), !entry.locationPhotoPaths.contains(path) else { return true }
+        let referencedElsewhere = store.diaryEntries.contains { other in
+            other.id != entry.id && (other.photoPaths.contains(path) || other.locationPhotoPaths.contains(path)
+                || other.locations.contains { $0.photoPaths.contains(path) })
+        }
+        if !referencedElsewhere, !PhotoStorage.delete(at: path) { return false }
         removePhotoLinks(for: path)
+        return true
     }
 
     private func pruneLocationPhotoLinks(availablePaths: Set<String>) {

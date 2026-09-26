@@ -110,7 +110,7 @@ struct PersistenceController {
         ])
         
         if inMemory {
-            let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
             do {
                 container = try ModelContainer(for: schema, configurations: [modelConfiguration])
             } catch {
@@ -123,8 +123,9 @@ struct PersistenceController {
         let modelConfiguration = ModelConfiguration(
             schema: schema,
             url: storeURL,
-            cloudKitDatabase: Self.isSimulatorDemoMode ? .none : .automatic
-            // CloudKit同期は追加設定が必要 - 後日対応
+            // CloudKit stores diary photo assets through PhotoCloudSyncService only.
+            // Enabling its entitlement must not opt the existing local schema into sync.
+            cloudKitDatabase: .none
         )
 
         do {

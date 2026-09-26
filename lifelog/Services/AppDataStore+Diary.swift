@@ -9,6 +9,17 @@ import SwiftUI
 
 extension AppDataStore {
 
+    /// Keep stable filenames and the photo manifest in the normal iOS device backup.
+    var allDiaryPhotoPaths: [String] {
+        Array(Set(diaryEntries.flatMap { $0.photoPaths + $0.locationPhotoPaths + $0.locations.flatMap(\.photoPaths) })).sorted()
+    }
+
+    func resumeDiaryPhotoSync() {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
+        PhotoCloudSyncService.shared.configure(paths: allDiaryPhotoPaths)
+        PhotoCloudSyncService.shared.resumeSync()
+    }
+
     // MARK: - Diary CRUD
 
     func entry(for date: Date) -> DiaryEntry? {
@@ -43,6 +54,8 @@ extension AppDataStore {
         guard syncSwiftData else { return }
         syncDiaryEntryToSwiftData(normalized)
         saveContext()
+        // Background work is enabled only after the user starts the bulk sync once.
+        if !modelContext.hasChanges { resumeDiaryPhotoSync() }
     }
 
     // MARK: - Location Visit Tags

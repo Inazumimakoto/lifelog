@@ -38,6 +38,7 @@ struct lifelogApp: App {
                     .onAppear {
                         // 日記リマインダーを再スケジュール（今日書いていなければ通知）
                         syncMemoPrivacySettingsToSharedDefaults()
+                        store.resumeDiaryPhotoSync()
                         store.rescheduleDiaryReminderIfNeeded()
                         store.rescheduleTodayOverviewReminderIfNeeded()
                         WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
@@ -65,6 +66,7 @@ struct lifelogApp: App {
                     }
 
                     syncMemoPrivacySettingsToSharedDefaults()
+                    store.resumeDiaryPhotoSync()
                     store.rescheduleTodayOverviewReminderIfNeeded()
                     WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
                     WidgetCenter.shared.reloadTimelines(ofKind: "HabitWidget")
