@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=1080, height=1920">
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: #f7f9fc;
+      }
+
+      @font-face {
+        font-family: "LifelifyJP";
+        src:
+          local("Hiragino Sans"),
+          local("Hiragino Kaku Gothic ProN"),
+          local("Arial Unicode MS");
+        font-weight: 100 900;
+      }
+
+      @font-face {
+        font-family: "LifelifyMono";
+        src:
+          local("SF Mono"),
+          local("Menlo");
+        font-weight: 100 900;
+      }
+
+      body {
+        font-family: "LifelifyJP", sans-serif;
+        color: #050507;
+      }
+
+      #root {
+        position: relative;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: #f7f9fc;
+      }
+
+      .scene {
+        position: absolute;
+        inset: 0;
+        width: 1080px;
+        height: 1920px;
+        overflow: hidden;
+        background: #f7f9fc;
+      }
+
+      #scene2,
+      #scene3,
+      #scene4,
+      #scene5,
+      #scene6,
+      #scene7 {
+        opacity: 0;
+      }
+
+      .scene-content {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        padding: 106px 76px 112px;
+        display: flex;
+        flex-direction: column;
+        gap: 30px;
+        z-index: 3;
+      }
+
+      .kicker {
+        font-size: 28px;
+        line-height: 1.2;
+        color: #0a84ff;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2 {
+        font-weight: 900;
+        line-height: 1.16;
+        letter-spacing: 0;
+      }
+
+      h1 span,
+      h2 span {
+        display: block;
+      }
+
+      h1 {
+        font-size: 112px;
+        max-width: 910px;
+      }
+
+      h2 {
+        font-size: 74px;
+        max-width: 920px;
+      }
+
+      .subcopy {
+        font-size: 34px;
+        line-height: 1.5;
+        color: #626975;
+        font-weight: 500;
+        max-width: 840px;
+      }
+
+      .bg-word {
+        position: absolute;
+        z-index: 0;
+        color: rgba(5, 5, 7, 0.035);
+        font-size: 220px;
+        font-weight: 900;
+        line-height: 0.9;
+        white-space: nowrap;
+        pointer-events: none;
+      }
+
+      .bg-word::before {
+        content: attr(data-word);
+      }
+
+      .glow {
+        position: absolute;
+        z-index: 0;
+        width: 560px;
+        height: 560px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(10, 132, 255, 0.17), rgba(10, 132, 255, 0));
+        pointer-events: none;
+      }
+
+      .glow.green {
+        background: radial-gradient(circle, rgba(34, 197, 94, 0.18), rgba(34, 197, 94, 0));
+      }
+
+      .glow.orange {
+        background: radial-gradient(circle, rgba(249, 115, 22, 0.16), rgba(249, 115, 22, 0));
+      }
+
+      .glow.purple {
+        background: radial-gradient(circle, rgba(124, 58, 237, 0.16), rgba(124, 58, 237, 0));
+      }
+
+      .brand-row {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+      }
+
+      .brand-icon {
+        width: 132px;
+        height: 132px;
+        border-radius: 32px;
+        object-fit: cover;
+        box-shadow: 0 18px 48px rgba(5, 5, 7, 0.25);
+      }
+
+      .brand-name {
+        font-size: 72px;
+        line-height: 1;
+        font-weight: 900;
+      }
+
+      .pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        min-height: 54px;
+        padding: 12px 18px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.78);
+        border: 1px solid rgba(5, 5, 7, 0.08);
+        box-shadow: 0 12px 32px rgba(5, 5, 7, 0.08);
+        font-size: 24px;
+        font-weight: 800;
+      }
+
+      .dot {
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #0a84ff;
+        flex: 0 0 auto;
+      }
+
+      .dot.orange {
+        background: #f97316;
+      }
+
+      .dot.green {
+        background: #22c55e;
+      }
+
+      .dot.purple {
+        background: #7c3aed;
+      }
+
+      .phone-stage {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex: 1;
+        min-height: 0;
+      }
+
+      .phone {
+        position: relative;
+        width: 564px;
+        height: 1228px;
+        overflow: hidden;
+        border-radius: 70px;
+        background: #ffffff;
+        box-shadow:
+          0 34px 82px rgba(5, 5, 7, 0.22),
+          0 0 0 12px rgba(5, 5, 7, 0.05);
+      }
+
+      .phone.wide {
+        width: 610px;
+        height: 1328px;
+      }
+
+      .phone.small {
+        width: 460px;
+        height: 1000px;
+        border-radius: 58px;
+      }
+
+      .phone img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        object-position: top center;
+        display: block;
+      }
+
+      .callout-card,
+      .data-panel,
+      .privacy-card {
+        background: rgba(255, 255, 255, 0.86);
+        border: 1px solid rgba(5, 5, 7, 0.08);
+        box-shadow: 0 24px 60px rgba(5, 5, 7, 0.12);
+        border-radius: 32px;
+      }
+
+      .callout-card {
+        position: absolute;
+        width: 376px;
+        padding: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        z-index: 4;
+      }
+
+      .callout-card .label {
+        font-size: 22px;
+        color: #8a8f98;
+        font-weight: 800;
+      }
+
+      .callout-card .value {
+        font-size: 34px;
+        font-weight: 900;
+        line-height: 1.18;
+      }
+
+      .callout-card .meta {
+        font-size: 22px;
+        color: #626975;
+        font-weight: 600;
+      }
+
+      .mono {
+        font-family: "LifelifyMono", monospace;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .mini-calendar {
+        width: 430px;
+        padding: 24px;
+      }
+
+      .mini-calendar .month {
+        font-size: 28px;
+        font-weight: 900;
+        margin-bottom: 16px;
+      }
+
+      .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 8px;
+      }
+
+      .calendar-cell {
+        height: 44px;
+        border-radius: 12px;
+        background: #eef1f5;
+        color: #8a8f98;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        font-weight: 800;
+      }
+
+      .calendar-cell.active {
+        background: rgba(10, 132, 255, 0.18);
+        color: #0a84ff;
+        box-shadow: inset 0 0 0 3px #0a84ff;
+      }
+
+      .calendar-cell.busy {
+        background: rgba(249, 115, 22, 0.18);
+        color: #f97316;
+      }
+
+      .timeline-card {
+        width: 426px;
+        padding: 24px;
+      }
+
+      .timeline-title {
+        font-size: 28px;
+        font-weight: 900;
+        margin-bottom: 20px;
+      }
+
+      .time-row {
+        display: grid;
+        grid-template-columns: 78px 1fr;
+        gap: 14px;
+        align-items: center;
+        margin: 14px 0;
+      }
+
+      .time-row .time {
+        font-size: 22px;
+        color: #8a8f98;
+      }
+
+      .time-bar {
+        min-height: 44px;
+        border-radius: 14px;
+        padding: 10px 14px;
+        color: #050507;
+        font-size: 20px;
+        font-weight: 800;
+      }
+
+      .time-bar.orange {
+        background: rgba(249, 115, 22, 0.18);
+      }
+
+      .time-bar.blue {
+        background: rgba(10, 132, 255, 0.17);
+      }
+
+      .time-bar.green {
+        background: rgba(34, 197, 94, 0.18);
+      }
+
+      .heat-panel {
+        padding: 26px;
+        width: 450px;
+      }
+
+      .heat-title {
+        font-size: 28px;
+        font-weight: 900;
+        margin-bottom: 18px;
+      }
+
+      .heat-grid {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 8px;
+      }
+
+      .heat-cell {
+        width: 26px;
+        height: 26px;
+        border-radius: 7px;
+        background: #e9edf2;
+      }
+
+      .heat-cell.l1 {
+        background: #9be9a8;
+      }
+
+      .heat-cell.l2 {
+        background: #40c463;
+      }
+
+      .heat-cell.l3 {
+        background: #30a14e;
+      }
+
+      .heat-cell.l4 {
+        background: #216e39;
+      }
+
+      .habit-chip {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        padding: 18px 20px;
+        border-radius: 24px;
+        background: rgba(255, 255, 255, 0.86);
+        border: 1px solid rgba(5, 5, 7, 0.08);
+        box-shadow: 0 16px 40px rgba(5, 5, 7, 0.1);
+        font-size: 25px;
+        font-weight: 900;
+      }
+
+      .check {
+        width: 46px;
+        height: 46px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f97316;
+        color: #fff;
+        font-size: 28px;
+        font-weight: 900;
+      }
+
+      .data-panel {
+        width: 472px;
+        padding: 28px;
+      }
+
+      .stats-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
+        margin-bottom: 22px;
+      }
+
+      .stat {
+        padding: 20px;
+        border-radius: 24px;
+        background: #f3f6fa;
+      }
+
+      .stat .value {
+        font-size: 40px;
+        font-weight: 900;
+      }
+
+      .stat .label {
+        font-size: 20px;
+        color: #8a8f98;
+        font-weight: 800;
+        margin-top: 6px;
+      }
+
+      .chart {
+        position: relative;
+        height: 214px;
+        border-radius: 24px;
+        background:
+          linear-gradient(to top, rgba(10, 132, 255, 0.1), rgba(10, 132, 255, 0)),
+          #f3f6fa;
+        padding: 22px;
+        display: flex;
+        align-items: end;
+        gap: 12px;
+      }
+
+      .bar {
+        flex: 1;
+        border-radius: 12px 12px 6px 6px;
+        background: #0a84ff;
+        min-height: 26px;
+      }
+
+      .sleep-line {
+        position: absolute;
+        left: 25px;
+        right: 25px;
+        top: 82px;
+        height: 4px;
+        background: #7c3aed;
+        transform-origin: left center;
+      }
+
+      .privacy-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 18px;
+        margin-top: 30px;
+      }
+
+      .privacy-card {
+        padding: 24px 26px;
+        display: grid;
+        grid-template-columns: 74px 1fr;
+        align-items: center;
+        gap: 18px;
+      }
+
+      .privacy-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 20px;
+        background: rgba(10, 132, 255, 0.14);
+        color: #0a84ff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        font-weight: 900;
+      }
+
+      .privacy-card:nth-child(2) .privacy-icon {
+        background: rgba(249, 115, 22, 0.14);
+        color: #f97316;
+      }
+
+      .privacy-card:nth-child(3) .privacy-icon {
+        background: rgba(34, 197, 94, 0.16);
+        color: #22c55e;
+      }
+
+      .privacy-card .title {
+        font-size: 30px;
+        font-weight: 900;
+      }
+
+      .privacy-card .body {
+        font-size: 22px;
+        color: #626975;
+        font-weight: 600;
+        margin-top: 4px;
+      }
+
+      .final-wrap {
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        gap: 36px;
+      }
+
+      .final-icon {
+        width: 190px;
+        height: 190px;
+        border-radius: 44px;
+        box-shadow: 0 24px 64px rgba(5, 5, 7, 0.26);
+      }
+
+      .final-title {
+        font-size: 106px;
+        font-weight: 900;
+        line-height: 1;
+      }
+
+      .final-copy {
+        max-width: 820px;
+        font-size: 42px;
+        line-height: 1.45;
+        color: #626975;
+        font-weight: 700;
+      }
+
+      .scene-band {
+        position: absolute;
+        left: -80px;
+        right: -80px;
+        height: 330px;
+        background: rgba(255, 255, 255, 0.62);
+        border-top: 1px solid rgba(5, 5, 7, 0.05);
+        border-bottom: 1px solid rgba(5, 5, 7, 0.05);
+        transform: rotate(-8deg);
+        z-index: 1;
+      }
+
+      .caption-rail {
+        position: absolute;
+        left: 76px;
+        right: 76px;
+        bottom: 86px;
+        z-index: 6;
+        display: flex;
+        justify-content: center;
+      }
+
+      .caption {
+        max-width: 840px;
+        padding: 16px 24px;
+        border-radius: 999px;
+        background: rgba(5, 5, 7, 0.88);
+        color: #fff;
+        font-size: 26px;
+        line-height: 1.25;
+        font-weight: 800;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <div data-hf-id="hf-coex" id="root" data-composition-id="main" data-start="0" data-duration="30" data-width="1080" data-height="1920">
+      <section data-hf-id="hf-pwmi" id="scene1" class="scene" data-layout-allow-overflow="">
+        <div data-hf-id="hf-5yc4" class="glow" style="right: -180px; top: 180px"></div>
+        <div data-hf-id="hf-8ki5" class="glow orange" style="left: -250px; bottom: 70px"></div>
+        <div data-hf-id="hf-mua9" class="bg-word" data-word="LIFE" style="left: 60px; bottom: 260px"></div>
+        <div data-hf-id="hf-cn5c" class="scene-content">
+          <div data-hf-id="hf-5xyk" class="brand-row s1-brand">
+            <img data-hf-id="hf-2gup" class="brand-icon" src="assets/lifelify-icon.png" alt="lifelify">
+            <div data-hf-id="hf-25gd" class="brand-name">lifelify</div>
+          </div>
+          <div data-hf-id="hf-2cl1" style="display: flex; flex-direction: column; gap: 30px; margin-top: 150px">
+            <div data-hf-id="hf-eilg" class="kicker s1-kicker">30秒でわかる</div>
+            <h1 data-hf-id="hf-hmfr" class="s1-title"><span data-hf-id="hf-xmb5">今日を、</span><span data-hf-id="hf-klmk">ぜんぶ一か所に。</span></h1>
+            <p data-hf-id="hf-gvzk" class="subcopy s1-copy">予定、タスク、日記、習慣、ヘルスをひとつの流れで見返せるライフログアプリ。</p>
+          </div>
+          <div data-hf-id="hf-i159" class="pill-row s1-pills">
+            <div data-hf-id="hf-wc96" class="pill"><span data-hf-id="hf-9gry" class="dot"></span>Today</div>
+            <div data-hf-id="hf-1ynf" class="pill"><span data-hf-id="hf-7oow" class="dot orange"></span>Calendar</div>
+            <div data-hf-id="hf-9twu" class="pill"><span data-hf-id="hf-d96z" class="dot green"></span>Habits</div>
+            <div data-hf-id="hf-umlv" class="pill"><span data-hf-id="hf-oif0" class="dot purple"></span>Health</div>
+          </div>
+        </div>
+      </section>
+
+      <section data-hf-id="hf-lyih" id="scene2" class="scene" data-layout-allow-overflow="">
+        <div data-hf-id="hf-eky7" class="glow orange" style="right: -150px; top: 250px"></div>
+        <div data-hf-id="hf-iwqa" class="bg-word" data-word="TODAY" style="left: -24px; top: 108px"></div>
+        <div data-hf-id="hf-o0eg" class="scene-content">
+          <div data-hf-id="hf-8ekf" class="kicker s2-kicker">Home</div>
+          <h2 data-hf-id="hf-uro5" class="s2-title"><span data-hf-id="hf-mgbt">朝に見るべきことが、</span><span data-hf-id="hf-0tp7">最初から並んでいる。</span></h2>
+          <div data-hf-id="hf-g1kd" class="phone-stage" data-layout-allow-overlap="">
+            <div data-hf-id="hf-wnho" class="phone s2-phone">
+              <img data-hf-id="hf-dghw" src="assets/home-screen.png" alt="lifelify home screen">
+            </div>
+            <div data-hf-id="hf-tm9l" class="callout-card s2-callout-a" style="left: 8px; top: 140px">
+              <div data-hf-id="hf-gxc9" class="label">今日の予定</div>
+              <div data-hf-id="hf-kt6d" class="value">チーム朝会</div>
+              <div data-hf-id="hf-6rbu" class="meta mono">09:30 - 10:00</div>
+            </div>
+            <div data-hf-id="hf-qi76" class="callout-card s2-callout-b" style="right: 0; bottom: 170px">
+              <div data-hf-id="hf-sra6" class="label">すぐ追加</div>
+              <div data-hf-id="hf-ksfq" class="value">タスクも予定も</div>
+              <div data-hf-id="hf-omuy" class="meta">右下の＋から</div>
+            </div>
+          </div>
+        </div>
+        <div data-hf-id="hf-p6v7" class="caption-rail s2-caption"><div data-hf-id="hf-flom" class="caption">ホームだけで、今日の輪郭が見える。</div></div>
+      </section>
+
+      <section data-hf-id="hf-l6uo" id="scene3" class="scene" data-layout-allow-overflow="">
+        <div data-hf-id="hf-vcfp" class="glow" style="left: -210px; top: 520px"></div>
+        <div data-hf-id="hf-ynf5" class="scene-band" style="top: 970px"></div>
+        <div data-hf-id="hf-mthd" class="scene-content">
+          <div data-hf-id="hf-t7gd" class="kicker s3-kicker">Calendar</div>
+          <h2 data-hf-id="hf-7roc" class="s3-title"><span data-hf-id="hf-m0kr">週も月も、</span><span data-hf-id="hf-zdp5">予定がタイムラインで</span><span data-hf-id="hf-267w">つながる。</span></h2>
+          <div data-hf-id="hf-qf8h" class="phone-stage" data-layout-allow-overlap="">
+            <div data-hf-id="hf-i9oy" class="phone wide s3-phone">
+              <img data-hf-id="hf-rvgb" src="assets/calendar-week-screen.png" alt="lifelify calendar week screen">
+            </div>
+            <div data-hf-id="hf-qxjr" class="callout-card mini-calendar s3-mini" style="left: 0; bottom: 160px">
+              <div data-hf-id="hf-5y26" class="month mono">2026 / 06</div>
+              <div data-hf-id="hf-g2fz" class="calendar-grid">
+                <div data-hf-id="hf-z64y" class="calendar-cell">日</div>
+                <div data-hf-id="hf-wjay" class="calendar-cell active">29</div>
+                <div data-hf-id="hf-95bt" class="calendar-cell busy">30</div>
+                <div data-hf-id="hf-fqwm" class="calendar-cell">1</div>
+                <div data-hf-id="hf-ygps" class="calendar-cell busy">2</div>
+                <div data-hf-id="hf-gjio" class="calendar-cell">3</div>
+                <div data-hf-id="hf-drdh" class="calendar-cell">4</div>
+                <div data-hf-id="hf-rmlh" class="calendar-cell busy">5</div>
+                <div data-hf-id="hf-ejzj" class="calendar-cell">6</div>
+                <div data-hf-id="hf-eyak" class="calendar-cell">7</div>
+                <div data-hf-id="hf-qfoe" class="calendar-cell busy">8</div>
+                <div data-hf-id="hf-ckge" class="calendar-cell">9</div>
+                <div data-hf-id="hf-81iq" class="calendar-cell">10</div>
+                <div data-hf-id="hf-7n7p" class="calendar-cell">11</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div data-hf-id="hf-hyky" class="caption-rail s3-caption"><div data-hf-id="hf-clyt" class="caption">予定、タスク、日記の流れを同じ日付で追える。</div></div>
+      </section>
+
+      <section data-hf-id="hf-h8qn" id="scene4" class="scene" data-layout-allow-overflow="">
+        <div data-hf-id="hf-rk6l" class="glow green" style="right: -180px; top: 500px"></div>
+        <div data-hf-id="hf-8qte" class="bg-word" data-word="STREAK" style="left: -16px; bottom: 160px"></div>
+        <div data-hf-id="hf-n7se" class="scene-content">
+          <div data-hf-id="hf-ybul" class="kicker s4-kicker">Habits</div>
+          <h2 data-hf-id="hf-sinv" class="s4-title"><span data-hf-id="hf-ty8n">続けた日が、</span><span data-hf-id="hf-cacy">見えるから続く。</span></h2>
+          <div data-hf-id="hf-rm5k" class="phone-stage" data-layout-allow-overlap="">
+            <div data-hf-id="hf-u2q6" class="phone s4-phone">
+              <img data-hf-id="hf-etp4" src="assets/habits-screen.png" alt="lifelify habits screen">
+            </div>
+            <div data-hf-id="hf-t4li" class="callout-card heat-panel s4-heat" style="right: 0; top: 130px">
+              <div data-hf-id="hf-epw9" class="heat-title">今年の積み上げ</div>
+              <div data-hf-id="hf-e4ej" class="heat-grid">
+                <div data-hf-id="hf-3fxj" class="heat-cell"></div><div data-hf-id="hf-lnqw" class="heat-cell l1"></div><div data-hf-id="hf-p53b" class="heat-cell"></div><div data-hf-id="hf-wj8j" class="heat-cell l2"></div><div data-hf-id="hf-oqsa" class="heat-cell"></div><div data-hf-id="hf-och9" class="heat-cell"></div><div data-hf-id="hf-ktao" class="heat-cell l1"></div><div data-hf-id="hf-qdiq" class="heat-cell l3"></div><div data-hf-id="hf-r4mg" class="heat-cell"></div><div data-hf-id="hf-lu8z" class="heat-cell l2"></div><div data-hf-id="hf-9tet" class="heat-cell l4"></div><div data-hf-id="hf-qqbf" class="heat-cell"></div>
+                <div data-hf-id="hf-jmdl" class="heat-cell l1"></div><div data-hf-id="hf-qc0e" class="heat-cell"></div><div data-hf-id="hf-lfxy" class="heat-cell l2"></div><div data-hf-id="hf-pxpd" class="heat-cell"></div><div data-hf-id="hf-tepi" class="heat-cell l3"></div><div data-hf-id="hf-spuk" class="heat-cell"></div><div data-hf-id="hf-k0om" class="heat-cell l1"></div><div data-hf-id="hf-sbjj" class="heat-cell"></div><div data-hf-id="hf-l1mx" class="heat-cell l2"></div><div data-hf-id="hf-tt0j" class="heat-cell l3"></div><div data-hf-id="hf-tm6t" class="heat-cell"></div><div data-hf-id="hf-1g8p" class="heat-cell l4"></div>
+                <div data-hf-id="hf-u0hu" class="heat-cell"></div><div data-hf-id="hf-knbw" class="heat-cell l2"></div><div data-hf-id="hf-u7bk" class="heat-cell l3"></div><div data-hf-id="hf-uesv" class="heat-cell"></div><div data-hf-id="hf-itrj" class="heat-cell l1"></div><div data-hf-id="hf-k90v" class="heat-cell l2"></div><div data-hf-id="hf-ut3w" class="heat-cell"></div><div data-hf-id="hf-2n5s" class="heat-cell l4"></div><div data-hf-id="hf-j82k" class="heat-cell l1"></div><div data-hf-id="hf-v7ex" class="heat-cell"></div><div data-hf-id="hf-rf6d" class="heat-cell l3"></div><div data-hf-id="hf-jupu" class="heat-cell l2"></div>
+                <div data-hf-id="hf-rthe" class="heat-cell l3"></div><div data-hf-id="hf-vlpy" class="heat-cell"></div><div data-hf-id="hf-i15h" class="heat-cell l1"></div><div data-hf-id="hf-28ur" class="heat-cell l4"></div><div data-hf-id="hf-w00z" class="heat-cell"></div><div data-hf-id="hf-jget" class="heat-cell l2"></div><div data-hf-id="hf-s7sf" class="heat-cell l3"></div><div data-hf-id="hf-wec0" class="heat-cell"></div><div data-hf-id="hf-ifgi" class="heat-cell l1"></div><div data-hf-id="hf-09bm" class="heat-cell l4"></div><div data-hf-id="hf-qfql" class="heat-cell"></div><div data-hf-id="hf-j23s" class="heat-cell l2"></div>
+              </div>
+            </div>
+            <div data-hf-id="hf-1ipd" class="habit-chip s4-chip" style="position: absolute; left: 10px; bottom: 170px; width: 390px">
+              <span data-hf-id="hf-qzh0">瞑想 1日連続</span>
+              <span data-hf-id="hf-qb1c" class="check">✓</span>
+            </div>
+          </div>
+        </div>
+        <div data-hf-id="hf-fegx" class="caption-rail s4-caption"><div data-hf-id="hf-ygbu" class="caption">年次ヒートマップで、小さな達成が積み上がる。</div></div>
+      </section>
+
+      <section data-hf-id="hf-damm" id="scene5" class="scene" data-layout-allow-overflow="">
+        <div data-hf-id="hf-jt84" class="glow purple" style="left: -190px; top: 360px"></div>
+        <div data-hf-id="hf-lm09" class="scene-band" style="top: 1180px; transform: rotate(7deg)"></div>
+        <div data-hf-id="hf-m0vb" class="scene-content">
+          <div data-hf-id="hf-s2u2" class="kicker s5-kicker">Health &amp; Diary</div>
+          <h2 data-hf-id="hf-jzju" class="s5-title"><span data-hf-id="hf-8ty1">歩数・睡眠・気分を、</span><span data-hf-id="hf-rm1o">あとから意味にする。</span></h2>
+          <div data-hf-id="hf-r7uj" class="phone-stage" data-layout-allow-overlap="">
+            <div data-hf-id="hf-mudt" class="phone small s5-phone" style="margin-left: -260px">
+              <img data-hf-id="hf-k10i" src="assets/health-screen.png" alt="lifelify health screen">
+            </div>
+            <div data-hf-id="hf-07yg" class="data-panel s5-data" style="position: absolute; right: 0; top: 210px">
+              <div data-hf-id="hf-ohca" class="stats-row">
+                <div data-hf-id="hf-xa0m" class="stat">
+                  <div data-hf-id="hf-e2nq" class="value mono">8,420</div>
+                  <div data-hf-id="hf-m7c3" class="label">歩数</div>
+                </div>
+                <div data-hf-id="hf-tx7e" class="stat">
+                  <div data-hf-id="hf-xnfw" class="value mono">7.1h</div>
+                  <div data-hf-id="hf-ea0b" class="label">睡眠</div>
+                </div>
+              </div>
+              <div data-hf-id="hf-ntnc" class="chart">
+                <div data-hf-id="hf-g39a" class="bar" style="height: 84px"></div>
+                <div data-hf-id="hf-55ao" class="bar" style="height: 132px"></div>
+                <div data-hf-id="hf-0tvn" class="bar" style="height: 104px"></div>
+                <div data-hf-id="hf-04dz" class="bar" style="height: 166px"></div>
+                <div data-hf-id="hf-nfzj" class="bar" style="height: 122px"></div>
+                <div data-hf-id="hf-xhls" class="bar" style="height: 176px"></div>
+                <div data-hf-id="hf-pywb" class="bar" style="height: 140px"></div>
+                <div data-hf-id="hf-whe8" class="sleep-line"></div>
+              </div>
+            </div>
+            <div data-hf-id="hf-0wt8" class="callout-card s5-callout" style="left: 0; bottom: 140px">
+              <div data-hf-id="hf-fsmq" class="label">日記とつながる</div>
+              <div data-hf-id="hf-ng6k" class="value">気分と体調も記録</div>
+              <div data-hf-id="hf-ew4s" class="meta">毎日の振り返りに</div>
+            </div>
+          </div>
+        </div>
+        <div data-hf-id="hf-wp8o" class="caption-rail s5-caption"><div data-hf-id="hf-4ynz" class="caption">数字だけで終わらせず、生活の文脈として残す。</div></div>
+      </section>
+
+      <section data-hf-id="hf-74wt" id="scene6" class="scene" data-layout-allow-overflow="">
+        <div data-hf-id="hf-meha" class="glow" style="right: -220px; bottom: 260px"></div>
+        <div data-hf-id="hf-ubqk" class="glow orange" style="left: -240px; top: 210px"></div>
+        <div data-hf-id="hf-5qwu" class="bg-word" data-word="PRIVATE" style="left: 24px; top: 118px"></div>
+        <div data-hf-id="hf-mf6c" class="scene-content">
+          <div data-hf-id="hf-k5n8" class="kicker s6-kicker">Privacy</div>
+          <h2 data-hf-id="hf-nm81" class="s6-title"><span data-hf-id="hf-y0rt">大事な記録は、</span><span data-hf-id="hf-nsoj">あなたの手元に。</span></h2>
+          <p data-hf-id="hf-chud" class="subcopy s6-copy">日記、写真、場所、未来への手紙。生活の記録だから、安心して残せる設計に。</p>
+          <div data-hf-id="hf-ebjd" class="privacy-grid" data-layout-allow-overlap="">
+            <div data-hf-id="hf-8pp9" class="privacy-card s6-card">
+              <div data-hf-id="hf-5jlh" class="privacy-icon">LOCK</div>
+              <div data-hf-id="hf-yeow">
+                <div data-hf-id="hf-2lia" class="title">アプリロック</div>
+                <div data-hf-id="hf-3da9" class="body">Face ID / パスコードでプライベートな画面を守る。</div>
+              </div>
+            </div>
+            <div data-hf-id="hf-pcfl" class="privacy-card s6-card">
+              <div data-hf-id="hf-cniw" class="privacy-icon">E2E</div>
+              <div data-hf-id="hf-y7yw">
+                <div data-hf-id="hf-rtm7" class="title">E2EE手紙</div>
+                <div data-hf-id="hf-cx9d" class="body">大切な人へのメッセージも、暗号化して届ける。</div>
+              </div>
+            </div>
+            <div data-hf-id="hf-qjco" class="privacy-card s6-card">
+              <div data-hf-id="hf-0dlv" class="privacy-icon">＋</div>
+              <div data-hf-id="hf-x11t">
+                <div data-hf-id="hf-c6c3" class="title">ウィジェットと壁紙</div>
+                <div data-hf-id="hf-lx3m" class="body">予定、習慣、記念日をホーム画面にも広げる。</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div data-hf-id="hf-eshj" class="caption-rail s6-caption"><div data-hf-id="hf-4ugm" class="caption">記録するほど、自分の一日が見えるようになる。</div></div>
+      </section>
+
+      <section data-hf-id="hf-6d90" id="scene7" class="scene" data-layout-allow-overflow="">
+        <div data-hf-id="hf-7aj6" class="glow" style="left: 260px; top: 240px"></div>
+        <div data-hf-id="hf-a7ke" class="glow green" style="right: -180px; bottom: 170px"></div>
+        <div data-hf-id="hf-9ov1" class="scene-content final-wrap">
+          <img data-hf-id="hf-es14" class="final-icon s7-icon" src="assets/lifelify-icon-final.png" alt="lifelify icon">
+          <div data-hf-id="hf-dbrg" class="final-title s7-title">lifelify</div>
+          <div data-hf-id="hf-1l0y" class="final-copy s7-copy">毎日を、あとから思い出せる形に。</div>
+          <div data-hf-id="hf-1moa" class="pill-row s7-pills" style="justify-content: center">
+            <div data-hf-id="hf-1h0i" class="pill"><span data-hf-id="hf-zcc2" class="dot"></span>ホーム</div>
+            <div data-hf-id="hf-4mv7" class="pill"><span data-hf-id="hf-3po8" class="dot orange"></span>カレンダー</div>
+            <div data-hf-id="hf-k23i" class="pill"><span data-hf-id="hf-atrf" class="dot green"></span>習慣</div>
+            <div data-hf-id="hf-gtwr" class="pill"><span data-hf-id="hf-2pis" class="dot purple"></span>ヘルス</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      window.__timelines = window.__timelines || {};
+
+      const tl = gsap.timeline({ paused: true });
+      const W = 1080;
+      const H = 1920;
+
+      function enter(target, vars, at) {
+        tl.from(target, { opacity: 0, duration: 0.55, ease: "power3.out", ...vars }, at);
+      }
+
+      function push(oldScene, newScene, at, axis) {
+        const oldVars = axis === "y" ? { y: -H } : { x: -W };
+        const newFrom = axis === "y" ? { y: H, opacity: 1 } : { x: W, opacity: 1 };
+        const newTo = axis === "y" ? { y: 0, duration: 0.52, ease: "power3.inOut" } : { x: 0, duration: 0.52, ease: "power3.inOut" };
+        tl.set(newScene, { opacity: 1, x: 0, y: 0 }, at);
+        tl.to(oldScene, { ...oldVars, duration: 0.52, ease: "power3.inOut" }, at);
+        tl.fromTo(newScene, newFrom, newTo, at);
+        tl.set(oldScene, { opacity: 0 }, at + 0.53);
+      }
+
+      function blurCrossfade(oldScene, newScene, at) {
+        tl.to(oldScene, { filter: "blur(12px)", scale: 1.03, opacity: 0, duration: 0.55, ease: "power2.inOut" }, at);
+        tl.fromTo(newScene, { filter: "blur(12px)", scale: 0.97, opacity: 0 }, { filter: "blur(0px)", scale: 1, opacity: 1, duration: 0.55, ease: "power2.inOut" }, at + 0.08);
+      }
+
+      enter(".s1-brand", { y: -34, scale: 0.96, ease: "back.out(1.4)" }, 0.2);
+      enter(".s1-kicker", { x: -42, ease: "expo.out" }, 0.46);
+      enter(".s1-title", { y: 64, ease: "power4.out" }, 0.62);
+      enter(".s1-copy", { y: 34, ease: "sine.out" }, 0.92);
+      enter(".s1-pills .pill", { y: 26, scale: 0.92, stagger: 0.08, ease: "back.out(1.6)" }, 1.2);
+      tl.to("#scene1 .glow", { scale: 1.09, duration: 3.3, ease: "sine.inOut" }, 0.2);
+
+      push("#scene1", "#scene2", 3.75, "x");
+      enter(".s2-kicker", { x: -34, ease: "expo.out" }, 4.28);
+      enter(".s2-title", { y: 48, ease: "power3.out" }, 4.44);
+      enter(".s2-phone", { y: 70, scale: 0.92, ease: "back.out(1.35)" }, 4.72);
+      enter(".s2-callout-a", { x: -74, scale: 0.92, ease: "power4.out" }, 5.1);
+      enter(".s2-callout-b", { x: 64, scale: 0.9, ease: "back.out(1.45)" }, 5.38);
+      enter(".s2-caption", { y: 22, ease: "sine.out" }, 6.0);
+      tl.to(".s2-phone", { y: -18, duration: 3.1, ease: "sine.inOut" }, 5.4);
+
+      push("#scene2", "#scene3", 8.0, "y");
+      enter(".s3-kicker", { x: 34, ease: "expo.out" }, 8.58);
+      enter(".s3-title", { y: 46, ease: "power4.out" }, 8.74);
+      enter(".s3-phone", { y: 70, scale: 0.9, ease: "back.out(1.3)" }, 9.02);
+      enter(".s3-mini", { x: -90, scale: 0.9, ease: "power3.out" }, 9.46);
+      enter(".s3-caption", { y: 24, ease: "sine.out" }, 10.1);
+      tl.to(".s3-phone", { x: 18, duration: 2.8, ease: "sine.inOut" }, 9.6);
+
+      push("#scene3", "#scene4", 12.3, "x");
+      enter(".s4-kicker", { x: -36, ease: "expo.out" }, 12.86);
+      enter(".s4-title", { y: 50, ease: "power3.out" }, 13.02);
+      enter(".s4-phone", { y: 72, scale: 0.92, ease: "back.out(1.35)" }, 13.32);
+      enter(".s4-heat", { x: 78, scale: 0.9, ease: "power4.out" }, 13.7);
+      enter(".s4-chip", { x: -62, scale: 0.9, ease: "back.out(1.6)" }, 14.08);
+      enter(".s4-caption", { y: 22, ease: "sine.out" }, 14.72);
+      tl.from(".heat-cell", { opacity: 0, scale: 0.35, stagger: { each: 0.018, from: "start" }, duration: 0.38, ease: "back.out(1.8)" }, 13.98);
+      tl.to(".s4-chip .check", { scale: 1.12, duration: 0.28, ease: "back.out(2)" }, 15.0);
+      tl.to(".s4-chip .check", { scale: 1, duration: 0.22, ease: "sine.out" }, 15.28);
+
+      push("#scene4", "#scene5", 16.75, "y");
+      enter(".s5-kicker", { x: 38, ease: "expo.out" }, 17.34);
+      enter(".s5-title", { y: 48, ease: "power4.out" }, 17.5);
+      enter(".s5-phone", { x: -70, scale: 0.94, ease: "back.out(1.25)" }, 17.82);
+      enter(".s5-data", { x: 76, scale: 0.9, ease: "power3.out" }, 18.16);
+      enter(".s5-callout", { y: 56, scale: 0.92, ease: "back.out(1.5)" }, 18.52);
+      enter(".s5-caption", { y: 24, ease: "sine.out" }, 19.18);
+      tl.from(".bar", { scaleY: 0, transformOrigin: "bottom center", duration: 0.72, stagger: 0.055, ease: "power4.out" }, 18.52);
+      tl.from(".sleep-line", { scaleX: 0, duration: 0.64, ease: "power3.out" }, 18.82);
+
+      push("#scene5", "#scene6", 21.2, "x");
+      enter(".s6-kicker", { x: -38, ease: "expo.out" }, 21.78);
+      enter(".s6-title", { y: 50, ease: "power3.out" }, 21.94);
+      enter(".s6-copy", { y: 32, ease: "sine.out" }, 22.22);
+      enter(".s6-card", { y: 42, scale: 0.94, stagger: 0.14, ease: "back.out(1.35)" }, 22.62);
+      enter(".s6-caption", { y: 24, ease: "sine.out" }, 24.1);
+
+      blurCrossfade("#scene6", "#scene7", 25.65);
+      enter(".s7-icon", { y: 44, scale: 0.76, ease: "back.out(1.65)" }, 26.28);
+      enter(".s7-title", { y: 42, ease: "power4.out" }, 26.56);
+      enter(".s7-copy", { y: 34, ease: "sine.out" }, 26.86);
+      enter(".s7-pills .pill", { y: 28, scale: 0.92, stagger: 0.08, ease: "back.out(1.55)" }, 27.22);
+      tl.to(".s7-icon", { scale: 1.04, duration: 0.36, ease: "sine.inOut" }, 28.35);
+      tl.to(".s7-icon", { scale: 1, duration: 0.3, ease: "sine.out" }, 28.72);
+      tl.to("#scene7", { opacity: 0, duration: 0.55, ease: "power1.in" }, 29.45);
+      tl.set("#scene7", { visibility: "hidden" }, 30.0);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>

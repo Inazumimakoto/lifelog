@@ -1,0 +1,21 @@
+{
+  "name": "lifelify-promo-video",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "remotion studio",
+    "still": "remotion still LifelifyPromoReel --frame=120 --scale=0.25",
+    "render": "remotion render LifelifyPromoReel out/lifelify-reel.mp4 --codec=h264 --pixel-format=yuv420p"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.368",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "remotion": "^4.0.368"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.79",
+    "@types/react-dom": "^18.2.25",
+    "typescript": "^5.4.5"
+  }
+}

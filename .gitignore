@@ -25,6 +25,10 @@ lifelog/DiaryPhotos/
 functions/node_modules/
 functions/lib/
 
+# Remotion promo video workspace
+promo-video/node_modules/
+promo-video/out/*.png
+
 # Sensitive files (contains API keys)
 GoogleService-Info.plist
 
