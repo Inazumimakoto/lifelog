@@ -10,6 +10,8 @@ import SwiftUI
 import UIKit
 
 struct WallpaperCalendarSettingsView: View {
+    @Environment(\.openURL) private var openURL
+    @AppStorage("WallpaperCalendar_OnboardingPresented_V1") private var hasSeenSetupGuide = false
     @State private var settings = WallpaperCalendarSettingsStore.shared.load()
     @State private var selectedBackgroundItem: PhotosPickerItem?
     @State private var previewSnapshot: WallpaperCalendarSnapshot?
@@ -17,6 +19,7 @@ struct WallpaperCalendarSettingsView: View {
     @State private var previewBackgroundImage: UIImage?
     @State private var generatedImageURL: URL?
     @State private var generatedImage: UIImage?
+    @State private var shortcutSheet: ShortcutSheet?
     @State private var shortcutGuidePage = 0
     @State private var shortcutAutomationGuidePage = 0
     @State private var isShowingBackgroundAdjustment = false
@@ -91,7 +94,7 @@ struct WallpaperCalendarSettingsView: View {
         ShortcutGuideStep(
             assetName: "WallpaperAutomationGuide04",
             title: String(localized: "ショートカットを選択"),
-            detail: String(localized: "上で作った「壁紙カレンダーを更新」のショートカットを選びます。")
+            detail: String(localized: "上で追加または作成した壁紙カレンダーのショートカットを選びます。")
         ),
         ShortcutGuideStep(
             assetName: "WallpaperAutomationGuide05",
@@ -100,79 +103,328 @@ struct WallpaperCalendarSettingsView: View {
         )
     ]
 
+    private enum ShortcutSheet: Identifiable, Equatable {
+        case setup(URL)
+        case manual
+
+        var id: String {
+            switch self {
+            case .setup: "setup"
+            case .manual: "manual"
+            }
+        }
+    }
+
     private let settingsStore = WallpaperCalendarSettingsStore.shared
     private let shortcutCreateURL = URL(string: "shortcuts://create-shortcut")
+    private let shortcutInstallationURL = WallpaperCalendarShortcut.installationURL
 
     var body: some View {
         Form {
             previewSection
             displaySection
             shortcutSection
-            generationSection
+            manualSetupFootnote
         }
         .navigationTitle("ロック画面カレンダー")
         .navigationBarTitleDisplayMode(.inline)
         .task {
             await refreshPreview()
             loadGeneratedImage()
+            presentInitialSetupIfNeeded()
         }
         .onChange(of: selectedBackgroundItem) { _, newItem in
             guard let newItem else { return }
             loadBackground(from: newItem)
         }
         .alert("ロック画面カレンダー", isPresented: Binding(
-            get: { alertMessage != nil },
+            get: { alertMessage != nil && shortcutSheet == nil },
             set: { if $0 == false { alertMessage = nil } }
         )) {
             Button("OK") { }
         } message: {
             Text(alertMessage ?? "")
         }
-        .sheet(isPresented: $isShowingBackgroundAdjustment) {
-            if let previewSnapshot = currentPreviewPage?.snapshot ?? previewSnapshot,
-               let previewBackgroundImage {
-                WallpaperBackgroundAdjustmentSheet(
-                    snapshot: previewSnapshot,
-                    settings: settings,
-                    backgroundImage: previewBackgroundImage,
-                    isDarkAppearance: resolvedDarkAppearance,
-                    onSave: saveBackgroundAdjustment
-                )
-            } else {
-                NavigationStack {
-                    ContentUnavailableView(
-                        "画像を読み込めませんでした",
-                        systemImage: "photo",
-                        description: Text("もう一度、壁紙画像を選び直してください。")
-                    )
+        .sheet(item: $shortcutSheet, onDismiss: { alertMessage = nil }) { destination in
+            shortcutSheetContent(destination)
+                .sheet(isPresented: $isShowingBackgroundAdjustment) {
+                    backgroundAdjustmentContent
                 }
+                .alert("ロック画面カレンダー", isPresented: Binding(
+                    get: { alertMessage != nil },
+                    set: { if !$0 { alertMessage = nil } }
+                )) {
+                    Button("OK") { }
+                } message: {
+                    Text(alertMessage ?? "")
+                }
+        }
+        .sheet(isPresented: Binding(
+            get: { isShowingBackgroundAdjustment && shortcutSheet == nil },
+            set: { isShowingBackgroundAdjustment = $0 }
+        )) {
+            backgroundAdjustmentContent
+        }
+    }
+
+    @ViewBuilder
+    private var backgroundAdjustmentContent: some View {
+        if let previewSnapshot = currentPreviewPage?.snapshot ?? previewSnapshot,
+           let previewBackgroundImage {
+            WallpaperBackgroundAdjustmentSheet(
+                snapshot: previewSnapshot,
+                settings: settings,
+                backgroundImage: previewBackgroundImage,
+                isDarkAppearance: resolvedDarkAppearance,
+                onSave: saveBackgroundAdjustment
+            )
+        } else {
+            NavigationStack {
+                ContentUnavailableView(
+                    "画像を読み込めませんでした",
+                    systemImage: "photo",
+                    description: Text("もう一度、壁紙画像を選び直してください。")
+                )
             }
         }
     }
 
     private var previewSection: some View {
         Section {
-            if previewPages.isEmpty == false {
-                WallpaperCalendarPreviewEditor(
-                    selectedBackgroundItem: $selectedBackgroundItem,
-                    pages: previewPages,
-                    selectedPreset: settings.layoutPreset.normalized,
-                    backgroundImage: previewBackgroundImage,
-                    backgroundColor: colorPickerSelection(for: backgroundColorBinding),
-                    isDarkAppearance: resolvedDarkAppearance,
-                    isLoadingBackground: isLoadingBackground,
-                    onSelectPreset: selectLayoutPreset,
-                    onAdjustBackground: {
-                        isShowingBackgroundAdjustment = true
-                    },
-                    onRemoveBackground: removeBackgroundImage
-                )
+            wallpaperPreview
                 .listRowInsets(EdgeInsets(top: 16, leading: 0, bottom: 16, trailing: 0))
                 .listRowBackground(Color.clear)
+        }
+    }
+
+    @ViewBuilder
+    private var wallpaperPreview: some View {
+        if previewPages.isEmpty == false {
+            WallpaperCalendarPreviewEditor(
+                selectedBackgroundItem: $selectedBackgroundItem,
+                pages: previewPages,
+                selectedPreset: settings.layoutPreset.normalized,
+                backgroundImage: previewBackgroundImage,
+                backgroundColor: colorPickerSelection(for: backgroundColorBinding),
+                isDarkAppearance: resolvedDarkAppearance,
+                isLoadingBackground: isLoadingBackground,
+                onSelectPreset: selectLayoutPreset,
+                onAdjustBackground: { isShowingBackgroundAdjustment = true },
+                onRemoveBackground: removeBackgroundImage
+            )
+        } else {
+            ProgressView()
+                .frame(maxWidth: .infinity, alignment: .center)
+        }
+    }
+
+    private var onboardingBackgroundContent: some View {
+        VStack(alignment: .leading, spacing: 20) {
+            if let previewBackgroundImage, let page = currentPreviewPage {
+                WallpaperCalendarLockScreenPreview(
+                    snapshot: page.snapshot,
+                    settings: page.settings,
+                    backgroundImage: previewBackgroundImage,
+                    isDarkAppearance: resolvedDarkAppearance
+                )
+                .scaledPhonePreview(width: 170)
+                .frame(maxWidth: .infinity)
+                .accessibilityHidden(true)
+            } else {
+                AppColorPalette.color(for: settings.backgroundColorToken)
+                    .frame(height: 140)
+                    .frame(maxWidth: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 16))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 16)
+                            .strokeBorder(Color.secondary.opacity(0.2))
+                    }
+                    .accessibilityHidden(true)
+            }
+
+            PhotosPicker(selection: $selectedBackgroundItem, matching: .images) {
+                HStack {
+                    Label {
+                        if previewBackgroundImage == nil {
+                            Text("写真を選ぶ")
+                        } else {
+                            Text("写真を変更")
+                        }
+                    } icon: {
+                        Image(systemName: "photo")
+                    }
+                    Spacer()
+                    if isLoadingBackground {
+                        ProgressView()
+                    }
+                }
+                .frame(minHeight: 32)
+            }
+            .buttonStyle(.bordered)
+            .disabled(isLoadingBackground)
+            .accessibilityIdentifier("wallpaperSetup.photo")
+
+            if previewBackgroundImage == nil {
+                ColorPicker("背景色", selection: colorPickerSelection(for: backgroundColorBinding), supportsOpacity: false)
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("wallpaperSetup.color")
+            } else {
+                Button {
+                    isShowingBackgroundAdjustment = true
+                } label: {
+                    Label("写真の位置を調整", systemImage: "arrow.up.left.and.arrow.down.right")
+                        .frame(minHeight: 44)
+                }
+                .disabled(isLoadingBackground)
+                .accessibilityIdentifier("wallpaperSetup.adjust")
+
+                Button("写真を使わない", role: .destructive, action: removeBackgroundImage)
+                    .frame(minHeight: 44)
+                    .disabled(isLoadingBackground)
+                    .accessibilityIdentifier("wallpaperSetup.removePhoto")
+            }
+        }
+    }
+
+    private var onboardingLayoutContent: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            GeometryReader { proxy in
+                let spacing: CGFloat = 10
+                let optionWidth = max(0, (proxy.size.width - spacing * 2) / 3)
+                let phoneWidth = max(1, min(104, optionWidth - 16))
+
+                HStack(alignment: .top, spacing: spacing) {
+                    ForEach(WallpaperCalendarLayoutPreset.selectableCases) { preset in
+                        Button {
+                            selectLayoutPreset(preset)
+                        } label: {
+                            onboardingLayoutOption(preset, phoneWidth: phoneWidth)
+                                .frame(width: optionWidth)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(preset.weekCount.title)
+                        .accessibilityIdentifier("wallpaperSetup.layout.\(preset.rawValue)")
+                        .accessibilityAddTraits(settings.layoutPreset.normalized == preset ? .isSelected : [])
+                    }
+                }
+            }
+            .frame(height: 300)
+
+            Text(settings.layoutPreset.normalized.detail)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func onboardingLayoutOption(_ preset: WallpaperCalendarLayoutPreset, phoneWidth: CGFloat) -> some View {
+        let isSelected = settings.layoutPreset.normalized == preset
+
+        return VStack(spacing: 10) {
+            if let page = previewPages.first(where: { $0.preset == preset.normalized }) {
+                WallpaperCalendarLockScreenPreview(
+                    snapshot: page.snapshot,
+                    settings: page.settings,
+                    backgroundImage: previewBackgroundImage,
+                    isDarkAppearance: resolvedDarkAppearance
+                )
+                .scaledPhonePreview(width: phoneWidth)
+                .accessibilityHidden(true)
             } else {
                 ProgressView()
-                    .frame(maxWidth: .infinity, alignment: .center)
+                    .frame(width: phoneWidth, height: phoneWidth * 852 / 393)
             }
+
+            HStack(spacing: 4) {
+                Text(preset.weekCount.title)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                    .accessibilityHidden(true)
+            }
+        }
+        .padding(8)
+        .frame(maxWidth: .infinity)
+        .background(isSelected ? Color.accentColor.opacity(0.08) : Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var onboardingPrivacyContent: some View {
+        VStack(spacing: 12) {
+            ForEach(WallpaperCalendarPrivacyMode.allCases) { mode in
+                Button {
+                    binding(\.privacyMode).wrappedValue = mode
+                } label: {
+                    selectionCard(
+                        title: mode.title,
+                        detail: privacyDescription(for: mode),
+                        isSelected: settings.privacyMode == mode
+                    )
+                }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("wallpaperSetup.privacy.\(mode.rawValue)")
+                .accessibilityAddTraits(settings.privacyMode == mode ? .isSelected : [])
+            }
+        }
+    }
+
+    private func selectionCard(title: String, detail: String, isSelected: Bool) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(title)
+                    .font(.headline)
+                Text(detail)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .font(.title3)
+                .foregroundStyle(isSelected ? Color.accentColor : Color.secondary)
+                .accessibilityHidden(true)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+        .background(isSelected ? Color.accentColor.opacity(0.08) : Color.secondary.opacity(0.06), in: RoundedRectangle(cornerRadius: 16))
+        .overlay {
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 1)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 16))
+    }
+
+    private func privacyDescription(for mode: WallpaperCalendarPrivacyMode) -> String {
+        switch mode {
+        case .details:
+            String(localized: "予定やタスクの名前を表示します。")
+        case .categoryOnly:
+            String(localized: "予定はカテゴリ名、タスクは「タスク」と表示します。")
+        case .hidden:
+            String(localized: "名前を隠して、「予定あり」「タスクあり」と表示します。")
+        }
+    }
+
+    @ViewBuilder
+    private var onboardingPreviewContent: some View {
+        if let page = currentPreviewPage {
+            WallpaperCalendarLockScreenPreview(
+                snapshot: page.snapshot,
+                settings: page.settings,
+                backgroundImage: previewBackgroundImage,
+                isDarkAppearance: resolvedDarkAppearance
+            )
+            .scaledPhonePreview(width: 210)
+            .frame(maxWidth: .infinity)
+        } else {
+            ProgressView()
+                .frame(maxWidth: .infinity)
         }
     }
 
@@ -187,39 +439,117 @@ struct WallpaperCalendarSettingsView: View {
     }
 
     private var shortcutSection: some View {
-        Section {
-            Text("次はショートカットとオートメーションを設定します。")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.primary)
+        Section("設定ガイド") {
+            Text("壁紙の作成から自動更新まで、設定手順をもう一度確認できます。")
+                .font(.subheadline)
                 .fixedSize(horizontal: false, vertical: true)
 
-            VStack(alignment: .leading, spacing: 12) {
-                ShortcutSetupNote()
+            Button(action: presentSetupGuide) {
+                HStack {
+                    Text("設定手順をもう一度見る")
+                    Spacer()
+                    Image(systemName: "arrow.right")
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("wallpaperShortcut.start")
+        }
+    }
 
-                ShortcutGuidePager(
-                    steps: Self.shortcutGuideSteps,
-                    selection: $shortcutGuidePage,
-                    onStepAction: { step in
-                        if step.actionTitle != nil {
-                            openShortcutCreator()
+    private func presentInitialSetupIfNeeded() {
+        // Requirements §4.11: automatically introduce the feature once on this device.
+        // This records presentation, not successful shortcut or automation installation.
+        guard !hasSeenSetupGuide else { return }
+        hasSeenSetupGuide = true
+        presentSetupGuide()
+    }
+
+    private func presentSetupGuide() {
+        if let shortcutInstallationURL {
+            shortcutSheet = .setup(shortcutInstallationURL)
+        } else {
+            shortcutSheet = .manual
+        }
+    }
+
+    private var manualSetupFootnote: some View {
+        Section {
+            Button {
+                shortcutSheet = .manual
+            } label: {
+                Text("※ 追加できない場合は、手動で作成できます。")
+                    .font(.footnote)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .accessibilityIdentifier("wallpaperShortcut.manual")
+            .listRowBackground(Color.clear)
+        }
+    }
+
+    @ViewBuilder
+    private func shortcutSheetContent(_ destination: ShortcutSheet) -> some View {
+        // requirements.md §4.11: adding, checking, and automating are explicit user steps.
+        switch destination {
+        case .setup(let url):
+            WallpaperCalendarShortcutInstallGuide(
+                isWallpaperLoading: isLoadingBackground,
+                onInstall: {
+                    openURL(url) { accepted in
+                        if !accepted {
+                            alertMessage = String(localized: "追加ページを開けませんでした。通信環境を確認して、もう一度お試しください。")
                         }
                     }
-                )
-
-                ShortcutAutomationSummary(
-                    steps: Self.shortcutAutomationSteps,
-                    selection: $shortcutAutomationGuidePage
-                )
-            }
-            .padding(.vertical, 4)
-        } header: {
-            Text("ショートカット")
-        } footer: {
-            VStack(alignment: .leading, spacing: 4) {
-                Text("「今日」がハイライトされるため、必要なら「時刻」トリガーで0:00に更新するオートメーションも追加してください。")
-                Text("ロック画面のレイアウトが初期化されますが、時刻のフォントやウィジェットはiOSの壁紙設定で変更し直してください。次からは適用されます。")
+                },
+                onOpenShortcuts: openShortcuts,
+                backgroundContent: { onboardingBackgroundContent },
+                layoutContent: { onboardingLayoutContent },
+                privacyContent: { onboardingPrivacyContent },
+                previewContent: { onboardingPreviewContent },
+                manualGuide: { manualSetupContent }
+            )
+        case .manual:
+            NavigationStack {
+                ScrollView {
+                    manualSetupContent
+                        .padding()
+                }
+                .navigationTitle("手動で設定")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("閉じる") { shortcutSheet = nil }
+                    }
+                }
             }
         }
+    }
+
+    private var manualSetupContent: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            manualShortcutGuide
+            ShortcutAutomationSummary(
+                steps: Self.shortcutAutomationSteps,
+                selection: $shortcutAutomationGuidePage
+            )
+            generationSection
+        }
+    }
+
+    private var manualShortcutGuide: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ShortcutSetupNote()
+
+            ShortcutGuidePager(
+                steps: Self.shortcutGuideSteps,
+                selection: $shortcutGuidePage,
+                onStepAction: { step in
+                    if step.actionTitle != nil {
+                        openShortcutCreator()
+                    }
+                }
+            )
+        }
+        .padding(.vertical, 4)
     }
 
     private var generationSection: some View {
@@ -251,8 +581,6 @@ struct WallpaperCalendarSettingsView: View {
                     Label("画像を共有", systemImage: "square.and.arrow.up")
                 }
             }
-        } footer: {
-            Text("予定・タスク・日付・設定が同じ場合、ショートカット実行時は前回作成した画像を再利用します。")
         }
     }
 
@@ -391,10 +719,23 @@ struct WallpaperCalendarSettingsView: View {
 
     private func openShortcutCreator() {
         guard let shortcutCreateURL else {
-            alertMessage = "ショートカット作成画面を開けませんでした。"
+            alertMessage = String(localized: "ショートカット作成画面を開けませんでした。")
             return
         }
-        UIApplication.shared.open(shortcutCreateURL)
+        openURL(shortcutCreateURL) { accepted in
+            if !accepted {
+                alertMessage = String(localized: "ショートカット作成画面を開けませんでした。")
+            }
+        }
+    }
+
+    private func openShortcuts() {
+        guard let url = URL(string: "shortcuts://") else { return }
+        openURL(url) { accepted in
+            if !accepted {
+                alertMessage = String(localized: "ショートカットを開けませんでした。ショートカットアプリがインストールされているか確認してください。")
+            }
+        }
     }
 
     private func loadGeneratedImage() {
@@ -456,12 +797,11 @@ private struct WallpaperCalendarPreviewEditor: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            Text("ロック画面からも予定を確認しましょう。まずはここから背景画像や週数を選択。")
+            Text("背景と表示する週数を選べます。")
                 .font(.footnote)
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
-                .lineLimit(1)
-                .minimumScaleFactor(0.75)
+                .fixedSize(horizontal: false, vertical: true)
                 .padding(.horizontal, 8)
 
             backgroundToolbar
@@ -602,7 +942,7 @@ private struct PreviewEditorIconButton: View {
 
 private extension WallpaperCalendarLayoutPreset {
     var weekLayoutTitle: String {
-        "\(weekCount.rawValue)週"
+        weekCount.title
     }
 
     var weekLayoutSubtitle: String {
@@ -779,10 +1119,10 @@ private struct ShortcutAutomationSummary: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("自動更新を設定", systemImage: "arrow.triangle.2.circlepath")
+            Label("自動更新を設定", systemImage: "3.circle")
                 .font(.subheadline.weight(.semibold))
 
-            Text("手動で動作確認できたら、必ず自動更新を設定します。")
+            Text("ショートカットの確認ができたら、毎回の操作なしで更新できるように設定します。")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)

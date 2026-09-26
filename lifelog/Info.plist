@@ -2,6 +2,9 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<!-- Shared actions generate the recipient's image and target the Lock Screen only. -->
+	<key>WallpaperCalendarShortcutURL</key>
+	<string>https://www.icloud.com/shortcuts/9978955ab3c148c796728101b02c3802</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
