@@ -9,6 +9,10 @@ struct DiaryPhotoImagePage: View {
     @Binding var isZoomed: Bool
 
     @State private var image: UIImage?
+    @State private var preview: UIImage?
+    @State private var loadedPath: String?
+    @State private var hasFullResolutionImage = false
+    @State private var loadGeneration = UUID()
     @State private var isLoading = false
     @State private var failed = false
     @State private var retryAttempt = 0
@@ -46,23 +50,66 @@ struct DiaryPhotoImagePage: View {
             }
         }
         .task(id: "\(path):\(isActive):\(retryAttempt)") {
-            image = nil
-            isZoomed = false
-            failed = false
-            isLoading = isActive
-            let preview = await PhotoStorage.loadThumbnail(at: path)
-            guard !_Concurrency.Task.isCancelled else { return }
-            image = preview
-            guard isActive else { return }
-            let fullImage = await PhotoStorage.loadFullImage(at: path)
-            guard !_Concurrency.Task.isCancelled else { return }
-            if let fullImage { image = fullImage }
-            failed = fullImage == nil
-            isLoading = false
+            await loadImageIfNeeded()
         }
         .onDisappear {
-            image = nil
+            loadGeneration = UUID()
+            releaseFullResolutionImage()
+            isLoading = false
             isZoomed = false
         }
+    }
+
+    private func loadImageIfNeeded() async {
+        guard !_Concurrency.Task.isCancelled else { return }
+        let requestedPath = path
+        let generation = UUID()
+        loadGeneration = generation
+
+        if loadedPath != requestedPath {
+            loadedPath = requestedPath
+            image = nil
+            preview = nil
+            hasFullResolutionImage = false
+            isZoomed = false
+        }
+        failed = false
+        isLoading = isActive && !hasFullResolutionImage
+
+        if !isActive {
+            releaseFullResolutionImage()
+        }
+
+        // Keep the current image and scroll view when retrying or reactivating a page.
+        // A preview is only needed when this photo has not displayed an image yet.
+        if image == nil {
+            let thumbnail = await PhotoStorage.loadThumbnail(at: requestedPath)
+            guard isCurrentLoad(generation, path: requestedPath) else { return }
+            preview = thumbnail
+            if !hasFullResolutionImage { image = thumbnail }
+        }
+
+        guard isActive, !hasFullResolutionImage else {
+            isLoading = false
+            return
+        }
+        let fullImage = await PhotoStorage.loadFullImage(at: requestedPath)
+        guard isCurrentLoad(generation, path: requestedPath) else { return }
+        if let fullImage {
+            image = fullImage
+            hasFullResolutionImage = true
+        }
+        failed = fullImage == nil
+        isLoading = false
+    }
+
+    private func isCurrentLoad(_ generation: UUID, path requestedPath: String) -> Bool {
+        !_Concurrency.Task.isCancelled && loadGeneration == generation && loadedPath == requestedPath
+    }
+
+    private func releaseFullResolutionImage() {
+        guard hasFullResolutionImage else { return }
+        image = preview
+        hasFullResolutionImage = false
     }
 }
