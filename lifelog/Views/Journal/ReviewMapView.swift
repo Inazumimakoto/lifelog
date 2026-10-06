@@ -23,6 +23,7 @@ enum ReviewMapPeriod: String, CaseIterable, Identifiable {
 
 struct ReviewMapPlaceDetailSheet: View {
     let group: ReviewLocationGroup
+    let tagDefinitions: [LocationVisitTagDefinition]
     let onOpenDiary: (Date) -> Void
     @Environment(\.dismiss) private var dismiss
 
@@ -52,7 +53,7 @@ struct ReviewMapPlaceDetailSheet: View {
             ScrollView {
                 LazyVStack(spacing: 8) {
                     ForEach(group.visits) { visit in
-                        ReviewMapVisitRow(visit: visit, onOpenDiary: onOpenDiary)
+                        ReviewMapVisitRow(visit: visit, tagDefinitions: tagDefinitions, onOpenDiary: onOpenDiary)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -65,6 +66,7 @@ struct ReviewMapPlaceDetailSheet: View {
 
 struct ReviewMapVisitRow: View {
     let visit: ReviewLocationVisit
+    let tagDefinitions: [LocationVisitTagDefinition]
     let onOpenDiary: (Date) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var showPhotoViewer = false
@@ -78,7 +80,10 @@ struct ReviewMapVisitRow: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(visit.tags, id: \.self) { tag in
-                            Text(BuiltInDisplayName.locationVisitTag(tag))
+                            HStack(spacing: 4) {
+                                LocationVisitTagSwatch(colorHex: ReviewMapPresentation.colorHex(for: tag, definitions: tagDefinitions))
+                                Text(BuiltInDisplayName.locationVisitTag(tag))
+                            }
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 8)
@@ -246,17 +251,20 @@ struct ReviewMapPhotoViewer: View {
 }
 
 struct ReviewMapView: View {
-    let groups: [ReviewLocationGroup]
-    let orderedTags: [String]
+    let snapshot: ReviewMapSnapshot
+    let renderedPlaces: [ReviewMapRenderedPlace]
+    let tagDefinitions: [LocationVisitTagDefinition]
     @Binding var period: ReviewMapPeriod
+    let onFiltersChanged: ([String]) -> Void
     let onOpenDiary: (Date) -> Void
 
     @State private var cameraPosition: MapCameraPosition = .region(Self.defaultRegion)
-    @State private var selectedGroup: ReviewLocationGroup?
+    @State private var selectedPlaceID: String?
     @State private var detailGroup: ReviewLocationGroup?
-    @State private var fullScreenSelectedGroup: ReviewLocationGroup?
+    @State private var fullScreenSelectedPlaceID: String?
     @State private var fullScreenDetailGroup: ReviewLocationGroup?
     @State private var hasAppliedRegion = false
+    @State private var lastAppliedRegion: ReviewMapRegion?
     @State private var selectedTagFilters: [String] = []
     @State private var showTagFilterSheet = false
     @State private var showFullScreenTagFilterSheet = false
@@ -267,31 +275,43 @@ struct ReviewMapView: View {
     private static let untaggedFilterToken = "__untagged__"
     private static let untaggedFilterLabel = "未タグ"
 
+    init(snapshot: ReviewMapSnapshot,
+         renderedPlaces: [ReviewMapRenderedPlace],
+         tagDefinitions: [LocationVisitTagDefinition],
+         period: Binding<ReviewMapPeriod>,
+         onFiltersChanged: @escaping ([String]) -> Void,
+         onOpenDiary: @escaping (Date) -> Void) {
+        self.snapshot = snapshot
+        self.renderedPlaces = renderedPlaces
+        self.tagDefinitions = tagDefinitions
+        _period = period
+        self.onFiltersChanged = onFiltersChanged
+        self.onOpenDiary = onOpenDiary
+        _selectedTagFilters = State(initialValue: snapshot.query.selectedFilters)
+    }
+
     var body: some View {
         VStack(spacing: 12) {
-            mapCanvas(selection: $selectedGroup,
+            mapCanvas(selection: $selectedPlaceID,
                       showsExpandButton: true,
                       showsEmptyOverlay: false,
                       onFilterTap: { showTagFilterSheet = true })
-            .onChange(of: selectedGroup) { _, newValue in
-                guard let group = newValue else { return }
-                detailGroup = group
-                selectedGroup = nil
+            .onChange(of: selectedPlaceID) { _, newValue in
+                guard let id = newValue else { return }
+                detailGroup = renderedPlaces.first(where: { $0.id == id })?.detailGroup()
+                selectedPlaceID = nil
             }
             .onAppear {
-                applyRegion(force: true)
+                applySnapshotRegion()
             }
-            .onChange(of: period) { _, _ in
-                applyRegion(force: true)
+            .onChange(of: snapshot.region) { _, _ in
+                applySnapshotRegion()
             }
-            .onChange(of: groups) { _, _ in
-                applyRegion(force: true)
-            }
-            .onChange(of: selectedTagFilters) { _, _ in
-                applyRegion(force: true)
+            .onChange(of: snapshot.query.selectedFilters) { _, newValue in
+                if selectedTagFilters != newValue { selectedTagFilters = newValue }
             }
 
-            if filteredGroups.isEmpty {
+            if snapshot.places.isEmpty {
                 emptyState
             } else {
                 listSheet
@@ -299,15 +319,16 @@ struct ReviewMapView: View {
         }
         .frame(maxWidth: .infinity)
         .sheet(item: $detailGroup) { group in
-            ReviewMapPlaceDetailSheet(group: group, onOpenDiary: { date in
+            ReviewMapPlaceDetailSheet(group: group, tagDefinitions: tagDefinitions, onOpenDiary: { date in
                 onOpenDiary(date)
                 detailGroup = nil
             })
             .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showTagFilterSheet) {
-            ReviewMapTagFilterSheet(tags: availableFilterTags,
-                                    selectedFilters: $selectedTagFilters,
+            ReviewMapTagFilterSheet(tags: snapshot.availableTagNames,
+                                    tagDefinitions: tagDefinitions,
+                                    selectedFilters: selectedTagFiltersBinding,
                                     untaggedToken: Self.untaggedFilterToken,
                                     untaggedLabel: Self.untaggedFilterLabel)
                 .presentationDetents([.medium, .large])
@@ -317,37 +338,15 @@ struct ReviewMapView: View {
         }
     }
 
-    private func mapCanvas(selection: Binding<ReviewLocationGroup?>,
+    private func mapCanvas(selection: Binding<String?>,
                            showsExpandButton: Bool,
                            showsEmptyOverlay: Bool,
                            onFilterTap: @escaping () -> Void) -> some View {
-        Map(position: $cameraPosition,
-            interactionModes: .all,
-            selection: selection) {
-            ForEach(filteredGroups) { group in
-                Annotation(group.name, coordinate: group.coordinate) {
-                    VStack(spacing: 0) {
-                        HStack(spacing: 4) {
-                            Text(group.dateSummary)
-                                .font(.system(size: 9, weight: .semibold))
-                                .foregroundStyle(.white)
-                                .padding(.horizontal, 5)
-                                .padding(.vertical, 1)
-                                .background(.black.opacity(0.7), in: Capsule())
-                                .lineLimit(1)
-                        }
-                        .padding(.bottom, -5)
-                        .zIndex(1)
-                        Image(systemName: "mappin.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.red)
-                            .zIndex(0)
-                    }
-                }
-                .tag(group)
-            }
-        }
-        .mapStyle(.standard(elevation: .flat, pointsOfInterest: .excludingAll))
+        ReviewMapCanvas(renderedPlaces: renderedPlaces,
+                        highlightedGroupID: showsExpandButton ? detailGroup?.id : fullScreenDetailGroup?.id,
+                        hasFilterChips: !selectedTagFilters.isEmpty,
+                        cameraPosition: $cameraPosition,
+                        selection: selection)
         .overlay(alignment: .topTrailing) {
             periodMenu
                 .padding(.top, 8)
@@ -366,7 +365,7 @@ struct ReviewMapView: View {
             }
         }
         .overlay(alignment: .bottom) {
-            if showsEmptyOverlay && filteredGroups.isEmpty {
+            if showsEmptyOverlay && snapshot.places.isEmpty {
                 emptyState
                     .padding(.bottom, 16)
             }
@@ -376,7 +375,7 @@ struct ReviewMapView: View {
 
     private var fullScreenMap: some View {
         NavigationStack {
-            mapCanvas(selection: $fullScreenSelectedGroup,
+            mapCanvas(selection: $fullScreenSelectedPlaceID,
                       showsExpandButton: false,
                       showsEmptyOverlay: true,
                       onFilterTap: { showFullScreenTagFilterSheet = true })
@@ -392,23 +391,24 @@ struct ReviewMapView: View {
                 }
             }
         }
-        .onChange(of: fullScreenSelectedGroup) { _, newValue in
-            guard let group = newValue else { return }
-            fullScreenDetailGroup = group
-            fullScreenSelectedGroup = nil
+        .onChange(of: fullScreenSelectedPlaceID) { _, newValue in
+            guard let id = newValue else { return }
+            fullScreenDetailGroup = renderedPlaces.first(where: { $0.id == id })?.detailGroup()
+            fullScreenSelectedPlaceID = nil
         }
         .onDisappear {
-            fullScreenSelectedGroup = nil
+            fullScreenSelectedPlaceID = nil
             fullScreenDetailGroup = nil
             showFullScreenTagFilterSheet = false
         }
         .sheet(item: $fullScreenDetailGroup) { group in
-            ReviewMapPlaceDetailSheet(group: group, onOpenDiary: openDiaryFromFullScreenMap)
+            ReviewMapPlaceDetailSheet(group: group, tagDefinitions: tagDefinitions, onOpenDiary: openDiaryFromFullScreenMap)
                 .presentationDetents([.medium, .large])
         }
         .sheet(isPresented: $showFullScreenTagFilterSheet) {
-            ReviewMapTagFilterSheet(tags: availableFilterTags,
-                                    selectedFilters: $selectedTagFilters,
+            ReviewMapTagFilterSheet(tags: snapshot.availableTagNames,
+                                    tagDefinitions: tagDefinitions,
+                                    selectedFilters: selectedTagFiltersBinding,
                                     untaggedToken: Self.untaggedFilterToken,
                                     untaggedLabel: Self.untaggedFilterLabel)
                 .presentationDetents([.medium, .large])
@@ -472,8 +472,12 @@ struct ReviewMapView: View {
             if selectedTagFilters.isEmpty == false {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
-                        ForEach(selectedFilterLabels, id: \.self) { label in
-                            Text(label)
+                        ForEach(selectedTagFilters, id: \.self) { tag in
+                            HStack(spacing: 4) {
+                                LocationVisitTagSwatch(colorHex: ReviewMapPresentation.colorHex(for: tag, definitions: tagDefinitions))
+                                Text(tag == Self.untaggedFilterToken
+                                     ? String(localized: "未タグ") : BuiltInDisplayName.locationVisitTag(tag))
+                            }
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 8)
@@ -481,7 +485,7 @@ struct ReviewMapView: View {
                                 .background(.ultraThinMaterial, in: Capsule())
                         }
                         Button("クリア") {
-                            selectedTagFilters = []
+                            updateFilters([])
                         }
                         .font(.caption2.weight(.semibold))
                         .padding(.horizontal, 8)
@@ -517,21 +521,21 @@ struct ReviewMapView: View {
                 .padding(.top, 8)
             ScrollView {
                 LazyVStack(spacing: 12) {
-                    ForEach(filteredGroups) { group in
+                    ForEach(snapshot.places) { place in
                         Button {
-                            detailGroup = group
+                            detailGroup = renderedPlaces.first(where: { $0.id == place.id })?.detailGroup()
                         } label: {
                             HStack(alignment: .top, spacing: 12) {
                                 VStack(alignment: .leading, spacing: 4) {
-                                    Text(group.name)
+                                    Text(verbatim: place.location.name)
                                         .font(.body.weight(.semibold))
                                         .foregroundStyle(.primary)
                                         .lineLimit(1)
-                                    Text(group.dateSummary)
+                                    Text(verbatim: place.dateSummary)
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
-                                    if group.allTags.isEmpty == false {
-                                        Text(group.allTags.prefix(3).joined(separator: " / "))
+                                    if !place.listTagText.isEmpty {
+                                        Text(verbatim: place.listTagText)
                                             .font(.caption2)
                                             .foregroundStyle(.secondary)
                                             .lineLimit(1)
@@ -556,93 +560,37 @@ struct ReviewMapView: View {
         .padding(.horizontal, 12)
     }
 
-    private func applyRegion(force: Bool) {
-        guard force || hasAppliedRegion == false else { return }
-        let region = regionForEntries(filteredGroups)
-        cameraPosition = .region(region)
+    private func applySnapshotRegion() {
+        guard !hasAppliedRegion || lastAppliedRegion != snapshot.region else { return }
+        let region: MKCoordinateRegion
+        if let saved = snapshot.region {
+            region = MKCoordinateRegion(center: CLLocationCoordinate2D(latitude: saved.centerLatitude,
+                                                                       longitude: saved.centerLongitude),
+                                        span: MKCoordinateSpan(latitudeDelta: saved.latitudeDelta,
+                                                               longitudeDelta: saved.longitudeDelta))
+        } else {
+            region = Self.defaultRegion
+        }
+        lastAppliedRegion = snapshot.region
         hasAppliedRegion = true
+        cameraPosition = .region(region)
     }
 
-    private var filteredGroups: [ReviewLocationGroup] {
-        guard selectedTagFilters.isEmpty == false else {
-            return groups
-        }
-        return groups.compactMap { group in
-            let matchedVisits = group.visits.filter(visitMatchesFilter)
-            guard matchedVisits.isEmpty == false else { return nil }
-            return ReviewLocationGroup(id: group.id, location: group.location, visits: matchedVisits)
-        }
+    private var selectedTagFiltersBinding: Binding<[String]> {
+        Binding(get: { selectedTagFilters }, set: updateFilters)
     }
 
-    private var availableFilterTags: [String] {
-        var seen: Set<String> = []
-        var merged: [String] = []
-        func append(_ name: String) {
-            let key = normalizedTagKey(name)
-            guard seen.contains(key) == false else { return }
-            seen.insert(key)
-            merged.append(name)
-        }
-        for tag in orderedTags {
-            append(tag)
-        }
-        for group in groups {
-            for tag in group.allTags {
-                append(tag)
-            }
-        }
-        return merged
-    }
-
-    private var selectedFilterLabels: [String] {
-        selectedTagFilters.map { $0 == Self.untaggedFilterToken ? Self.untaggedFilterLabel : $0 }
+    private func updateFilters(_ filters: [String]) {
+        guard selectedTagFilters != filters else { return }
+        selectedTagFilters = filters
+        onFiltersChanged(filters)
     }
 
     private var emptyStateMessage: String {
-        if groups.isEmpty {
+        if snapshot.unfilteredPlaceCount == 0 {
             return "この期間の場所はありません"
         }
         return "選択中タグに一致する場所はありません"
-    }
-
-    private func visitMatchesFilter(_ visit: ReviewLocationVisit) -> Bool {
-        guard selectedTagFilters.isEmpty == false else { return true }
-        let includesUntagged = selectedTagFilters.contains(Self.untaggedFilterToken)
-        if includesUntagged && visit.tags.isEmpty {
-            return true
-        }
-        let selectedKeys = Set(selectedTagFilters
-            .filter { $0 != Self.untaggedFilterToken }
-            .map(normalizedTagKey))
-        guard selectedKeys.isEmpty == false else { return false }
-        return visit.tags.contains { selectedKeys.contains(normalizedTagKey($0)) }
-    }
-
-    private func normalizedTagKey(_ name: String) -> String {
-        name
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-    }
-
-    private func regionForEntries(_ items: [ReviewLocationGroup]) -> MKCoordinateRegion {
-        guard let first = items.first else { return Self.defaultRegion }
-        var minLat = first.coordinate.latitude
-        var maxLat = first.coordinate.latitude
-        var minLon = first.coordinate.longitude
-        var maxLon = first.coordinate.longitude
-        for entry in items.dropFirst() {
-            minLat = min(minLat, entry.coordinate.latitude)
-            maxLat = max(maxLat, entry.coordinate.latitude)
-            minLon = min(minLon, entry.coordinate.longitude)
-            maxLon = max(maxLon, entry.coordinate.longitude)
-        }
-        let latDelta = max(0.05, (maxLat - minLat) * 1.4)
-        let lonDelta = max(0.05, (maxLon - minLon) * 1.4)
-        let center = CLLocationCoordinate2D(latitude: (minLat + maxLat) / 2,
-                                            longitude: (minLon + maxLon) / 2)
-        return MKCoordinateRegion(center: center,
-                                  span: MKCoordinateSpan(latitudeDelta: latDelta,
-                                                         longitudeDelta: lonDelta))
     }
 
     private func openDiaryFromFullScreenMap(_ date: Date) {
@@ -656,6 +604,7 @@ struct ReviewMapView: View {
 
 struct ReviewMapTagFilterSheet: View {
     let tags: [String]
+    let tagDefinitions: [LocationVisitTagDefinition]
     @Binding var selectedFilters: [String]
     let untaggedToken: String
     let untaggedLabel: String
@@ -701,7 +650,8 @@ struct ReviewMapTagFilterSheet: View {
             toggle(token)
         } label: {
             HStack {
-                Text(label)
+                LocationVisitTagSwatch(colorHex: ReviewMapPresentation.colorHex(for: token, definitions: tagDefinitions))
+                Text(token == untaggedToken ? String(localized: "未タグ") : BuiltInDisplayName.locationVisitTag(label))
                 Spacer()
                 if contains(token) {
                     Image(systemName: "checkmark")

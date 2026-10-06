@@ -14755,6 +14755,42 @@
         }
       }
     },
+    "サンプルスポット %lld" : {
+      "comment" : "Simulator-only review map demo fixture in AppDataStore+SimulatorDemo.swift",
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sample spot %lld"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サンプルスポット %lld"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "샘플 장소 %lld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "示例地点 %lld"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "範例地點 %lld"
+          }
+        }
+      }
+    },
     "ジェスチャー" : {
       "comment" : "Literal from lifelog/Views/Diary/EmotionTagManagerView.swift",
       "localizations" : {
@@ -16129,6 +16165,111 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "標籤 %lld"
+          }
+        }
+      }
+    },
+    "タグ「%@」の色" : {
+      "comment" : "Visit tag color management in DiaryEditorView.swift",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Color for “%@”"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タグ「%@」の色"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“%@” 태그 색상"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标签“%@”的颜色"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標籤「%@」的顏色"
+          }
+        }
+      }
+    },
+    "タグの色の変更に失敗しました。" : {
+      "comment" : "Visit tag color management in DiaryEditorView.swift",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to change the tag color."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タグの色の変更に失敗しました。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "태그 색상을 변경하지 못했습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法更改标签颜色。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法變更標籤顏色。"
+          }
+        }
+      }
+    },
+    "タグの色は振り返りの地図に表示されます。" : {
+      "comment" : "Visit tag color management in DiaryEditorView.swift",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tag colors appear on the review map."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タグの色は振り返りの地図に表示されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "태그 색상은 돌아보기 지도에 표시됩니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "标签颜色会显示在回顾地图上。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "標籤顏色會顯示在回顧地圖上。"
           }
         }
       }
@@ -41162,6 +41303,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "週年紀念日之前"
+          }
+        }
+      }
+    },
+    "訪れた場所やタグを振り返るためのサンプル日記です。" : {
+      "comment" : "Simulator-only review map demo fixture in AppDataStore+SimulatorDemo.swift",
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This sample diary helps you review visited places and tags."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "訪れた場所やタグを振り返るためのサンプル日記です。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "방문한 장소와 태그를 돌아보기 위한 샘플 일기입니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这篇示例日记用于回顾到访过的地点和标签。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這篇範例日記用於回顧造訪過的地點和標籤。"
           }
         }
       }

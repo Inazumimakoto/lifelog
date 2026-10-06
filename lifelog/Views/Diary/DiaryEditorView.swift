@@ -489,6 +489,7 @@ struct DiaryEditorView: View {
                     VStack(spacing: 8) {
                         ForEach(viewModel.entry.locations) { location in
                             DiaryLocationRow(location: location,
+                                             store: viewModel.store,
                                              onLink: {
                                                  photoLinkContext = .location(location.id)
                                              },
@@ -684,6 +685,7 @@ private struct DiaryLocationsMapView: View, Equatable {
 
 private struct DiaryLocationRow: View, Equatable {
     let location: DiaryLocation
+    @ObservedObject var store: AppDataStore
     let onLink: () -> Void
     let onEditTags: () -> Void
     let onRemove: () -> Void
@@ -747,7 +749,10 @@ private struct DiaryLocationRow: View, Equatable {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(location.visitTags, id: \.self) { tag in
-                            Text(BuiltInDisplayName.locationVisitTag(tag))
+                            HStack(spacing: 4) {
+                                LocationVisitTagSwatch(colorHex: store.locationVisitTagColorHex(named: tag), size: 8)
+                                Text(BuiltInDisplayName.locationVisitTag(tag))
+                            }
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(.secondary)
                                 .padding(.horizontal, 8)
@@ -894,7 +899,10 @@ private struct LocationVisitTagPickerSheet: View {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
                         ForEach(workingTags, id: \.self) { tag in
-                            Text(BuiltInDisplayName.locationVisitTag(tag))
+                            HStack(spacing: 5) {
+                                LocationVisitTagSwatch(colorHex: store.locationVisitTagColorHex(named: tag), size: 10)
+                                Text(BuiltInDisplayName.locationVisitTag(tag))
+                            }
                                 .font(.caption.weight(.semibold))
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 6)
@@ -914,6 +922,7 @@ private struct LocationVisitTagPickerSheet: View {
                     toggleTag(definition.name)
                 } label: {
                     HStack {
+                        LocationVisitTagSwatch(colorHex: definition.colorHex, size: 12)
                         Text(BuiltInDisplayName.locationVisitTag(definition.name))
                         Spacer()
                         if containsTag(named: definition.name) {
@@ -1044,11 +1053,16 @@ private struct LocationVisitTagManagerView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("タグ一覧") {
+                Section {
                     ForEach(orderedDefinitions) { definition in
                         HStack(spacing: 8) {
                             Image(systemName: "line.3.horizontal")
                                 .foregroundStyle(.tertiary)
+                            ColorPicker(selection: colorSelection(for: definition), supportsOpacity: false) {
+                                Text("タグ「\(BuiltInDisplayName.locationVisitTag(definition.name))」の色")
+                            }
+                            .labelsHidden()
+                            .fixedSize()
                             Text(BuiltInDisplayName.locationVisitTag(definition.name))
                             Spacer()
                             Button {
@@ -1071,6 +1085,10 @@ private struct LocationVisitTagManagerView: View {
                     .onMove { source, destination in
                         store.moveLocationVisitTag(from: source, to: destination)
                     }
+                } header: {
+                    Text("タグ一覧")
+                } footer: {
+                    Text("タグの色は振り返りの地図に表示されます。")
                 }
                 
                 Section("タグを追加") {
@@ -1169,6 +1187,25 @@ private struct LocationVisitTagManagerView: View {
                 Text(messageText ?? "")
             })
         }
+    }
+
+    private func colorSelection(for definition: LocationVisitTagDefinition) -> Binding<Color> {
+        Binding(
+            get: {
+                let colorHex = store.locationVisitTagDefinitions.first(where: { $0.id == definition.id })?.colorHex
+                    ?? definition.colorHex
+                return Color(hex: colorHex) ?? .gray
+            },
+            set: { selected in
+                guard let colorHex = selected.cgColor?.hexString else { return }
+                do {
+                    try store.updateLocationVisitTagColor(id: definition.id, colorHex: colorHex)
+                } catch {
+                    messageText = (error as? AppDataStore.LocationVisitTagError)?.errorDescription
+                        ?? String(localized: "タグの色の変更に失敗しました。")
+                }
+            }
+        )
     }
     
     private func affectedVisitCount(for tagName: String) -> Int {

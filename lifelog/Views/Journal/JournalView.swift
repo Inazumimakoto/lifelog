@@ -103,9 +103,6 @@ struct JournalView: View {
     // 無効化はストアのデータ変更時（store.objectWillChange）にのみ行う。レンダーや
     // ページ切替では再計算しないため、表示内容は従来と完全に一致する。
     @State private var snapshotCache: [Date: CalendarDetailSnapshot] = [:]
-    // reviewMapGroups は store.diaryEntries 全件から毎レンダー再構築するため、period 単位でメモ化する。
-    // 無効化条件は snapshotCache と同じ（ストアのデータ変更時のみ）。
-    @State private var reviewMapGroupsCache: [ReviewMapPeriod: [ReviewLocationGroup]] = [:]
     // weekTimeline は 7 日分の timelineItems(for:) を毎レンダー再計算するため、startOfDay 単位でキャッシュする。
     // 無効化条件は上記と同じ。
     @State private var weekTimelineItemsCache: [Date: [JournalViewModel.TimelineItem]] = [:]
@@ -248,12 +245,11 @@ struct JournalView: View {
         }
         .onReceive(store.objectWillChange) { _ in
             // ストアのデータが変化した時のみ、各種スナップショットキャッシュを破棄する。
-            // これにより calendarSnapshot / reviewMapGroups / weekTimeline の計算は
+            // これにより calendarSnapshot / weekTimeline の計算は
             // 「データ変更ごとに最大1回」に抑えられ、毎レンダーの全件スキャンを排除する。
             // objectWillChange は変更の「直前」に発火するが、キャッシュは次回参照時に
             // 最新ストアから再計算されるため、表示が古くなることはない。
             snapshotCache.removeAll()
-            reviewMapGroupsCache.removeAll()
             weekTimelineItemsCache.removeAll()
         }
         .onAppear {
@@ -318,9 +314,6 @@ struct JournalView: View {
                 }
             }
             if calendarMode == .review {
-                // selectedReviewDate が nil の場合 reviewMapGroups(.month) は monthAnchor を
-                // 月境界の基準にフォールバックするため、月移動時もメモ化結果を破棄する。
-                reviewMapGroupsCache.removeAll()
                 syncReviewSelection(to: newAnchor)
             }
         }
@@ -351,9 +344,6 @@ struct JournalView: View {
             }
         }
         .onChange(of: selectedReviewDate) { _, newDate in
-            // reviewMapGroups(.month) は selectedReviewDate を月境界の基準に使うため、
-            // 選択日が変わったらメモ化結果を破棄する（ストア変更以外の無効化要因）。
-            reviewMapGroupsCache.removeAll()
             reviewPhotoIndex = preferredPhotoIndex(for: store.entry(for: newDate ?? viewModel.monthAnchor))
         }
     }
@@ -1064,12 +1054,10 @@ struct JournalView: View {
     }
 
     private var reviewMap: some View {
-        ReviewMapView(groups: reviewMapGroups(for: reviewMapPeriod),
-                      orderedTags: store.locationVisitTagDefinitions
-                        .sorted { $0.sortOrder < $1.sortOrder }
-                        .map(\.name),
-                      period: $reviewMapPeriod,
-                      onOpenDiary: { openDiaryEditor(for: $0) })
+        ReviewMapContainerView(store: store, period: $reviewMapPeriod,
+                               anchorDate: selectedReviewDate ?? viewModel.monthAnchor,
+                               onOpenDiary: { openDiaryEditor(for: $0) })
+            .equatable()
     }
 
     private func preferredPhotoIndex(for diary: DiaryEntry?) -> Int {
@@ -1079,77 +1067,6 @@ struct JournalView: View {
             return index
         }
         return 0
-    }
-
-    private func reviewMapGroups(for period: ReviewMapPeriod) -> [ReviewLocationGroup] {
-        // diaryEntries 全件からの再構築はストア変更まで不変なので period 単位でメモ化する。
-        if let cached = reviewMapGroupsCache[period] {
-            return cached
-        }
-        let groups = computeReviewMapGroups(for: period)
-        reviewMapGroupsCache[period] = groups
-        return groups
-    }
-
-    private func computeReviewMapGroups(for period: ReviewMapPeriod) -> [ReviewLocationGroup] {
-        let calendar = Calendar.current
-        let anchor = selectedReviewDate ?? viewModel.monthAnchor
-        let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: anchor)) ?? anchor
-        let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) ?? monthStart
-
-        func isIncluded(_ date: Date) -> Bool {
-            switch period {
-            case .all:
-                return true
-            case .month:
-                return date >= monthStart && date < monthEnd
-            }
-        }
-
-        var results: [ReviewLocationEntry] = []
-        for entry in store.diaryEntries {
-            let entryDate = entry.date.startOfDay
-            guard isIncluded(entryDate) else { continue }
-            let locations: [DiaryLocation]
-            if entry.locations.isEmpty,
-               let name = entry.locationName,
-               name.isEmpty == false,
-               let latitude = entry.latitude,
-               let longitude = entry.longitude {
-                locations = [
-                    DiaryLocation(name: name,
-                                  address: nil,
-                                  latitude: latitude,
-                                  longitude: longitude,
-                                  mapItemURL: nil,
-                                  photoPaths: [])
-                ]
-            } else {
-                locations = entry.locations
-            }
-            for location in locations {
-                results.append(ReviewLocationEntry(date: entryDate,
-                                                   location: location,
-                                                   photoPaths: location.photoPaths,
-                                                   tags: location.visitTags))
-            }
-        }
-        var grouped: [String: ReviewLocationGroupBuilder] = [:]
-        for entry in results {
-            let key = ReviewLocationGroupBuilder.makeKey(for: entry.location)
-            if var existing = grouped[key] {
-                existing.add(date: entry.date, photoPaths: entry.photoPaths, tags: entry.tags)
-                grouped[key] = existing
-            } else {
-                grouped[key] = ReviewLocationGroupBuilder(location: entry.location,
-                                                          date: entry.date,
-                                                          photoPaths: entry.photoPaths,
-                                                          tags: entry.tags)
-            }
-        }
-        return grouped.values
-            .map { ReviewLocationGroup(id: $0.id, location: $0.location, visits: $0.visits) }
-            .sorted { $0.latestDate > $1.latestDate }
     }
 
     private func conditionEmoji(for score: Int) -> String {

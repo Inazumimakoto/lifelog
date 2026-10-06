@@ -88,7 +88,9 @@ struct ReviewLocationGroupBuilder {
         }
         let lat = (location.latitude * 10_000).rounded() / 10_000
         let lon = (location.longitude * 10_000).rounded() / 10_000
-        return "coord:\(lat),\(lon)"
+        let name = location.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+        return "coord:\(lat),\(lon):\(name)"
     }
 
     mutating func add(date: Date, photoPaths: [String], tags: [String]) {

@@ -290,15 +290,44 @@ struct LocationVisitTagDefinition: Identifiable, Codable, Hashable {
     var name: String
     var sortOrder: Int
     var createdAt: Date
+    var colorHex: String
 
     init(id: UUID = UUID(),
          name: String,
          sortOrder: Int,
-         createdAt: Date = Date()) {
+         createdAt: Date = Date(),
+         colorHex: String? = nil) {
         self.id = id
         self.name = name
         self.sortOrder = sortOrder
         self.createdAt = createdAt
+        self.colorHex = colorHex.flatMap(LocationVisitTagPalette.normalizedHex)
+            ?? LocationVisitTagPalette.defaultHex(for: sortOrder)
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, name, sortOrder, createdAt, colorHex
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        sortOrder = try container.decode(Int.self, forKey: .sortOrder)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        let storedColor = try? container.decode(String.self, forKey: .colorHex)
+        colorHex = storedColor.flatMap(LocationVisitTagPalette.normalizedHex)
+            ?? LocationVisitTagPalette.defaultHex(for: sortOrder)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(sortOrder, forKey: .sortOrder)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encode(LocationVisitTagPalette.normalizedHex(colorHex)
+            ?? LocationVisitTagPalette.defaultHex(for: sortOrder), forKey: .colorHex)
     }
 }
 

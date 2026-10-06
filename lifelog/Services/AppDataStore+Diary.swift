@@ -63,10 +63,31 @@ extension AppDataStore {
     func createLocationVisitTag(named rawName: String) throws -> LocationVisitTagDefinition {
         let name = try validatedLocationVisitTagName(rawName)
         let definition = LocationVisitTagDefinition(name: name,
-                                                    sortOrder: locationVisitTagDefinitions.count)
+                                                    sortOrder: locationVisitTagDefinitions.count,
+                                                    colorHex: nextLocationVisitTagColorHex)
         locationVisitTagDefinitions.append(definition)
         persistLocationVisitTags()
         return definition
+    }
+
+    func updateLocationVisitTagColor(id: UUID, colorHex: String) throws {
+        guard let index = locationVisitTagDefinitions.firstIndex(where: { $0.id == id }) else {
+            throw LocationVisitTagError.tagNotFound
+        }
+        guard let normalized = LocationVisitTagPalette.normalizedHex(colorHex),
+              locationVisitTagDefinitions[index].colorHex != normalized else { return }
+        locationVisitTagDefinitions[index].colorHex = normalized
+        persistLocationVisitTags()
+    }
+
+    func locationVisitTagColorHex(named name: String) -> String {
+        let key = Self.normalizedTagKey(name)
+        return locationVisitTagDefinitions.first { Self.normalizedTagKey($0.name) == key }?.colorHex
+            ?? LocationVisitTagPalette.untaggedHex
+    }
+
+    private var nextLocationVisitTagColorHex: String {
+        LocationVisitTagPalette.automaticHex(existingHexes: locationVisitTagDefinitions.map(\.colorHex))
     }
 
     func renameLocationVisitTag(id: UUID, to rawName: String) throws {
@@ -125,7 +146,8 @@ extension AppDataStore {
         var addedCount = 0
         for name in Self.defaultLocationVisitTagNames where containsLocationVisitTag(named: name) == false {
             let definition = LocationVisitTagDefinition(name: name,
-                                                        sortOrder: locationVisitTagDefinitions.count)
+                                                        sortOrder: locationVisitTagDefinitions.count,
+                                                        colorHex: nextLocationVisitTagColorHex)
             locationVisitTagDefinitions.append(definition)
             addedCount += 1
         }
@@ -253,6 +275,7 @@ extension AppDataStore {
 
     func seedDefaultLocationVisitTagsIfNeeded() {
         let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier) ?? UserDefaults.standard
+        persistLocationVisitTagColorsIfNeeded(defaults: defaults)
         let hasSeeded = defaults.bool(forKey: Self.locationVisitTagsSeededDefaultsKey)
         guard hasSeeded == false else { return }
 
@@ -263,6 +286,20 @@ extension AppDataStore {
             persistLocationVisitTags()
         }
         defaults.set(true, forKey: Self.locationVisitTagsSeededDefaultsKey)
+    }
+
+    /// Write backward-compatible decoded colors once, keeping the existing UserDefaults key.
+    private func persistLocationVisitTagColorsIfNeeded(defaults: UserDefaults) {
+        guard locationVisitTagDefinitions.isEmpty == false,
+              let data = defaults.data(forKey: Self.locationVisitTagsDefaultsKey),
+              let storedTags = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else { return }
+        let needsPersistence = storedTags.contains { tag in
+            guard let storedColor = tag["colorHex"] as? String else { return true }
+            return LocationVisitTagPalette.normalizedHex(storedColor) != storedColor
+        }
+        if needsPersistence {
+            persistLocationVisitTags()
+        }
     }
 
     func normalizeLocationVisitTagOrderIfNeeded() {

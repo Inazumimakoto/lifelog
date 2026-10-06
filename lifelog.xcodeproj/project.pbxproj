@@ -75,6 +75,7 @@
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Models/CalendarDayLink.swift,
+				Models/LocationVisitTagPalette.swift,
 				Models/Models.swift,
 				Models/ScheduleMonth.swift,
 				Models/SwiftDataModels.swift,

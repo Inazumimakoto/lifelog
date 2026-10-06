@@ -11,6 +11,7 @@ extension AppDataStore {
         let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier)!
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
+        seedSimulatorReviewMapDataIfNeeded(today: today, defaults: defaults)
         let seededDayKey = "simulatorDemo.seededDay.v1"
         guard (defaults.object(forKey: seededDayKey) as? Date) != today else { return }
 
@@ -82,6 +83,34 @@ extension AppDataStore {
         } catch {
             modelContext.rollback()
             AppLogger.data.error("Simulator demo data could not be saved: \(error)")
+        }
+    }
+
+    private func seedSimulatorReviewMapDataIfNeeded(today: Date, defaults: UserDefaults) {
+        guard PersistenceController.isSimulatorDemoMode,
+              modelContext.container.configurations.contains(where: {
+                  $0.url.lastPathComponent == "simulator-demo.store"
+              }) else { return }
+        let seededDayKey = "demo.reviewMap.seededDay.v1"
+        guard (defaults.object(forKey: seededDayKey) as? Date) != today else { return }
+        let fixtures = SimulatorReviewMapFixtures.entries(referenceDate: today)
+
+        do {
+            let savedDiaries = try modelContext.fetch(FetchDescriptor<SDDiaryEntry>())
+            for entry in fixtures {
+                if let existing = savedDiaries.first(where: { $0.id == entry.id }) {
+                    existing.update(from: entry)
+                } else {
+                    modelContext.insert(SDDiaryEntry(domain: entry))
+                }
+            }
+            try modelContext.save()
+            let reloadedDiaries = try modelContext.fetch(FetchDescriptor<SDDiaryEntry>()).map { DiaryEntry(sd: $0) }
+            diaryEntries = Self.normalizeDiaryEntries(reloadedDiaries)
+            defaults.set(today, forKey: seededDayKey)
+        } catch {
+            modelContext.rollback()
+            AppLogger.data.error("Simulator review map fixtures could not be saved: \(error)")
         }
     }
 }
