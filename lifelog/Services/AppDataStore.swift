@@ -67,6 +67,7 @@ final class AppDataStore: ObservableObject {
 
     // MARK: - SwiftData Context
     let modelContext: ModelContext
+    let shoppingStore: ShoppingStore
 
     static let maxLocationVisitTagsPerVisit = 8
     static let maxLocationVisitTagNameLength = 15
@@ -97,6 +98,7 @@ final class AppDataStore: ObservableObject {
         // Setup SwiftData
         let container = PersistenceController.shared.container
         self.modelContext = container.mainContext
+        self.shoppingStore = ShoppingStore(container: container)
 
         // 1. Run Migration (if needed)
         if !PersistenceController.isSimulatorDemoMode {
@@ -209,6 +211,8 @@ final class AppDataStore: ObservableObject {
 
     private var hasUserContentForInitialPermissions: Bool {
         !tasks.isEmpty ||
+        !shoppingStore.items.isEmpty ||
+        !shoppingStore.places.isEmpty ||
         !diaryEntries.isEmpty ||
         !habits.isEmpty ||
         !habitRecords.isEmpty ||

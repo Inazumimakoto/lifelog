@@ -14,6 +14,7 @@ struct AnimatedCheckmark: View {
     let isCompleted: Bool
     let color: Color
     var size: CGFloat = 24
+    var providesHapticFeedback = true
     
     @Environment(\.colorScheme) private var colorScheme
     @State private var circleScale: CGFloat = 0
@@ -70,8 +71,10 @@ struct AnimatedCheckmark: View {
     
     private func triggerCompletionAnimation() {
         // ハプティックフィードバック（成功）
-        let generator = UINotificationFeedbackGenerator()
-        generator.notificationOccurred(.success)
+        if providesHapticFeedback {
+            let generator = UINotificationFeedbackGenerator()
+            generator.notificationOccurred(.success)
+        }
         
         // 円のスケールアニメーション
         withAnimation(.spring(response: 0.3, dampingFraction: 0.6)) {
@@ -96,8 +99,10 @@ struct AnimatedCheckmark: View {
     
     private func triggerUndoAnimation() {
         // 軽いハプティック（リセット）
-        let generator = UIImpactFeedbackGenerator(style: .light)
-        generator.impactOccurred()
+        if providesHapticFeedback {
+            let generator = UIImpactFeedbackGenerator(style: .light)
+            generator.impactOccurred()
+        }
         
         withAnimation(.easeOut(duration: 0.2)) {
             checkmarkProgress = 0

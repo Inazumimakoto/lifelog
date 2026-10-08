@@ -66,6 +66,15 @@ struct ContentView: View {
             }
             .tag(1)
 
+            // docs/requirements.md §買い物: 日付に依存しないリストへ直接アクセス。
+            navigationStack(for: 4) {
+                ShoppingListView(store: store)
+            }
+            .tabItem {
+                Label("買い物", systemImage: "cart")
+            }
+            .tag(4)
+
             navigationStack(for: 2) {
                 HabitsCountdownView(store: store, resetTrigger: habitsResetTrigger)
             }

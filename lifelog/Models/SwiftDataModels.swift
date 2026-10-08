@@ -9,6 +9,55 @@ import Foundation
 import SwiftData
 import SwiftUI // For Color if needed, though usually stored as Hex String/Int in DB
 
+// MARK: - Shopping
+// Scalar fields allow the app and widget to share the same schema without app-only types.
+@Model
+final class SDShoppingItem {
+    @Attribute(.unique) var id: UUID
+    var title: String
+    var quantity: String
+    var note: String
+    var placeID: UUID?
+    var createdAt: Date
+    var purchasedAt: Date?
+    // Defaults keep existing shopping rows readable during lightweight migration.
+    var purchaseCount: Int = 0
+    var familyID: UUID? = nil
+
+    init(id: UUID = UUID(),
+         title: String,
+         quantity: String = "",
+         note: String = "",
+         placeID: UUID? = nil,
+         createdAt: Date = Date(),
+         purchasedAt: Date? = nil,
+         purchaseCount: Int = 0,
+         familyID: UUID? = nil) {
+        self.id = id
+        self.title = title
+        self.quantity = quantity
+        self.note = note
+        self.placeID = placeID
+        self.createdAt = createdAt
+        self.purchasedAt = purchasedAt
+        self.purchaseCount = purchaseCount
+        self.familyID = familyID
+    }
+}
+
+@Model
+final class SDShoppingPlace {
+    @Attribute(.unique) var id: UUID
+    var name: String
+    var orderIndex: Int
+
+    init(id: UUID = UUID(), name: String, orderIndex: Int = 0) {
+        self.id = id
+        self.name = name
+        self.orderIndex = orderIndex
+    }
+}
+
 // MARK: - SDTask
 @Model
 final class SDTask {
