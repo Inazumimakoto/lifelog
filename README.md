@@ -141,7 +141,7 @@ MIT License. See [`LICENSE`](LICENSE).
 | `lifelog` | 113,676 |
 | `promo` | 64,674 |
 | `promo-video` | 51,625 |
-| `docs` | 11,429 |
+| `docs` | 11,450 |
 | `functions` | 10,445 |
 | `LifelogWidgets` | 5,013 |
 | `lifelogTests` | 3,318 |
