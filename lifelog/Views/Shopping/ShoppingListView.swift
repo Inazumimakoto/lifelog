@@ -10,7 +10,6 @@ struct ShoppingListView: View {
     @StateObject private var viewModel: ShoppingListViewModel
     @State private var sheet: SheetDestination?
     @State private var deletingItem: ShoppingItem?
-    @State private var isPurchasedExpanded = false
     @State private var checkFeedback = 0
     @State private var additionButtonHeight: CGFloat = 64
 
@@ -69,20 +68,6 @@ struct ShoppingListView: View {
                                 Text(verbatim: group.title)
                             }
                         }
-                    }
-                }
-                if viewModel.loadError == nil && !viewModel.purchasedItems.isEmpty {
-                    Section {
-                        DisclosureGroup(isExpanded: $isPurchasedExpanded) {
-                            ForEach(viewModel.purchasedItems) { item in
-                                itemRow(item)
-                            }
-                        } label: {
-                            Text("購入済み（\(viewModel.purchasedItems.count)）")
-                        }
-                    } footer: {
-                        Text("shopping.purchased.return_hint")
-                            .foregroundStyle(.secondary)
                     }
                 }
             }
@@ -279,18 +264,21 @@ struct ShoppingListView: View {
 
     private func itemRow(_ item: ShoppingItem) -> some View {
         ShoppingItemRow(item: item,
+                        isChecked: viewModel.isChecking(item.id),
                         placeName: viewModel.places.first { $0.id == item.placeID }?.name,
                         onToggle: {
-            if item.isPurchased {
+            if viewModel.isChecking(item.id) {
                 withAnimation(purchaseAnimation) {
-                    if viewModel.togglePurchased(item) { checkFeedback += 1 }
+                    if viewModel.togglePurchase(item) { checkFeedback += 1 }
                 }
-            } else if viewModel.togglePurchased(item) {
+            } else if viewModel.togglePurchase(item) {
                 checkFeedback += 1
             }
         }, onEdit: {
+            guard !viewModel.isChecking(item.id) else { return }
             present(.item(item))
         }, onDelete: {
+            guard !viewModel.isChecking(item.id) else { return }
             deletingItem = item
         })
     }

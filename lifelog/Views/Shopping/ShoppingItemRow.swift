@@ -3,6 +3,7 @@ import SwiftUI
 /// The entire row toggles purchase state; editing stays in the trailing menu.
 struct ShoppingItemRow: View {
     let item: ShoppingItem
+    let isChecked: Bool
     let placeName: String?
     var onToggle: () -> Void
     var onEdit: () -> Void
@@ -12,7 +13,7 @@ struct ShoppingItemRow: View {
         HStack(alignment: .center, spacing: 0) {
             Button(action: onToggle) {
                 HStack(alignment: .center, spacing: 12) {
-                    AnimatedCheckmark(isCompleted: item.isPurchased,
+                    AnimatedCheckmark(isCompleted: isChecked,
                                       color: .accentColor,
                                       size: 24,
                                       providesHapticFeedback: false)
@@ -20,8 +21,8 @@ struct ShoppingItemRow: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(verbatim: item.title)
                             .font(.body)
-                            .strikethrough(item.isPurchased)
-                            .foregroundStyle(item.isPurchased ? .secondary : .primary)
+                            .strikethrough(isChecked)
+                            .foregroundStyle(isChecked ? .secondary : .primary)
                             .multilineTextAlignment(.leading)
                         if !item.quantity.isEmpty || placeName != nil {
                             HStack(spacing: 8) {
@@ -55,11 +56,11 @@ struct ShoppingItemRow: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel(Text(verbatim: item.title)
                                 + Text(verbatim: ", ")
-                                + (item.isPurchased ? Text("shopping.purchased.return_action") : Text("購入済みにする")))
+                                + (isChecked ? Text("購入を取り消す") : Text("購入済みにする")))
             .accessibilityValue(Text(verbatim: [item.quantity, placeName ?? "", item.note]
                 .filter { !$0.isEmpty }
                 .joined(separator: ", ")))
-            .accessibilityAddTraits(item.isPurchased ? .isSelected : [])
+            .accessibilityAddTraits(isChecked ? .isSelected : [])
             .accessibilityIdentifier("shopping.toggle.\(item.id.uuidString)")
 
             Menu {
@@ -73,6 +74,7 @@ struct ShoppingItemRow: View {
                     .contentShape(Rectangle())
             }
             .accessibilityLabel(Text("商品の操作"))
+            .disabled(isChecked)
         }
         .fixedSize(horizontal: false, vertical: true)
         .listRowInsets(EdgeInsets())

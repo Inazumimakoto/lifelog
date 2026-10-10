@@ -8,10 +8,7 @@ extension ShoppingItem {
                   quantity: sd.quantity,
                   note: sd.note,
                   placeID: sd.placeID,
-                  createdAt: sd.createdAt,
-                  purchasedAt: sd.purchasedAt,
-                  purchaseCount: sd.purchaseCount,
-                  familyID: sd.familyID)
+                  createdAt: sd.createdAt)
     }
 }
 
@@ -22,10 +19,7 @@ extension SDShoppingItem {
                   quantity: domain.quantity,
                   note: domain.note,
                   placeID: domain.placeID,
-                  createdAt: domain.createdAt,
-                  purchasedAt: domain.purchasedAt,
-                  purchaseCount: domain.purchaseCount,
-                  familyID: domain.familyID)
+                  createdAt: domain.createdAt)
     }
 
     func update(from item: ShoppingItem) {
@@ -34,9 +28,6 @@ extension SDShoppingItem {
         note = item.note
         placeID = item.placeID
         createdAt = item.createdAt
-        purchasedAt = item.purchasedAt
-        purchaseCount = item.purchaseCount
-        familyID = item.familyID
     }
 }
 

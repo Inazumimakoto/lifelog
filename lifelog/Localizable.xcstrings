@@ -10890,41 +10890,6 @@
         }
       }
     },
-    "shopping.error.not_purchased" : {
-      "comment" : "Shopping list persistence or validation error.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Select a purchased item."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "購入済みの商品を選んでください。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "구매 완료한 상품을 선택해 주세요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请选择已购买的商品。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請選擇已購買的商品。"
-          }
-        }
-      }
-    },
     "shopping.error.place_not_found" : {
       "comment" : "Shopping list persistence or validation error.",
       "localizations" : {
@@ -11036,101 +11001,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Marked %@ as purchased"
+            "value" : "Purchased %@"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@を購入済みにしました"
+            "value" : "%@を購入しました"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "%@ 구매 완료로 표시했습니다"
+            "value" : "%@을(를) 구매했습니다"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已将%@标记为已购买"
+            "value" : "已购买%@"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已將%@標記為已購買"
-          }
-        }
-      }
-    },
-    "shopping.purchased.return_action" : {
-      "comment" : "Shopping purchased section: tap an item to return the same item to the To Buy list.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Return to “To Buy”"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "買うものに戻す"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "구매할 항목으로 되돌리기"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "移回“待购买”"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "移回「待購買」"
-          }
-        }
-      }
-    },
-    "shopping.purchased.return_hint" : {
-      "comment" : "Shopping purchased section: tap an item to return the same item to the To Buy list.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tap a purchased item to return it to “To Buy”."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "購入済みの商品をタップすると「買うもの」に戻せます。"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "구매 완료한 상품을 탭하면 ‘구매할 항목’으로 되돌릴 수 있습니다."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "点按已购买的商品，即可将其移回“待购买”。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "點一下已購買的商品，即可將其移回「待購買」。"
+            "value" : "已購買%@"
           }
         }
       }
@@ -20808,42 +20703,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "請重新選擇壁紙影像。"
-          }
-        }
-      }
-    },
-    "もう一度買う" : {
-      "comment" : "Shopping list UI and accessibility.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Buy Again"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "もう一度買う"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "다시 구매"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "再次购买"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "再次購買"
           }
         }
       }
@@ -44404,41 +44263,6 @@
         }
       }
     },
-    "購入済み（%lld）" : {
-      "comment" : "Shopping list UI and accessibility.",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Purchased (%lld)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "購入済み（%lld）"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "구매 완료 (%lld)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已购买（%lld）"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已購買（%lld）"
-          }
-        }
-      }
-    },
     "購入済みにする" : {
       "comment" : "Shopping list UI and accessibility.",
       "localizations" : {
@@ -44470,42 +44294,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "標記為已購買"
-          }
-        }
-      }
-    },
-    "購入済みを整理" : {
-      "comment" : "Shopping list UI and accessibility.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Move Purchased Items"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "購入済みを整理"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "구매한 항목 정리"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "整理已购买商品"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "整理已購買商品"
           }
         }
       }

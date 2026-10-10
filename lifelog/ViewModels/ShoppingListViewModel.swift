@@ -3,7 +3,7 @@ import Combine
 import SwiftUI
 import UIKit
 
-/// Briefly keeps checked rows in place, then offers undo for the latest purchase.
+/// Bought items leave the saved list immediately; only animation and undo snapshots remain.
 /// See docs/requirements.md: Shopping list and docs/ui-guidelines.md: Shopping.
 @MainActor
 final class ShoppingListViewModel: ObservableObject {
@@ -21,21 +21,15 @@ final class ShoppingListViewModel: ObservableObject {
 
     struct PurchaseUndo: Identifiable {
         let id: UUID
-        let itemID: UUID
-        let title: String
-        let previousPurchasedAt: Date?
-        let previousPurchaseCount: Int
-        let expectedPurchasedAt: Date
-        let expectedPurchaseCount: Int
-        let familyID: UUID
-        let familyMemberIDs: Set<UUID>
+        let item: ShoppingItem
         let expiresAt: Date
+
+        var title: String { item.title }
     }
 
     private struct PurchaseAnimation {
         let token: UUID
-        let purchasedAt: Date
-        let purchaseCount: Int
+        let item: ShoppingItem
     }
 
     @Published private(set) var items: [ShoppingItem] = []
@@ -43,15 +37,13 @@ final class ShoppingListViewModel: ObservableObject {
     @Published private(set) var loadError: String?
     @Published private(set) var filter: PlaceFilter = .all
     @Published private(set) var draftPlaceID: UUID?
-    @Published private(set) var sessionPurchasedIDs: Set<UUID> = []
     @Published private(set) var purchaseUndo: PurchaseUndo?
-    @Published var titleDraft = ""
     @Published var errorMessage: String?
+    @Published private var purchaseAnimations: [UUID: PurchaseAnimation] = [:]
 
     let shoppingStore: ShoppingStore
     private let now: () -> Date
     private var cancellables = Set<AnyCancellable>()
-    private var purchaseAnimations: [UUID: PurchaseAnimation] = [:]
     private var animationTasks: [UUID: _Concurrency.Task<Void, Never>] = [:]
     private var undoExpirationTask: _Concurrency.Task<Void, Never>?
     private var isApplyingPurchaseChange = false
@@ -69,31 +61,12 @@ final class ShoppingListViewModel: ObservableObject {
     // https://github.com/swiftlang/swift/issues/87316
     nonisolated deinit {}
 
-    var canAdd: Bool {
-        loadError == nil && !titleDraft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-    }
-
     var pendingItems: [ShoppingItem] {
-        filteredItems
-            .filter { !$0.isPurchased || sessionPurchasedIDs.contains($0.id) }
-            .sorted(by: addedOrder)
-    }
-
-    var purchasedItems: [ShoppingItem] {
-        let purchaseCounts = items.reduce(into: [UUID: Int]()) { counts, item in
-            counts[item.effectiveFamilyID, default: 0] += item.purchaseCount
-        }
-        return filteredItems
-            .filter { $0.isPurchased && !sessionPurchasedIDs.contains($0.id) }
-            .sorted { lhs, rhs in
-                let lhsCount = purchaseCounts[lhs.effectiveFamilyID, default: 0]
-                let rhsCount = purchaseCounts[rhs.effectiveFamilyID, default: 0]
-                if lhsCount != rhsCount { return lhsCount > rhsCount }
-                let lhsDate = lhs.purchasedAt ?? lhs.createdAt
-                let rhsDate = rhs.purchasedAt ?? rhs.createdAt
-                if lhsDate != rhsDate { return lhsDate > rhsDate }
-                return lhs.id.uuidString < rhs.id.uuidString
-            }
+        let savedIDs = Set(items.map(\.id))
+        let checkingItems = purchaseAnimations.values
+            .map(\.item)
+            .filter { !savedIDs.contains($0.id) }
+        return (items + checkingItems).filter(matchesFilter).sorted(by: addedOrder)
     }
 
     var pendingGroups: [PendingGroup] {
@@ -120,6 +93,10 @@ final class ShoppingListViewModel: ObservableObject {
         return groups
     }
 
+    func isChecking(_ id: UUID) -> Bool {
+        purchaseAnimations[id] != nil
+    }
+
     func selectFilter(_ filter: PlaceFilter) {
         if self.filter != filter { finishPendingPurchaseAnimations() }
         self.filter = filter
@@ -134,67 +111,30 @@ final class ShoppingListViewModel: ObservableObject {
         }
     }
 
-    func selectDraftPlace(_ id: UUID?) {
-        if filter != .all {
-            selectFilter(id.map(PlaceFilter.place) ?? .unassigned)
-        }
-        draftPlaceID = id
-    }
-
     func rememberAdditionPlace(_ id: UUID?) {
         // The addition sheet keeps its own purchase place without changing list filters.
         draftPlaceID = id
     }
 
     @discardableResult
-    func addDraft() -> Bool {
-        guard canAdd else { return false }
-        do {
-            _ = try shoppingStore.addItem(title: titleDraft,
-                                         quantity: "",
-                                         note: "",
-                                         placeID: draftPlaceID)
-            titleDraft = ""
-            return true
-        } catch {
-            // Clear a draft only after its offline save succeeds.
-            errorMessage = error.localizedDescription
-            return false
+    func togglePurchase(_ item: ShoppingItem) -> Bool {
+        if let animation = purchaseAnimations[item.id] {
+            // A rapid second tap cancels the check while its row is still visible.
+            return restoreCheckedItem(animation.item)
         }
-    }
-
-    @discardableResult
-    func togglePurchased(_ item: ShoppingItem) -> Bool {
-        // Rows may carry an older value after a quick repeated tap or an external edit.
+        // Ignore a stale row after its animation has ended or it was deleted elsewhere.
         guard let current = items.first(where: { $0.id == item.id }) else { return false }
-        if current.isPurchased { return unpurchase(current) }
-
-        // Pin before publishing the saved snapshot, so the check animation can finish.
-        sessionPurchasedIDs.insert(current.id)
+        let animation = PurchaseAnimation(token: UUID(), item: current)
+        purchaseAnimations[current.id] = animation
         do {
-            try applyPurchaseChange { try shoppingStore.togglePurchased(current.id) }
-            guard let purchased = items.first(where: { $0.id == current.id }),
-                  let purchasedAt = purchased.purchasedAt else {
-                sessionPurchasedIDs.remove(current.id)
-                return false
-            }
-            let animation = PurchaseAnimation(token: UUID(), purchasedAt: purchasedAt,
-                                              purchaseCount: purchased.purchaseCount)
-            purchaseAnimations[current.id] = animation
+            try applyPurchaseChange { try shoppingStore.deleteItem(current.id) }
             schedulePurchaseAnimation(for: current.id, token: animation.token)
-            let undo = PurchaseUndo(id: UUID(), itemID: current.id, title: purchased.title,
-                                    previousPurchasedAt: current.purchasedAt,
-                                    previousPurchaseCount: current.purchaseCount,
-                                    expectedPurchasedAt: purchasedAt,
-                                    expectedPurchaseCount: purchased.purchaseCount,
-                                    familyID: purchased.effectiveFamilyID,
-                                    familyMemberIDs: familyMemberIDs(for: purchased.effectiveFamilyID),
-                                    expiresAt: now().addingTimeInterval(6))
+            let undo = PurchaseUndo(id: UUID(), item: current, expiresAt: now().addingTimeInterval(6))
             purchaseUndo = undo
             scheduleUndoExpiration(token: undo.id)
             return true
         } catch {
-            sessionPurchasedIDs.remove(current.id)
+            purchaseAnimations.removeValue(forKey: current.id)
             errorMessage = error.localizedDescription
             return false
         }
@@ -203,24 +143,11 @@ final class ShoppingListViewModel: ObservableObject {
     @discardableResult
     func undoPurchase(_ token: UUID) -> Bool {
         guard let undo = purchaseUndo, undo.id == token else { return false }
-        guard undo.expiresAt > now(), matchesUndo(undo) else {
+        guard undo.expiresAt > now(), canRestore(undo.item) else {
             expirePurchaseUndo(token: token)
             return false
         }
-        do {
-            try applyPurchaseChange {
-                try shoppingStore.restorePurchaseState(for: undo.itemID,
-                                                       purchasedAt: undo.previousPurchasedAt,
-                                                       purchaseCount: undo.previousPurchaseCount)
-            }
-            completePurchaseAnimation(for: undo.itemID)
-            expirePurchaseUndo(token: token)
-            return true
-        } catch {
-            // A failed save leaves the original undo and its deadline available for retry.
-            errorMessage = error.localizedDescription
-            return false
-        }
+        return restoreCheckedItem(undo.item)
     }
 
     func expirePurchaseUndo(token: UUID) {
@@ -241,6 +168,7 @@ final class ShoppingListViewModel: ObservableObject {
     }
 
     func delete(_ item: ShoppingItem) {
+        guard items.contains(where: { $0.id == item.id }) else { return }
         do {
             try shoppingStore.deleteItem(item.id)
         } catch {
@@ -256,14 +184,11 @@ final class ShoppingListViewModel: ObservableObject {
         }
     }
 
-    private var filteredItems: [ShoppingItem] {
+    private func matchesFilter(_ item: ShoppingItem) -> Bool {
         switch filter {
-        case .all:
-            return items
-        case .unassigned:
-            return items.filter { $0.placeID == nil }
-        case .place(let id):
-            return items.filter { $0.placeID == id }
+        case .all: return true
+        case .unassigned: return item.placeID == nil
+        case .place(let id): return item.placeID == id
         }
     }
 
@@ -272,25 +197,19 @@ final class ShoppingListViewModel: ObservableObject {
         return lhs.id.uuidString < rhs.id.uuidString
     }
 
-    private func unpurchase(_ item: ShoppingItem) -> Bool {
-        let undo = purchaseUndo
+    private func canRestore(_ item: ShoppingItem) -> Bool {
+        !items.contains { $0.id == item.id }
+    }
+
+    private func restoreCheckedItem(_ item: ShoppingItem) -> Bool {
+        guard canRestore(item) else { return false }
         do {
-            try applyPurchaseChange {
-                if let undo, sessionPurchasedIDs.contains(item.id),
-                   undo.itemID == item.id, undo.expiresAt > now(), matchesUndo(undo) {
-                    // A second tap during the check animation cancels a mistaken check.
-                    // Tapping a row in purchase history schedules it again and retains its count.
-                    try shoppingStore.restorePurchaseState(for: item.id,
-                                                           purchasedAt: undo.previousPurchasedAt,
-                                                           purchaseCount: undo.previousPurchaseCount)
-                } else {
-                    try shoppingStore.togglePurchased(item.id)
-                }
-            }
+            try applyPurchaseChange { try shoppingStore.restoreItem(item) }
             completePurchaseAnimation(for: item.id)
-            if let undo, undo.itemID == item.id { expirePurchaseUndo(token: undo.id) }
+            if let undo = purchaseUndo, undo.item.id == item.id { expirePurchaseUndo(token: undo.id) }
             return true
         } catch {
+            // A failed save leaves the latest snapshot and deadline available for retry.
             errorMessage = error.localizedDescription
             return false
         }
@@ -302,16 +221,20 @@ final class ShoppingListViewModel: ObservableObject {
         try operation()
     }
 
-    private func familyMemberIDs(for familyID: UUID) -> Set<UUID> {
-        Set(items.lazy.filter { $0.effectiveFamilyID == familyID }.map(\.id))
+    private func completePurchaseAnimation(for id: UUID, token: UUID) {
+        guard purchaseAnimations[id]?.token == token else { return }
+        animationTasks.removeValue(forKey: id)?.cancel()
+        withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : .easeInOut(duration: 0.2)) {
+            _ = purchaseAnimations.removeValue(forKey: id)
+        }
     }
 
-    private func matchesUndo(_ undo: PurchaseUndo) -> Bool {
-        guard let item = items.first(where: { $0.id == undo.itemID }) else { return false }
-        return item.purchasedAt == undo.expectedPurchasedAt
-            && item.purchaseCount == undo.expectedPurchaseCount
-            && item.effectiveFamilyID == undo.familyID
-            && familyMemberIDs(for: undo.familyID) == undo.familyMemberIDs
+    private func finishPendingPurchaseAnimations() {
+        for task in animationTasks.values { task.cancel() }
+        animationTasks.removeAll()
+        withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : .easeInOut(duration: 0.2)) {
+            purchaseAnimations.removeAll()
+        }
     }
 
     private func schedulePurchaseAnimation(for id: UUID, token: UUID) {
@@ -320,24 +243,6 @@ final class ShoppingListViewModel: ObservableObject {
             do { try await _Concurrency.Task.sleep(nanoseconds: 350_000_000) }
             catch { return }
             self?.completePurchaseAnimation(for: id, token: token)
-        }
-    }
-
-    private func completePurchaseAnimation(for id: UUID, token: UUID) {
-        guard purchaseAnimations[id]?.token == token else { return }
-        animationTasks.removeValue(forKey: id)?.cancel()
-        purchaseAnimations.removeValue(forKey: id)
-        withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : .easeInOut(duration: 0.2)) {
-            _ = sessionPurchasedIDs.remove(id)
-        }
-    }
-
-    private func finishPendingPurchaseAnimations() {
-        for task in animationTasks.values { task.cancel() }
-        animationTasks.removeAll()
-        purchaseAnimations.removeAll()
-        withAnimation(UIAccessibility.isReduceMotionEnabled ? nil : .easeInOut(duration: 0.2)) {
-            sessionPurchasedIDs.removeAll()
         }
     }
 
@@ -351,15 +256,10 @@ final class ShoppingListViewModel: ObservableObject {
     }
 
     private func reconcilePurchaseInteractions() {
-        for (id, animation) in purchaseAnimations {
-            guard let item = items.first(where: { $0.id == id }),
-                  item.purchasedAt == animation.purchasedAt,
-                  item.purchaseCount == animation.purchaseCount else {
-                completePurchaseAnimation(for: id, token: animation.token)
-                continue
-            }
+        for id in purchaseAnimations.keys where items.contains(where: { $0.id == id }) {
+            completePurchaseAnimation(for: id)
         }
-        if let undo = purchaseUndo, !matchesUndo(undo) { expirePurchaseUndo(token: undo.id) }
+        if let undo = purchaseUndo, !canRestore(undo.item) { expirePurchaseUndo(token: undo.id) }
     }
 
     private func bind() {
@@ -378,9 +278,8 @@ final class ShoppingListViewModel: ObservableObject {
                 if let id = self.draftPlaceID, !places.contains(where: { $0.id == id }) {
                     self.draftPlaceID = nil
                 }
-                if case .place(let id) = self.filter,
-                   !places.contains(where: { $0.id == id }) {
-                    self.filter = .unassigned
+                if case .place(let id) = self.filter, !places.contains(where: { $0.id == id }) {
+                    self.filter = .all
                 }
             }
             .store(in: &cancellables)

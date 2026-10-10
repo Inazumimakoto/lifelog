@@ -19,10 +19,8 @@ final class SDShoppingItem {
     var note: String
     var placeID: UUID?
     var createdAt: Date
+    // Migration-only marker for removing the retired purchase history on first load.
     var purchasedAt: Date?
-    // Defaults keep existing shopping rows readable during lightweight migration.
-    var purchaseCount: Int = 0
-    var familyID: UUID? = nil
 
     init(id: UUID = UUID(),
          title: String,
@@ -30,9 +28,7 @@ final class SDShoppingItem {
          note: String = "",
          placeID: UUID? = nil,
          createdAt: Date = Date(),
-         purchasedAt: Date? = nil,
-         purchaseCount: Int = 0,
-         familyID: UUID? = nil) {
+         purchasedAt: Date? = nil) {
         self.id = id
         self.title = title
         self.quantity = quantity
@@ -40,8 +36,6 @@ final class SDShoppingItem {
         self.placeID = placeID
         self.createdAt = createdAt
         self.purchasedAt = purchasedAt
-        self.purchaseCount = purchaseCount
-        self.familyID = familyID
     }
 }
 

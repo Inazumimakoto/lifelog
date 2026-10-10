@@ -21,7 +21,7 @@ final class ShoppingStore: ObservableObject {
         context = ModelContext(container)
         context.autosaveEnabled = false
         self.saveOperation = saveOperation
-        // reload() records a fetch failure and disables writes until a successful retry.
+        // reload() records load or legacy-cleanup failures and disables writes until a successful retry.
         try? reload()
     }
 
@@ -31,11 +31,20 @@ final class ShoppingStore: ObservableObject {
 
     func reload() throws {
         do {
-            let state = try fetchState()
+            var state = try fetchState()
+            let legacyPurchases = state.items.filter { $0.purchasedAt != nil }
+            if !legacyPurchases.isEmpty {
+                state.items.removeAll { $0.purchasedAt != nil }
+                for item in legacyPurchases {
+                    context.delete(item)
+                }
+                try saveOperation(context)
+            }
             publish(state)
             hasLoadedData = true
             loadError = nil
         } catch {
+            context.rollback()
             hasLoadedData = false
             loadError = String(localized: "shopping.error.load_failed")
             AppLogger.data.error("Shopping data load failed: \(error)")
@@ -70,61 +79,25 @@ final class ShoppingStore: ObservableObject {
                 throw ShoppingStoreError.itemNotFound
             }
             try self.validatePlace(item.placeID, in: state)
-            // Editing a draft must not overwrite a newer check, frequency, or copy lineage.
+            // A draft cannot change the item's original ordering.
             var updated = item
             updated.createdAt = stored.createdAt
-            updated.purchasedAt = stored.purchasedAt
-            updated.purchaseCount = stored.purchaseCount
-            updated.familyID = stored.familyID
             stored.update(from: updated)
         }
     }
 
-    func togglePurchased(_ id: UUID) throws {
+    /// Undo recreates the original item without replacing a newer row with the same identity.
+    func restoreItem(_ item: ShoppingItem) throws {
         try mutate { state in
-            guard let stored = state.items.first(where: { $0.id == id }) else {
-                throw ShoppingStoreError.itemNotFound
+            guard !state.items.contains(where: { $0.id == item.id }) else { return }
+            var restored = item
+            if let placeID = restored.placeID,
+               !state.places.contains(where: { $0.id == placeID }) {
+                restored.placeID = nil
             }
-            if stored.purchasedAt == nil {
-                stored.purchasedAt = Date()
-                stored.purchaseCount += 1
-            } else {
-                // Returning a bought item to the list keeps its genuine purchase history.
-                stored.purchasedAt = nil
-            }
-        }
-    }
-
-    /// Undo restores only purchase metadata so edits made after the check are retained.
-    func restorePurchaseState(for id: UUID, purchasedAt: Date?, purchaseCount: Int) throws {
-        try mutate { state in
-            guard let stored = state.items.first(where: { $0.id == id }) else {
-                throw ShoppingStoreError.itemNotFound
-            }
-            stored.purchasedAt = purchasedAt
-            stored.purchaseCount = max(0, purchaseCount)
-        }
-    }
-
-    @discardableResult
-    func buyAgain(_ id: UUID) throws -> ShoppingItem {
-        try mutate { state in
-            guard let source = state.items.first(where: { $0.id == id }) else {
-                throw ShoppingStoreError.itemNotFound
-            }
-            guard source.purchasedAt != nil else {
-                throw ShoppingStoreError.notPurchased
-            }
-            // Retain purchase history and give the new, unpurchased item its own identity.
-            let item = ShoppingItem(title: source.title,
-                                    quantity: source.quantity,
-                                    note: source.note,
-                                    placeID: source.placeID,
-                                    familyID: source.familyID ?? source.id)
-            let stored = SDShoppingItem(domain: item)
+            let stored = SDShoppingItem(domain: restored)
             self.context.insert(stored)
             state.items.append(stored)
-            return item
         }
     }
 
@@ -177,7 +150,7 @@ final class ShoppingStore: ObservableObject {
             guard let index = state.places.firstIndex(where: { $0.id == id }) else {
                 throw ShoppingStoreError.placeNotFound
             }
-            // Removing a place never removes the items or their purchase history.
+            // Removing a place never removes its items.
             for item in state.items where item.placeID == id {
                 item.placeID = nil
             }
@@ -272,7 +245,6 @@ enum ShoppingStoreError: LocalizedError {
     case duplicatePlace
     case itemNotFound
     case placeNotFound
-    case notPurchased
     case unavailable
     case saveFailed
 
@@ -283,7 +255,6 @@ enum ShoppingStoreError: LocalizedError {
         case .duplicatePlace: String(localized: "shopping.error.duplicate_place")
         case .itemNotFound: String(localized: "shopping.error.item_not_found")
         case .placeNotFound: String(localized: "shopping.error.place_not_found")
-        case .notPurchased: String(localized: "shopping.error.not_purchased")
         case .unavailable: String(localized: "shopping.error.unavailable")
         case .saveFailed: String(localized: "shopping.error.save_failed")
         }
