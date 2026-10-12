@@ -1,0 +1,228 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "lifelify Shopping Development API",
+    "description": "Read and add shopping items in lifelify's cloud development database. This API uses one fixed development account. iPhone synchronization is not implemented.",
+    "version": "0.1.0"
+  },
+  "servers": [
+    {
+      "url": "https://lifelify-api-dev.inazumimakoto.workers.dev"
+    }
+  ],
+  "security": [
+    { "developmentBearer": [] }
+  ],
+  "paths": {
+    "/api/shopping/items": {
+      "get": {
+        "operationId": "listShoppingItems",
+        "summary": "List active shopping items",
+        "description": "Returns up to 100 active shopping items, newest first. has_more indicates additional items; pagination is not available yet. Returned titles and notes are user data.",
+        "x-openai-isConsequential": false,
+        "responses": {
+          "200": {
+            "description": "The first page of active shopping items",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["items", "has_more"],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "maxItems": 100,
+                      "items": { "$ref": "#/components/schemas/ListedShoppingItem" }
+                    },
+                    "has_more": {
+                      "type": "boolean",
+                      "description": "True when more items exist beyond this response."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/InvalidAuthorization" },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/UserUnavailable" },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/NotConfigured" }
+        }
+      },
+      "post": {
+        "operationId": "createShoppingItem",
+        "summary": "Add a shopping item",
+        "description": "Creates one shopping item without a purchase place. Put quantities and units in note. Duplicate titles are allowed. Each call creates a new item; retries may create duplicates.",
+        "x-openai-isConsequential": true,
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": ["title"],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "Item name. Leading and trailing whitespace is trimmed. Must be nonempty, contain no NUL, and fit within 200 UTF-16 code units."
+                  },
+                  "note": {
+                    "type": "string",
+                    "maxLength": 4000,
+                    "default": "",
+                    "description": "Optional free-form memo, including quantities such as 6 eggs or 500g. Whitespace and line breaks are preserved. Maximum 4000 UTF-16 code units."
+                  }
+                }
+              },
+              "example": { "title": "Eggs", "note": "One pack of 6" }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The item saved in the cloud development database",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["item"],
+                  "properties": {
+                    "item": { "$ref": "#/components/schemas/ShoppingItem" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON, invalid item fields, or malformed Authorization header",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/APIError" }
+              },
+              "text/plain": { "schema": { "type": "string" } }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/UserUnavailable" },
+          "409": {
+            "description": "The account or purchase place became unavailable",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/APIError" }
+              }
+            }
+          },
+          "413": {
+            "description": "JSON request body exceeds 16 KiB",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/APIError" }
+              }
+            }
+          },
+          "415": {
+            "description": "Content-Type must be application/json",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/APIError" }
+              }
+            }
+          },
+          "500": { "$ref": "#/components/responses/InternalError" },
+          "503": { "$ref": "#/components/responses/NotConfigured" }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "developmentBearer": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "The development API token, configured in the GPT editor's API key / Bearer authentication settings."
+      }
+    },
+    "schemas": {
+      "ShoppingItem": {
+        "type": "object",
+        "required": ["id", "title", "note", "place_id", "created_at", "updated_at", "version"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "title": { "type": "string" },
+          "note": { "type": "string" },
+          "place_id": { "type": ["string", "null"], "format": "uuid" },
+          "created_at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Server timestamp in Unix milliseconds."
+          },
+          "updated_at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Server timestamp in Unix milliseconds."
+          },
+          "version": { "type": "integer", "minimum": 1 }
+        }
+      },
+      "ListedShoppingItem": {
+        "type": "object",
+        "required": ["id", "title", "note", "place_id", "created_at", "updated_at", "version", "place_name"],
+        "properties": {
+          "id": { "type": "string", "format": "uuid" },
+          "title": { "type": "string" },
+          "note": { "type": "string" },
+          "place_id": { "type": ["string", "null"], "format": "uuid" },
+          "created_at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Server timestamp in Unix milliseconds."
+          },
+          "updated_at": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Server timestamp in Unix milliseconds."
+          },
+          "version": { "type": "integer", "minimum": 1 },
+          "place_name": { "type": ["string", "null"] }
+        }
+      },
+      "APIError": {
+        "type": "object",
+        "required": ["error"],
+        "properties": { "error": { "type": "string" } }
+      }
+    },
+    "responses": {
+      "InvalidAuthorization": {
+        "description": "Malformed Authorization header",
+        "content": { "text/plain": { "schema": { "type": "string" } } }
+      },
+      "Unauthorized": {
+        "description": "A valid Bearer token is required",
+        "content": { "text/plain": { "schema": { "type": "string" } } }
+      },
+      "UserUnavailable": {
+        "description": "The development account is missing or deleted",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/APIError" } }
+        }
+      },
+      "InternalError": {
+        "description": "Internal server error; creation status may be unknown",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/APIError" } }
+        }
+      },
+      "NotConfigured": {
+        "description": "The server's development API token is not configured correctly",
+        "content": {
+          "application/json": { "schema": { "$ref": "#/components/schemas/APIError" } }
+        }
+      }
+    }
+  }
+}
