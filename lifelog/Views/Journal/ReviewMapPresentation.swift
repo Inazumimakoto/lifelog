@@ -6,9 +6,10 @@ import CoreGraphics
 enum ReviewMapPresentation {
     static let untaggedFilterToken = "__untagged__"
 
-    static func markerDiameter(for count: Int, expanded: Bool) -> CGFloat {
+    static func markerDiameter(for count: Int, expanded _: Bool) -> CGFloat {
         let increment: CGFloat = count >= 5 ? 2 : (count >= 2 ? 1 : 0)
-        return (expanded ? 14 : 6) + increment
+        // Zoom reveals tag colors and dates without making the place obscure more of the map.
+        return 6 + increment
     }
 
     static func updateZoomState(distance: Double,

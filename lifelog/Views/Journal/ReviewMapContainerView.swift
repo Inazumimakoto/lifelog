@@ -28,6 +28,7 @@ struct ReviewMapContainerView: View, Equatable {
         Group {
             if let state = viewModel.displayState {
                 ReviewMapView(snapshot: state.snapshot, renderedPlaces: state.renderedPlaces,
+                              spatialIndex: state.spatialIndex, revision: state.revision,
                               tagDefinitions: viewModel.tagDefinitions, period: $period,
                               onFiltersChanged: viewModel.setFilters,
                               onOpenDiary: onOpenDiary)

@@ -1,6 +1,7 @@
 import Combine
 import CryptoKit
 import Foundation
+import MapKit
 import SwiftData
 
 /// Owns map-only subscriptions and derived display state (docs/requirements.md §4.4.2).
@@ -12,13 +13,17 @@ final class ReviewMapViewModel: ObservableObject {
     struct DisplayState {
         let snapshot: ReviewMapSnapshot
         let renderedPlaces: [ReviewMapRenderedPlace]
+        let spatialIndex: ReviewMapSpatialIndex
+        let revision: UInt64
     }
 
     @Published private(set) var displayState: DisplayState?
     @Published private(set) var tagDefinitions: [LocationVisitTagDefinition]
+    private(set) var sourceSnapshotBuildCount = 0
 
     private let cache: ReviewMapCacheService
     private var entries: [DiaryEntry]
+    private var cachedSources: [ReviewMapDiarySource]?
     private var period: ReviewMapPeriod = .month
     private var anchorDate = Date()
     private var filters: [String] = []
@@ -37,6 +42,7 @@ final class ReviewMapViewModel: ObservableObject {
         store.$diaryEntries.sink { [weak self] entries in
             guard let self else { return }
             self.entries = entries
+            self.cachedSources = nil
             self.scheduleRefresh()
         }.store(in: &subscriptions)
         store.$locationVisitTagDefinitions.removeDuplicates().sink { [weak self] definitions in
@@ -101,7 +107,7 @@ final class ReviewMapViewModel: ObservableObject {
             guard let self, !_Concurrency.Task.isCancelled else { return }
             Self.nextRequestRevision &+= 1
             let requestRevision = Self.nextRequestRevision
-            let sources = self.entries.map(ReviewMapDiarySource.init(entry:))
+            let sources = self.sourceSnapshot()
             let tags = self.tagDefinitions.map(ReviewMapTagSource.init(definition:))
             let query = self.query()
             let environment = ReviewMapEnvironment(
@@ -115,16 +121,38 @@ final class ReviewMapViewModel: ObservableObject {
             guard !_Concurrency.Task.isCancelled,
                   requestedGeneration == self.generation else { return }
             if self.displayState?.snapshot != snapshot {
-                let previousPlaces = self.displayStatesByQuery[snapshot.query]?.renderedPlaces ??
-                    self.displayState?.renderedPlaces ?? []
-                let previousByID = Dictionary(uniqueKeysWithValues: previousPlaces.map { ($0.id, $0) })
-                let rendered = snapshot.places.map { place in
-                    if let previous = previousByID[place.id], previous.snapshot == place {
-                        return previous
+                let previous = self.displayStatesByQuery[snapshot.query] ?? self.displayState
+                let state: DisplayState
+                if let previous, previous.snapshot == snapshot {
+                    state = DisplayState(snapshot: snapshot, renderedPlaces: previous.renderedPlaces,
+                                         spatialIndex: previous.spatialIndex, revision: requestedGeneration)
+                } else {
+                    let previousPlaces = previous?.snapshot.places
+                    let previousIndex = previous?.spatialIndex
+                    // Coordinate comparison and index construction scale with the entire diary.
+                    // Keep both off MainActor, and retain an index when only tags/visits changed.
+                    let indexTask = _Concurrency.Task.detached(priority: .userInitiated) {
+                        if let previousPlaces, let previousIndex,
+                           Self.hasSameCoordinates(previousPlaces, snapshot.places) {
+                            return previousIndex
+                        }
+                        return ReviewMapSpatialIndex(coordinates: snapshot.places.map {
+                            CLLocationCoordinate2D(latitude: $0.location.latitude,
+                                                   longitude: $0.location.longitude)
+                        })
                     }
-                    return ReviewMapRenderedPlace(snapshot: place)
+                    let spatialIndex = await withTaskCancellationHandler {
+                        await indexTask.value
+                    } onCancel: {
+                        indexTask.cancel()
+                    }
+                    guard !_Concurrency.Task.isCancelled,
+                          requestedGeneration == self.generation else { return }
+                    let rendered = self.renderedPlaces(for: snapshot.places,
+                                                       reusing: previous?.renderedPlaces ?? [])
+                    state = DisplayState(snapshot: snapshot, renderedPlaces: rendered,
+                                         spatialIndex: spatialIndex, revision: requestedGeneration)
                 }
-                let state = DisplayState(snapshot: snapshot, renderedPlaces: rendered)
                 self.displayStatesByQuery[snapshot.query] = state
                 self.displayQueryOrder.removeAll { $0 == snapshot.query }
                 self.displayQueryOrder.append(snapshot.query)
@@ -148,6 +176,46 @@ final class ReviewMapViewModel: ObservableObject {
                                               query: alternateQuery, environment: environment,
                                               requestRevision: requestRevision)
             }
+        }
+    }
+
+    /// Period, filter and locale changes share the immutable projection of the last diary
+    /// publication. The 40 ms refresh delay also coalesces multiple edits before copying locations.
+    private func sourceSnapshot() -> [ReviewMapDiarySource] {
+        if let cachedSources { return cachedSources }
+        let sources = entries.map(ReviewMapDiarySource.init(entry:))
+        cachedSources = sources
+        sourceSnapshotBuildCount += 1
+        return sources
+    }
+
+    private func renderedPlaces(for places: [ReviewMapPlaceSnapshot],
+                                reusing previous: [ReviewMapRenderedPlace]) -> [ReviewMapRenderedPlace] {
+        var previousByID: [String: ReviewMapRenderedPlace]?
+        return places.enumerated().map { index, place in
+            // Most edits preserve sorting, so avoid allocating a full place dictionary for them.
+            let candidate: ReviewMapRenderedPlace?
+            if index < previous.count, previous[index].id == place.id {
+                candidate = previous[index]
+            } else if previous.isEmpty {
+                candidate = nil
+            } else {
+                if previousByID == nil {
+                    previousByID = Dictionary(uniqueKeysWithValues: previous.map { ($0.id, $0) })
+                }
+                candidate = previousByID?[place.id]
+            }
+            if let candidate, candidate.snapshot == place { return candidate }
+            return ReviewMapRenderedPlace(snapshot: place)
+        }
+    }
+
+    nonisolated private static func hasSameCoordinates(_ lhs: [ReviewMapPlaceSnapshot],
+                                                       _ rhs: [ReviewMapPlaceSnapshot]) -> Bool {
+        guard lhs.count == rhs.count else { return false }
+        return zip(lhs, rhs).allSatisfy { pair in
+            pair.0.location.latitude == pair.1.location.latitude &&
+                pair.0.location.longitude == pair.1.location.longitude
         }
     }
 }

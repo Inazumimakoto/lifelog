@@ -57,12 +57,14 @@ final class ReviewMapPresentationTests: XCTestCase {
                        "\(monthDay(dates[0])),\(monthDay(dates[1]))+1")
     }
 
-    func testVisitFrequency_markerSizeRemainsWithinSubtleThreeSteps() {
-        XCTAssertEqual(ReviewMapPresentation.markerDiameter(for: 1, expanded: false), 6)
-        XCTAssertEqual(ReviewMapPresentation.markerDiameter(for: 2, expanded: false), 7)
-        XCTAssertEqual(ReviewMapPresentation.markerDiameter(for: 4, expanded: false), 7)
-        XCTAssertEqual(ReviewMapPresentation.markerDiameter(for: 5, expanded: false), 8)
-        XCTAssertEqual(ReviewMapPresentation.markerDiameter(for: 10_000, expanded: false), 8)
+    func testVisitFrequency_markerSizeRemainsWithinSubtleThreeStepsAtEveryZoom() {
+        for expanded in [false, true] {
+            XCTAssertEqual(ReviewMapPresentation.markerDiameter(for: 1, expanded: expanded), 6)
+            XCTAssertEqual(ReviewMapPresentation.markerDiameter(for: 2, expanded: expanded), 7)
+            XCTAssertEqual(ReviewMapPresentation.markerDiameter(for: 4, expanded: expanded), 7)
+            XCTAssertEqual(ReviewMapPresentation.markerDiameter(for: 5, expanded: expanded), 8)
+            XCTAssertEqual(ReviewMapPresentation.markerDiameter(for: 10_000, expanded: expanded), 8)
+        }
     }
 
     func testMostFrequentTag_determinesCompactMarkerColor() {

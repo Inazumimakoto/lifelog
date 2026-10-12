@@ -204,6 +204,8 @@ struct ReviewMapPhotoViewer: View {
 struct ReviewMapView: View {
     let snapshot: ReviewMapSnapshot
     let renderedPlaces: [ReviewMapRenderedPlace]
+    let spatialIndex: ReviewMapSpatialIndex
+    let revision: UInt64
     let tagDefinitions: [LocationVisitTagDefinition]
     @Binding var period: ReviewMapPeriod
     let onFiltersChanged: ([String]) -> Void
@@ -228,12 +230,16 @@ struct ReviewMapView: View {
 
     init(snapshot: ReviewMapSnapshot,
          renderedPlaces: [ReviewMapRenderedPlace],
+         spatialIndex: ReviewMapSpatialIndex,
+         revision: UInt64,
          tagDefinitions: [LocationVisitTagDefinition],
          period: Binding<ReviewMapPeriod>,
          onFiltersChanged: @escaping ([String]) -> Void,
          onOpenDiary: @escaping (Date) -> Void) {
         self.snapshot = snapshot
         self.renderedPlaces = renderedPlaces
+        self.spatialIndex = spatialIndex
+        self.revision = revision
         self.tagDefinitions = tagDefinitions
         _period = period
         self.onFiltersChanged = onFiltersChanged
@@ -294,6 +300,8 @@ struct ReviewMapView: View {
                            showsEmptyOverlay: Bool,
                            onFilterTap: @escaping () -> Void) -> some View {
         ReviewMapCanvas(renderedPlaces: renderedPlaces,
+                        spatialIndex: spatialIndex,
+                        revision: revision,
                         highlightedGroupID: showsExpandButton ? detailGroup?.id : fullScreenDetailGroup?.id,
                         hasFilterChips: !selectedTagFilters.isEmpty,
                         cameraPosition: $cameraPosition,

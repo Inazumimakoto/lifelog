@@ -25,7 +25,7 @@ nonisolated struct ReviewMapRenderedPlace: Identifiable, Equatable {
         expandedColors = snapshot.expandedColorHexes.isEmpty
             ? [fallback] : snapshot.expandedColorHexes.map { Color(hex: $0) ?? fallback }
         compactDiameter = ReviewMapPresentation.markerDiameter(for: snapshot.count, expanded: false)
-        expandedDiameter = ReviewMapPresentation.markerDiameter(for: snapshot.count, expanded: true)
+        expandedDiameter = compactDiameter
         let font = UIFont.systemFont(ofSize: 9, weight: .semibold)
         let textSize = (snapshot.dateLabelText as NSString).size(withAttributes: [.font: font])
         dateLabelSize = CGSize(width: ceil(textSize.width) + 10, height: ceil(textSize.height) + 2)
