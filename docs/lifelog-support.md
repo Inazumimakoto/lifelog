@@ -1,7 +1,7 @@
 # lifelify-support
 
 ## lifelify プライバシーポリシー
-最終更新日：2026年6月12日
+最終更新日：2026年10月12日（次回リリース版向け更新案）
 
 このプライバシーポリシーは、個人開発アプリ「lifelify」（以下、「本アプリ」）におけるユーザー情報の取り扱いについて説明するものです。本アプリをご利用いただく前に、本ポリシーをよくお読みください。
 
@@ -119,19 +119,9 @@ Apple が提供する TestFlight や App Store を通じて収集されるクラ
 
 Firebase のプライバシーポリシーについては、Google のプライバシーポリシー（https://policies.google.com/privacy）をご確認ください。
 
-### 「直接分析」機能
+### AI分析機能の廃止（次回リリース版）
 
-本アプリの「直接分析」機能では、ユーザーの日記データやライフログデータをAIで分析します。
-
-**データの取り扱い：**
-- 分析に使用するデータは開発者が管理するサーバーで処理されます
-- 分析完了後、データはサーバーに保存されません（使い捨て処理）
-- AIの学習データとして利用されることはありません
-- 本機能のソースコードはGitHub（https://github.com/Inazumimakoto/lifelog）で公開されています
-
-**利用目的：**
-- 日記の添削・フィードバック
-- 長期データの傾向分析
+次回リリース版では、日記のAI採点、期間を指定したAI分析、AI分析用データの書き出しを提供しません。通常の日記の記録や保存済みデータは引き続き利用できます。公開済みの旧版には、AI分析機能が残る場合があります。
 
 ## 6. 権限の変更・データの管理
 
@@ -152,7 +142,7 @@ Firebase のプライバシーポリシーについては、Google のプライ�
 
 # Multilingual Support / Privacy Summary
 
-Last updated: June 28, 2026
+Last updated: October 12, 2026 (draft for the next release)
 
 This document is the support and privacy reference for lifelify in Japanese, English, Korean, Simplified Chinese, and Traditional Chinese. The full Japanese policy above remains the source document. The sections below provide overseas users with the same practical support, data handling, and contact information.
 
@@ -176,7 +166,7 @@ Face ID / Touch ID is used only for app lock. Biometric data is handled by Apple
 
 The shared letter feature uses Firebase Authentication, Firestore, Storage, and Cloud Functions. Letter content and attached photos are end-to-end encrypted before upload. The private keys stay on user devices, so the developer and Firebase cannot read letter contents. Firebase also stores account metadata such as display name, emoji, friend pairings, FCM token, and preferred language code for notifications.
 
-The direct AI analysis feature sends the selected diary/life log data to a developer-managed server for one-time processing. Analysis payloads are not stored after processing and are not used for AI training.
+The next release removes AI diary scoring, AI analysis over a selected period, and data export for AI analysis. You can continue writing diaries and using your saved data. Previously released versions may still include the AI analysis features.
 
 To manage permissions, open the iOS Settings app and change Health, Calendar, Location, Notifications, or Face ID access. For account or support requests, email inazumimakoto@gmail.com.
 
@@ -194,7 +184,7 @@ lifelify는 일기, 일정, 할 일, 습관, 건강 요약, 기념일, 위젯, �
 
 공유 편지 기능은 Firebase를 사용합니다. 편지 본문과 사진은 업로드 전에 종단 간 암호화되며, 개인 키는 사용자 기기에만 저장됩니다. 개발자와 Firebase는 편지 내용을 읽을 수 없습니다. 알림을 위해 표시 이름, 이모지, 친구 관계, FCM 토큰, 선호 언어 코드가 저장될 수 있습니다.
 
-직접 AI 분석 기능은 선택한 일기/라이프로그 데이터를 일회성 처리를 위해 개발자 관리 서버로 전송합니다. 분석 데이터는 처리 후 저장되지 않으며 AI 학습에 사용되지 않습니다.
+다음 릴리스에서는 AI 일기 채점, 선택한 기간의 AI 분석, AI 분석용 데이터 내보내기를 제공하지 않습니다. 일반적인 일기 작성과 저장된 데이터는 계속 사용할 수 있습니다. 이미 출시된 이전 버전에는 AI 분석 기능이 남아 있을 수 있습니다.
 
 권한 변경은 iOS 설정 앱에서 할 수 있습니다. 문의: inazumimakoto@gmail.com
 
@@ -212,7 +202,7 @@ lifelify 是一款个人生活记录应用，可管理日记、日程、待办�
 
 共享信件功能使用 Firebase。信件正文和照片会在上传前进行端到端加密，私钥仅保存在用户设备上，因此开发者和 Firebase 都无法读取信件内容。为了通知和配对，Firebase 可能保存显示名、表情、好友关系、FCM token 和首选语言代码。
 
-直接 AI 分析功能会将你选择的日记/生活记录数据发送到开发者管理的服务器进行一次性处理。分析完成后不会保存，也不会用于 AI 训练。
+下一个版本将移除 AI 日记评分、指定时间段的 AI 分析以及 AI 分析用数据导出。你仍可记录日记并使用已保存的数据。已发布的旧版本可能仍包含 AI 分析功能。
 
 你可以在 iOS 设置中管理健康、日历、位置、通知和 Face ID 权限。联系邮箱：inazumimakoto@gmail.com
 
@@ -230,6 +220,6 @@ lifelify 是一款個人生活紀錄 App，可管理日記、行程、待辦、�
 
 共享信件功能使用 Firebase。信件正文與照片會在上傳前進行端對端加密，私鑰只保存在使用者裝置上，因此開發者與 Firebase 都無法讀取信件內容。為了通知與配對，Firebase 可能保存顯示名稱、表情符號、好友關係、FCM token 與偏好語言代碼。
 
-直接 AI 分析功能會將你選擇的日記/生活紀錄資料傳送到開發者管理的伺服器進行一次性處理。分析完成後不會保存，也不會用於 AI 訓練。
+下一個版本將移除 AI 日記評分、指定期間的 AI 分析，以及 AI 分析用資料匯出。你仍可記錄日記並使用已儲存的資料。已發布的舊版本可能仍包含 AI 分析功能。
 
 你可以在 iOS 設定中管理健康、行事曆、位置、通知與 Face ID 權限。聯絡信箱：inazumimakoto@gmail.com

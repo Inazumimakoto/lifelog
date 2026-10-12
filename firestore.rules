@@ -97,20 +97,5 @@ service cloud.firestore {
       allow read: if false; // 運営のみ
     }
 
-    // 統計: グローバルカウンター（開発者PC LLM使用回数）
-    match /stats/{docId} {
-      // 読み込み: 誰でもOK（カウンター表示用）
-      allow read: if true;
-      // 書き込み: llm_usage の totalRequests を +1 する操作だけ許可
-      // (クライアントは FieldValue.increment(1) を使用。任意値の上書きを防ぐ)
-      allow write: if request.auth != null
-        && docId == 'llm_usage'
-        && request.resource.data.keys().hasOnly(['totalRequests'])
-        && request.resource.data.totalRequests is int
-        && (
-          (resource == null && request.resource.data.totalRequests == 1) ||
-          (resource != null && request.resource.data.totalRequests == resource.data.totalRequests + 1)
-        );
-    }
   }
 }

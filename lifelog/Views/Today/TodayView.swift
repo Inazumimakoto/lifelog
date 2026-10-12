@@ -27,7 +27,6 @@ struct TodayView: View {
     @State private var showDiaryEditor = false
     @State private var showEventEditor = false
     @State private var showMemoEditor = false
-    @State private var showAnalysisExport = false
     @State private var editingEvent: CalendarEvent?
     @State private var editingTask: Task?
     @State private var showLetterOpening = false
@@ -219,9 +218,6 @@ struct TodayView: View {
             NavigationStack {
                 DiaryEditorView(store: store, date: viewModel.date)
             }
-        }
-        .sheet(isPresented: $showAnalysisExport) {
-            AnalysisExportView(store: store)
         }
         .sheet(isPresented: $showEventEditor) {
             NavigationStack {
@@ -626,15 +622,6 @@ struct TodayView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
-                
-                Button {
-                    showAnalysisExport = true
-                } label: {
-                    Label("AI用にデータを書き出す", systemImage: "square.and.arrow.up")
-                        .font(.subheadline)
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
             }
         }
     }

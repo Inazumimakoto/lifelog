@@ -1,6 +1,6 @@
 # Global Monetization Spec
 
-Updated: 2026-06-28
+Updated: 2026-10-12
 
 ## 1. Goal
 - Keep Japan free.
@@ -26,7 +26,7 @@ Updated: 2026-06-28
   - Countdown registration: up to 1 item.
   - Diary photo upload: up to 3 photos per day.
   - Diary location save: unavailable.
-  - Schedule calendar, diary, tasks, AI export, health: available.
+  - Schedule calendar, diary, tasks, health: available.
 - Premium:
   - Habit grass/heatmap displays.
   - Review calendar map view.
@@ -83,7 +83,6 @@ Updated: 2026-06-28
 ## 9. Non-Goals (Current Phase)
 - No web paywall.
 - No ads or ad-removal SKU.
-- No AI quota-based monetization.
 
 ## 10. Product Lineup
 - Monthly subscription: `US$1.99`

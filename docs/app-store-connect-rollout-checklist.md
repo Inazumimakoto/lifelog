@@ -1,6 +1,6 @@
 # App Store Connect 海外公開チェックリスト
 
-更新日: 2026-06-28
+更新日: 2026-10-12
 
 対象ロケール: `ja`, `en`, `ko`, `zh-Hans`, `zh-Hant`。台湾向けは v1 では `zh-Hant` として扱う。
 
@@ -29,7 +29,7 @@
   - Calendar: 読み取りのみ。
   - Location: 天気表示と日記保存。
   - Firebase: 共有手紙、認証、通知、暗号化済み添付。
-  - AI直接分析: 選択データの一時処理。
+- AI分析機能の撤去を反映した Support / Privacy 文書を公開し、旧版の説明や審査メモを更新する。サーバー停止など未実施の運用作業は `docs/ai-analysis-retirement.md` を参照。
 
 ## 3. IAP 設定
 
@@ -113,7 +113,7 @@
 - 審査メモに以下を明記する:
   - JP storefront は無料、非JP storefront は premium。
   - Shared letters are end-to-end encrypted.
-  - AI direct analysis performs one-time processing and does not store payloads.
+  - This release removes AI diary scoring, AI period analysis, and data export for AI analysis.
 
 ## 8. リリース後モニタリング
 

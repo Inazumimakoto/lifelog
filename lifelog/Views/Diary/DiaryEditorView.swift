@@ -32,11 +32,6 @@ struct DiaryEditorView: View {
     @State private var linkedPhotoPathsCache: Set<String> = []
     @State private var selectedEmotionTagHashes: Set<String> = []
     
-    // AI採点機能
-    @State private var showAIAppSelectionSheet = false
-    @State private var selectedScoreMode: DiaryScoreMode = .strict
-    @State private var selectedAIProvider: AIProvider = .chatgpt
-
     init(store: AppDataStore, date: Date) {
         let viewModel = DiaryViewModel(store: store, date: date)
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -47,7 +42,6 @@ struct DiaryEditorView: View {
     var body: some View {
         Form {
             entrySection
-            aiScoreSection
             moodSection
             emotionTagsSection
             conditionSection
@@ -156,21 +150,6 @@ struct DiaryEditorView: View {
         .sheet(isPresented: $showPaywall) {
             PremiumPaywallView()
         }
-        .sheet(isPresented: $showAIAppSelectionSheet) {
-            AIAppSelectionSheet()
-        }
-        .sheet(isPresented: $showDevPCSheet, onDismiss: {
-            DevPCLLMService.shared.cancel()  // キャンセル処理
-            devPCPrompt = ""  // リセット
-        }) {
-            Group {
-                if !devPCPrompt.isEmpty {
-                    DevPCResponseView(prompt: devPCPrompt)
-                } else {
-                    Color.clear
-                }
-            }
-        }
         .sheet(isPresented: $showLocationPicker, onDismiss: {
             if let pendingLocationSelection {
                 if let locationID = viewModel.addLocation(pendingLocationSelection) {
@@ -211,11 +190,6 @@ struct DiaryEditorView: View {
                     .presentationDetents([.medium, .large])
             } else {
                 Color.clear
-            }
-        }
-        .onChange(of: devPCPrompt) { _, newValue in
-            if !newValue.isEmpty {
-                showDevPCSheet = true
             }
         }
     }
@@ -291,94 +265,6 @@ struct DiaryEditorView: View {
         }
     }
     
-    private var aiScoreSection: some View {
-        Section {
-            // モード選択
-            Picker("モード", selection: $selectedScoreMode) {
-                ForEach(DiaryScoreMode.allCases) { mode in
-                    Text(mode.displayName).tag(mode)
-                }
-            }
-            .pickerStyle(.menu)
-            
-            // AI選択（Segmented）
-            if DevPCLLMService.shared.isAvailable {
-                Picker("AI", selection: $selectedAIProvider) {
-                    ForEach(AIProvider.allCases) { provider in
-                        Text(provider.displayName).tag(provider)
-                    }
-                }
-                .pickerStyle(.segmented)
-            }
-            
-            // 統一アクションボタン
-            Button {
-                executeAIAnalysis()
-            } label: {
-                HStack {
-                    Spacer()
-                    Image(systemName: selectedAIProvider.icon)
-                    if selectedAIProvider == .devpc {
-                        Text("直接分析")
-                    } else {
-                        Text("AIに採点してもらう")
-                    }
-                    Spacer()
-                    if selectedAIProvider == .devpc {
-                        Text("残\(DevPCLLMService.shared.remainingUsesThisWeek)回")
-                            .font(.caption)
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 2)
-                            .background(
-                                DevPCLLMService.shared.canUseThisWeek ? Color.green.opacity(0.2) : Color.red.opacity(0.2),
-                                in: Capsule()
-                            )
-                    }
-                }
-            }
-            .disabled(textDraft.isEmpty || (selectedAIProvider == .devpc && !DevPCLLMService.shared.canUseThisWeek))
-        } footer: {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(selectedScoreMode.description)
-                if selectedAIProvider == .devpc {
-                    Text("データはどこにも保存されません")
-                    Text("ソースコードはGitHubで公開中")
-                    Text("週\(LLMConfig.weeklyLimit)回まで（毎週日曜リセット）")
-                }
-            }
-            .font(.caption)
-        }
-    }
-    
-    private func executeAIAnalysis() {
-        switch selectedAIProvider {
-        case .chatgpt:
-            copyForAIScoring()
-        case .devpc:
-            askDevPC()
-        }
-    }
-    
-    // 開発者PCシート
-    @State private var showDevPCSheet = false
-    @State private var devPCPrompt = ""
-    
-    private func askDevPC() {
-        let prompt = DiaryScorePrompt.prompt(for: selectedScoreMode)
-        devPCPrompt = DiaryScorePrompt.build(prompt: prompt, diaryText: textDraft.text)
-        HapticManager.light()
-        // showDevPCSheet は onChange で設定される
-    }
-    
-    private func copyForAIScoring() {
-        // 選択したモードのプロンプト + 日記本文をクリップボードにコピー
-        let prompt = DiaryScorePrompt.prompt(for: selectedScoreMode)
-        let fullText = DiaryScorePrompt.build(prompt: prompt, diaryText: textDraft.text)
-        UIPasteboard.general.string = fullText
-        HapticManager.success()
-        showAIAppSelectionSheet = true
-    }
-
     private var moodSection: some View {
         Section("気分") {
             Picker("気分", selection: moodBinding) {

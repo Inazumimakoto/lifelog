@@ -33,6 +33,8 @@ struct lifelogApp: App {
 #endif
     
     init() {
+        // Remove the retired AI analysis quota; see docs/ai-analysis-retirement.md.
+        UserDefaults.standard.removeObject(forKey: "devpc_llm_usage")
         CategoryPalette.initializeIfNeeded()
     }
 

@@ -37,7 +37,9 @@
 
 ロック画面からもカレンダーを確認できる機能を追加しました。予定やタスクを壁紙カレンダーとして表示できるので、アプリを開かなくても直近の予定をすぐに見られます。
 
-海外公開準備として、アプリ本体、Widget、通知、App Intents、権限文言、AIプロンプト、課金導線、サポート文書、App Store metadata 草案を 5 言語に対応しました。既存ユーザーの本文、カテゴリ名、タグ名、保存済みデータは翻訳・上書きしません。
+海外公開準備として、アプリ本体、Widget、通知、App Intents、権限文言、課金導線、サポート文書、App Store metadata 草案を 5 言語に対応しました。既存ユーザーの本文、カテゴリ名、タグ名、保存済みデータは翻訳・上書きしません。
+
+次回リリースに向けて、日記のAI採点、期間AI分析、AI分析用データ書き出しを撤去しました。公開済みの旧版やサーバーの退役作業については [`docs/ai-analysis-retirement.md`](docs/ai-analysis-retirement.md) を参照してください。
 
 <p align="center">
   <img src="assets/lock-screen-calendar.png" width="32%" alt="lifelify lock screen calendar">
@@ -91,7 +93,7 @@ lifelog/
 │   ├── Models/                 # データモデル
 │   ├── Views/                  # SwiftUI ビュー
 │   ├── ViewModels/             # 画面状態とユースケース
-│   ├── Services/               # 永続化、通知、連携、分析、暗号化
+│   ├── Services/               # 永続化、通知、連携、暗号化
 │   └── Components/             # 共通 UI
 ├── LifelogWidgets/             # iOS ウィジェット
 ├── functions/                  # Firebase Cloud Functions
@@ -109,6 +111,7 @@ lifelog/
 | サポート / プライバシー | [`docs/lifelog-support.md`](docs/lifelog-support.md) |
 | App Store ローカライズ草案 | [`docs/app-store-localization.md`](docs/app-store-localization.md) |
 | 海外公開チェックリスト | [`docs/app-store-connect-rollout-checklist.md`](docs/app-store-connect-rollout-checklist.md) |
+| AI分析機能の撤去・残る運用作業 | [`docs/ai-analysis-retirement.md`](docs/ai-analysis-retirement.md) |
 | コントリビューターガイド | [`AGENTS.md`](AGENTS.md) |
 | 変更履歴 | [`docs/CHANGELOG.md`](docs/CHANGELOG.md) |
 

@@ -574,16 +574,6 @@ struct HealthSummary: Identifiable, Hashable, Codable {
     init(date: Date) {
         self.date = date
     }
-    
-    /// 天気の説明文（AI分析用）
-    var weatherDescription: String? {
-        guard let condition = weatherCondition else { return nil }
-        var parts = [condition]
-        if let high = highTemperature, let low = lowTemperature {
-            parts.append("最高\(Int(high))°C/最低\(Int(low))°C")
-        }
-        return parts.joined(separator: "、")
-    }
 }
 
 struct CalendarEvent: Identifiable, Hashable, Codable {

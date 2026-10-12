@@ -18,6 +18,10 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 - **日記写真のズーム**: プレビューから高画質画像への切り替えや画面サイズ変更で、拡大率・表示位置が崩れる問題を修正。(`59acab6`)
 
+### Removed
+
+- **日記AI分析**: 日記のAI採点、期間AI分析、AI分析用データ書き出しと開発者PCへの直接分析を撤去。通常の日記・健康記録・保存済みデータは保持し、DB移行は行わない。公開済み旧版への対応、サーバー停止、本番Firestoreの更新は未実施。残る運用作業は `docs/ai-analysis-retirement.md` を参照。
+
 ### Development
 - アプリ本体・ウィジェットの Debug / Release をバージョン 1.16.0、ビルド番号 51 に更新。
 - プロモーション動画の制作プロジェクトと素材を追加。(`85ecd9d`)
