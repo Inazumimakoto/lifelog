@@ -12,6 +12,8 @@ import UIKit
 struct WallpaperCalendarSettingsView: View {
     @Environment(\.openURL) private var openURL
     @AppStorage("WallpaperCalendar_OnboardingPresented_V1") private var hasSeenSetupGuide = false
+    @AppStorage(CalendarWeekStart.storageKey, store: CalendarWeekStart.defaults)
+    private var firstWeekday = CalendarWeekStart.sunday.rawValue
     @State private var settings = WallpaperCalendarSettingsStore.shared.load()
     @State private var selectedBackgroundItem: PhotosPickerItem?
     @State private var previewSnapshot: WallpaperCalendarSnapshot?
@@ -136,6 +138,9 @@ struct WallpaperCalendarSettingsView: View {
         .onChange(of: selectedBackgroundItem) { _, newItem in
             guard let newItem else { return }
             loadBackground(from: newItem)
+        }
+        .onChange(of: firstWeekday) { _, _ in
+            _Concurrency.Task { await refreshPreview() }
         }
         .alert("ロック画面カレンダー", isPresented: Binding(
             get: { alertMessage != nil && shortcutSheet == nil },

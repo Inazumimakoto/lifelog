@@ -106,7 +106,8 @@ struct ScheduleProvider: TimelineProvider {
             isPremiumUnlocked: true,
             month: ScheduleMonth(
                 containing: sampleEvent.startDate,
-                eventIntervals: [DateInterval(start: sampleEvent.startDate, end: sampleEvent.endDate)]
+                eventIntervals: [DateInterval(start: sampleEvent.startDate, end: sampleEvent.endDate)],
+                calendar: CalendarWeekStart.sunday.calendar
             )
         )
     }
@@ -155,7 +156,7 @@ struct ScheduleProvider: TimelineProvider {
 
     @MainActor
     private func fetchMonth(containing date: Date) -> ScheduleMonth {
-        let calendar = Calendar.autoupdatingCurrent
+        let calendar = CalendarWeekStart.current.calendar
         guard let interval = calendar.dateInterval(of: .month, for: date) else {
             return ScheduleMonth(containing: date, calendar: calendar)
         }
@@ -491,7 +492,7 @@ struct ScheduleWidgetEntryView: View {
                 Divider()
 
                 ScheduleMonthCalendarView(
-                    month: entry.month ?? ScheduleMonth(containing: entry.date),
+                    month: entry.month ?? ScheduleMonth(containing: entry.date, calendar: CalendarWeekStart.current.calendar),
                     today: entry.date
                 )
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

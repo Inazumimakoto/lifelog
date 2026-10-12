@@ -12,14 +12,18 @@ struct ScheduleMonthCalendarView: View {
         formatter.locale = locale
         formatter.calendar = month.calendar
         formatter.timeZone = month.calendar.timeZone
+        formatter.dateStyle = .full
         return formatter
     }
 
     var body: some View {
+        // Reuse one formatter for the entire grid, rather than creating one per day/header.
+        let formatter = self.formatter
+        let weekdaySymbols = formatter.veryShortStandaloneWeekdaySymbols ?? month.calendar.veryShortStandaloneWeekdaySymbols
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 0) {
                 ForEach(month.weekdayNumbers, id: \.self) { weekday in
-                    Text(formatter.veryShortStandaloneWeekdaySymbols[weekday - 1])
+                    Text(weekdaySymbols[weekday - 1])
                         .font(.system(size: 9, weight: .medium, design: .rounded))
                         .foregroundStyle(weekdayColor(weekday))
                         .frame(maxWidth: .infinity)
@@ -38,7 +42,7 @@ struct ScheduleMonthCalendarView: View {
                         HStack(spacing: 0) {
                             ForEach(0..<7, id: \.self) { weekday in
                                 if let date = month.dates[week * 7 + weekday] {
-                                    dayLink(date, diameter: diameter)
+                                    dayLink(date, diameter: diameter, formatter: formatter)
                                 } else {
                                     Color.clear
                                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -53,7 +57,7 @@ struct ScheduleMonthCalendarView: View {
         }
     }
 
-    private func dayLink(_ date: Date, diameter: CGFloat) -> some View {
+    private func dayLink(_ date: Date, diameter: CGFloat, formatter: DateFormatter) -> some View {
         let isToday = month.calendar.isDate(date, inSameDayAs: today)
         let hasEvents = month.daysWithEvents.contains(date)
         return Link(destination: CalendarDayLink.url(for: date, timeZone: month.calendar.timeZone)) {
@@ -81,7 +85,7 @@ struct ScheduleMonthCalendarView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(accessibilityLabel(for: date, isToday: isToday, hasEvents: hasEvents))
+        .accessibilityLabel(accessibilityLabel(for: date, isToday: isToday, hasEvents: hasEvents, formatter: formatter))
         .accessibilityHint(Text("この日の予定を開く"))
     }
 
@@ -94,17 +98,11 @@ struct ScheduleMonthCalendarView: View {
     }
 
     private func dayNumber(_ date: Date) -> String {
-        let formatter = formatter
-        formatter.setLocalizedDateFormatFromTemplate("d")
         // Day cells use the locale's numerals without a language-specific date suffix.
-        let number = NumberFormatter()
-        number.locale = locale
-        return number.string(from: NSNumber(value: month.calendar.component(.day, from: date))) ?? formatter.string(from: date)
+        month.calendar.component(.day, from: date).formatted(.number.locale(locale))
     }
 
-    private func accessibilityLabel(for date: Date, isToday: Bool, hasEvents: Bool) -> String {
-        let formatter = formatter
-        formatter.dateStyle = .full
+    private func accessibilityLabel(for date: Date, isToday: Bool, hasEvents: Bool, formatter: DateFormatter) -> String {
         var parts = [formatter.string(from: date)]
         if isToday { parts.append(String(localized: "今日")) }
         if hasEvents { parts.append(String(localized: "予定あり")) }

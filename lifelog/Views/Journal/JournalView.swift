@@ -32,6 +32,8 @@ struct JournalView: View {
     @AppStorage("requiresDiaryOpenAuthentication") private var requiresDiaryOpenAuthentication: Bool = false
     @AppStorage("isMemoTextHidden") private var isMemoTextHidden: Bool = false
     @AppStorage("requiresMemoOpenAuthentication") private var requiresMemoOpenAuthentication: Bool = false
+    @AppStorage(CalendarWeekStart.storageKey, store: CalendarWeekStart.defaults)
+    private var weekStartRawValue = CalendarWeekStart.sunday.rawValue
     private let store: AppDataStore
     @StateObject private var viewModel: JournalViewModel
     private let monthPagerHeight: CGFloat = 700
@@ -117,7 +119,7 @@ struct JournalView: View {
         _viewModel = StateObject(wrappedValue: JournalViewModel(store: store))
     }
 
-    var body: some View {
+    private var calendarPresentation: some View {
         ZStack(alignment: .bottomTrailing) {
             ScrollViewReader { proxy in
                 mainScrollContent(proxy: proxy)
@@ -243,6 +245,10 @@ struct JournalView: View {
         } message: {
             Text(premiumAlertMessage ?? "")
         }
+    }
+
+    var body: some View {
+        calendarPresentation
         .onReceive(store.objectWillChange) { _ in
             // ストアのデータが変化した時のみ、各種スナップショットキャッシュを破棄する。
             // これにより calendarSnapshot / weekTimeline の計算は
@@ -265,6 +271,11 @@ struct JournalView: View {
         }
         .onChange(of: requestedDate) { _, _ in
             openRequestedDateIfNeeded()
+        }
+        .onChange(of: weekStartRawValue) { _, rawValue in
+            let updatedWeekStart = CalendarWeekStart(rawValue: rawValue) ?? .sunday
+            viewModel.updateWeekStart(updatedWeekStart)
+            regenerateWeekPager(centeredAt: viewModel.selectedDate)
         }
         .onDisappear {
             deferredCalendarSyncTask?.cancel()
@@ -515,7 +526,7 @@ struct JournalView: View {
 
     private var shouldShowTodayButton: Bool {
         let today = Date().startOfDay
-        let calendar = Calendar.current
+        let calendar = viewModel.displayCalendar
         let isShowingTodayMonth = calendar.isDate(viewModel.monthAnchor, equalTo: today, toGranularity: .month)
         if calendarMode == .schedule {
             let isOnToday = calendar.isDate(viewModel.selectedDate, inSameDayAs: today)
@@ -563,7 +574,7 @@ struct JournalView: View {
             if shouldShowTodayButton {
                 Button("今日へ") {
                     let today = Date().startOfDay
-                    let calendar = Calendar.current
+                    let calendar = viewModel.displayCalendar
                     if calendarMode == .schedule {
                         let longDuration = 0.55
                         let shortDuration = 0.25
@@ -640,11 +651,10 @@ struct JournalView: View {
     }
 
     private var weekdayHeader: some View {
-        let calendar = Calendar.autoupdatingCurrent
-        let weekdays = calendar.shortWeekdaySymbols
+        let weekdays = viewModel.weekStart.weekdaySymbols(in: viewModel.displayCalendar)
         return HStack(spacing: 0) {
-            ForEach(weekdays, id: \.self) { weekday in
-                Text(weekday)
+            ForEach(Array(weekdays.enumerated()), id: \.offset) { _, symbol in
+                Text(symbol)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
@@ -664,7 +674,7 @@ struct JournalView: View {
 
     private var monthPager: some View {
         TabView(selection: $monthPagerSelection) {
-            ForEach(Array(monthPagerAnchors.enumerated()), id: \.offset) { index, anchor in
+            ForEach(Array(monthPagerAnchors.enumerated()), id: \.element) { index, anchor in
                 VStack(spacing: 0) {
                     if calendarMode == .review {
                         reviewMonthCalendar(for: anchor)
@@ -831,7 +841,7 @@ struct JournalView: View {
     // 週表示仕様: docs/requirements.md 4.5 + docs/ui-guidelines.md (Journal)
     private var weekPager: some View {
         TabView(selection: $weekPagerSelection) {
-            ForEach(Array(weekPagerAnchors.enumerated()), id: \.offset) { index, anchor in
+            ForEach(Array(weekPagerAnchors.enumerated()), id: \.element) { index, anchor in
                 VStack(spacing: 12) {
                     weekCalendar(for: anchor)
                         .padding(.top, 17)
@@ -871,7 +881,7 @@ struct JournalView: View {
 
     private func prependWeekAnchors(count: Int) {
         guard let first = weekPagerAnchors.first else { return }
-        let calendar = Calendar.current
+        let calendar = viewModel.displayCalendar
         let start = weekStart(for: first)
         var newDates: [Date] = []
         for step in 1...count {
@@ -886,7 +896,7 @@ struct JournalView: View {
 
     private func appendWeekAnchors(count: Int) {
         guard let last = weekPagerAnchors.last else { return }
-        let calendar = Calendar.current
+        let calendar = viewModel.displayCalendar
         let start = weekStart(for: last)
         for step in 1...count {
             if let newDate = calendar.date(byAdding: .weekOfYear, value: step, to: start) {
@@ -896,8 +906,7 @@ struct JournalView: View {
     }
 
     private func weekStart(for date: Date) -> Date {
-        let calendar = Calendar.current
-        return calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)) ?? date
+        JournalViewModel.startOfWeek(containing: date, calendar: viewModel.displayCalendar)
     }
 
     private var weekDayDetail: some View {
@@ -1221,9 +1230,7 @@ struct JournalView: View {
     }
 
     private func weekDates(for anchor: Date) -> [Date] {
-        let calendar = Calendar.current
-        let start = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: anchor)) ?? anchor
-        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+        JournalViewModel.weekDates(containing: anchor, calendar: viewModel.displayCalendar)
     }
 
     private func calendarSnapshot(for date: Date) -> CalendarDetailSnapshot {
@@ -1280,7 +1287,7 @@ struct JournalView: View {
 
     private func detailPager(includeAddButtons: Bool, showHeader: Bool = false, minHeight: CGFloat = 520) -> some View {
         TabView(selection: $detailPagerSelection) {
-            ForEach(Array(detailPagerAnchors.enumerated()), id: \.offset) { index, anchor in
+            ForEach(Array(detailPagerAnchors.enumerated()), id: \.element) { index, anchor in
                 let snapshot = calendarSnapshot(for: anchor)
                 Group {
                     if calendarMode == .schedule {
@@ -1481,7 +1488,7 @@ struct JournalView: View {
     private func regenerateWeekPager(centeredAt date: Date) {
         isSyncingWeekPager = true
         let start = weekStart(for: date)
-        let calendar = Calendar.current
+        let calendar = viewModel.displayCalendar
         let offsets = Array(-weekPagerRadius...weekPagerRadius)
         weekPagerAnchors = offsets.compactMap { calendar.date(byAdding: .weekOfYear, value: $0, to: start) }
         let target = weekPagerAnchors.firstIndex(where: { calendar.isDate($0, inSameDayAs: start) }) ?? weekPagerRadius
@@ -1492,7 +1499,7 @@ struct JournalView: View {
     }
 
     private func ensureWeekPagerIncludes(date: Date) {
-        let calendar = Calendar.current
+        let calendar = viewModel.displayCalendar
         let start = weekStart(for: date)
         if let index = weekPagerAnchors.firstIndex(where: { calendar.isDate($0, inSameDayAs: start) }) {
             setWeekPagerSelection(index)

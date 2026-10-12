@@ -27,13 +27,19 @@ final class JournalViewModel: ObservableObject {
     }
 
     struct TimelineItem: Identifiable {
-        enum ItemKind {
+        enum ItemKind: String {
             case event
             case task
             case sleep
         }
 
-        let id = UUID()
+        // Keep event/task identity tied to source data and distinguish sleep stages
+        // that share the same interval across multiple health summaries.
+        var id: String {
+            let sourceIdentity = identitySource ?? sourceId?.uuidString
+                ?? "\(start.timeIntervalSince1970)-\(end.timeIntervalSince1970)"
+            return "\(kind.rawValue)-\(sourceIdentity)"
+        }
         let sourceId: UUID?
         let title: String
         let start: Date
@@ -42,6 +48,7 @@ final class JournalViewModel: ObservableObject {
         let detail: String?
         let eventDetail: String?
         let isAllDay: Bool
+        var identitySource: String? = nil
     }
 
     enum DisplayMode: String, CaseIterable, Identifiable {
@@ -64,25 +71,51 @@ final class JournalViewModel: ObservableObject {
     @Published var displayMode: DisplayMode = .month
     @Published private(set) var monthAnchor: Date
     @Published private(set) var calendarAccessDenied: Bool = false
+    @Published private(set) var weekStart: CalendarWeekStart
+
+    var displayCalendar: Calendar { weekStart.applying(to: baseCalendar) }
 
     private let store: AppDataStore
     private let calendarService: CalendarEventService
+    private let baseCalendar: Calendar
     private var cancellables = Set<AnyCancellable>()
     private var monthCache: [Date: [CalendarDay]] = [:]
+    private var tasksByDayCache: [Date: [Task]]?
     private let externalCalendarPastMonths = 6
     private let externalCalendarFutureMonths = 18
     private let externalCalendarPrefetchThresholdMonths = 2
 
-    init(store: AppDataStore, anchorDate: Date = Date(), calendarService: CalendarEventService? = nil) {
+    init(store: AppDataStore,
+         anchorDate: Date = Date(),
+         calendarService: CalendarEventService? = nil,
+         weekStart: CalendarWeekStart? = nil,
+         baseCalendar: Calendar = .autoupdatingCurrent) {
         self.store = store
         self.calendarService = calendarService ?? CalendarEventService()
+        self.baseCalendar = baseCalendar
+        self.weekStart = weekStart ?? .current
         self.monthAnchor = anchorDate.startOfDay
         self.selectedDate = anchorDate.startOfDay
         bind()
         rebuild()
     }
 
+    /// docs/ui-guidelines.md §カレンダー: keep the same date while changing the first column.
+    func updateWeekStart(_ newValue: CalendarWeekStart) {
+        guard weekStart != newValue else { return }
+        weekStart = newValue
+        monthCache.removeAll()
+        tasksByDayCache = nil
+        rebuild(keepingSelection: true)
+    }
+
     private func bind() {
+        // @Published sends its new value before storage changes. Invalidate the
+        // deadline index synchronously so a redraw cannot observe an old snapshot.
+        store.$tasks
+            .sink { [weak self] _ in self?.tasksByDayCache = nil }
+            .store(in: &cancellables)
+
         store.$tasks
             .combineLatest(store.$habitRecords, store.$diaryEntries, store.$calendarEvents)
             .combineLatest(store.$externalCalendarEvents)
@@ -162,8 +195,21 @@ final class JournalViewModel: ObservableObject {
     }
 
     func tasks(on date: Date) -> [Task] {
-        let calendar = Calendar.current
-        return store.tasks.filter { isTask($0, on: date, calendar: calendar) }
+        let calendar = displayCalendar
+        return indexedTasksByDay(calendar: calendar)[calendar.startOfDay(for: date)] ?? []
+    }
+
+    private func indexedTasksByDay(calendar: Calendar) -> [Date: [Task]] {
+        if tasksByDayCache == nil {
+            // Month preloading and weekly cells share the same deadline index.
+            var grouped: [Date: [Task]] = [:]
+            for task in store.tasks {
+                guard let endDate = task.endDate ?? task.startDate else { continue }
+                grouped[calendar.startOfDay(for: endDate), default: []].append(task)
+            }
+            tasksByDayCache = grouped
+        }
+        return tasksByDayCache ?? [:]
     }
     
     /// 開始日〜終了日の範囲内にあるタスクを取得（詳細シート用）
@@ -207,7 +253,7 @@ final class JournalViewModel: ObservableObject {
                 }
             }
             
-            for stage in mergedStages {
+            for (stageIndex, stage) in mergedStages.enumerated() {
                 items.append(TimelineItem(sourceId: nil,
                                           title: "睡眠",
                                           start: stage.start,
@@ -215,7 +261,8 @@ final class JournalViewModel: ObservableObject {
                                           kind: .sleep,
                                           detail: nil,
                                           eventDetail: nil,
-                                          isAllDay: false))
+                                          isAllDay: false,
+                                          identitySource: "\(summary.id.uuidString)-\(stageIndex)"))
             }
         }
 
@@ -314,18 +361,20 @@ final class JournalViewModel: ObservableObject {
     }
 
     var weekDates: [Date] {
-        let calendar = Calendar.current
-        let startOfWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: selectedDate)) ?? selectedDate
-        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: startOfWeek) }
+        Self.weekDates(containing: selectedDate, calendar: displayCalendar)
     }
 
-    private func isTask(_ task: Task, on date: Date, calendar: Calendar) -> Bool {
-        // 「いつか」タスク（日付なし）はカレンダーに表示しない
-        guard let endDate = task.endDate ?? task.startDate else { return false }
-        // カレンダーでは終了日（締切）のみに表示
-        let end = calendar.startOfDay(for: endDate)
-        let target = calendar.startOfDay(for: date)
-        return end == target
+    nonisolated static func startOfWeek(containing date: Date, calendar: Calendar) -> Date {
+        calendar.dateInterval(of: .weekOfYear, for: date)?.start ?? calendar.startOfDay(for: date)
+    }
+
+    nonisolated static func weekDates(containing date: Date, calendar: Calendar) -> [Date] {
+        let start = startOfWeek(containing: date, calendar: calendar)
+        return (0..<7).compactMap { calendar.date(byAdding: .day, value: $0, to: start) }
+    }
+
+    nonisolated static func leadingDays(for monthStart: Date, calendar: Calendar) -> Int {
+        (calendar.component(.weekday, from: monthStart) - calendar.firstWeekday + 7) % 7
     }
 
     private func mapExternalEvents(from ekEvents: [EKEvent]) -> [CalendarEvent] {
@@ -344,7 +393,7 @@ final class JournalViewModel: ObservableObject {
     }
 
     func calendarDays(for anchor: Date) -> [CalendarDay] {
-        let calendar = Calendar.current
+        let calendar = displayCalendar
         let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: anchor)) ?? anchor
         if let cached = monthCache[monthStart] {
             return cached
@@ -355,8 +404,7 @@ final class JournalViewModel: ObservableObject {
 
         let firstDay = monthStart
         var tempDays: [CalendarDay] = []
-        let firstWeekday = calendar.component(.weekday, from: firstDay)
-        let leadingDays = (firstWeekday + 6) % 7
+        let leadingDays = Self.leadingDays(for: firstDay, calendar: calendar)
         let totalDays = range.count
         let totalCells = leadingDays + totalDays
         let targetCells = ((totalCells + 6) / 7) * 7
@@ -381,14 +429,7 @@ final class JournalViewModel: ObservableObject {
             }
         }
 
-        var tasksByDay: [Date: [Task]] = [:]
-        for task in store.tasks {
-            guard let endDate = task.endDate ?? task.startDate else { continue }
-            let day = calendar.startOfDay(for: endDate)
-            if day >= gridStart && day <= gridEnd {
-                tasksByDay[day, default: []].append(task)
-            }
-        }
+        let tasksByDay = indexedTasksByDay(calendar: calendar)
 
         var habitsByDay: [Date: [HabitRecord]] = [:]
         for record in store.habitRecords {
@@ -427,7 +468,7 @@ final class JournalViewModel: ObservableObject {
     }
 
     func preloadMonths(around anchor: Date, radius: Int = 1) {
-        let calendar = Calendar.current
+        let calendar = displayCalendar
         let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: anchor)) ?? anchor
         for offset in -radius...radius {
             guard let date = calendar.date(byAdding: .month, value: offset, to: monthStart) else { continue }

@@ -59,7 +59,7 @@ struct WallpaperCalendarItem: Identifiable {
         else {
             return false
         }
-        let calendar = WallpaperCalendarDataProvider.calendar
+        let calendar = Calendar.autoupdatingCurrent
         let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: endDate) ?? endDate
         return calendar.isDate(startDate, inSameDayAs: adjustedEnd) == false
     }
@@ -155,6 +155,7 @@ struct WallpaperCalendarFingerprintPayload: Codable {
 
     let rangeStart: TimeInterval
     let rangeEndExclusive: TimeInterval
+    let firstWeekday: Int
     let events: [Event]
     let tasks: [TaskItem]
 }
@@ -163,8 +164,8 @@ struct WallpaperCalendarFingerprintPayload: Codable {
 final class WallpaperCalendarDataProvider {
     static let itemLimit = 4
 
-    nonisolated static var calendar: Calendar {
-        var calendar = Calendar.autoupdatingCurrent
+    static var calendar: Calendar {
+        var calendar = CalendarWeekStart.current.calendar
         calendar.timeZone = .current
         return calendar
     }
@@ -191,11 +192,12 @@ final class WallpaperCalendarDataProvider {
             generatedAt: now,
             rangeStart: rangeStart,
             rangeEndExclusive: rangeEndExclusive,
-            weekdaySymbols: sundayFirstWeekdaySymbols(calendar: calendar),
+            weekdaySymbols: weekdaySymbols(calendar: calendar),
             weeks: weeks,
             fingerprintPayload: makeFingerprintPayload(
                 rangeStart: rangeStart,
                 rangeEndExclusive: rangeEndExclusive,
+                firstWeekday: calendar.firstWeekday,
                 events: events,
                 tasks: tasks
             )
@@ -576,11 +578,13 @@ final class WallpaperCalendarDataProvider {
 
     private func makeFingerprintPayload(rangeStart: Date,
                                         rangeEndExclusive: Date,
+                                        firstWeekday: Int,
                                         events: [CalendarEvent],
                                         tasks: [Task]) -> WallpaperCalendarFingerprintPayload {
         WallpaperCalendarFingerprintPayload(
             rangeStart: rangeStart.timeIntervalSince1970,
             rangeEndExclusive: rangeEndExclusive.timeIntervalSince1970,
+            firstWeekday: firstWeekday,
             events: events.map {
                 WallpaperCalendarFingerprintPayload.Event(
                     id: $0.id,
@@ -617,10 +621,11 @@ final class WallpaperCalendarDataProvider {
         }
     }
 
-    private func sundayFirstWeekdaySymbols(calendar: Calendar) -> [String] {
+    private func weekdaySymbols(calendar: Calendar) -> [String] {
         let symbols = calendar.shortStandaloneWeekdaySymbols
-        guard symbols.count == 7 else { return ["日", "月", "火", "水", "木", "金", "土"] }
-        return symbols
+        let sundayFirst = symbols.count == 7 ? symbols : ["日", "月", "火", "水", "木", "金", "土"]
+        let firstIndex = calendar.firstWeekday - 1
+        return (0..<7).map { sundayFirst[(firstIndex + $0) % 7] }
     }
 
     private func sortEventsForPreview(_ lhs: CalendarEvent, _ rhs: CalendarEvent) -> Bool {

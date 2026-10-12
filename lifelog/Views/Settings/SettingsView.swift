@@ -7,6 +7,7 @@
 
 import SwiftUI
 import MessageUI
+import WidgetKit
 
 struct SettingsView: View {
     private let openWallpaperCalendarOnAppear: Bool
@@ -29,6 +30,8 @@ struct SettingsView: View {
     @AppStorage("isMemoTextHidden") private var isMemoTextHidden: Bool = false
     @AppStorage("requiresMemoOpenAuthentication") private var requiresMemoOpenAuthentication: Bool = false
     @AppStorage("githubUsername") private var githubUsername: String = ""
+    @AppStorage(CalendarWeekStart.storageKey, store: CalendarWeekStart.defaults)
+    private var calendarWeekStartRawValue = CalendarWeekStart.sunday.rawValue
     @State private var githubPAT: String = ""
     @State private var showPATHelp = false
     @State private var showPaywall = false
@@ -436,10 +439,22 @@ struct SettingsView: View {
             currentStorageSize = PhotoStorage.totalStorageSize()
             openInitialWallpaperCalendarSettingsIfNeeded()
         }
+        .onChange(of: calendarWeekStartRawValue) { _, _ in
+            WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
+        }
     }
 
     private var appSettingsSection: some View {
         Section("アプリ設定") {
+            Picker(selection: $calendarWeekStartRawValue) {
+                ForEach(CalendarWeekStart.allCases) { weekStart in
+                    Text(weekStart.title).tag(weekStart.rawValue)
+                }
+            } label: {
+                Label("calendar.weekStart.title", systemImage: "calendar")
+                    .foregroundStyle(.primary)
+            }
+
             Button {
                 showCalendarSettings = true
             } label: {

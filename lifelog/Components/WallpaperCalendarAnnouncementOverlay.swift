@@ -208,6 +208,7 @@ private enum WallpaperCalendarDefaultPreviewBackground {
     }
 }
 
+@MainActor
 private enum WallpaperCalendarAnnouncementDemo {
     static func makeSnapshot(settings: WallpaperCalendarSettings,
                              now: Date = Date()) -> WallpaperCalendarSnapshot {
@@ -253,11 +254,12 @@ private enum WallpaperCalendarAnnouncementDemo {
             generatedAt: now,
             rangeStart: rangeStart,
             rangeEndExclusive: rangeEndExclusive,
-            weekdaySymbols: ["日", "月", "火", "水", "木", "金", "土"],
+            weekdaySymbols: CalendarWeekStart.current.weekdaySymbols(in: calendar),
             weeks: weeks,
             fingerprintPayload: WallpaperCalendarFingerprintPayload(
                 rangeStart: rangeStart.timeIntervalSince1970,
                 rangeEndExclusive: rangeEndExclusive.timeIntervalSince1970,
+                firstWeekday: calendar.firstWeekday,
                 events: [],
                 tasks: []
             )
