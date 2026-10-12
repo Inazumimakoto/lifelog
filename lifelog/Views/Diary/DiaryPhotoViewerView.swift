@@ -13,9 +13,7 @@ struct DiaryPhotoViewerView: View {
     @State private var currentIndex: Int
     @State private var showDeleteAlert = false
     @State private var chromeVisible = true
-    @State private var verticalDragOffset: CGFloat = 0
     @State private var isCurrentPhotoZoomed = false
-    private let dismissDragThreshold: CGFloat = 140
     private let onIndexChanged: ((Int) -> Void)?
 
     init(viewModel: DiaryViewModel, initialIndex: Int, onIndexChanged: ((Int) -> Void)? = nil) {
@@ -26,11 +24,8 @@ struct DiaryPhotoViewerView: View {
     }
 
     var body: some View {
-        ZStack {
-            Color.black
-                .opacity(backgroundOpacity)
-                .ignoresSafeArea()
-
+        DismissiblePhotoViewer(isZoomed: isCurrentPhotoZoomed,
+                               onDismiss: { dismiss() }) {
             ZStack {
                 if viewModel.entry.photoPaths.isEmpty == false {
                     TabView(selection: $currentIndex) {
@@ -75,9 +70,7 @@ struct DiaryPhotoViewerView: View {
                     Spacer()
                 }
             }
-            .offset(y: verticalDragOffset)
         }
-        .simultaneousGesture(verticalDismissGesture)
         .onChange(of: viewModel.entry.photoPaths) { paths in
             guard let lastIndex = paths.indices.last else {
                 dismiss()
@@ -100,41 +93,6 @@ struct DiaryPhotoViewerView: View {
             }
             Button("キャンセル", role: .cancel) { }
         }
-    }
-
-    private var backgroundOpacity: Double {
-        let progress = min(max(verticalDragOffset / dismissDragThreshold, 0), 1)
-        return 1 - (progress * 0.45)
-    }
-
-    private var verticalDismissGesture: some Gesture {
-        DragGesture(minimumDistance: 10, coordinateSpace: .local)
-            .onChanged { value in
-                guard isCurrentPhotoZoomed == false else { return }
-                let vertical = value.translation.height
-                let horizontal = value.translation.width
-                guard vertical > 0, abs(vertical) > abs(horizontal) else { return }
-                verticalDragOffset = min(vertical, 360)
-            }
-            .onEnded { value in
-                guard isCurrentPhotoZoomed == false else {
-                    resetVerticalDragOffset()
-                    return
-                }
-                let vertical = value.translation.height
-                let horizontal = value.translation.width
-
-                guard vertical > 0, abs(vertical) > abs(horizontal) else {
-                    resetVerticalDragOffset()
-                    return
-                }
-
-                if vertical >= dismissDragThreshold {
-                    dismiss()
-                } else {
-                    resetVerticalDragOffset()
-                }
-            }
     }
 
     private var favoriteButton: some View {
@@ -168,13 +126,6 @@ struct DiaryPhotoViewerView: View {
             dismiss()
         } else {
             currentIndex = min(currentIndex, remaining - 1)
-        }
-    }
-
-    private func resetVerticalDragOffset() {
-        guard verticalDragOffset != 0 else { return }
-        withAnimation(.spring(response: 0.28, dampingFraction: 0.82)) {
-            verticalDragOffset = 0
         }
     }
 

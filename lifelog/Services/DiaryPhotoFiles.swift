@@ -25,22 +25,20 @@ nonisolated struct DiaryPhotoFiles: Sendable {
 
     func writeOriginal(_ data: Data, at path: String) throws {
         try validate(path)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        try data.write(to: fullImageURL(for: path), options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        try write(data, to: fullImageURL(for: path))
     }
 
     func writeThumbnail(_ data: Data, at path: String) throws {
         try validate(path)
         guard isImage(data) else { throw StorageError.invalidImage }
-        let url = thumbnailURL(for: path)
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+        try write(data, to: thumbnailURL(for: path))
     }
 
     func prepareThumbnail(at path: String) throws {
         try validate(path)
-        if let data = try? Data(contentsOf: thumbnailURL(for: path)), isImage(data) { return }
-        guard let source = CGImageSourceCreateWithURL(fullImageURL(for: path) as CFURL, nil),
+        if hasValidThumbnail(at: path) { return }
+        guard let source = CGImageSourceCreateWithURL(fullImageURL(for: path) as CFURL,
+                [kCGImageSourceShouldCache: false] as CFDictionary),
               let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [
                 kCGImageSourceCreateThumbnailFromImageAlways: true,
                 kCGImageSourceCreateThumbnailWithTransform: true,
@@ -54,7 +52,7 @@ nonisolated struct DiaryPhotoFiles: Sendable {
 
     func removeOriginal(at path: String) throws {
         try validate(path)
-        guard let data = try? Data(contentsOf: thumbnailURL(for: path)), isImage(data) else {
+        guard hasValidThumbnail(at: path) else {
             throw StorageError.missingThumbnail
         }
         try removeIfPresent(fullImageURL(for: path))
@@ -93,6 +91,16 @@ nonisolated struct DiaryPhotoFiles: Sendable {
     private func isImage(_ data: Data) -> Bool {
         guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return false }
         return CGImageSourceCreateImageAtIndex(source, 0, nil) != nil
+    }
+
+    private func hasValidThumbnail(at path: String) -> Bool {
+        guard let data = try? Data(contentsOf: thumbnailURL(for: path)) else { return false }
+        return isImage(data)
+    }
+
+    private func write(_ data: Data, to url: URL) throws {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
 
     private func removeIfPresent(_ url: URL) throws {

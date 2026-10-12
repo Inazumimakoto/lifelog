@@ -137,27 +137,12 @@ final class TasksViewModel: ObservableObject {
         }
     }
 
-    private func isTask(_ task: Task, on date: Date, calendar: Calendar) -> Bool {
-        let start = calendar.startOfDay(for: task.startDate ?? task.endDate ?? date)
-        let end = calendar.startOfDay(for: task.endDate ?? task.startDate ?? date)
-        let target = calendar.startOfDay(for: date)
-        return start...end ~= target
-    }
-
     private func displayDate(for task: Task) -> Date? {
-        task.endDate ?? task.startDate
+        TaskPresentation.displayDate(for: task, preferring: .deadline)
     }
 
     private func sortTasks(_ lhs: Task, _ rhs: Task) -> Bool {
-        if lhs.priority.rawValue != rhs.priority.rawValue {
-            return lhs.priority.rawValue > rhs.priority.rawValue
-        }
-        let lhsDate = displayDate(for: lhs) ?? .distantFuture
-        let rhsDate = displayDate(for: rhs) ?? .distantFuture
-        if lhsDate != rhsDate {
-            return lhsDate < rhsDate
-        }
-        return lhs.title < rhs.title
+        TaskPresentation.orderedBefore(lhs, rhs, preferring: .deadline)
     }
 }
 

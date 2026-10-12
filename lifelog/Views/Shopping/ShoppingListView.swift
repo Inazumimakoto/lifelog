@@ -94,6 +94,11 @@ struct ShoppingListView: View {
                     Button("購入先を管理", systemImage: "building.2") {
                         present(.places)
                     }
+#if DEBUG
+                    Button("shopping.connection.title", systemImage: "link") {
+                        ShoppingConnectionService.shared.showConnection()
+                    }
+#endif
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }

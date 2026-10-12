@@ -106,7 +106,6 @@ struct DiaryEditorView: View {
         )
         .onAppear {
             syncSelectedEmotionTags(in: textDraft.text)
-            refreshLinkedPhotoPaths()
             // 日記リマインダー設定を読み込み
             diaryReminderEnabled = viewModel.store.diaryReminderEnabled
             let calendar = Calendar.current
@@ -131,11 +130,10 @@ struct DiaryEditorView: View {
                 }
             }
         }
-        .onChange(of: viewModel.entry.photoPaths) { _, _ in
-            refreshLinkedPhotoPaths()
-        }
-        .onChange(of: viewModel.entry.locations) { _, _ in
-            refreshLinkedPhotoPaths()
+        .task(id: linkedPhotoInputs) {
+            let paths = await viewModel.linkedDiaryPhotoPaths()
+            guard !_Concurrency.Task.isCancelled else { return }
+            linkedPhotoPathsCache = paths
         }
         .onChange(of: viewModel.entry.date) { _, _ in
             replaceEditorText(viewModel.textDraft, syncViewModel: false)
@@ -583,8 +581,16 @@ struct DiaryEditorView: View {
         }
     }
 
-    private func refreshLinkedPhotoPaths() {
-        linkedPhotoPathsCache = viewModel.linkedDiaryPhotoPaths()
+    private struct LinkedPhotoInputs: Hashable {
+        let entryID: UUID
+        let photoPaths: [String]
+        let locationPhotoPaths: [[String]]
+    }
+
+    private var linkedPhotoInputs: LinkedPhotoInputs {
+        LinkedPhotoInputs(entryID: viewModel.entry.id,
+                          photoPaths: viewModel.entry.photoPaths,
+                          locationPhotoPaths: viewModel.entry.locations.map(\.photoPaths))
     }
 
     private func showPhotoImportToast(_ summary: DiaryViewModel.PhotoImportSummary) {
@@ -811,7 +817,7 @@ private struct LocationVisitTagPickerSheet: View {
         self.onSave = onSave
         self.onGlobalRename = onGlobalRename
         self.onGlobalDelete = onGlobalDelete
-        _workingTags = State(initialValue: Self.normalizedTags(selectedTags))
+        _workingTags = State(initialValue: DiaryVisitTagNormalizer.normalize(selectedTags, limit: AppDataStore.maxLocationVisitTagsPerVisit))
     }
     
     private var maxTags: Int { AppDataStore.maxLocationVisitTagsPerVisit }
@@ -833,7 +839,7 @@ private struct LocationVisitTagPickerSheet: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("完了") {
-                        onSave(Self.normalizedTags(workingTags))
+                        onSave(DiaryVisitTagNormalizer.normalize(workingTags, limit: maxTags))
                         dismiss()
                     }
                 }
@@ -969,7 +975,7 @@ private struct LocationVisitTagPickerSheet: View {
             return
         }
         workingTags.append(name)
-        workingTags = Self.normalizedTags(workingTags)
+        workingTags = DiaryVisitTagNormalizer.normalize(workingTags, limit: maxTags)
     }
     
     private func createTag() {
@@ -989,47 +995,22 @@ private struct LocationVisitTagPickerSheet: View {
     }
     
     private func indexOfTag(named name: String) -> Int? {
-        let key = Self.normalizedTagKey(name)
-        return workingTags.firstIndex { Self.normalizedTagKey($0) == key }
+        let key = DiaryVisitTagNormalizer.key(for: name)
+        return workingTags.firstIndex { DiaryVisitTagNormalizer.key(for: $0) == key }
     }
     
     private func applyRename(oldName: String, newName: String) {
-        for index in workingTags.indices where Self.isSameTagName(workingTags[index], oldName) {
+        let oldKey = DiaryVisitTagNormalizer.key(for: oldName)
+        for index in workingTags.indices where DiaryVisitTagNormalizer.key(for: workingTags[index]) == oldKey {
             workingTags[index] = newName
         }
-        workingTags = Self.normalizedTags(workingTags)
+        workingTags = DiaryVisitTagNormalizer.normalize(workingTags, limit: maxTags)
     }
     
     private func applyDeletion(name: String) {
-        workingTags.removeAll { Self.isSameTagName($0, name) }
-        workingTags = Self.normalizedTags(workingTags)
-    }
-    
-    private static func normalizedTags(_ tags: [String]) -> [String] {
-        var seen: Set<String> = []
-        var normalized: [String] = []
-        for raw in tags {
-            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard trimmed.isEmpty == false else { continue }
-            let key = normalizedTagKey(trimmed)
-            guard seen.contains(key) == false else { continue }
-            seen.insert(key)
-            normalized.append(trimmed)
-            if normalized.count >= AppDataStore.maxLocationVisitTagsPerVisit {
-                break
-            }
-        }
-        return normalized
-    }
-    
-    private static func normalizedTagKey(_ name: String) -> String {
-        name
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-    }
-    
-    private static func isSameTagName(_ lhs: String, _ rhs: String) -> Bool {
-        normalizedTagKey(lhs) == normalizedTagKey(rhs)
+        let deletedKey = DiaryVisitTagNormalizer.key(for: name)
+        workingTags.removeAll { DiaryVisitTagNormalizer.key(for: $0) == deletedKey }
+        workingTags = DiaryVisitTagNormalizer.normalize(workingTags, limit: maxTags)
     }
 }
 
@@ -1209,22 +1190,16 @@ private struct LocationVisitTagManagerView: View {
     }
     
     private func affectedVisitCount(for tagName: String) -> Int {
-        let key = normalizedTagKey(tagName)
+        let key = DiaryVisitTagNormalizer.key(for: tagName)
         var count = 0
         for entry in store.diaryEntries {
             for location in entry.locations {
-                if location.visitTags.contains(where: { normalizedTagKey($0) == key }) {
+                if location.visitTags.contains(where: { DiaryVisitTagNormalizer.key(for: $0) == key }) {
                     count += 1
                 }
             }
         }
         return count
-    }
-    
-    private func normalizedTagKey(_ name: String) -> String {
-        name
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
     }
 }
 
@@ -1257,6 +1232,8 @@ private struct PhotoLocationLinkSheet: View {
     @State private var selectedLocationIDs: Set<UUID> = []
     @State private var locationSelection: [PhotosPickerItem] = []
     @State private var isImportingLocationPhotos = false
+    @State private var isPreparingSelection = true
+    @State private var touchedLocationIDs: Set<UUID> = []
 
     private var isLocationMode: Bool {
         if case .location = context { return true }
@@ -1294,10 +1271,14 @@ private struct PhotoLocationLinkSheet: View {
                     Button("完了") {
                         applySelection()
                     }
+                    .disabled(isPreparingSelection)
                 }
             }
-            .onAppear {
-                setupSelection()
+            .task(id: context.id) {
+                isPreparingSelection = true
+                await setupSelection()
+                guard !_Concurrency.Task.isCancelled else { return }
+                isPreparingSelection = false
             }
             .onChange(of: locationSelection) { _, newSelection in
                 guard newSelection.isEmpty == false else { return }
@@ -1457,7 +1438,7 @@ private struct PhotoLocationLinkSheet: View {
         Array(repeating: GridItem(.flexible(minimum: 72), spacing: 12), count: 4)
     }
 
-    private func setupSelection() {
+    private func setupSelection() async {
         switch context {
         case .location(let id):
             if let location = viewModel.entry.locations.first(where: { $0.id == id }) {
@@ -1465,7 +1446,17 @@ private struct PhotoLocationLinkSheet: View {
                 selectedPhotoPaths = Set(location.photoPaths.filter { availablePaths.contains($0) })
             }
         case .photo(let path):
-            selectedLocationIDs = viewModel.linkedLocationIDs(forPhoto: path)
+            // Direct links display immediately while legacy equivalence is read
+            // off-main. Do not overwrite a selection edited during that lookup.
+            let directIDs = Set(viewModel.entry.locations.filter { $0.photoPaths.contains(path) }.map(\.id))
+            selectedLocationIDs = PhotoLocationSelection.merge(resolvedIDs: directIDs,
+                                                               selectedIDs: selectedLocationIDs,
+                                                               touchedIDs: touchedLocationIDs)
+            let linkedIDs = await viewModel.linkedLocationIDs(forPhoto: path)
+            guard !_Concurrency.Task.isCancelled else { return }
+            selectedLocationIDs = PhotoLocationSelection.merge(resolvedIDs: linkedIDs,
+                                                               selectedIDs: selectedLocationIDs,
+                                                               touchedIDs: touchedLocationIDs)
         }
     }
 
@@ -1491,6 +1482,7 @@ private struct PhotoLocationLinkSheet: View {
     }
 
     private func toggleLocation(_ id: UUID) {
+        touchedLocationIDs.insert(id)
         if selectedLocationIDs.contains(id) {
             selectedLocationIDs.remove(id)
         } else {
@@ -1644,8 +1636,11 @@ private struct DiaryPhotoThumbnailItem: View {
         .onTapGesture {
             onOpen(index)
         }
-        .task {
-            thumbnail = await PhotoStorage.loadThumbnail(at: path)
+        .task(id: path) {
+            thumbnail = nil
+            let image = await PhotoStorage.loadThumbnail(at: path)
+            guard !_Concurrency.Task.isCancelled else { return }
+            thumbnail = image
         }
     }
 }

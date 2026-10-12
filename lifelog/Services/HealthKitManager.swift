@@ -56,20 +56,24 @@ class HealthKitManager {
     }
     
     func fetchHealthData(for lastNDays: Int) async -> [HealthSummary] {
-        let calendar = Calendar.current
-        let endDate = calendar.startOfDay(for: Date())
-        guard let startDate = calendar.date(byAdding: .day, value: -lastNDays, to: endDate) else {
-            return []
-        }
-        
+        guard let window = HealthQueryWindow(lastNDays: lastNDays) else { return [] }
+
         var summaries: [Date: HealthSummary] = [:]
-        for i in 0...lastNDays {
-            if let date = calendar.date(byAdding: .day, value: -i, to: endDate) {
-                summaries[date] = HealthSummary(date: date)
-            }
+        for date in window.summaryDays {
+            summaries[date] = HealthSummary(date: date)
         }
-        
-        let sleepData = await fetchSleepData(from: startDate, to: calendar.date(byAdding: .day, value: 1, to: endDate) ?? endDate)
+
+        // These five independent HealthKit queries previously waited for each
+        // other, extending both the recent-data and full-year refresh latency.
+        async let sleepResult = fetchSleepData(from: window.start, to: window.endExclusive)
+        async let stepsResult = fetchCumulativeQuantity(for: .stepCount, from: window.start, to: window.endExclusive)
+        async let energyResult = fetchCumulativeQuantity(for: .activeEnergyBurned, from: window.start, to: window.endExclusive)
+        async let exerciseResult = fetchCumulativeQuantity(for: .appleExerciseTime, from: window.start, to: window.endExclusive)
+        async let standResult = fetchStandHours(from: window.start, to: window.endExclusive)
+        let (sleepData, steps, activeEnergy, exerciseTime, standHours) = await (
+            sleepResult, stepsResult, energyResult, exerciseResult, standResult
+        )
+
         for (date, sleepInfo) in sleepData {
             summaries[date]?.sleepStart = sleepInfo.start
             summaries[date]?.sleepEnd = sleepInfo.end
@@ -77,22 +81,18 @@ class HealthKitManager {
             summaries[date]?.sleepStages = sleepInfo.stages.sorted(by: { $0.start < $1.start })
         }
         
-        let steps = await fetchCumulativeQuantity(for: .stepCount, from: startDate, to: endDate)
         for (date, value) in steps {
             summaries[date]?.steps = Int(value)
         }
         
-        let activeEnergy = await fetchCumulativeQuantity(for: .activeEnergyBurned, from: startDate, to: endDate)
         for (date, value) in activeEnergy {
             summaries[date]?.activeEnergy = value
         }
         
-        let exerciseTime = await fetchCumulativeQuantity(for: .appleExerciseTime, from: startDate, to: endDate)
         for (date, value) in exerciseTime {
             summaries[date]?.exerciseMinutes = value
         }
         
-        let standHours = await fetchStandHours(from: startDate, to: endDate)
         for (date, value) in standHours {
             summaries[date]?.standHours = value
         }
@@ -199,7 +199,9 @@ class HealthKitManager {
         let dailyInterval = DateComponents(day: 1)
         
         let query = HKStatisticsCollectionQuery(quantityType: quantityType,
-                                                quantitySamplePredicate: nil,
+                                                quantitySamplePredicate: HKQuery.predicateForSamples(
+                                                    withStart: startDate, end: endDate, options: []
+                                                ),
                                                 options: .cumulativeSum,
                                                 anchorDate: anchorDate,
                                                 intervalComponents: dailyInterval)
@@ -212,7 +214,9 @@ class HealthKitManager {
                 }
                 
                 var dailyData: [Date: Double] = [:]
-                results.enumerateStatistics(from: startDate, to: endDate) { statistics, stop in
+                // enumerateStatistics includes the bucket containing its end
+                // date; stop before tomorrow to avoid creating an extra bucket.
+                results.enumerateStatistics(from: startDate, to: endDate.addingTimeInterval(-1)) { statistics, stop in
                     if let sum = statistics.sumQuantity() {
                         let unit: HKUnit
                         switch identifier {

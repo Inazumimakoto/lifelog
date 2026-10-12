@@ -9,7 +9,7 @@ final class ShoppingListViewModelTests: XCTestCase {
         let store = ShoppingStore(container: container)
         let supermarket = try store.addPlace(name: "スーパー")
         let pharmacy = try store.addPlace(name: "ドラッグストア")
-        let milk = try store.addItem(title: "牛乳", quantity: "2本", note: "低脂肪", placeID: supermarket.id)
+        let milk = try store.addItem(title: "牛乳", note: "2本\n低脂肪", placeID: supermarket.id)
         _ = try store.addItem(title: "卵", placeID: supermarket.id)
         _ = try store.addItem(title: "薬", placeID: pharmacy.id)
         let model = ShoppingListViewModel(shoppingStore: store, now: { Date(timeIntervalSince1970: 1_000) })
@@ -174,7 +174,7 @@ final class ShoppingListViewModelTests: XCTestCase {
     func testUndoAfterPlaceDeletion_restoresContentsWithoutADeletedPurchasePlace() throws {
         let store = ShoppingStore(container: try makeContainer())
         let place = try store.addPlace(name: "スーパー")
-        let milk = try store.addItem(title: "牛乳", quantity: "2本", note: "低脂肪", placeID: place.id)
+        let milk = try store.addItem(title: "牛乳", note: "2本\n低脂肪", placeID: place.id)
         let model = ShoppingListViewModel(shoppingStore: store)
         model.selectFilter(.place(place.id))
         XCTAssertTrue(model.togglePurchase(milk))
@@ -233,6 +233,21 @@ final class ShoppingListViewModelTests: XCTestCase {
         XCTAssertNil(model.draftPlaceID)
         model.selectFilter(.all)
         XCTAssertNil(model.draftPlaceID)
+    }
+
+    func testMissingPlaceDuringSync_keepsItemVisibleInUnassignedGroup() throws {
+        let container = try makeContainer()
+        let item = ShoppingItem(title: "卵", note: "6個", placeID: UUID())
+        let context = ModelContext(container)
+        context.insert(SDShoppingItem(domain: item))
+        try context.save()
+        let model = ShoppingListViewModel(shoppingStore: ShoppingStore(container: container))
+
+        XCTAssertEqual(model.pendingGroups.count, 1)
+        XCTAssertEqual(model.pendingGroups.first?.id, "unassigned")
+        XCTAssertEqual(model.pendingGroups.first?.items, [item])
+        model.selectFilter(.unassigned)
+        XCTAssertEqual(model.pendingItems, [item])
     }
 
     private func makeContainer() throws -> ModelContainer {

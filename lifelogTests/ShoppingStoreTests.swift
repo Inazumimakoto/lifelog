@@ -8,7 +8,7 @@ final class ShoppingStoreTests: XCTestCase {
         let container = try makeContainer()
         let store = ShoppingStore(container: container)
         let place = try store.addPlace(name: "スーパー")
-        let original = ShoppingItem(title: "牛乳", quantity: "2本", note: "低脂肪",
+        let original = ShoppingItem(title: "牛乳", note: "2本\n低脂肪",
                                     placeID: place.id, createdAt: Date(timeIntervalSince1970: 1_000))
         try store.restoreItem(original)
         let another = try store.addItem(title: "パン")
@@ -44,12 +44,11 @@ final class ShoppingStoreTests: XCTestCase {
     func testUndoWhenIdentityExists_preservesNewerRowAndDoesNotDuplicateIt() throws {
         let container = try makeContainer()
         let store = ShoppingStore(container: container)
-        let original = try store.addItem(title: "牛乳", quantity: "1本", note: "元のメモ")
+        let original = try store.addItem(title: "牛乳", note: "1本\n元のメモ")
         try store.deleteItem(original.id)
         var newer = original
         newer.title = "豆乳"
-        newer.quantity = "2本"
-        newer.note = "編集後のメモ"
+        newer.note = "2本\n編集後のメモ"
         newer.createdAt = Date(timeIntervalSince1970: 2_000)
         try store.restoreItem(newer)
 
@@ -124,10 +123,11 @@ final class ShoppingStoreTests: XCTestCase {
     }
 
     func testLegacyShoppingJSON_ignoresRemovedPurchaseMetadata() throws {
-        let item = ShoppingItem(title: "牛乳", quantity: "2本", note: "元の内容", placeID: UUID())
+        let item = ShoppingItem(title: "牛乳", note: "2本\n元の内容", placeID: UUID())
         let currentJSON = try JSONEncoder().encode(item)
         XCTAssertEqual(try JSONDecoder().decode(ShoppingItem.self, from: currentJSON), item)
         var fields = try XCTUnwrap(JSONSerialization.jsonObject(with: currentJSON) as? [String: Any])
+        XCTAssertNil(fields["quantity"])
         XCTAssertNil(fields["purchasedAt"])
         XCTAssertNil(fields["purchaseCount"])
         XCTAssertNil(fields["familyID"])
@@ -143,6 +143,7 @@ final class ShoppingStoreTests: XCTestCase {
         let seedContext = ModelContext(container)
         let place = SDShoppingPlace(name: "元の購入先")
         let pending = SDShoppingItem(title: "買う卵", note: "6個", placeID: place.id)
+        pending.legacyQuantity = "2パック"
         let purchased = SDShoppingItem(title: "買った卵", purchasedAt: Date(timeIntervalSince1970: 2_000))
         seedContext.insert(place)
         seedContext.insert(pending)
@@ -164,6 +165,10 @@ final class ShoppingStoreTests: XCTestCase {
         XCTAssertThrowsError(try store.addItem(title: "追加を止める"))
         XCTAssertEqual(Set(try ModelContext(container).fetch(FetchDescriptor<SDShoppingItem>()).map(\.id)),
                        Set([pendingID, purchasedID]))
+        let unchanged = try XCTUnwrap(ModelContext(container).fetch(FetchDescriptor<SDShoppingItem>())
+            .first { $0.id == pendingID })
+        XCTAssertEqual(unchanged.legacyQuantity, "2パック")
+        XCTAssertEqual(unchanged.note, "6個")
         XCTAssertTrue(mainContext.hasChanges)
 
         failNextSave = false
@@ -171,16 +176,47 @@ final class ShoppingStoreTests: XCTestCase {
         XCTAssertNil(store.loadError)
         XCTAssertEqual(store.items.map(\.id), [pendingID])
         XCTAssertEqual(store.items.first?.placeID, place.id)
+        XCTAssertEqual(store.items.first?.note, "2パック\n6個")
         XCTAssertEqual(store.places.map(\.id), [place.id])
         XCTAssertEqual(try ModelContext(container).fetch(FetchDescriptor<SDShoppingItem>()).map(\.id),
                        [pendingID])
+        XCTAssertTrue(try ModelContext(container).fetch(FetchDescriptor<SDShoppingItem>())
+            .allSatisfy { $0.legacyQuantity.isEmpty })
         XCTAssertTrue(mainContext.hasChanges)
         XCTAssertTrue(try ModelContext(container).fetch(FetchDescriptor<SDTask>()).isEmpty)
         _ = try store.addItem(title: "再試行後の追加")
         XCTAssertEqual(store.items.count, 2)
     }
 
-    func testReloadWithoutLegacyPurchases_doesNotWrite() throws {
+    func testLegacyQuantityMigration_preservesFreeTextAndRunsOnce() throws {
+        let container = try makeContainer()
+        let context = ModelContext(container)
+        let quantityOnly = SDShoppingItem(title: "卵")
+        quantityOnly.legacyQuantity = "6個"
+        let withNote = SDShoppingItem(title: "小麦粉", note: " いつもの\n銘柄 ")
+        withNote.legacyQuantity = " 500 g "
+        context.insert(quantityOnly)
+        context.insert(withNote)
+        try context.save()
+
+        var saveCount = 0
+        let store = ShoppingStore(container: container) { context in
+            saveCount += 1
+            try context.save()
+        }
+        XCTAssertNil(store.loadError)
+        XCTAssertEqual(store.items.first { $0.id == quantityOnly.id }?.note, "6個")
+        XCTAssertEqual(store.items.first { $0.id == withNote.id }?.note, " 500 g \n いつもの\n銘柄 ")
+        XCTAssertEqual(saveCount, 1)
+
+        try store.reload()
+        XCTAssertEqual(saveCount, 1)
+        XCTAssertEqual(ShoppingStore(container: container).items, store.items)
+        XCTAssertTrue(try ModelContext(container).fetch(FetchDescriptor<SDShoppingItem>())
+            .allSatisfy { $0.legacyQuantity.isEmpty })
+    }
+
+    func testReloadWithoutLegacyData_doesNotWrite() throws {
         let container = try makeContainer()
         var saveCount = 0
         let store = ShoppingStore(container: container) { context in
@@ -207,7 +243,7 @@ final class ShoppingStoreTests: XCTestCase {
         let independentPendingID = UUID()
         let purchasedID = UUID()
         let createdAt = Date(timeIntervalSince1970: 1_000)
-        let expected = ShoppingItem(id: pendingID, title: "卵", quantity: "2個", note: "元のメモ",
+        let expected = ShoppingItem(id: pendingID, title: "卵", note: "2個\n元のメモ",
                                     placeID: placeID, createdAt: createdAt)
 
         try autoreleasepool {
@@ -218,7 +254,7 @@ final class ShoppingStoreTests: XCTestCase {
             context.insert(SDDiaryEntry(id: diaryID, date: createdAt, text: "保持する日記本文"))
             context.insert(SDShoppingPlace(id: placeID, name: "元の購入先", orderIndex: 0))
             context.insert(ShoppingSchemaWithFrequency.SDShoppingItem(
-                id: pendingID, title: expected.title, quantity: expected.quantity, note: expected.note,
+                id: pendingID, title: expected.title, quantity: "2個", note: "元のメモ",
                 placeID: placeID, createdAt: createdAt, purchasedAt: nil,
                 purchaseCount: 3, familyID: purchasedID))
             context.insert(ShoppingSchemaWithFrequency.SDShoppingItem(
@@ -244,6 +280,8 @@ final class ShoppingStoreTests: XCTestCase {
             let context = ModelContext(container)
             XCTAssertEqual(Set(try context.fetch(FetchDescriptor<SDShoppingItem>()).map(\.id)),
                            Set([pendingID, independentPendingID]))
+            XCTAssertTrue(try context.fetch(FetchDescriptor<SDShoppingItem>())
+                .allSatisfy { $0.legacyQuantity.isEmpty })
             XCTAssertEqual(try context.fetch(FetchDescriptor<SDTask>()).first?.id, taskID)
             XCTAssertEqual(try context.fetch(FetchDescriptor<SDTask>()).first?.detail, "保持するタスク本文")
             XCTAssertEqual(try context.fetch(FetchDescriptor<SDDiaryEntry>()).first?.id, diaryID)
@@ -269,7 +307,7 @@ final class ShoppingStoreTests: XCTestCase {
         let storeURL = directory.appendingPathComponent("shopping-before-frequency.store")
         let taskID = UUID()
         let placeID = UUID()
-        let item = ShoppingItem(title: "元の商品", quantity: "2個", note: "元のメモ", placeID: placeID,
+        let item = ShoppingItem(title: "元の商品", note: "2個\n元のメモ", placeID: placeID,
                                 createdAt: Date(timeIntervalSince1970: 1_000))
 
         try autoreleasepool {
@@ -279,7 +317,7 @@ final class ShoppingStoreTests: XCTestCase {
             context.insert(SDTask(id: taskID, title: "既存タスク"))
             context.insert(SDShoppingPlace(id: placeID, name: "元の購入先", orderIndex: 0))
             context.insert(ShoppingSchemaBeforeFrequency.SDShoppingItem(
-                id: item.id, title: item.title, quantity: item.quantity, note: item.note,
+                id: item.id, title: item.title, quantity: "2個", note: "元のメモ",
                 placeID: placeID, createdAt: item.createdAt, purchasedAt: nil))
             context.insert(ShoppingSchemaBeforeFrequency.SDShoppingItem(
                 id: UUID(), title: "購入済み", quantity: "", note: "", placeID: placeID,
@@ -322,7 +360,7 @@ final class ShoppingStoreTests: XCTestCase {
             let store = ShoppingStore(container: container)
             XCTAssertNil(store.loadError)
             savedPlaceID = try store.addPlace(name: "近所のお店").id
-            savedItem = try store.addItem(title: "お米", quantity: "5kg", note: "いつもの", placeID: savedPlaceID)
+            savedItem = try store.addItem(title: "お米", note: "5kg\nいつもの", placeID: savedPlaceID)
         }
 
         try autoreleasepool {

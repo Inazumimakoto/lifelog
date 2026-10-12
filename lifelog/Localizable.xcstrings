@@ -33569,42 +33569,6 @@
         }
       }
     },
-    "数量（任意）" : {
-      "comment" : "Shopping list UI and accessibility.",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Quantity (optional)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "数量（任意）"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "수량 (선택 사항)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "数量（选填）"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "數量（選填）"
-          }
-        }
-      }
-    },
     "新しいカテゴリ" : {
       "comment" : "Literal from lifelog/Views/Calendar/CategorySelectionView.swift",
       "localizations" : {
@@ -43952,7 +43916,6 @@
     },
     "購入を取り消す" : {
       "comment" : "Shopping list UI and accessibility.",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -48389,6 +48352,2141 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "黑色的"
+          }
+        }
+      }
+    },
+    "shopping.connection.title" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT連携"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect to ChatGPT"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT 연결"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接 ChatGPT"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連接 ChatGPT"
+          }
+        }
+      }
+    },
+    "shopping.connection.close" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "閉じる"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "닫기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "關閉"
+          }
+        }
+      }
+    },
+    "shopping.connection.prototype" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開発用プレビュー"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Development preview"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "개발용 미리 보기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开发预览"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開發預覽"
+          }
+        }
+      }
+    },
+    "shopping.connection.prototype.body" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "買い物リスト専用の開発版連携です。同じlifelifyアカウントで同期を開始すると、商品・メモ・購入先をクラウドに保存します。日記や手紙は送信しません。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This development connection is for shopping lists. Starting sync with the same lifelify account saves items, notes, and places in the cloud. Diaries and letters are not sent."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "쇼핑 목록 전용 개발용 연결입니다. 같은 lifelify 계정으로 동기화를 시작하면 상품, 메모, 구매처를 클라우드에 저장합니다. 일기와 편지는 전송하지 않습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这是购物清单专用的开发版连接。使用同一个 lifelify 账户开始同步后，商品、备注和购买地点将保存到云端。不会发送日记或信件。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這是購物清單專用的開發版連接。使用同一個 lifelify 帳戶開始同步後，商品、備註和購買地點將儲存到雲端。不會傳送日記或信件。"
+          }
+        }
+      }
+    },
+    "shopping.connection.account" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lifelifyアカウント"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lifelify account"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lifelify 계정"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lifelify 账户"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lifelify 帳號"
+          }
+        }
+      }
+    },
+    "shopping.connection.account.body" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appleで本人確認し、連携用のlifelifyアカウントを作成します。登録済みなら同じアカウントを使います。ChatGPTのアカウントは作成しません。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Verify with Apple to create a lifelify account for this connection, or use your existing account. This does not create a ChatGPT account."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple로 본인 확인 후 연결용 lifelify 계정을 만들거나 기존 계정을 사용합니다. ChatGPT 계정을 만드는 과정은 아닙니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通过 Apple 验证身份，为此连接创建 lifelify 账户，或使用已有账户。这不会创建 ChatGPT 账户。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "透過 Apple 驗證身分，為此連接建立 lifelify 帳號，或使用既有帳號。這不會建立 ChatGPT 帳號。"
+          }
+        }
+      }
+    },
+    "shopping.connection.account.consent" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "説明を確認し、連携用アカウントの作成・ログインに同意する"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "I understand and agree to create or sign in to an account for this connection"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "설명을 확인했으며 연결용 계정 생성 또는 로그인에 동의합니다"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我已了解并同意创建连接用账户或登录"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "我已了解並同意建立連接用帳號或登入"
+          }
+        }
+      }
+    },
+    "shopping.connection.account.id" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連携用アカウントID"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connection account ID"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결용 계정 ID"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接用账户 ID"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連接用帳號 ID"
+          }
+        }
+      }
+    },
+    "shopping.connection.signedin" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lifelifyにログイン済み"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Signed in to lifelify"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lifelify에 로그인됨"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已登录 lifelify"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已登入 lifelify"
+          }
+        }
+      }
+    },
+    "shopping.connection.prepare" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Appleログインを準備"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prepare Apple sign-in"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apple 로그인 준비"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "准备 Apple 登录"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "準備 Apple 登入"
+          }
+        }
+      }
+    },
+    "shopping.connection.loading" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認中…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "확인 중…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在确认…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在確認…"
+          }
+        }
+      }
+    },
+    "shopping.connection.retry" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "もう一度確認"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check again"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다시 확인"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新确认"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重新確認"
+          }
+        }
+      }
+    },
+    "shopping.connection.next" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPTで接続する"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect in ChatGPT"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT에서 연결"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 ChatGPT 中连接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在 ChatGPT 中連接"
+          }
+        }
+      }
+    },
+    "shopping.connection.next.body" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "普段使っているChatGPTでlifelifyを接続してください。アクセス許可の確認で、このアプリに戻ります。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect lifelify in the ChatGPT account you normally use. You will return to this app to review access permissions."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "평소 사용하는 ChatGPT 계정에서 lifelify를 연결하세요. 접근 권한을 확인하기 위해 이 앱으로 돌아옵니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请在您平常使用的 ChatGPT 账户中连接 lifelify。随后将返回本应用确认访问权限。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請在您平常使用的 ChatGPT 帳號中連接 lifelify。隨後將返回本 App 確認存取權限。"
+          }
+        }
+      }
+    },
+    "shopping.connection.logout" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この端末からログアウト"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign out on this device"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 기기에서 로그아웃"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "退出本机登录"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登出此裝置"
+          }
+        }
+      }
+    },
+    "shopping.connection.logout.note" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPTへのアクセス許可を取り消す操作ではありません。接続の解除はChatGPT側でも行ってください。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This does not revoke access already granted to ChatGPT. Disconnect lifelify in ChatGPT as well."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이미 ChatGPT에 허용한 접근 권한은 취소되지 않습니다. ChatGPT에서도 lifelify 연결을 해제하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此操作不会撤销已授予 ChatGPT 的访问权限。请同时在 ChatGPT 中断开 lifelify 连接。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此操作不會撤銷已授予 ChatGPT 的存取權限。請同時在 ChatGPT 中中斷 lifelify 連接。"
+          }
+        }
+      }
+    },
+    "shopping.connection.approval.signin" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lifelifyにログインすると、この接続リクエストの詳細と権限を確認できます。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sign in to lifelify to review this connection request and its permissions."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lifelify에 로그인하면 이 연결 요청의 세부 내용과 권한을 확인할 수 있습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录 lifelify 后，即可查看此连接请求的详情和权限。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登入 lifelify 後，即可查看此連接請求的詳情和權限。"
+          }
+        }
+      }
+    },
+    "shopping.connection.requester" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続を求めているサービス"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Service requesting access"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "접근을 요청하는 서비스"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请求连接的服务"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要求連接的服務"
+          }
+        }
+      }
+    },
+    "shopping.connection.permissions" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "許可する権限"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Requested permissions"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "요청된 권한"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请求的权限"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要求的權限"
+          }
+        }
+      }
+    },
+    "shopping.connection.scope.read" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "クラウドの買い物リストと購入先を読み取る"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Read shopping items and places in the cloud"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "클라우드의 쇼핑 목록과 구매처 읽기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "读取云端购物清单和购买地点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "讀取雲端購物清單和購買地點"
+          }
+        }
+      }
+    },
+    "shopping.connection.scope.write" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "クラウドの買い物リストと購入先に書き込む"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Write shopping items and places in the cloud"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "클라우드의 쇼핑 목록과 구매처 쓰기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "写入云端购物清单和购买地点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "寫入雲端購物清單和購買地點"
+          }
+        }
+      }
+    },
+    "shopping.connection.scope.offline" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アプリを閉じた後も、許可した権限で接続を維持する"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep access with these permissions after you close the app"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앱을 닫은 후에도 허용한 권한으로 연결 유지"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关闭应用后，仍按这些权限保持连接"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "關閉 App 後，仍按這些權限保持連接"
+          }
+        }
+      }
+    },
+    "shopping.connection.approval.confirm" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "表示中のlifelifyアカウントで、このサービスへのアクセスを許可しますか？"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow this service to access the lifelify account shown above?"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "표시된 lifelify 계정에 이 서비스의 접근을 허용할까요?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "是否允许此服务访问上方显示的 lifelify 账户？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "是否允許此服務存取上方顯示的 lifelify 帳號？"
+          }
+        }
+      }
+    },
+    "shopping.connection.approve" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この権限で許可"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allow these permissions"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 권한으로 허용"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "允许这些权限"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "允許這些權限"
+          }
+        }
+      }
+    },
+    "shopping.connection.deny" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "許可しない"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deny"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "허용하지 않음"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不允许"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不允許"
+          }
+        }
+      }
+    },
+    "shopping.connection.approved" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アクセスを許可しました"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Access approved"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "접근을 허용했습니다"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已允许访问"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已允許存取"
+          }
+        }
+      }
+    },
+    "shopping.connection.denied" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アクセスを許可しませんでした"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Access denied"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "접근을 거부했습니다"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已拒绝访问"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已拒絕存取"
+          }
+        }
+      }
+    },
+    "shopping.connection.return.body" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ブラウザに戻って接続を完了します。別のブラウザで開いた場合やPCで始めた場合は、元のChatGPT接続画面に戻ってください。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Returning to the browser to finish connecting. If a different browser opens, or you started on a computer, return to the original ChatGPT connection screen."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "브라우저로 돌아가 연결을 완료합니다. 다른 브라우저가 열리거나 컴퓨터에서 시작했다면 원래 ChatGPT 연결 화면으로 돌아가세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将返回浏览器完成连接。如果打开了其他浏览器，或从电脑开始，请返回原来的 ChatGPT 连接页面。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "將返回瀏覽器完成連接。如果開啟了其他瀏覽器，或從電腦開始，請返回原來的 ChatGPT 連接頁面。"
+          }
+        }
+      }
+    },
+    "shopping.connection.uncertain" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "処理結果を確認できませんでした。再送せず、元のChatGPTまたはブラウザで接続結果を確認してください。必要な場合は、そこで新しく接続を始めてください。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The result could not be confirmed. Do not submit again. Check the original ChatGPT window or browser and start a new connection there if needed."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "처리 결과를 확인하지 못했습니다. 다시 전송하지 말고 원래 ChatGPT 또는 브라우저에서 결과를 확인하세요. 필요하면 그곳에서 새 연결을 시작하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法确认处理结果。请勿重复提交，请在原来的 ChatGPT 或浏览器中查看结果。如有需要，请在那里重新开始连接。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法確認處理結果。請勿重複提交，請在原來的 ChatGPT 或瀏覽器中查看結果。如有需要，請在那裡重新開始連接。"
+          }
+        }
+      }
+    },
+    "shopping.connection.openapp" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lifelifyのプラグインを開く"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the lifelify plugin"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lifelify 플러그인 열기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 lifelify 插件"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開啟 lifelify 外掛程式"
+          }
+        }
+      }
+    },
+    "shopping.connection.open.manual" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このリンクではChatGPTアプリを開けませんでした。ChatGPTを手動で開き、「プラグイン」からlifelifyを選んでください。元の接続画面がある場合は、その画面に戻ってください。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This link could not open the ChatGPT app. Open ChatGPT manually and select lifelify in Plugins. If the original connection screen is still open, return to it."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 링크로 ChatGPT 앱을 열지 못했습니다. ChatGPT를 직접 열고 플러그인에서 lifelify를 선택하세요. 원래 연결 화면이 열려 있다면 그 화면으로 돌아가세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此链接未能打开 ChatGPT 应用。请手动打开 ChatGPT，并在“插件”中选择 lifelify。如果原连接页面仍然打开，请返回该页面。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此連結未能開啟 ChatGPT App。請手動開啟 ChatGPT，並在「外掛程式」中選擇 lifelify。如果原連接頁面仍然開啟，請返回該頁面。"
+          }
+        }
+      }
+    },
+    "shopping.connection.openweb" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPTのWebページを開く"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open the ChatGPT web page"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ChatGPT 웹 페이지 열기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开 ChatGPT 网页"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開啟 ChatGPT 網頁"
+          }
+        }
+      }
+    },
+    "shopping.connection.error.unavailable" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続を確認できませんでした。通信環境を確認して、もう一度お試しください。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The connection could not be verified. Check your network and try again."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결을 확인하지 못했습니다. 네트워크를 확인하고 다시 시도하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法验证连接。请检查网络后重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法驗證連接。請檢查網路後重試。"
+          }
+        }
+      }
+    },
+    "shopping.connection.error.invalid" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "応答を確認できませんでした。接続をやり直してください。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The response could not be verified. Start the connection again."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "응답을 확인하지 못했습니다. 연결을 다시 시작하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法验证响应。请重新开始连接。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法驗證回應。請重新開始連接。"
+          }
+        }
+      }
+    },
+    "shopping.connection.error.signin" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ログインの有効期限が切れました。もう一度ログインしてください。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your session has expired. Please sign in again."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로그인 세션이 만료되었습니다. 다시 로그인하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登录已过期，请重新登录。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "登入已過期，請重新登入。"
+          }
+        }
+      }
+    },
+    "shopping.connection.error.expired" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このリクエストは期限切れか、すでに処理されています。元のChatGPTまたはブラウザで確認し、必要なら接続をやり直してください。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This request has expired or has already been processed. Check the original ChatGPT window or browser and reconnect if needed."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 요청은 만료되었거나 이미 처리되었습니다. 원래 ChatGPT 또는 브라우저에서 확인하고 필요하면 다시 연결하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此请求已过期或已被处理。请在原来的 ChatGPT 或浏览器中确认，必要时重新连接。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此請求已過期或已被處理。請在原來的 ChatGPT 或瀏覽器中確認，必要時重新連接。"
+          }
+        }
+      }
+    },
+    "shopping.connection.error.keychain" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ログイン情報の安全な保存領域にアクセスできません。端末のロックを解除して、もう一度お試しください。保存済みの情報は削除していません。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Secure sign-in storage is unavailable. Unlock your device and try again. Saved credentials have not been deleted."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "안전한 로그인 정보 저장소에 접근할 수 없습니다. 기기 잠금을 해제하고 다시 시도하세요. 저장된 정보는 삭제하지 않았습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法访问安全登录存储。请解锁设备后重试。已保存的信息未被删除。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法存取安全登入儲存空間。請解鎖裝置後重試。已儲存的資訊未被刪除。"
+          }
+        }
+      }
+    },
+    "shopping.connection.error.locked" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アプリのロックを解除してから、もう一度確認してください。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unlock the app, then check again."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앱 잠금을 해제한 후 다시 확인하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请解锁应用后重新确认。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請解鎖 App 後重新確認。"
+          }
+        }
+      }
+    },
+    "shopping.connection.error.scope" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このバージョンでは確認できない権限が含まれているため、許可できません。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This request includes permissions this version cannot verify, so access cannot be approved."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 버전에서 확인할 수 없는 권한이 포함되어 있어 허용할 수 없습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此请求包含当前版本无法验证的权限，因此无法批准访问。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此請求包含目前版本無法驗證的權限，因此無法核准存取。"
+          }
+        }
+      }
+    },
+    "shopping.connection.error.rate" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "リクエストが多いため、少し待ってからもう一度お試しください。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Too many requests. Wait a moment and try again."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "요청이 너무 많습니다. 잠시 후 다시 시도하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请求过多，请稍后重试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要求過多，請稍後重試。"
+          }
+        }
+      }
+    },
+    "shopping.connection.approval.ownrequest" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自分がChatGPTで開始した接続であることを確認してください。他の人から送られたリンクでは許可しないでください。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Confirm that you started this connection in ChatGPT yourself. Do not approve links sent by someone else."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "직접 ChatGPT에서 시작한 연결인지 확인하세요. 다른 사람이 보낸 링크는 승인하지 마세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请确认此连接由您本人在 ChatGPT 中发起。不要批准他人发送的链接。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請確認此連接由您本人在 ChatGPT 中發起。不要核准他人傳送的連結。"
+          }
+        }
+      }
+    },
+    "shopping.connection.client.reported" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "クライアント名は申告された名前です。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The client name is self-reported."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "클라이언트 이름은 등록 시 입력한 이름입니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "客户端名称由其自行提供。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用戶端名稱由其自行提供。"
+          }
+        }
+      }
+    },
+    "shopping.connection.callback" : {
+      "comment" : "Development-only shopping account and ChatGPT app approval.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "接続後の戻り先"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Return destination"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "연결 후 돌아갈 곳"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "连接后的返回目标"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連接後的返回目標"
+          }
+        }
+      }
+    },
+    "shopping.connection.return.open" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ブラウザに戻る"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Return to browser"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "브라우저로 돌아가기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返回浏览器"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "返回瀏覽器"
+          }
+        }
+      }
+    },
+    "shopping.connection.return.manual" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自動で開けませんでした。元のChatGPT接続画面に戻ってください。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Could not open automatically. Return to the original ChatGPT connection screen."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "자동으로 열 수 없습니다. 원래 ChatGPT 연결 화면으로 돌아가세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法自动打开。请返回原来的 ChatGPT 连接页面。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法自動開啟。請返回原來的 ChatGPT 連接頁面。"
+          }
+        }
+      }
+    },
+    "shopping.sync.title" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "買い物データの同期"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shopping sync"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "쇼핑 데이터 동기화"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "购物数据同步"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "購物資料同步"
+          }
+        }
+      }
+    },
+    "shopping.sync.initial.body" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "初回はこのiPhoneの商品・メモ・購入先をlifelifyのクラウドにアップロードします。すでにクラウドにある商品も残して取り込みます。その後は同じアカウントのChatGPTとデータを同期します。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "First, upload this iPhone’s items, notes, and places to the lifelify cloud. Existing cloud items are kept and imported. Then sync data with ChatGPT connected to the same account."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "먼저 이 iPhone의 상품, 메모, 구매처를 lifelify 클라우드에 업로드합니다. 기존 클라우드 상품도 유지하고 가져옵니다. 이후 같은 계정에 연결된 ChatGPT와 데이터를 동기화합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "首次将此 iPhone 的商品、备注和购买地点上传到 lifelify 云端。保留并导入云端已有的商品。之后与连接到同一账户的 ChatGPT 同步数据。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "首次將此 iPhone 的商品、備註和購買地點上傳到 lifelify 雲端。保留並匯入雲端已有的商品。之後與連接到同一帳戶的 ChatGPT 同步資料。"
+          }
+        }
+      }
+    },
+    "shopping.sync.enable" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "買い物データの同期を開始"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Start shopping sync"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "쇼핑 데이터 동기화 시작"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "开始同步购物数据"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開始同步購物資料"
+          }
+        }
+      }
+    },
+    "shopping.sync.enabled.body" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アプリを開いたときや商品を編集したときに同期します。ChatGPTで追加した商品は、アプリに戻るか「今すぐ同期」で取り込みます。通信できない間も端末で編集できます。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync runs when the app opens or shopping data changes. Return to the app or tap Sync now to fetch items added in ChatGPT. You can still edit on this device while offline."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앱을 열거나 쇼핑 데이터를 수정하면 동기화합니다. ChatGPT에서 추가한 상품은 앱으로 돌아오거나 지금 동기화를 눌러 가져옵니다. 오프라인에서도 이 기기에서 수정할 수 있습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "打开应用或修改购物数据时会同步。返回应用或点击立即同步，可获取 ChatGPT 添加的商品。离线时仍可在本机编辑。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開啟 App 或修改購物資料時會同步。返回 App 或點選立即同步，可取得 ChatGPT 新增的商品。離線時仍可在本機編輯。"
+          }
+        }
+      }
+    },
+    "shopping.sync.last" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前回の同期"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Last synced"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "최근 동기화"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次同步"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "上次同步"
+          }
+        }
+      }
+    },
+    "shopping.sync.now" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今すぐ同期"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync now"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "지금 동기화"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "立即同步"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "立即同步"
+          }
+        }
+      }
+    },
+    "shopping.sync.progress" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "買い物データを同期中…"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Syncing shopping data…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "쇼핑 데이터 동기화 중…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在同步购物数据…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在同步購物資料…"
+          }
+        }
+      }
+    },
+    "shopping.sync.error" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同期を完了できませんでした。端末の変更は保存されています。接続やログインを確認して再同期してください。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync could not finish. Your local changes are saved. Check your connection and sign-in, then sync again."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "동기화를 완료하지 못했습니다. 기기의 변경 사항은 저장되었습니다. 연결과 로그인을 확인한 후 다시 동기화하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法完成同步。本机的修改已保存。请检查网络连接和登录状态后再次同步。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法完成同步。本機的修改已儲存。請檢查網路連線和登入狀態後再次同步。"
+          }
+        }
+      }
+    },
+    "shopping.sync.account_mismatch" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この端末の買い物データは別のlifelifyアカウントに紐づいています。最初に同期したアカウントでログインしてください。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Shopping data on this device belongs to another lifelify account. Sign in with the account that first enabled sync."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 기기의 쇼핑 데이터는 다른 lifelify 계정에 연결되어 있습니다. 처음 동기화를 시작한 계정으로 로그인하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本机的购物数据已关联其他 lifelify 账户。请登录首次启用同步的账户。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本機的購物資料已關聯其他 lifelify 帳戶。請登入首次啟用同步的帳戶。"
+          }
+        }
+      }
+    },
+    "shopping.sync.conflict.body" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同じデータがクラウドでも変更されています。表示中のクラウドの内容と端末の内容のどちらを使いますか？"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This data also changed in the cloud. Choose the cloud content shown here or your current device content."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "같은 데이터가 클라우드에서도 변경되었습니다. 여기에 표시된 클라우드 내용과 현재 기기의 내용 중 선택하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相同数据也在云端被修改。请选择此处显示的云端内容或本机当前内容。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "相同資料也在雲端被修改。請選擇此處顯示的雲端內容或本機目前內容。"
+          }
+        }
+      }
+    },
+    "shopping.sync.conflict.deleted" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "クラウドでは削除されています。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Deleted in the cloud."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "클라우드에서 삭제되었습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已在云端删除。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已在雲端刪除。"
+          }
+        }
+      }
+    },
+    "shopping.sync.conflict.remote" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "クラウドの内容を使う"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Use cloud content"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "클라우드 내용 사용"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用云端内容"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用雲端內容"
+          }
+        }
+      }
+    },
+    "shopping.sync.conflict.local" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この端末の内容で更新"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Update with device content"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 기기의 내용으로 업데이트"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用本机内容更新"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "以本機內容更新"
+          }
+        }
+      }
+    },
+    "shopping.sync.conflict.place" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "指定した購入先がクラウドにありません。商品を残して、購入先を「未指定」にして同期できます。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected place is unavailable in the cloud. Keep the item and sync it with no place assigned."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "선택한 구매처가 클라우드에 없습니다. 상품은 유지하고 구매처를 미지정으로 동기화할 수 있습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "云端没有所选购买地点。可以保留商品，将购买地点设为未指定后同步。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "雲端沒有所選購買地點。可以保留商品，將購買地點設為未指定後同步。"
+          }
+        }
+      }
+    },
+    "shopping.sync.conflict.unassign" : {
+      "comment" : "Development shopping sync and OAuth browser return.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "購入先を未指定にして同期"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sync with no place assigned"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "구매처를 미지정으로 동기화"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不指定购买地点并同步"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "不指定購買地點並同步"
+          }
+        }
+      }
+    },
+    "shopping.sync.invalid_content" : {
+      "comment" : "Shopping API content limits without truncating local data.",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同期できない商品または購入先があります。名前は200文字、メモは4,000文字以内にして再同期してください。絵文字などは複数文字として数える場合があります。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "An item or place cannot sync. Keep names within 200 characters and notes within 4,000, then sync again. Emoji may count as more than one character."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "동기화할 수 없는 상품 또는 구매처가 있습니다. 이름은 200자, 메모는 4,000자 이내로 수정한 후 다시 동기화하세요. 이모지는 여러 글자로 계산될 수 있습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "部分商品或购买地点无法同步。请将名称限制在200个字符、备注限制在4,000个字符以内后再次同步。表情符号可能计为多个字符。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "部分商品或購買地點無法同步。請將名稱限制在200個字元、備註限制在4,000個字元以內後再次同步。表情符號可能計為多個字元。"
           }
         }
       }

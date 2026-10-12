@@ -164,7 +164,7 @@ struct LetterOpeningView: View {
     @ViewBuilder
     private func photoView(for path: String) -> some View {
         // 相対パスをフルパスに変換
-        let fullPath = resolvePhotoPath(path)
+        let fullPath = LetterPhotoFiles.resolvePath(path)
 
         if let uiImage = UIImage(contentsOfFile: fullPath) {
             Image(uiImage: uiImage)
@@ -191,61 +191,20 @@ struct LetterOpeningView: View {
         }
     }
 
-    /// 相対パスまたは絶対パスをフルパスに解決する
-    private func resolvePhotoPath(_ path: String) -> String {
-        // 既に絶対パスの場合はそのまま返す（後方互換性）
-        if path.hasPrefix("/") {
-            return path
-        }
-        // 相対パスの場合はDocumentsディレクトリに結合
-        guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            return path
-        }
-        return documentsDir.appendingPathComponent(path).path
-    }
-
     // MARK: - フルスクリーン写真ビューア
 
     private var fullscreenPhotoViewer: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
-            TabView(selection: $selectedPhotoIndex) {
-                ForEach(Array(letter.photoPaths.enumerated()), id: \.offset) { index, path in
-                    fullscreenPhotoView(for: path)
-                        .tag(index)
-                }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .automatic))
-
-            // 閉じるボタン
-            VStack {
-                HStack {
-                    Spacer()
-                    Button {
-                        showFullscreenPhoto = false
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title)
-                            .foregroundStyle(.white.opacity(0.8))
-                            .padding()
-                    }
-                }
-                Spacer()
-
-                // ページ表示
-                Text("\(selectedPhotoIndex + 1) / \(letter.photoPaths.count)")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.8))
-                    .padding(.bottom, 40)
-            }
+        FullscreenPhotoGallery(photoCount: letter.photoPaths.count,
+                               selectedIndex: $selectedPhotoIndex,
+                               onClose: { showFullscreenPhoto = false }) { index in
+            fullscreenPhotoView(for: letter.photoPaths[index])
         }
     }
 
     @ViewBuilder
     private func fullscreenPhotoView(for path: String) -> some View {
         // 相対パスをフルパスに変換
-        let fullPath = resolvePhotoPath(path)
+        let fullPath = LetterPhotoFiles.resolvePath(path)
 
         if let uiImage = UIImage(contentsOfFile: fullPath) {
             Image(uiImage: uiImage)

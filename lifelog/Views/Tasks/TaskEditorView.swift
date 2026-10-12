@@ -37,18 +37,8 @@ struct TaskEditorView: View {
         Form {
             Section("タスク内容") {
                 TextField("タイトルを入力", text: $formState.title)
-                ZStack(alignment: .topLeading) {
-                    Text("詳細メモ（任意）")
-                        .foregroundStyle(.tertiary)
-                        .opacity(detailDraft.isEmpty ? 1 : 0)
-                        .allowsHitTesting(false)
-                    LongFormTextView(text: detailDraft.text,
-                                     textVersion: detailDraft.version,
-                                     onTextChange: { newValue in
-                                         detailDraft.updateFromEditor(newValue)
-                                         formState.cacheDraft(detailOverride: newValue)
-                                     })
-                        .frame(minHeight: 56, alignment: .topLeading)
+                DetailMemoEditor(draft: detailDraft) { newValue in
+                    formState.cacheDraft(detailOverride: newValue)
                 }
                 
                 Picker("期限", selection: $formState.isSomeday) {

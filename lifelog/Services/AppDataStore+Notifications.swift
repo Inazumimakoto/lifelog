@@ -46,27 +46,11 @@ extension AppDataStore {
             if let tomorrow = calendar.date(byAdding: .day, value: 1, to: today),
                let targetDate = calendar.date(bySettingHour: diaryReminderHour, minute: diaryReminderMinute, second: 0, of: tomorrow) {
                 let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: targetDate)
-                scheduleDiaryReminderForDate(components: components)
+                NotificationService.shared.scheduleDiaryReminder(components: components)
             }
         } else {
             // 今日まだ書いていなければ通常スケジュール
             NotificationService.shared.scheduleDiaryReminder(hour: diaryReminderHour, minute: diaryReminderMinute)
-        }
-    }
-
-    private func scheduleDiaryReminderForDate(components: DateComponents) {
-        let content = UNMutableNotificationContent()
-        content.title = String(localized: "日記を書きましょう")
-        content.body = String(localized: "今日の出来事を振り返ってみませんか？")
-        content.sound = .default
-
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-        let request = UNNotificationRequest(identifier: "diary-daily-reminder", content: content, trigger: trigger)
-
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                AppLogger.notifications.error("日記通知スケジュールエラー: \(error)")
-            }
         }
     }
 

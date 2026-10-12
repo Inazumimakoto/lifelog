@@ -16,6 +16,47 @@ private enum AppLocaleProvider {
 }
 
 extension DateFormatter {
+    static let localizedMonthDayWeekday: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = AppLocaleProvider.locale
+        formatter.setLocalizedDateFormatFromTemplate("MdEEE")
+        formatter.timeZone = .autoupdatingCurrent
+        return formatter
+    }()
+
+    static let localizedYear: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = AppLocaleProvider.locale
+        formatter.setLocalizedDateFormatFromTemplate("y")
+        formatter.timeZone = .autoupdatingCurrent
+        return formatter
+    }()
+
+    static let numericYear: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.locale = .autoupdatingCurrent
+        formatter.timeZone = .autoupdatingCurrent
+        formatter.dateFormat = "yyyy"
+        return formatter
+    }()
+
+    private static let dateOnlyStyles: [Style: DateFormatter] = {
+        var result: [Style: DateFormatter] = [:]
+        for style in [Style.none, .short, .medium, .long, .full] {
+            let formatter = DateFormatter()
+            formatter.locale = .autoupdatingCurrent
+            formatter.timeZone = .autoupdatingCurrent
+            formatter.dateStyle = style
+            formatter.timeStyle = .none
+            result[style] = formatter
+        }
+        return result
+    }()
+
+    static func dateOnly(style: Style) -> DateFormatter {
+        dateOnlyStyles[style] ?? dateOnlyStyles[.medium]!
+    }
+
     static let japaneseMonthDay: DateFormatter = {
         let formatter = DateFormatter()
         formatter.locale = AppLocaleProvider.locale
@@ -77,10 +118,7 @@ extension Date {
     }
 
     func formatted(_ style: DateFormatter.Style = .medium) -> String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = style
-        formatter.timeStyle = .none
-        return formatter.string(from: self)
+        DateFormatter.dateOnly(style: style).string(from: self)
     }
 
     func formattedTime() -> String {
@@ -109,18 +147,12 @@ extension Date {
 
     /// 12月5日(火) 形式
     var jaMonthDayWeekdayString: String {
-        let formatter = DateFormatter()
-        formatter.locale = AppLocaleProvider.locale
-        formatter.setLocalizedDateFormatFromTemplate("MdEEE")
-        return formatter.string(from: self)
+        DateFormatter.localizedMonthDayWeekday.string(from: self)
     }
 
     /// 2024年 形式
     var jaYearString: String {
-        let formatter = DateFormatter()
-        formatter.locale = AppLocaleProvider.locale
-        formatter.setLocalizedDateFormatFromTemplate("y")
-        return formatter.string(from: self)
+        DateFormatter.localizedYear.string(from: self)
     }
 
     func memoPadDisplayString(relativeTo reference: Date = Date()) -> String {
@@ -139,27 +171,19 @@ extension Date {
 
     /// 12/07(日) 形式
     var slashMonthDayWeekdayString: String {
-        let formatter = DateFormatter()
-        formatter.locale = AppLocaleProvider.locale
-        formatter.setLocalizedDateFormatFromTemplate("Md")
-        let dateStr = formatter.string(from: self)
+        let dateStr = DateFormatter.japaneseMonthDay.string(from: self)
         let weekday = DateFormatter.japaneseWeekdayNarrow.string(from: self)
         return "\(dateStr)(\(weekday))"
     }
 
     /// 年のみ: 2024
     var yearString: String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy"
-        return formatter.string(from: self)
+        DateFormatter.numericYear.string(from: self)
     }
 
     /// MM/DD(曜日) 形式
     var monthDayWeekdayString: String {
-        let formatter = DateFormatter()
-        formatter.locale = AppLocaleProvider.locale
-        formatter.setLocalizedDateFormatFromTemplate("Md")
-        let dateStr = formatter.string(from: self)
+        let dateStr = DateFormatter.japaneseMonthDay.string(from: self)
         let weekday = DateFormatter.japaneseWeekdayNarrow.string(from: self)
         return "\(dateStr)(\(weekday))"
     }
@@ -242,42 +266,6 @@ extension CGColor {
     }
 }
 
-enum AppColorPalette {
-    static let defaultHex = "#F97316"
-
-    // Ordered by hue for predictable scanning in swatch grids.
-    static let presets: [String] = [
-        "#EF4444", "#F97316", "#F59E0B", "#EAB308",
-        "#84CC16", "#22C55E", "#10B981", "#14B8A6",
-        "#06B6D4", "#0EA5E9", "#3B82F6", "#6366F1",
-        "#8B5CF6", "#A855F7", "#D946EF", "#EC4899",
-        "#F43F5E", "#A16207", "#78716C", "#94A3B8"
-    ]
-
-    static func color(for token: String) -> Color {
-        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let color = Color(hex: trimmed) {
-            return color
-        }
-
-        switch trimmed.lowercased() {
-        case "red": return .red
-        case "orange": return .orange
-        case "yellow": return .yellow
-        case "green": return .green
-        case "mint": return .mint
-        case "teal": return .teal
-        case "cyan": return .cyan
-        case "blue": return .blue
-        case "indigo": return .indigo
-        case "purple": return .purple
-        case "pink": return .pink
-        case "brown": return .brown
-        case "gray", "grey": return .gray
-        default: return .accentColor
-        }
-    }
-}
 
 enum CategoryPalette {
     struct CustomCategory: Codable, Hashable, Identifiable {
@@ -290,6 +278,8 @@ enum CategoryPalette {
     private static let storageKey = "CategoryPalette_Categories_V3"
     private static let defaults = UserDefaults.standard
     private static let sharedDefaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier)
+    private static var cachedCategoriesData: Data?
+    private static var cachedCategories: [String: String]?
 
     private static let defaultCategories: [String: String] = [
         "仕事": "orange", "趣味": "green", "旅行": "blue"
@@ -356,13 +346,16 @@ enum CategoryPalette {
     }
 
     private static func allCategoriesMapping() -> [String: String] {
+        // Calendar rows repeatedly request colors while scrolling. Decode once
+        // per stored payload; checking the payload also sees widget/other-process
+        // changes and avoids keeping stale category colors.
         if let data = sharedDefaults?.data(forKey: storageKey),
-           let decoded = try? JSONDecoder().decode([String: String].self, from: data) {
+           let decoded = decodedCategories(from: data) {
             return decoded
         }
 
         if let data = defaults.data(forKey: storageKey),
-           let decoded = try? JSONDecoder().decode([String: String].self, from: data) {
+           let decoded = decodedCategories(from: data) {
             sharedDefaults?.set(data, forKey: storageKey)
             return decoded
         }
@@ -370,8 +363,18 @@ enum CategoryPalette {
         return defaultCategories
     }
 
+    private static func decodedCategories(from data: Data) -> [String: String]? {
+        if data == cachedCategoriesData, let cachedCategories { return cachedCategories }
+        guard let decoded = try? JSONDecoder().decode([String: String].self, from: data) else { return nil }
+        cachedCategoriesData = data
+        cachedCategories = decoded
+        return decoded
+    }
+
     private static func persist(map: [String: String]) {
         if let data = try? JSONEncoder().encode(map) {
+            cachedCategoriesData = data
+            cachedCategories = map
             defaults.set(data, forKey: storageKey)
             sharedDefaults?.set(data, forKey: storageKey)
             WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")

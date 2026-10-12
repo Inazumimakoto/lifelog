@@ -7,6 +7,7 @@ import Foundation
 import EventKit
 import UserNotifications
 import SwiftData
+import os
 
 extension AppDataStore {
 
@@ -37,40 +38,90 @@ extension AppDataStore {
     }
 
     func addCalendarEvent(_ event: CalendarEvent) {
-        eventsCache.removeAll()
-        calendarEvents.append(event)
-        persistCalendarEvents()
+        // Retrying an add after a failed fetch/save must not duplicate its ID.
+        let changed: Bool
+        if let index = calendarEvents.firstIndex(where: { $0.id == event.id }) {
+            changed = calendarEvents[index] != event
+            if changed {
+                eventsCache.removeAll()
+                calendarEvents[index] = event
+            }
+        } else {
+            changed = true
+            eventsCache.removeAll()
+            calendarEvents.append(event)
+        }
+        persistCalendarEvent(event)
+        guard changed else { return }
         scheduleEventNotification(event)
         rescheduleTodayOverviewReminderIfNeeded()
     }
 
     func updateCalendarEvent(_ event: CalendarEvent) {
-        eventsCache.removeAll()
         guard let index = calendarEvents.firstIndex(where: { $0.id == event.id }) else { return }
-        calendarEvents[index] = event
-        persistCalendarEvents()
+        let changed = calendarEvents[index] != event
+        if changed {
+            eventsCache.removeAll()
+            calendarEvents[index] = event
+        }
+        // Even an equal memory snapshot can have an earlier unsaved change or
+        // failed fetch. Retry just this row without publishing it a second time.
+        persistCalendarEvent(event)
+        guard changed else { return }
         scheduleEventNotification(event)
         rescheduleTodayOverviewReminderIfNeeded()
     }
 
     func deleteCalendarEvent(_ eventID: UUID) {
-        eventsCache.removeAll()
-        calendarEvents.removeAll { $0.id == eventID }
-        persistCalendarEvents()
+        let changed = calendarEvents.contains { $0.id == eventID }
+        if changed {
+            eventsCache.removeAll()
+            calendarEvents.removeAll { $0.id == eventID }
+        }
+        do {
+            var descriptor = FetchDescriptor<SDCalendarEvent>(predicate: #Predicate { $0.id == eventID })
+            descriptor.fetchLimit = 1
+            if let existing = try modelContext.fetch(descriptor).first {
+                modelContext.delete(existing)
+            }
+            // Keep this path usable when memory already reflects a failed save.
+            saveContext()
+        } catch {
+            AppLogger.data.error("Calendar event deletion fetch failed: \(error)")
+        }
+        guard changed else { return }
         NotificationService.shared.cancelEventReminder(eventId: eventID)
         rescheduleTodayOverviewReminderIfNeeded()
     }
 
-    func updateExternalCalendarEvents(_ events: [CalendarEvent], range: ExternalCalendarRange? = nil) {
-        eventsCache.removeAll()
-        externalCalendarEvents = events
-        if let range {
+    func updateExternalCalendarEvents(
+        _ events: [CalendarEvent],
+        range: ExternalCalendarRange? = nil,
+        referenceDate: Date = Date()
+    ) {
+        let sortedEvents = EventQuerying.mergedDedupedSorted(internalEvents: [], externalEvents: events)
+        if let range, range != externalCalendarRange {
             externalCalendarRange = range
             persistExternalCalendarRange()
         }
+        // Unchanged calendar refreshes should not invalidate every timeline,
+        // rewrite the shared JSON cache, or recreate all external reminders.
+        guard sortedEvents != externalCalendarEvents else {
+            // The next 48 reminders form a moving window. Once its first
+            // reminder fires, replenish it even if EventKit data is identical.
+            if ExternalReminderRefreshTiming.shouldRefresh(
+                nextFireDate: nextExternalReminderRefreshDate, at: referenceDate
+            ) {
+                rescheduleExternalEventNotifications(referenceDate: referenceDate)
+                rescheduleTodayOverviewReminderIfNeeded(referenceDate: referenceDate)
+            }
+            return
+        }
+        eventsCache.removeAll()
+        externalCalendarEvents = sortedEvents
         persistExternalCalendarEvents()
-        rescheduleExternalEventNotifications()
-        rescheduleTodayOverviewReminderIfNeeded()
+        rescheduleExternalEventNotifications(referenceDate: referenceDate)
+        rescheduleTodayOverviewReminderIfNeeded(referenceDate: referenceDate)
     }
 
     func currentExternalCalendarRange() -> ExternalCalendarRange? {
@@ -88,11 +139,11 @@ extension AppDataStore {
         guard granted else { return false }
 
         calendarService.refreshCalendarLinks(store: self)
-        let range = currentExternalCalendarRange() ?? defaultExternalCalendarRange(for: anchorDate)
+        let range = currentExternalCalendarRange() ?? ExternalCalendarSyncPolicy.desiredRange(for: anchorDate)
 
         do {
             let ekEvents = try await calendarService.fetchEvents(from: range.start, to: range.end)
-            let external = mapExternalEvents(from: ekEvents)
+            let external = ExternalCalendarEventMapper(links: appState.calendarCategoryLinks).map(ekEvents)
             updateExternalCalendarEvents(external, range: range)
             updateLastCalendarSync(date: Date())
             return true
@@ -127,32 +178,9 @@ extension AppDataStore {
                 links.append(link)
             }
         }
+        guard links != appState.calendarCategoryLinks else { return }
         appState.calendarCategoryLinks = links
         persistAppState()
-    }
-
-    private func defaultExternalCalendarRange(for anchor: Date) -> ExternalCalendarRange {
-        let calendar = Calendar.current
-        let anchorMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: anchor)) ?? anchor
-        let start = calendar.date(byAdding: .month, value: -6, to: anchorMonth) ?? anchorMonth
-        let endMonthStart = calendar.date(byAdding: .month, value: 19, to: anchorMonth) ?? anchorMonth
-        let end = calendar.date(byAdding: .second, value: -1, to: endMonthStart) ?? endMonthStart
-        return ExternalCalendarRange(start: start, end: end)
-    }
-
-    private func mapExternalEvents(from ekEvents: [EKEvent]) -> [CalendarEvent] {
-        let links = appState.calendarCategoryLinks
-        let linkMap = Dictionary(uniqueKeysWithValues: links.map { ($0.calendarIdentifier, $0) })
-        let defaultCategory = CategoryPalette.defaultCategoryName
-
-        return ekEvents.compactMap { event in
-            let identifier = event.calendar.calendarIdentifier
-            if let link = linkMap[identifier] {
-                guard let category = link.categoryId else { return nil }
-                return CalendarEvent(event: event, categoryName: category)
-            }
-            return CalendarEvent(event: event, categoryName: defaultCategory)
-        }
     }
 
     /// Auto-map calendar name to category based on keywords
@@ -240,10 +268,16 @@ extension AppDataStore {
 
     func reapplyEventCategoryNotificationSettings() {
         let categories = Set((calendarEvents + externalCalendarEvents).map(\.calendarName))
-        _ = NotificationSettingsManager.shared.ensureCategorySettings(for: Array(categories))
+        let manager = NotificationSettingsManager.shared
+        let settings = manager.ensureCategorySettings(for: Array(categories))
+        let settingsByCategory = Dictionary(uniqueKeysWithValues: settings.map { ($0.categoryName, $0) })
+        let parentEnabled = manager.isEventCategoryNotificationEnabled
 
         for event in calendarEvents {
-            scheduleEventNotification(event)
+            let defaultStrategy = parentEnabled
+                ? eventCategoryDefaultReminderStrategy(for: event, setting: settingsByCategory[event.calendarName])
+                : nil
+            scheduleEventNotification(event, strategy: explicitReminderStrategy(for: event) ?? defaultStrategy)
         }
         rescheduleExternalEventNotifications()
     }
@@ -414,9 +448,15 @@ extension AppDataStore {
         }
     }
 
-    func rescheduleExternalEventNotifications() {
-        let now = Date()
+    func rescheduleExternalEventNotifications(referenceDate: Date = Date()) {
+        let now = referenceDate
         let maxScheduledExternalReminders = 48
+        let settingsManager = NotificationSettingsManager.shared
+        let parentEnabled = settingsManager.isEventCategoryNotificationEnabled
+        let settings = parentEnabled
+            ? settingsManager.ensureCategorySettings(for: Array(Set(externalCalendarEvents.map(\.calendarName))))
+            : []
+        let settingsByCategory = Dictionary(uniqueKeysWithValues: settings.map { ($0.categoryName, $0) })
 
         struct PendingExternalReminder {
             let event: CalendarEvent
@@ -425,7 +465,11 @@ extension AppDataStore {
         }
 
         let candidates: [PendingExternalReminder] = externalCalendarEvents.compactMap { event in
-            guard let strategy = effectiveReminderStrategy(for: event) else { return nil }
+            // Decode persisted category settings once for the whole batch.
+            let defaultStrategy = parentEnabled
+                ? eventCategoryDefaultReminderStrategy(for: event, setting: settingsByCategory[event.calendarName])
+                : nil
+            guard let strategy = explicitReminderStrategy(for: event) ?? defaultStrategy else { return nil }
 
             let fireDate: Date
             switch strategy {
@@ -442,6 +486,7 @@ extension AppDataStore {
         let remindersToSchedule = candidates
             .sorted(by: { $0.fireDate < $1.fireDate })
             .prefix(maxScheduledExternalReminders)
+        nextExternalReminderRefreshDate = remindersToSchedule.first?.fireDate
 
         externalReminderRescheduleGeneration &+= 1
         let generation = externalReminderRescheduleGeneration
@@ -491,10 +536,14 @@ extension AppDataStore {
     }
 
     func scheduleEventNotification(_ event: CalendarEvent) {
+        scheduleEventNotification(event, strategy: effectiveReminderStrategy(for: event))
+    }
+
+    private func scheduleEventNotification(_ event: CalendarEvent, strategy: EventReminderStrategy?) {
         // キャンセルしてから再スケジュール
         NotificationService.shared.cancelEventReminder(eventId: event.id)
 
-        guard let strategy = effectiveReminderStrategy(for: event) else { return }
+        guard let strategy else { return }
 
         switch strategy {
         case .relative(let minutesBefore):
@@ -515,17 +564,40 @@ extension AppDataStore {
 
     // MARK: - Calendar Persisters
 
+    private func persistCalendarEvent(_ event: CalendarEvent) {
+        let eventID = event.id
+        do {
+            var descriptor = FetchDescriptor<SDCalendarEvent>(predicate: #Predicate { $0.id == eventID })
+            descriptor.fetchLimit = 1
+            if let existing = try modelContext.fetch(descriptor).first {
+                if CalendarEvent(sd: existing) != event {
+                    existing.update(from: event)
+                }
+            } else {
+                modelContext.insert(SDCalendarEvent(domain: event))
+            }
+            saveContext()
+        } catch {
+            // A fetch error is not evidence that the row is absent. Do not
+            // insert over it; the same operation can retry this targeted read.
+            AppLogger.data.error("Calendar event persistence fetch failed: \(error)")
+        }
+    }
+
     func persistCalendarEvents() {
         // Full Sync to SwiftData
         let descriptor = FetchDescriptor<SDCalendarEvent>()
-        if let existingItems = try? modelContext.fetch(descriptor) {
+        do {
+            let existingItems = try modelContext.fetch(descriptor)
             let existingMap = Dictionary(uniqueKeysWithValues: existingItems.map { ($0.id, $0) })
             var validIDs: Set<UUID> = []
 
             for event in calendarEvents {
                 validIDs.insert(event.id)
                 if let existing = existingMap[event.id] {
-                    existing.update(from: event)
+                    if CalendarEvent(sd: existing) != event {
+                        existing.update(from: event)
+                    }
                 } else {
                     let newEvent = SDCalendarEvent(domain: event)
                     modelContext.insert(newEvent)
@@ -539,6 +611,8 @@ extension AppDataStore {
                 }
             }
             saveContext()
+        } catch {
+            AppLogger.data.error("Calendar events full-sync fetch failed: \(error)")
         }
     }
 

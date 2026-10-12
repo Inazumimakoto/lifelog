@@ -13,7 +13,9 @@ enum WallpaperCalendarAnnouncementState {
 }
 
 struct ContentView: View {
-    @EnvironmentObject private var store: AppDataStore
+    // Only destination view models observe their data sources. Observing the whole
+    // store here invalidated every tab when a diary, habit or health value changed.
+    let store: AppDataStore
     @EnvironmentObject private var deepLinkManager: DeepLinkManager
     @ObservedObject private var monetization = MonetizationService.shared
     @ObservedObject private var deepLinkHandler = DeepLinkHandler.shared

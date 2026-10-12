@@ -100,15 +100,6 @@ struct JournalView: View {
     @State private var showPaywall = false
     @State private var premiumAlertMessage: String?
 
-    // detailPager は ~15 アンカー分の calendarSnapshot(for:) を毎レンダーで再計算するため、
-    // 同一データに対する重複スキャンをキャッシュで防ぐ。キーは startOfDay。
-    // 無効化はストアのデータ変更時（store.objectWillChange）にのみ行う。レンダーや
-    // ページ切替では再計算しないため、表示内容は従来と完全に一致する。
-    @State private var snapshotCache: [Date: CalendarDetailSnapshot] = [:]
-    // weekTimeline は 7 日分の timelineItems(for:) を毎レンダー再計算するため、startOfDay 単位でキャッシュする。
-    // 無効化条件は上記と同じ。
-    @State private var weekTimelineItemsCache: [Date: [JournalViewModel.TimelineItem]] = [:]
-
     private let resetTrigger: Int
     @Binding private var requestedDate: Date?
 
@@ -249,15 +240,6 @@ struct JournalView: View {
 
     var body: some View {
         calendarPresentation
-        .onReceive(store.objectWillChange) { _ in
-            // ストアのデータが変化した時のみ、各種スナップショットキャッシュを破棄する。
-            // これにより calendarSnapshot / weekTimeline の計算は
-            // 「データ変更ごとに最大1回」に抑えられ、毎レンダーの全件スキャンを排除する。
-            // objectWillChange は変更の「直前」に発火するが、キャッシュは次回参照時に
-            // 最新ストアから再計算されるため、表示が古くなることはない。
-            snapshotCache.removeAll()
-            weekTimelineItemsCache.removeAll()
-        }
         .onAppear {
             if didInitialSetup == false {
                 didInitialSetup = true
@@ -1140,17 +1122,9 @@ struct JournalView: View {
         }
     }
 
-    // 週タイムラインは 7 日分を毎レンダー再計算するため、startOfDay 単位でキャッシュする。
-    // タスク種別は週タイムラインに表示しない仕様なのでフィルタ後の結果を保持する。
-    // 無効化はストア変更時（store.objectWillChange）に行うため表示内容は不変。
+    // The view model owns caches and invalidates them for calendar inputs only.
     private func weekTimelineItems(for date: Date) -> [JournalViewModel.TimelineItem] {
-        let cacheKey = date.startOfDay
-        if let cached = weekTimelineItemsCache[cacheKey] {
-            return cached
-        }
-        let items = viewModel.timelineItems(for: date).filter { $0.kind != .task }
-        weekTimelineItemsCache[cacheKey] = items
-        return items
+        viewModel.timelineItems(for: date).filter { $0.kind != .task }
     }
 
     private func toggleTask(_ task: Task) {
@@ -1234,55 +1208,15 @@ struct JournalView: View {
     }
 
     private func calendarSnapshot(for date: Date) -> CalendarDetailSnapshot {
-        // 同一日のスナップショットはストア変更まで不変なので、キャッシュ命中時は再スキャンしない。
-        let cacheKey = date.startOfDay
-        if let cached = snapshotCache[cacheKey] {
-            return cached
-        }
-        let snapshot = computeCalendarSnapshot(for: date)
-        snapshotCache[cacheKey] = snapshot
-        return snapshot
-    }
-
-    private func computeCalendarSnapshot(for date: Date) -> CalendarDetailSnapshot {
-        let events = store.events(on: date)
-        // 詳細シートでは開始〜終了日の範囲内のタスクを表示
-        let sortedTasks = viewModel.tasksInRange(on: date).sorted(by: calendarTaskSort)
-        let pendingTasks = sortedTasks.filter { $0.isCompleted == false }
-        let completedTasks = sortedTasks.filter(\.isCompleted)
-        let statuses = store.habits
-            .filter { !$0.isArchived && $0.schedule.isActive(on: date) }
-            .map { habit in
-                TodayViewModel.DailyHabitStatus(habit: habit,
-                                                record: store.habitRecords.first {
-                                                    $0.habitID == habit.id && Calendar.current.isDate($0.date, inSameDayAs: date)
-                                                })
-            }
-        let health = store.healthSummaries.first { Calendar.current.isDate($0.date, inSameDayAs: date) }
-        let diary = store.entry(for: date)
-        return CalendarDetailSnapshot(date: date,
-                                      events: events,
-                                      pendingTasks: pendingTasks,
-                                      completedTasks: completedTasks,
-                                      habitStatuses: statuses,
-                                      healthSummary: health,
-                                      diaryEntry: diary)
+        viewModel.calendarDetailSnapshot(for: date)
     }
 
     private func calendarTaskSort(_ lhs: Task, _ rhs: Task) -> Bool {
-        if lhs.priority.rawValue != rhs.priority.rawValue {
-            return lhs.priority.rawValue > rhs.priority.rawValue
-        }
-        let lhsDate = taskDisplayDate(for: lhs) ?? .distantFuture
-        let rhsDate = taskDisplayDate(for: rhs) ?? .distantFuture
-        if lhsDate != rhsDate {
-            return lhsDate < rhsDate
-        }
-        return lhs.title < rhs.title
+        TaskPresentation.orderedBefore(lhs, rhs, preferring: .start)
     }
 
     private func taskDisplayDate(for task: Task) -> Date? {
-        task.startDate ?? task.endDate
+        TaskPresentation.displayDate(for: task, preferring: .start)
     }
 
     private func detailPager(includeAddButtons: Bool, showHeader: Bool = false, minHeight: CGFloat = 520) -> some View {
@@ -1553,8 +1487,7 @@ struct JournalView: View {
     
     private func isMultiDayEvent(_ event: CalendarEvent) -> Bool {
         let calendar = Calendar.current
-        let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: event.endDate) ?? event.endDate
-        return !calendar.isDate(event.startDate, inSameDayAs: adjustedEnd)
+        return CalendarPreviewLayout.isMultiDayEvent(start: event.startDate, end: event.endDate, calendar: calendar)
     }
 
     private func previewLabel(for item: DayPreviewItem) -> String {
@@ -1564,49 +1497,10 @@ struct JournalView: View {
     private func calendarCellRowContents(previews: [DayPreviewItem],
                                          itemLimit: Int,
                                          multiDayState: CalendarDayMultiDayState) -> [CalendarCellRowContent] {
-        guard itemLimit > 0 else { return [] }
-
-        let regularItems = previews.filter { item in
-            !(item.kind == .event && item.isMultiDayEvent)
-        }
-
-        var rows = Array(repeating: CalendarCellRowContent.empty, count: itemLimit)
-        var availableRows: [Int] = []
-
-        for rowIndex in 0..<itemLimit {
-            let isOccupiedByVisibleMultiDay = rowIndex < multiDayState.visibleLaneCount &&
-                multiDayState.occupiedVisibleLanes.contains(rowIndex)
-            if isOccupiedByVisibleMultiDay {
-                rows[rowIndex] = .multiDayPlaceholder
-            } else {
-                availableRows.append(rowIndex)
-            }
-        }
-
-        guard availableRows.isEmpty == false else { return rows }
-
-        let needsOverflowRow = multiDayState.hiddenMultiDayCount > 0 || regularItems.count > availableRows.count
-        let displayedRegularCount: Int
-        let overflowCount: Int
-
-        if needsOverflowRow {
-            let regularCapacity = max(0, availableRows.count - 1)
-            displayedRegularCount = min(regularItems.count, regularCapacity)
-            overflowCount = multiDayState.hiddenMultiDayCount + max(0, regularItems.count - displayedRegularCount)
-        } else {
-            displayedRegularCount = regularItems.count
-            overflowCount = 0
-        }
-
-        for (offset, item) in regularItems.prefix(displayedRegularCount).enumerated() {
-            rows[availableRows[offset]] = .item(item)
-        }
-
-        if overflowCount > 0, availableRows.indices.contains(displayedRegularCount) {
-            rows[availableRows[displayedRegularCount]] = .overflow(overflowCount)
-        }
-
-        return rows
+        let regularItems = previews.filter { !($0.kind == .event && $0.isMultiDayEvent) }
+        return CalendarPreviewLayout.rows(regularItems: regularItems,
+                                          itemLimit: itemLimit,
+                                          multiDayState: multiDayState)
     }
 
     @ViewBuilder
@@ -1681,126 +1575,9 @@ struct JournalView: View {
     private func buildWeekMultiDayLayout(weekDates: [Date],
                                          events: [CalendarEvent],
                                          itemLimit: Int) -> CalendarWeekMultiDayLayout {
-        let calendar = Calendar.current
-        guard weekDates.count == 7,
-              let firstWeekDate = weekDates.first,
-              let lastWeekDate = weekDates.last
-        else {
-            return .empty
-        }
-
-        let weekStart = calendar.startOfDay(for: firstWeekDate)
-        let weekLastDay = calendar.startOfDay(for: lastWeekDate)
-        guard let weekEndExclusive = calendar.date(byAdding: .day, value: 1, to: weekLastDay) else {
-            return .empty
-        }
-
-        struct Candidate {
-            let event: CalendarEvent
-            let startColumn: Int
-            let endColumn: Int
-            let continuesBeforeWeek: Bool
-            let continuesAfterWeek: Bool
-        }
-
-        var candidates: [Candidate] = []
-        for event in events {
-            guard event.startDate < weekEndExclusive, event.endDate > weekStart else { continue }
-
-            let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: event.endDate) ?? event.endDate
-            let eventStartDay = calendar.startOfDay(for: event.startDate)
-            let rawEventEndDay = calendar.startOfDay(for: adjustedEnd)
-            let eventEndDay = max(rawEventEndDay, eventStartDay)
-            let visibleStartDay = max(eventStartDay, weekStart)
-            let visibleEndDay = min(eventEndDay, weekLastDay)
-
-            guard visibleStartDay <= visibleEndDay else { continue }
-
-            let startColumn = calendar.dateComponents([.day], from: weekStart, to: visibleStartDay).day ?? 0
-            let endColumn = calendar.dateComponents([.day], from: weekStart, to: visibleEndDay).day ?? 0
-            guard (0..<7).contains(startColumn), (0..<7).contains(endColumn), startColumn <= endColumn else { continue }
-
-            candidates.append(
-                Candidate(event: event,
-                          startColumn: startColumn,
-                          endColumn: endColumn,
-                          continuesBeforeWeek: eventStartDay < weekStart,
-                          continuesAfterWeek: eventEndDay > weekLastDay)
-            )
-        }
-
-        if candidates.isEmpty {
-            return .empty
-        }
-
-        let sortedCandidates = candidates.sorted { lhs, rhs in
-            if lhs.startColumn != rhs.startColumn {
-                return lhs.startColumn < rhs.startColumn
-            }
-            let lhsSpan = lhs.endColumn - lhs.startColumn
-            let rhsSpan = rhs.endColumn - rhs.startColumn
-            if lhsSpan != rhsSpan {
-                return lhsSpan > rhsSpan
-            }
-            if lhs.event.isAllDay != rhs.event.isAllDay {
-                return lhs.event.isAllDay && rhs.event.isAllDay == false
-            }
-            if lhs.event.startDate != rhs.event.startDate {
-                return lhs.event.startDate < rhs.event.startDate
-            }
-            return lhs.event.title < rhs.event.title
-        }
-
-        let maxVisibleLanes = max(0, itemLimit - 1)
-        var laneEndColumns: [Int] = []
-        var visibleSegments: [CalendarWeekMultiDaySegment] = []
-        var occupiedVisibleLanesByDay = Array(repeating: Set<Int>(), count: 7)
-        var hiddenCountByDay = Array(repeating: 0, count: 7)
-
-        for candidate in sortedCandidates {
-            let assignedLane: Int
-            if let lane = laneEndColumns.firstIndex(where: { candidate.startColumn > $0 }) {
-                assignedLane = lane
-                laneEndColumns[lane] = candidate.endColumn
-            } else {
-                assignedLane = laneEndColumns.count
-                laneEndColumns.append(candidate.endColumn)
-            }
-
-            if assignedLane < maxVisibleLanes {
-                for dayIndex in candidate.startColumn...candidate.endColumn {
-                    occupiedVisibleLanesByDay[dayIndex].insert(assignedLane)
-                }
-                visibleSegments.append(
-                    CalendarWeekMultiDaySegment(
-                        id: "\(weekStart.timeIntervalSince1970)-\(candidate.event.id.uuidString)-\(assignedLane)",
-                        eventID: candidate.event.id,
-                        title: candidate.event.title,
-                        color: CategoryPalette.color(for: candidate.event.calendarName),
-                        lane: assignedLane,
-                        startColumn: candidate.startColumn,
-                        endColumn: candidate.endColumn,
-                        continuesBeforeWeek: candidate.continuesBeforeWeek,
-                        continuesAfterWeek: candidate.continuesAfterWeek
-                    )
-                )
-            } else {
-                for dayIndex in candidate.startColumn...candidate.endColumn {
-                    hiddenCountByDay[dayIndex] += 1
-                }
-            }
-        }
-
-        let visibleLaneCount = min(laneEndColumns.count, maxVisibleLanes)
-        let dayStates = (0..<7).map { index in
-            CalendarDayMultiDayState(visibleLaneCount: visibleLaneCount,
-                                     occupiedVisibleLanes: occupiedVisibleLanesByDay[index],
-                                     hiddenMultiDayCount: hiddenCountByDay[index])
-        }
-
-        return CalendarWeekMultiDayLayout(visibleLaneCount: visibleLaneCount,
-                                          dayStates: dayStates,
-                                          segments: visibleSegments)
+        let layout = CalendarPreviewLayout.week(dates: weekDates, events: events,
+                                                itemLimit: itemLimit, calendar: Calendar.current)
+        return CalendarWeekMultiDayLayout(layout: layout)
     }
 
     private func monthMultiDayOverlay(weekLayouts: [CalendarWeekMultiDayLayout], gridWidth: CGFloat) -> some View {
@@ -1922,7 +1699,9 @@ struct JournalView: View {
     private func scheduleDeferredCalendarSync() {
         deferredCalendarSyncTask?.cancel()
         deferredCalendarSyncTask = _Concurrency.Task {
-            try? await _Concurrency.Task.sleep(nanoseconds: 350_000_000)
+            do { try await _Concurrency.Task.sleep(nanoseconds: 350_000_000) }
+            catch { return }
+            guard !_Concurrency.Task.isCancelled else { return }
             calendarSyncTrigger += 1
         }
     }
@@ -1930,7 +1709,9 @@ struct JournalView: View {
     private func scheduleDeferredPreload() {
         deferredPreloadTask?.cancel()
         deferredPreloadTask = _Concurrency.Task {
-            try? await _Concurrency.Task.sleep(nanoseconds: 250_000_000)
+            do { try await _Concurrency.Task.sleep(nanoseconds: 250_000_000) }
+            catch { return }
+            guard !_Concurrency.Task.isCancelled else { return }
             viewModel.preloadMonths(around: viewModel.monthAnchor, radius: 1)
             // まず当月は優先先読みして、振り返り切り替え直後の表示を速くする
             prefetchPhotosForMonths(around: viewModel.monthAnchor, monthRadius: 0)

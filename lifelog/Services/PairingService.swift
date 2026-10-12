@@ -155,31 +155,8 @@ class PairingService: ObservableObject {
             throw PairingError.notAuthenticated
         }
         
-        // 招待リンクを取得
-        guard let inviteLink = try await getInviteLink(id: inviteLinkId) else {
-            throw PairingError.inviteLinkNotFound
-        }
-        
-        // 有効期限チェック
-        if inviteLink.isExpired {
-            throw PairingError.inviteLinkExpired
-        }
-        
-        // 自分自身への招待チェック
-        if inviteLink.userId == currentUser.uid {
-            throw PairingError.cannotAddSelf
-        }
-        
-        // 既に友達かチェック
-        let existingFriend = try await db.collection("pairings")
-            .whereField("userId", isEqualTo: currentUser.uid)
-            .whereField("friendId", isEqualTo: inviteLink.userId)
-            .getDocuments()
-        
-        if !existingFriend.documents.isEmpty {
-            throw PairingError.alreadyFriends
-        }
-        
+        let inviteLink = try await validatedInviteLink(id: inviteLinkId, requestingUserID: currentUser.uid)
+
         // 既にリクエスト送信済みかチェック
         let existingRequest = try await db.collection("friendRequests")
             .whereField("fromUserId", isEqualTo: currentUser.uid)
@@ -229,30 +206,7 @@ class PairingService: ObservableObject {
             throw PairingError.notAuthenticated
         }
 
-        // 招待リンクを取得
-        guard let inviteLink = try await getInviteLink(id: inviteLinkId) else {
-            throw PairingError.inviteLinkNotFound
-        }
-
-        // 有効期限チェック
-        if inviteLink.isExpired {
-            throw PairingError.inviteLinkExpired
-        }
-
-        // 自分自身への招待チェック
-        if inviteLink.userId == currentUser.uid {
-            throw PairingError.cannotAddSelf
-        }
-
-        // 既に友達かチェック
-        let existingFriend = try await db.collection("pairings")
-            .whereField("userId", isEqualTo: currentUser.uid)
-            .whereField("friendId", isEqualTo: inviteLink.userId)
-            .getDocuments()
-
-        if !existingFriend.documents.isEmpty {
-            throw PairingError.alreadyFriends
-        }
+        let inviteLink = try await validatedInviteLink(id: inviteLinkId, requestingUserID: currentUser.uid)
 
         let requestId = UUID().uuidString
         let data: [String: Any] = [
@@ -269,6 +223,26 @@ class PairingService: ObservableObject {
 
         try await db.collection("friendRequests").document(requestId).setData(data)
         try await waitForRequestResolution(requestId: requestId)
+    }
+
+    private func validatedInviteLink(id: String, requestingUserID: String) async throws -> InviteLink {
+        guard let inviteLink = try await getInviteLink(id: id) else {
+            throw PairingError.inviteLinkNotFound
+        }
+        if inviteLink.isExpired {
+            throw PairingError.inviteLinkExpired
+        }
+        if inviteLink.userId == requestingUserID {
+            throw PairingError.cannotAddSelf
+        }
+        let existingFriend = try await db.collection("pairings")
+            .whereField("userId", isEqualTo: requestingUserID)
+            .whereField("friendId", isEqualTo: inviteLink.userId)
+            .getDocuments()
+        if !existingFriend.documents.isEmpty {
+            throw PairingError.alreadyFriends
+        }
+        return inviteLink
     }
 
     /// サーバー(Cloud Functions)が friendRequest を処理して status を
@@ -377,19 +351,7 @@ class PairingService: ObservableObject {
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let documents = snapshot?.documents else { return }
                 
-                self?.pendingRequests = documents.compactMap { doc -> FriendRequest? in
-                    let data = doc.data()
-                    return FriendRequest(
-                        id: doc.documentID,
-                        fromUserId: data["fromUserId"] as? String ?? "",
-                        fromUserEmoji: data["fromUserEmoji"] as? String ?? "😊",
-                        fromUserName: data["fromUserName"] as? String ?? "ユーザー",
-                        fromUserPublicKey: data["fromUserPublicKey"] as? String ?? "",
-                        toUserId: data["toUserId"] as? String ?? "",
-                        status: FriendRequest.RequestStatus(rawValue: data["status"] as? String ?? "pending") ?? .pending,
-                        createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
-                    )
-                }
+                self?.pendingRequests = documents.map(Self.friendRequest(from:))
             }
     }
     
@@ -403,22 +365,24 @@ class PairingService: ObservableObject {
             .addSnapshotListener { [weak self] snapshot, error in
                 guard let documents = snapshot?.documents else { return }
                 
-                self?.sentRequests = documents.compactMap { doc -> FriendRequest? in
-                    let data = doc.data()
-                    return FriendRequest(
-                        id: doc.documentID,
-                        fromUserId: data["fromUserId"] as? String ?? "",
-                        fromUserEmoji: data["fromUserEmoji"] as? String ?? "😊",
-                        fromUserName: data["fromUserName"] as? String ?? "ユーザー",
-                        fromUserPublicKey: data["fromUserPublicKey"] as? String ?? "",
-                        toUserId: data["toUserId"] as? String ?? "",
-                        status: FriendRequest.RequestStatus(rawValue: data["status"] as? String ?? "pending") ?? .pending,
-                        createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
-                    )
-                }
+                self?.sentRequests = documents.map(Self.friendRequest(from:))
             }
     }
     
+    private nonisolated static func friendRequest(from document: QueryDocumentSnapshot) -> FriendRequest {
+        let data = document.data()
+        return FriendRequest(
+            id: document.documentID,
+            fromUserId: data["fromUserId"] as? String ?? "",
+            fromUserEmoji: data["fromUserEmoji"] as? String ?? "😊",
+            fromUserName: data["fromUserName"] as? String ?? "ユーザー",
+            fromUserPublicKey: data["fromUserPublicKey"] as? String ?? "",
+            toUserId: data["toUserId"] as? String ?? "",
+            status: FriendRequest.RequestStatus(rawValue: data["status"] as? String ?? "pending") ?? .pending,
+            createdAt: (data["createdAt"] as? Timestamp)?.dateValue() ?? Date()
+        )
+    }
+
     /// リスナーを停止
     func stopListening() {
         friendsListener?.remove()

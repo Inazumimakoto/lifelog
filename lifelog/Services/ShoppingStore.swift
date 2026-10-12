@@ -11,16 +11,22 @@ final class ShoppingStore: ObservableObject {
     @Published private(set) var items: [ShoppingItem] = []
     @Published private(set) var places: [ShoppingPlace] = []
     @Published private(set) var loadError: String?
+#if DEBUG
+    @Published private(set) var syncState: ShoppingSyncState?
+#endif
 
     private let context: ModelContext
     private let saveOperation: (ModelContext) throws -> Void
     private var hasLoadedData = false
+    private let supportsShoppingSync: Bool
 
     init(container: ModelContainer,
+         supportsShoppingSync: Bool = false,
          saveOperation: @escaping (ModelContext) throws -> Void = { try $0.save() }) {
         context = ModelContext(container)
         context.autosaveEnabled = false
         self.saveOperation = saveOperation
+        self.supportsShoppingSync = supportsShoppingSync
         // reload() records load or legacy-cleanup failures and disables writes until a successful retry.
         try? reload()
     }
@@ -33,14 +39,30 @@ final class ShoppingStore: ObservableObject {
         do {
             var state = try fetchState()
             let legacyPurchases = state.items.filter { $0.purchasedAt != nil }
+            var needsMigrationSave = !legacyPurchases.isEmpty
             if !legacyPurchases.isEmpty {
                 state.items.removeAll { $0.purchasedAt != nil }
                 for item in legacyPurchases {
                     context.delete(item)
                 }
+            }
+            for item in state.items where !item.legacyQuantity.isEmpty {
+                item.note = item.note.isEmpty ? item.legacyQuantity : item.legacyQuantity + "\n" + item.note
+                item.legacyQuantity = ""
+                needsMigrationSave = true
+            }
+            if needsMigrationSave {
                 try saveOperation(context)
             }
             publish(state)
+#if DEBUG
+            if supportsShoppingSync {
+                let metadata = try context.fetch(FetchDescriptor<SDShoppingSyncState>())
+                guard metadata.count <= 1 else { throw ShoppingStoreError.unavailable }
+                syncState = try metadata.first.map { try JSONDecoder().decode(ShoppingSyncState.self, from: $0.payload) }
+                try syncState?.validate()
+            }
+#endif
             hasLoadedData = true
             loadError = nil
         } catch {
@@ -54,14 +76,12 @@ final class ShoppingStore: ObservableObject {
 
     @discardableResult
     func addItem(title: String,
-                 quantity: String = "",
                  note: String = "",
                  placeID: UUID? = nil) throws -> ShoppingItem {
         let title = try validatedTitle(title)
         return try mutate { state in
             try self.validatePlace(placeID, in: state)
             let item = ShoppingItem(title: title,
-                                    quantity: quantity,
                                     note: note,
                                     placeID: placeID)
             let stored = SDShoppingItem(domain: item)
@@ -160,6 +180,68 @@ final class ShoppingStore: ObservableObject {
             }
         }
     }
+
+#if DEBUG
+    /// A dataset remains bound to its first account after logout, preventing a later account
+    /// from uploading another person's local data. Enabling sync is an explicit UI action.
+    func enableSync(ownerID: UUID) throws {
+        guard supportsShoppingSync, hasLoadedData else { throw ShoppingStoreError.unavailable }
+        if let syncState {
+            guard syncState.ownerID == ownerID else { throw ShoppingSyncError.accountMismatch }
+            return
+        }
+        try saveSyncState(ShoppingSyncState(ownerID: ownerID))
+    }
+
+    /// Applying remote rows and advancing the cursor share one durable transaction.
+    /// ACK-only writes deliberately leave current local rows untouched while a request is in flight.
+    func saveSyncState(_ next: ShoppingSyncState,
+                       items nextItems: [ShoppingItem]? = nil,
+                       places nextPlaces: [ShoppingPlace]? = nil) throws {
+        guard supportsShoppingSync, hasLoadedData else { throw ShoppingStoreError.unavailable }
+        if let syncState, syncState.ownerID != next.ownerID { throw ShoppingSyncError.accountMismatch }
+        try next.validate()
+        do {
+            var stored = try fetchState()
+            if let nextPlaces {
+                let desired = Dictionary(uniqueKeysWithValues: nextPlaces.map { ($0.id, $0) })
+                for row in stored.places {
+                    if let place = desired[row.id] {
+                        row.name = place.name
+                        row.orderIndex = place.orderIndex
+                    } else { context.delete(row) }
+                }
+                let existing = Set(stored.places.map(\.id))
+                for place in nextPlaces where !existing.contains(place.id) {
+                    context.insert(SDShoppingPlace(id: place.id, name: place.name, orderIndex: place.orderIndex))
+                }
+            }
+            if let nextItems {
+                let desired = Dictionary(uniqueKeysWithValues: nextItems.map { ($0.id, $0) })
+                for row in stored.items {
+                    if let item = desired[row.id] { row.update(from: item) }
+                    else { context.delete(row) }
+                }
+                let existing = Set(stored.items.map(\.id))
+                for item in nextItems where !existing.contains(item.id) { context.insert(SDShoppingItem(domain: item)) }
+            }
+            let metadata = try context.fetch(FetchDescriptor<SDShoppingSyncState>())
+            guard metadata.count <= 1 else { throw ShoppingStoreError.unavailable }
+            let payload = try JSONEncoder().encode(next)
+            if let row = metadata.first { row.payload = payload }
+            else { context.insert(SDShoppingSyncState(payload: payload)) }
+            try saveOperation(context)
+            if nextItems != nil || nextPlaces != nil {
+                stored = try fetchState()
+                publish(stored)
+            }
+            syncState = next
+        } catch {
+            context.rollback()
+            throw error
+        }
+    }
+#endif
 
     private struct StoredState {
         var items: [SDShoppingItem]

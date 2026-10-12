@@ -89,8 +89,11 @@ final class HabitsViewModel: ObservableObject {
 
     private func bind() {
         store.$habits
-            .combineLatest(store.$habitRecords)
-            .receive(on: DispatchQueue.main)
+            .removeDuplicates()
+            .combineLatest(store.$habitRecords.removeDuplicates())
+            // init already refreshes; one store operation can publish both sources.
+            .dropFirst()
+            .debounce(for: .zero, scheduler: DispatchQueue.main)
             .sink { [weak self] _, _ in
                 self?.refresh()
             }
@@ -99,7 +102,7 @@ final class HabitsViewModel: ObservableObject {
 
     private func refresh() {
         let updates = { [self] in
-            let recordsLookup = self.makeRecordsLookup(from: self.store.habitRecords)
+            let recordsLookup = HabitRecordIndex.latestRecordsByHabit(from: self.store.habitRecords)
             self.recordsLookupCache = recordsLookup
 
             // Filter out archived habits - only show active ones
@@ -166,7 +169,7 @@ final class HabitsViewModel: ObservableObject {
         }
 
         let records = recordsLookupCache[habit.id] ?? [:]
-        return calculateCurrentStreak(for: habit, asOf: targetDay, records: records, calendar: calendar)
+        return Self.calculateCurrentStreak(for: habit, asOf: targetDay, records: records, calendar: calendar)
     }
 
     func maxStreak(for habit: Habit, asOf date: Date = Date()) -> Int {
@@ -178,7 +181,7 @@ final class HabitsViewModel: ObservableObject {
         }
 
         let records = recordsLookupCache[habit.id] ?? [:]
-        let current = calculateCurrentStreak(for: habit, asOf: targetDay, records: records, calendar: calendar)
+        let current = Self.calculateCurrentStreak(for: habit, asOf: targetDay, records: records, calendar: calendar)
         let longest = calculateMaxStreak(for: habit, asOf: targetDay, records: records, calendar: calendar)
         return max(longest, current)
     }
@@ -200,14 +203,6 @@ final class HabitsViewModel: ObservableObject {
         computeAverageRates()
     }
 
-    private func makeRecordsLookup(from records: [HabitRecord]) -> [UUID: [Date: HabitRecord]] {
-        records.reduce(into: [UUID: [Date: HabitRecord]]()) { partialResult, record in
-            var habitMap = partialResult[record.habitID] ?? [:]
-            habitMap[record.date.startOfDay] = record
-            partialResult[record.habitID] = habitMap
-        }
-    }
-
     private func rebuildStreakSnapshots(with recordsLookup: [UUID: [Date: HabitRecord]]) {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: Date())
@@ -216,7 +211,7 @@ final class HabitsViewModel: ObservableObject {
 
         for habit in habits {
             let records = recordsLookup[habit.id] ?? [:]
-            let current = calculateCurrentStreak(for: habit, asOf: today, records: records, calendar: calendar)
+            let current = Self.calculateCurrentStreak(for: habit, asOf: today, records: records, calendar: calendar)
             let longest = calculateMaxStreak(for: habit, asOf: today, records: records, calendar: calendar)
             map[habit.id] = HabitStreakSnapshot(current: current, best: max(longest, current))
         }
@@ -224,12 +219,17 @@ final class HabitsViewModel: ObservableObject {
         streakSnapshots = map
     }
 
-    private func calculateCurrentStreak(
+    static func calculateCurrentStreak(
         for habit: Habit,
         asOf day: Date,
         records: [Date: HabitRecord],
         calendar: Calendar
     ) -> Int {
+        // A custom schedule without weekdays never reaches a missing active day.
+        // Older/imported data can contain it even though the editor prevents it.
+        if case .custom(let days) = habit.schedule, days.isEmpty {
+            return 0
+        }
         var streak = 0
         var cursor = day
 

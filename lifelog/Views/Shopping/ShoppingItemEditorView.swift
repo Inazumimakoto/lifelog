@@ -70,7 +70,7 @@ struct ShoppingItemEditorView: View {
     }
 
     private func save() {
-        // Preserve current purchase state and stored quantity while editing visible fields.
+        // Preserve identity and creation date while editing the visible fields.
         var item = shoppingStore.items.first { $0.id == originalItem.id } ?? originalItem
         item.title = title
         item.note = note

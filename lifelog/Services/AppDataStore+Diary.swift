@@ -39,6 +39,13 @@ extension AppDataStore {
             return
         }
 
+        let previous = diaryEntries.first { $0.id == normalized.id }
+        // Closing an unchanged editor must not republish the complete journal,
+        // rewrite SwiftData JSON or rescan every saved photo for cloud sync.
+        guard previous != normalized || modelContext.hasChanges || needsDiaryPhotoSyncRefresh else { return }
+        let previousPhotos = previous.map { Set($0.photoPaths + $0.locationPhotoPaths + $0.locations.flatMap(\.photoPaths)) } ?? []
+        let currentPhotos = Set(normalized.photoPaths + normalized.locationPhotoPaths + normalized.locations.flatMap(\.photoPaths))
+        needsDiaryPhotoSyncRefresh = needsDiaryPhotoSyncRefresh || previousPhotos != currentPhotos
         if let index = diaryEntries.firstIndex(where: { $0.id == normalized.id }) {
             diaryEntries[index] = normalized
         } else {
@@ -55,7 +62,10 @@ extension AppDataStore {
         syncDiaryEntryToSwiftData(normalized)
         saveContext()
         // Background work is enabled only after the user starts the bulk sync once.
-        if !modelContext.hasChanges { resumeDiaryPhotoSync() }
+        if needsDiaryPhotoSyncRefresh && !modelContext.hasChanges {
+            resumeDiaryPhotoSync()
+            needsDiaryPhotoSyncRefresh = false
+        }
     }
 
     // MARK: - Location Visit Tags
@@ -81,8 +91,8 @@ extension AppDataStore {
     }
 
     func locationVisitTagColorHex(named name: String) -> String {
-        let key = Self.normalizedTagKey(name)
-        return locationVisitTagDefinitions.first { Self.normalizedTagKey($0.name) == key }?.colorHex
+        let key = DiaryVisitTagNormalizer.key(for: name)
+        return locationVisitTagDefinitions.first { DiaryVisitTagNormalizer.key(for: $0.name) == key }?.colorHex
             ?? LocationVisitTagPalette.untaggedHex
     }
 
@@ -161,48 +171,20 @@ extension AppDataStore {
     // MARK: - Diary Helpers
 
     static func normalizeDiaryEntries(_ entries: [DiaryEntry]) -> [DiaryEntry] {
-        entries.map { entry in
-            var normalized = entry
-            normalized.mood = normalized.mood ?? .neutral
-            normalized.conditionScore = normalized.conditionScore ?? 3
-            for index in normalized.locations.indices {
-                normalized.locations[index].visitTags = Self.normalizedVisitTags(normalized.locations[index].visitTags)
-            }
-            return normalized
-        }
+        entries.map(normalizedDiaryEntry)
     }
 
     private func normalizeDiaryEntry(_ entry: DiaryEntry) -> DiaryEntry {
+        Self.normalizedDiaryEntry(entry)
+    }
+
+    private static func normalizedDiaryEntry(_ entry: DiaryEntry) -> DiaryEntry {
         var normalized = entry
         normalized.mood = normalized.mood ?? .neutral
         normalized.conditionScore = normalized.conditionScore ?? 3
         for index in normalized.locations.indices {
-            normalized.locations[index].visitTags = Self.normalizedVisitTags(normalized.locations[index].visitTags)
-        }
-        return normalized
-    }
-
-    private static func normalizedTagKey(_ rawName: String) -> String {
-        rawName
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-    }
-
-    private static func normalizedVisitTags(_ tags: [String],
-                                            limit: Int? = nil) -> [String] {
-        let maxAllowedTags = limit ?? maxLocationVisitTagsPerVisit
-        var seen: Set<String> = []
-        var normalized: [String] = []
-        for raw in tags {
-            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard trimmed.isEmpty == false else { continue }
-            let key = normalizedTagKey(trimmed)
-            guard seen.contains(key) == false else { continue }
-            seen.insert(key)
-            normalized.append(trimmed)
-            if normalized.count >= maxAllowedTags {
-                break
-            }
+            normalized.locations[index].visitTags = DiaryVisitTagNormalizer.normalize(normalized.locations[index].visitTags,
+                                                                                     limit: maxLocationVisitTagsPerVisit)
         }
         return normalized
     }
@@ -233,7 +215,8 @@ extension AppDataStore {
             for locationIndex in diaryEntries[entryIndex].locations.indices {
                 var tags = diaryEntries[entryIndex].locations[locationIndex].visitTags
                 guard mutate(&tags) else { continue }
-                diaryEntries[entryIndex].locations[locationIndex].visitTags = Self.normalizedVisitTags(tags)
+                diaryEntries[entryIndex].locations[locationIndex].visitTags = DiaryVisitTagNormalizer.normalize(tags,
+                                                                                                             limit: Self.maxLocationVisitTagsPerVisit)
                 entryChanged = true
             }
             if entryChanged {
@@ -262,15 +245,15 @@ extension AppDataStore {
     }
 
     private func containsLocationVisitTag(named name: String, excluding id: UUID? = nil) -> Bool {
-        let target = Self.normalizedTagKey(name)
+        let target = DiaryVisitTagNormalizer.key(for: name)
         return locationVisitTagDefinitions.contains {
             guard $0.id != id else { return false }
-            return Self.normalizedTagKey($0.name) == target
+            return DiaryVisitTagNormalizer.key(for: $0.name) == target
         }
     }
 
     private func isSameTagName(_ lhs: String, _ rhs: String) -> Bool {
-        Self.normalizedTagKey(lhs) == Self.normalizedTagKey(rhs)
+        DiaryVisitTagNormalizer.key(for: lhs) == DiaryVisitTagNormalizer.key(for: rhs)
     }
 
     func seedDefaultLocationVisitTagsIfNeeded() {

@@ -401,42 +401,15 @@ struct SharedLetterOpeningView: View {
     // MARK: - フルスクリーン写真ビューア
 
     private var fullscreenPhotoViewer: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-
+        FullscreenPhotoGallery(photoCount: decryptedLetter?.photos.count ?? 0,
+                               selectedIndex: $selectedPhotoIndex,
+                               showsPageCount: decryptedLetter != nil,
+                               onClose: { showFullscreenPhoto = false }) { index in
             if let decrypted = decryptedLetter {
-                TabView(selection: $selectedPhotoIndex) {
-                    ForEach(Array(decrypted.photos.enumerated()), id: \.offset) { index, photo in
-                        Image(uiImage: photo)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .tag(index)
-                    }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .automatic))
-            }
-
-            VStack {
-                HStack {
-                    Spacer()
-                    Button {
-                        showFullscreenPhoto = false
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title)
-                            .foregroundStyle(.white.opacity(0.8))
-                            .padding()
-                    }
-                }
-                Spacer()
-
-                if let decrypted = decryptedLetter {
-                    Text("\(selectedPhotoIndex + 1) / \(decrypted.photos.count)")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.8))
-                        .padding(.bottom, 40)
-                }
+                Image(uiImage: decrypted.photos[index])
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
         }
     }
@@ -554,37 +527,10 @@ struct SharedLetterContentView: View {
                 if !loadedImages.isEmpty {
                     Divider()
                     
-                    VStack(spacing: 12) {
-                        // セクションヘッダー
-                        HStack {
-                            Image(systemName: "photo.on.rectangle.angled")
-                                .foregroundColor(.blue)
-                            Text("添付写真")
-                                .font(.headline)
-                            Spacer()
-                            Text("\(loadedImages.count)枚")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        
-                        // カルーセル
-                        TabView(selection: $selectedPhotoIndex) {
-                            ForEach(loadedImages.indices, id: \.self) { index in
-                                Image(uiImage: loadedImages[index])
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 200)
-                                    .clipped()
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                                    .tag(index)
-                                    .onTapGesture {
-                                        showFullscreenPhoto = true
-                                    }
-                            }
-                        }
-                        .tabViewStyle(.page(indexDisplayMode: .automatic))
-                        .frame(height: 220)
+                    LetterPhotoCarousel(images: loadedImages,
+                                        selectedIndex: $selectedPhotoIndex,
+                                        accentColor: .blue) {
+                        showFullscreenPhoto = true
                     }
                 }
                 
@@ -703,43 +649,14 @@ struct SharedLetterContentView: View {
     // MARK: - フルスクリーン写真ビューア
     
     private var fullscreenPhotoViewer: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-            
-            TabView(selection: $selectedPhotoIndex) {
-                ForEach(loadedImages.indices, id: \.self) { index in
-                    Image(uiImage: loadedImages[index])
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .tag(index)
-                }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .automatic))
-            
-            // 閉じるボタン
-            VStack {
-                HStack {
-                    Spacer()
-                    Button {
-                        showFullscreenPhoto = false
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title)
-                            .foregroundStyle(.white.opacity(0.8))
-                            .padding()
-                    }
-                }
-                Spacer()
-                
-                // ページ表示
-                if !loadedImages.isEmpty {
-                    Text("\(selectedPhotoIndex + 1) / \(loadedImages.count)")
-                        .font(.caption)
-                        .foregroundColor(.white.opacity(0.8))
-                        .padding(.bottom, 40)
-                }
-            }
+        FullscreenPhotoGallery(photoCount: loadedImages.count,
+                               selectedIndex: $selectedPhotoIndex,
+                               showsPageCount: loadedImages.isEmpty == false,
+                               onClose: { showFullscreenPhoto = false }) { index in
+            Image(uiImage: loadedImages[index])
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }

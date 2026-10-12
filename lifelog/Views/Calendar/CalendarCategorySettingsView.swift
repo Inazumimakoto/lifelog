@@ -15,8 +15,6 @@ struct CalendarCategorySettingsView: View {
     @State private var selection: CalendarCategoryLink?
     @State private var tempCategory: String = ""
     @State private var links: [CalendarCategoryLink] = []
-    private let externalCalendarPastMonths = 6
-    private let externalCalendarFutureMonths = 18
 
     var body: some View {
         List {
@@ -94,19 +92,9 @@ struct CalendarCategorySettingsView: View {
         let granted = await calendarService.requestAccessIfNeeded()
         guard granted else { return }
         calendarService.refreshCalendarLinks(store: store)
-        let range = store.currentExternalCalendarRange() ?? externalCalendarRange(for: Date())
+        let range = store.currentExternalCalendarRange() ?? ExternalCalendarSyncPolicy.desiredRange(for: Date())
         if let events = try? await calendarService.fetchEvents(from: range.start, to: range.end) {
-            let currentLinks = store.appState.calendarCategoryLinks
-            let linkMap = Dictionary(uniqueKeysWithValues: currentLinks.map { ($0.calendarIdentifier, $0) })
-            let defaultCategory = CategoryPalette.defaultCategoryName
-            let external = events.compactMap { event -> CalendarEvent? in
-                let identifier = event.calendar.calendarIdentifier
-                if let link = linkMap[identifier] {
-                    guard let category = link.categoryId else { return nil }
-                    return CalendarEvent(event: event, categoryName: category)
-                }
-                return CalendarEvent(event: event, categoryName: defaultCategory)
-            }
+            let external = ExternalCalendarEventMapper(links: store.appState.calendarCategoryLinks).map(events)
             await MainActor.run {
                 store.updateExternalCalendarEvents(external, range: range)
                 store.updateLastCalendarSync(date: Date())
@@ -114,12 +102,4 @@ struct CalendarCategorySettingsView: View {
         }
     }
 
-    private func externalCalendarRange(for anchor: Date) -> ExternalCalendarRange {
-        let calendar = Calendar.current
-        let anchorMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: anchor)) ?? anchor
-        let start = calendar.date(byAdding: .month, value: -externalCalendarPastMonths, to: anchorMonth) ?? anchorMonth
-        let endMonthStart = calendar.date(byAdding: .month, value: externalCalendarFutureMonths + 1, to: anchorMonth) ?? anchorMonth
-        let end = calendar.date(byAdding: .second, value: -1, to: endMonthStart) ?? endMonthStart
-        return ExternalCalendarRange(start: start, end: end)
-    }
 }

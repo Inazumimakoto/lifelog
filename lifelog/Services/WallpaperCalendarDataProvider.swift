@@ -60,8 +60,7 @@ struct WallpaperCalendarItem: Identifiable {
             return false
         }
         let calendar = Calendar.autoupdatingCurrent
-        let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: endDate) ?? endDate
-        return calendar.isDate(startDate, inSameDayAs: adjustedEnd) == false
+        return CalendarPreviewLayout.isMultiDayEvent(start: startDate, end: endDate, calendar: calendar)
     }
 
     func displayTitle(privacyMode: WallpaperCalendarPrivacyMode) -> String {
@@ -79,37 +78,13 @@ struct WallpaperCalendarItem: Identifiable {
     }
 }
 
-enum WallpaperCalendarCellRowContent {
-    case empty
-    case multiDayPlaceholder
-    case item(WallpaperCalendarItem)
-    case overflow(Int)
-}
+typealias WallpaperCalendarCellRowContent = CalendarPreviewLayout.Row<WallpaperCalendarItem>
 
-struct WallpaperCalendarDayMultiDayState {
-    let visibleLaneCount: Int
-    let occupiedVisibleLanes: Set<Int>
-    let hiddenMultiDayCount: Int
 
-    static let empty = WallpaperCalendarDayMultiDayState(
-        visibleLaneCount: 0,
-        occupiedVisibleLanes: [],
-        hiddenMultiDayCount: 0
-    )
-}
+typealias WallpaperCalendarWeekMultiDaySegment = CalendarWeekMultiDaySegment
+typealias WallpaperCalendarWeekMultiDayLayout = CalendarWeekMultiDayLayout
 
-struct WallpaperCalendarWeekMultiDaySegment: Identifiable {
-    let id: String
-    let eventID: UUID
-    let title: String
-    let categoryName: String
-    let color: Color
-    let lane: Int
-    let startColumn: Int
-    let endColumn: Int
-    let continuesBeforeWeek: Bool
-    let continuesAfterWeek: Bool
-
+extension CalendarWeekMultiDaySegment {
     func displayTitle(privacyMode: WallpaperCalendarPrivacyMode) -> String {
         switch privacyMode {
         case .details:
@@ -120,18 +95,6 @@ struct WallpaperCalendarWeekMultiDaySegment: Identifiable {
             return String(localized: "予定あり")
         }
     }
-}
-
-struct WallpaperCalendarWeekMultiDayLayout {
-    let visibleLaneCount: Int
-    let dayStates: [WallpaperCalendarDayMultiDayState]
-    let segments: [WallpaperCalendarWeekMultiDaySegment]
-
-    static let empty = WallpaperCalendarWeekMultiDayLayout(
-        visibleLaneCount: 0,
-        dayStates: Array(repeating: .empty, count: 7),
-        segments: []
-    )
 }
 
 struct WallpaperCalendarFingerprintPayload: Codable {
@@ -398,182 +361,20 @@ final class WallpaperCalendarDataProvider {
 
     private func calendarCellRowContents(previews: [WallpaperCalendarItem],
                                          itemLimit: Int,
-                                         multiDayState: WallpaperCalendarDayMultiDayState) -> [WallpaperCalendarCellRowContent] {
-        guard itemLimit > 0 else { return [] }
-
-        let regularItems = previews.filter { item in
-            !(item.kind == .event && item.isMultiDayEvent)
-        }
-
-        var rows = Array(repeating: WallpaperCalendarCellRowContent.empty, count: itemLimit)
-        var availableRows: [Int] = []
-
-        for rowIndex in 0..<itemLimit {
-            let isOccupiedByVisibleMultiDay = rowIndex < multiDayState.visibleLaneCount &&
-                multiDayState.occupiedVisibleLanes.contains(rowIndex)
-            if isOccupiedByVisibleMultiDay {
-                rows[rowIndex] = .multiDayPlaceholder
-            } else {
-                availableRows.append(rowIndex)
-            }
-        }
-
-        guard availableRows.isEmpty == false else { return rows }
-
-        let needsOverflowRow = multiDayState.hiddenMultiDayCount > 0 || regularItems.count > availableRows.count
-        let displayedRegularCount: Int
-        let overflowCount: Int
-
-        if needsOverflowRow {
-            let regularCapacity = max(0, availableRows.count - 1)
-            displayedRegularCount = min(regularItems.count, regularCapacity)
-            overflowCount = multiDayState.hiddenMultiDayCount + max(0, regularItems.count - displayedRegularCount)
-        } else {
-            displayedRegularCount = regularItems.count
-            overflowCount = 0
-        }
-
-        for (offset, item) in regularItems.prefix(displayedRegularCount).enumerated() {
-            rows[availableRows[offset]] = .item(item)
-        }
-
-        if overflowCount > 0, availableRows.indices.contains(displayedRegularCount) {
-            rows[availableRows[displayedRegularCount]] = .overflow(overflowCount)
-        }
-
-        return rows
+                                         multiDayState: CalendarDayMultiDayState) -> [WallpaperCalendarCellRowContent] {
+        let regularItems = previews.filter { !($0.kind == .event && $0.isMultiDayEvent) }
+        return CalendarPreviewLayout.rows(regularItems: regularItems,
+                                          itemLimit: itemLimit,
+                                          multiDayState: multiDayState)
     }
 
     private func buildWeekMultiDayLayout(weekDates: [Date],
                                          events: [CalendarEvent],
                                          itemLimit: Int,
                                          calendar: Calendar) -> WallpaperCalendarWeekMultiDayLayout {
-        guard weekDates.count == 7,
-              let firstWeekDate = weekDates.first,
-              let lastWeekDate = weekDates.last
-        else {
-            return .empty
-        }
-
-        let weekStart = calendar.startOfDay(for: firstWeekDate)
-        let weekLastDay = calendar.startOfDay(for: lastWeekDate)
-        guard let weekEndExclusive = calendar.date(byAdding: .day, value: 1, to: weekLastDay) else {
-            return .empty
-        }
-
-        struct Candidate {
-            let event: CalendarEvent
-            let startColumn: Int
-            let endColumn: Int
-            let continuesBeforeWeek: Bool
-            let continuesAfterWeek: Bool
-        }
-
-        var candidates: [Candidate] = []
-        for event in events {
-            guard event.startDate < weekEndExclusive, event.endDate > weekStart else { continue }
-
-            let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: event.endDate) ?? event.endDate
-            let eventStartDay = calendar.startOfDay(for: event.startDate)
-            let rawEventEndDay = calendar.startOfDay(for: adjustedEnd)
-            let eventEndDay = max(rawEventEndDay, eventStartDay)
-            let visibleStartDay = max(eventStartDay, weekStart)
-            let visibleEndDay = min(eventEndDay, weekLastDay)
-
-            guard visibleStartDay <= visibleEndDay else { continue }
-
-            let startColumn = calendar.dateComponents([.day], from: weekStart, to: visibleStartDay).day ?? 0
-            let endColumn = calendar.dateComponents([.day], from: weekStart, to: visibleEndDay).day ?? 0
-            guard (0..<7).contains(startColumn), (0..<7).contains(endColumn), startColumn <= endColumn else { continue }
-
-            candidates.append(
-                Candidate(
-                    event: event,
-                    startColumn: startColumn,
-                    endColumn: endColumn,
-                    continuesBeforeWeek: eventStartDay < weekStart,
-                    continuesAfterWeek: eventEndDay > weekLastDay
-                )
-            )
-        }
-
-        if candidates.isEmpty {
-            return .empty
-        }
-
-        let sortedCandidates = candidates.sorted { lhs, rhs in
-            if lhs.startColumn != rhs.startColumn {
-                return lhs.startColumn < rhs.startColumn
-            }
-            let lhsSpan = lhs.endColumn - lhs.startColumn
-            let rhsSpan = rhs.endColumn - rhs.startColumn
-            if lhsSpan != rhsSpan {
-                return lhsSpan > rhsSpan
-            }
-            if lhs.event.isAllDay != rhs.event.isAllDay {
-                return lhs.event.isAllDay && rhs.event.isAllDay == false
-            }
-            if lhs.event.startDate != rhs.event.startDate {
-                return lhs.event.startDate < rhs.event.startDate
-            }
-            return lhs.event.title < rhs.event.title
-        }
-
-        let maxVisibleLanes = max(0, itemLimit - 1)
-        var laneEndColumns: [Int] = []
-        var visibleSegments: [WallpaperCalendarWeekMultiDaySegment] = []
-        var occupiedVisibleLanesByDay = Array(repeating: Set<Int>(), count: 7)
-        var hiddenCountByDay = Array(repeating: 0, count: 7)
-
-        for candidate in sortedCandidates {
-            let assignedLane: Int
-            if let lane = laneEndColumns.firstIndex(where: { candidate.startColumn > $0 }) {
-                assignedLane = lane
-                laneEndColumns[lane] = candidate.endColumn
-            } else {
-                assignedLane = laneEndColumns.count
-                laneEndColumns.append(candidate.endColumn)
-            }
-
-            if assignedLane < maxVisibleLanes {
-                for dayIndex in candidate.startColumn...candidate.endColumn {
-                    occupiedVisibleLanesByDay[dayIndex].insert(assignedLane)
-                }
-                visibleSegments.append(
-                    WallpaperCalendarWeekMultiDaySegment(
-                        id: "\(weekStart.timeIntervalSince1970)-\(candidate.event.id.uuidString)-\(assignedLane)",
-                        eventID: candidate.event.id,
-                        title: candidate.event.title,
-                        categoryName: candidate.event.calendarName,
-                        color: CategoryPalette.color(for: candidate.event.calendarName),
-                        lane: assignedLane,
-                        startColumn: candidate.startColumn,
-                        endColumn: candidate.endColumn,
-                        continuesBeforeWeek: candidate.continuesBeforeWeek,
-                        continuesAfterWeek: candidate.continuesAfterWeek
-                    )
-                )
-            } else {
-                for dayIndex in candidate.startColumn...candidate.endColumn {
-                    hiddenCountByDay[dayIndex] += 1
-                }
-            }
-        }
-
-        let visibleLaneCount = min(laneEndColumns.count, maxVisibleLanes)
-        let dayStates = (0..<7).map { index in
-            WallpaperCalendarDayMultiDayState(
-                visibleLaneCount: visibleLaneCount,
-                occupiedVisibleLanes: occupiedVisibleLanesByDay[index],
-                hiddenMultiDayCount: hiddenCountByDay[index]
-            )
-        }
-
-        return WallpaperCalendarWeekMultiDayLayout(
-            visibleLaneCount: visibleLaneCount,
-            dayStates: dayStates,
-            segments: visibleSegments
-        )
+        let layout = CalendarPreviewLayout.week(dates: weekDates, events: events,
+                                                itemLimit: itemLimit, calendar: calendar)
+        return CalendarWeekMultiDayLayout(layout: layout)
     }
 
     private func makeFingerprintPayload(rangeStart: Date,
@@ -644,20 +445,11 @@ final class WallpaperCalendarDataProvider {
     }
 
     private func sortTasks(_ lhs: Task, _ rhs: Task) -> Bool {
-        if lhs.priority.rawValue != rhs.priority.rawValue {
-            return lhs.priority.rawValue > rhs.priority.rawValue
-        }
-        let lhsDate = lhs.endDate ?? lhs.startDate ?? .distantFuture
-        let rhsDate = rhs.endDate ?? rhs.startDate ?? .distantFuture
-        if lhsDate != rhsDate {
-            return lhsDate < rhsDate
-        }
-        return lhs.title < rhs.title
+        TaskPresentation.orderedBefore(lhs, rhs, preferring: .deadline)
     }
 
     private func isMultiDayEvent(_ event: CalendarEvent) -> Bool {
         let calendar = Self.calendar
-        let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: event.endDate) ?? event.endDate
-        return calendar.isDate(event.startDate, inSameDayAs: adjustedEnd) == false
+        return CalendarPreviewLayout.isMultiDayEvent(start: event.startDate, end: event.endDate, calendar: calendar)
     }
 }

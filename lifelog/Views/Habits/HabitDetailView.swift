@@ -69,7 +69,7 @@ struct HabitDetailView: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Label(currentHabit.title, systemImage: currentHabit.iconName)
                         .font(.headline)
-                    Text(scheduleDescription(for: currentHabit.schedule))
+                    Text(currentHabit.schedule.displayDescription)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -184,18 +184,6 @@ struct HabitDetailView: View {
     }
 
     // MARK: - Helpers
-
-    private func scheduleDescription(for schedule: HabitSchedule) -> String {
-        switch schedule {
-        case .daily:
-            return String(localized: "毎日")
-        case .weekdays:
-            return String(localized: "平日")
-        case .custom(let days):
-            let labels = days.sorted { $0.rawValue < $1.rawValue }.map(\.shortLabel)
-            return labels.joined(separator: " ")
-        }
-    }
 
     private func toggle(date: Date) {
         guard currentHabit.schedule.isActive(on: date) else { return }

@@ -17,11 +17,29 @@ nonisolated final class PhotoThumbnailCache: @unchecked Sendable {
     
     private let fullSizeCache = NSCache<NSString, UIImage>()
     private let thumbnailCache = NSCache<NSString, UIImage>()
+    private let fullImageCostLimit: Int
+    private let thumbnailCostLimit: Int
+    private var memoryWarningObserver: NSObjectProtocol?
     
-    private init() {
-        // メモリ制限を設定
-        fullSizeCache.countLimit = 20
+    init(fullImageCostLimit: Int = 64 * 1_024 * 1_024,
+         thumbnailCostLimit: Int = 32 * 1_024 * 1_024) {
+        self.fullImageCostLimit = fullImageCostLimit
+        self.thumbnailCostLimit = thumbnailCostLimit
+        // Original pixel buffers are much larger than the JPEGs on disk.
+        // Keep a few recent photos, rather than up to twenty decoded originals.
+        fullSizeCache.countLimit = 3
+        fullSizeCache.totalCostLimit = fullImageCostLimit
         thumbnailCache.countLimit = 100
+        thumbnailCache.totalCostLimit = thumbnailCostLimit
+        memoryWarningObserver = NotificationCenter.default.addObserver(
+            forName: UIApplication.didReceiveMemoryWarningNotification, object: nil, queue: nil
+        ) { [weak self] _ in
+            self?.clearAll()
+        }
+    }
+
+    deinit {
+        if let memoryWarningObserver { NotificationCenter.default.removeObserver(memoryWarningObserver) }
     }
     
     // フルサイズ画像
@@ -30,7 +48,7 @@ nonisolated final class PhotoThumbnailCache: @unchecked Sendable {
     }
     
     func setFullImage(_ image: UIImage, for path: String) {
-        fullSizeCache.setObject(image, forKey: path as NSString)
+        setImage(image, for: path, in: fullSizeCache, costLimit: fullImageCostLimit)
     }
     
     // サムネイル画像
@@ -39,7 +57,18 @@ nonisolated final class PhotoThumbnailCache: @unchecked Sendable {
     }
     
     func setThumbnail(_ image: UIImage, for path: String) {
-        thumbnailCache.setObject(image, forKey: path as NSString)
+        setImage(image, for: path, in: thumbnailCache, costLimit: thumbnailCostLimit)
+    }
+
+    private func setImage(_ image: UIImage, for path: String, in cache: NSCache<NSString, UIImage>, costLimit: Int) {
+        let cost = Self.decodedCost(of: image)
+        // NSCache's limit is advisory. The visible page owns an oversized image;
+        // neither cache may retain it after that page releases it.
+        guard cost <= costLimit else {
+            cache.removeObject(forKey: path as NSString)
+            return
+        }
+        cache.setObject(image, forKey: path as NSString, cost: cost)
     }
     
     func removeFullImage(for path: String) {
@@ -54,6 +83,11 @@ nonisolated final class PhotoThumbnailCache: @unchecked Sendable {
     func clearAll() {
         fullSizeCache.removeAllObjects()
         thumbnailCache.removeAllObjects()
+    }
+
+    static func decodedCost(of image: UIImage) -> Int {
+        if let pixels = image.cgImage { return pixels.bytesPerRow * pixels.height }
+        return Int(image.size.width * image.scale * image.size.height * image.scale * 4)
     }
 }
 
@@ -143,6 +177,60 @@ nonisolated struct PhotoStorage {
         }
     }
 
+    private static let identityWorkQueue = DispatchQueue(label: "PhotoStorage.Identity", qos: .userInitiated)
+
+    /// Legacy identity migration may read/hash an original and render its visual
+    /// digest. Photo importing must await that work instead of blocking input.
+    static func identityIndex(for paths: [String]) async -> PhotoIdentityIndex {
+        await performIdentityWork {
+            var digests: [String: [String]] = [:]
+            var visualDigests: [String: [String]] = [:]
+            for path in paths {
+                guard let value = fingerprint(for: path) else { continue }
+                digests[value.digest, default: []].append(path)
+                if let visualDigest = value.visualDigest {
+                    visualDigests[visualDigest, default: []].append(path)
+                }
+            }
+            return PhotoIdentityIndex(assetIdentifiers: assetIdentifierIndex(for: paths),
+                                      digests: digests, visualDigests: visualDigests)
+        }
+    }
+
+    static func matchingPhotoPath(assetIdentifier: String?, data: Data,
+                                  in index: PhotoIdentityIndex) async -> String? {
+        guard !_Concurrency.Task.isCancelled else { return nil }
+        return await performIdentityWork {
+            index.matchingPath(assetIdentifier: assetIdentifier, data: data)
+        }
+    }
+
+    static func identityMap(for paths: [String]) async -> [String: String] {
+        await performIdentityWork { makeIdentityMap(for: paths) }
+    }
+
+    /// The synchronous edit path uses identities prewarmed by the async picker.
+    /// Both paths must apply the same asset/visual/byte identity precedence.
+    static func makeIdentityMap(for paths: [String]) -> [String: String] {
+        let identifiers = assetIdentifierMap(for: paths)
+        var identities: [String: String] = [:]
+        for path in paths {
+            identities[path] = PhotoIdentityIndex.linkIdentity(assetIdentifier: identifiers[path],
+                                                              fingerprint: fingerprint(for: path))
+        }
+        return identities
+    }
+
+    private static func performIdentityWork<Result: Sendable>(
+        _ operation: @escaping @Sendable () -> Result
+    ) async -> Result {
+        await withCheckedContinuation { continuation in
+            identityWorkQueue.async {
+                continuation.resume(returning: autoreleasepool(invoking: operation))
+            }
+        }
+    }
+
     // MARK: - Load (Sync - 後方互換性のため残す)
     static func loadImage(at path: String) -> Image? {
         if let cached = PhotoThumbnailCache.shared.fullImage(for: path) {
@@ -187,62 +275,80 @@ nonisolated struct PhotoStorage {
     }
 
     static func loadThumbnail(at path: String) async -> UIImage? {
-        guard !PhotoSyncManifest.shared.isDeleted(path: path) else { return nil }
+        guard !_Concurrency.Task.isCancelled, !PhotoSyncManifest.shared.isDeleted(path: path) else { return nil }
         if let cached = PhotoThumbnailCache.shared.thumbnail(for: path) { return cached }
-        let local: UIImage? = await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                try? ensureThumbnail(at: path)
-                continuation.resume(returning: UIImage(contentsOfFile: thumbnailFileURL(for: path).path))
-            }
+        let local = await PhotoImageLoader.shared.load(key: "thumbnail:" + path) {
+            loadLocalThumbnail(at: path)
         }
+        guard !_Concurrency.Task.isCancelled, !PhotoSyncManifest.shared.isDeleted(path: path) else { return nil }
         var image = local
         if image == nil, PhotoSyncManifest.shared.isCloudBacked(path: path),
            let data = try? await PhotoCloudSyncService.shared.fetchThumbnailData(at: path) {
-            if let account = PhotoSyncManifest.shared.accountIdentifier {
-                _ = try? PhotoSyncManifest.shared.withLivePhoto(path: path, accountIdentifier: account) {
-                    try photoFilesQueue.sync { try files.writeThumbnail(data, at: path) }
+            guard !_Concurrency.Task.isCancelled else { return nil }
+            image = await PhotoImageLoader.shared.load(key: "downloaded-thumbnail:" + path) {
+                if let account = PhotoSyncManifest.shared.accountIdentifier {
+                    _ = try? PhotoSyncManifest.shared.withLivePhoto(path: path, accountIdentifier: account) {
+                        try photoFilesQueue.sync { try files.writeThumbnail(data, at: path) }
+                    }
                 }
+                return PhotoImageLoader.preparedImage(from: data)
             }
-            image = UIImage(data: data)
         }
-        guard !PhotoSyncManifest.shared.isDeleted(path: path) else { return nil }
+        guard !_Concurrency.Task.isCancelled, !PhotoSyncManifest.shared.isDeleted(path: path) else { return nil }
         if let image { PhotoThumbnailCache.shared.setThumbnail(image, for: path) }
         return image
     }
 
     static func loadFullImage(at path: String) async -> UIImage? {
-        guard !PhotoSyncManifest.shared.isDeleted(path: path) else { return nil }
+        guard !_Concurrency.Task.isCancelled, !PhotoSyncManifest.shared.isDeleted(path: path) else { return nil }
         if let cached = PhotoThumbnailCache.shared.fullImage(for: path) { return cached }
-        let local: UIImage? = await withCheckedContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                continuation.resume(returning: UIImage(contentsOfFile: localFileURL(for: path).path))
-            }
+        let local = await PhotoImageLoader.shared.load(key: "original:" + path) {
+            PhotoImageLoader.preparedImage(at: localFileURL(for: path))
         }
+        guard !_Concurrency.Task.isCancelled, !PhotoSyncManifest.shared.isDeleted(path: path) else { return nil }
         if let local {
             // Only retain a memory cache while the original still exists on disk.
             if fileExists(for: path) { PhotoThumbnailCache.shared.setFullImage(local, for: path) }
             return local
         }
         guard let data = try? await PhotoCloudSyncService.shared.fetchPhotoData(at: path),
-              !PhotoSyncManifest.shared.isDeleted(path: path) else { return nil }
+              !_Concurrency.Task.isCancelled, !PhotoSyncManifest.shared.isDeleted(path: path) else { return nil }
         // Optimized downloads are owned only by the visible viewer, never a disk cache.
-        return UIImage(data: data)
+        let image = await PhotoImageLoader.shared.load(key: "downloaded-original:" + path) {
+            PhotoImageLoader.preparedImage(from: data)
+        }
+        guard !_Concurrency.Task.isCancelled, !PhotoSyncManifest.shared.isDeleted(path: path) else { return nil }
+        return image
     }
 
-    // MARK: - Prefetch (バックグラウンドで並列先読み)
+    private static func loadLocalThumbnail(at path: String) -> UIImage? {
+        guard !PhotoSyncManifest.shared.isDeleted(path: path) else { return nil }
+        if let cached = PhotoThumbnailCache.shared.thumbnail(for: path) { return cached }
+        let url = thumbnailFileURL(for: path)
+        if let image = PhotoImageLoader.preparedImage(at: url) { return image }
+        // Displaying a preview does not need a SHA/visual fingerprint of the
+        // original. Save/cloud eviction still create that durable identity.
+        try? photoFilesQueue.sync { try files.prepareThumbnail(at: path) }
+        return PhotoImageLoader.preparedImage(at: url)
+    }
+
+    // MARK: - Prefetch
     private static let prefetchQueue: OperationQueue = {
         let queue = OperationQueue()
-        queue.maxConcurrentOperationCount = 4  // 4並列で読み込み
+        queue.maxConcurrentOperationCount = 1
         queue.qualityOfService = .userInitiated  // 高優先度
         return queue
     }()
 
     private static let backgroundPrefetchQueue: OperationQueue = {
         let queue = OperationQueue()
-        queue.maxConcurrentOperationCount = 2  // UI負荷を抑えるため控えめに並列化
+        queue.maxConcurrentOperationCount = 1
         queue.qualityOfService = .utility
         return queue
     }()
+
+    private static let prefetchLock = NSLock()
+    nonisolated(unsafe) private static var pendingPrefetchPaths = Set<String>()
     
     static func prefetchThumbnails(paths: [String]) {
         enqueueThumbnailPrefetch(paths: paths, on: prefetchQueue)
@@ -260,11 +366,23 @@ nonisolated struct PhotoStorage {
                 continue
             }
 
-            // 並列でキューに追加
+            prefetchLock.lock()
+            let needsPrefetch = pendingPrefetchPaths.insert(path).inserted
+            prefetchLock.unlock()
+            guard needsPrefetch else { continue }
+
+            // Deduplicate overlapping month/background prefetch requests.
             queue.addOperation {
+                defer {
+                    prefetchLock.lock()
+                    pendingPrefetchPaths.remove(path)
+                    prefetchLock.unlock()
+                }
                 guard !PhotoSyncManifest.shared.isDeleted(path: path) else { return }
-                try? ensureThumbnail(at: path)
-                guard let thumbnail = UIImage(contentsOfFile: thumbnailFileURL(for: path).path) else { return }
+                let thumbnail = PhotoImageLoader.shared.perform {
+                    loadLocalThumbnail(at: path)
+                }
+                guard let thumbnail, !PhotoSyncManifest.shared.isDeleted(path: path) else { return }
                 PhotoThumbnailCache.shared.setThumbnail(thumbnail, for: path)
             }
         }
@@ -352,7 +470,7 @@ nonisolated struct PhotoStorage {
                 return stored
             }
             guard let data = loadData(at: path) else { return nil }
-            let value = Fingerprint(digest: SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined(),
+            let value = Fingerprint(digest: digestHex(for: data),
                                     visualDigest: visualDigest(for: data))
             // One tiny sidecar per image avoids rewriting the whole index during bulk migration.
             if let encoded = try? JSONEncoder().encode(value) {
@@ -380,7 +498,11 @@ nonisolated struct PhotoStorage {
                                   width: size.width, height: size.height))
         }
         guard let normalized = rendered.pngData() else { return nil }
-        return SHA256.hash(data: normalized).map { String(format: "%02x", $0) }.joined()
+        return digestHex(for: normalized)
+    }
+
+    static func digestHex(for data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
 }
@@ -407,8 +529,12 @@ struct AsyncThumbnailImage: View {
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: 12))
-        .task {
-            image = await PhotoStorage.loadThumbnail(at: path)
+        .task(id: path) {
+            image = nil
+            isLoading = true
+            let loadedImage = await PhotoStorage.loadThumbnail(at: path)
+            guard !_Concurrency.Task.isCancelled else { return }
+            image = loadedImage
             isLoading = false
         }
     }

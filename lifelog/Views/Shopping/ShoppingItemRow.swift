@@ -24,17 +24,10 @@ struct ShoppingItemRow: View {
                             .strikethrough(isChecked)
                             .foregroundStyle(isChecked ? .secondary : .primary)
                             .multilineTextAlignment(.leading)
-                        if !item.quantity.isEmpty || placeName != nil {
-                            HStack(spacing: 8) {
-                                if !item.quantity.isEmpty {
-                                    Text(verbatim: item.quantity)
-                                }
-                                if let placeName {
-                                    Text(verbatim: placeName)
-                                }
-                            }
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        if let placeName {
+                            Text(verbatim: placeName)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                         }
                         if !item.note.isEmpty {
                             Text(verbatim: item.note)
@@ -57,7 +50,7 @@ struct ShoppingItemRow: View {
             .accessibilityLabel(Text(verbatim: item.title)
                                 + Text(verbatim: ", ")
                                 + (isChecked ? Text("購入を取り消す") : Text("購入済みにする")))
-            .accessibilityValue(Text(verbatim: [item.quantity, placeName ?? "", item.note]
+            .accessibilityValue(Text(verbatim: [placeName ?? "", item.note]
                 .filter { !$0.isEmpty }
                 .joined(separator: ", ")))
             .accessibilityAddTraits(isChecked ? .isSelected : [])

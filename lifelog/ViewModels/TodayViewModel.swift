@@ -13,7 +13,7 @@ import EventKit
 @MainActor
 final class TodayViewModel: ObservableObject {
 
-    struct DailyHabitStatus: Identifiable {
+    struct DailyHabitStatus: Identifiable, Equatable {
         let habit: Habit
         let record: HabitRecord?
 
@@ -39,69 +39,121 @@ final class TodayViewModel: ObservableObject {
     private let calendarService: CalendarEventService
     private var cancellables = Set<AnyCancellable>()
     private var pendingAnimation: Animation?
-    private let externalCalendarPastMonths = 6
-    private let externalCalendarFutureMonths = 18
-    private let externalCalendarPrefetchThresholdMonths = 2
+    private struct RefreshScope: OptionSet {
+        let rawValue: Int
+        static let tasks = Self(rawValue: 1 << 0)
+        static let events = Self(rawValue: 1 << 1)
+        static let habits = Self(rawValue: 1 << 2)
+        static let health = Self(rawValue: 1 << 3)
+        static let diary = Self(rawValue: 1 << 4)
+        static let memo = Self(rawValue: 1 << 5)
+        static let all: Self = [.tasks, .events, .habits, .health, .diary, .memo]
+    }
+    private var pendingRefresh: RefreshScope = []
+    private var refreshIsScheduled = false
 
     init(store: AppDataStore, date: Date = Date(), calendarService: CalendarEventService? = nil) {
         self.store = store
         self.date = date
         self.calendarService = calendarService ?? CalendarEventService()
         bind()
-        refreshAll()
+        refreshAll(scope: .all)
     }
 
     // MARK: - Bindings
 
     private func bind() {
-        // refreshAll() が実際に読むストアのプロパティだけを購読する。
-        // 以前は store.objectWillChange を購読しており、無関係なミューテーション
-        // (letters / anniversaries / appState など) でも全体を再計算していた。
-        // refreshAll が参照するのは tasks / calendarEvents / externalCalendarEvents /
-        // habits / habitRecords / healthSummaries / diaryEntries / memoPad の8つ。
-        // combineLatest は一度に4ソースまでなのでチェーンして合成する。
-        let taskGroup = store.$tasks
-            .combineLatest(store.$calendarEvents, store.$externalCalendarEvents, store.$memoPad)
-        let habitGroup = store.$habits
-            .combineLatest(store.$habitRecords, store.$healthSummaries, store.$diaryEntries)
+        // docs/requirements.md §Today: update only sections whose inputs changed.
+        // In particular, typing in Memo must not rebuild tasks, habit history or
+        // the timeline. @Published emits before assignment, so defer store reads.
+        observe(store.$tasks, refreshing: .tasks)
+        observe(store.$calendarEvents, refreshing: .events)
+        observe(store.$externalCalendarEvents, refreshing: .events)
+        observe(store.$habits, refreshing: .habits)
+        observe(store.$habitRecords, refreshing: .habits)
+        observe(store.$healthSummaries, refreshing: .health)
+        observe(store.$diaryEntries, refreshing: .diary)
+        observe(store.$memoPad, refreshing: .memo)
+        observe($date, refreshing: .all)
+    }
 
-        taskGroup
-            .combineLatest(habitGroup)
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in
-                self?.refreshAll()
-            }
+    private func observe<P: Publisher>(_ publisher: P, refreshing scope: RefreshScope)
+    where P.Output: Equatable, P.Failure == Never {
+        publisher
+            .removeDuplicates()
+            .dropFirst() // init supplies the first snapshot synchronously.
+            .sink { [weak self] _ in self?.scheduleRefresh(for: scope) }
             .store(in: &cancellables)
     }
 
-    private func refreshAll() {
+    private func scheduleRefresh(for scope: RefreshScope) {
+        pendingRefresh.formUnion(scope)
+        guard !refreshIsScheduled else { return }
+        refreshIsScheduled = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let scope = self.pendingRefresh
+            self.pendingRefresh = []
+            self.refreshIsScheduled = false
+            self.refreshAll(scope: scope)
+        }
+    }
+
+    private func refreshAll(scope: RefreshScope) {
         let updates = {
-            self.memoPad = self.store.memoPad
-            self.events = self.mergedEvents(on: self.date)
-            let todaysTasks = self.store.tasks
-                .filter { self.isTask($0, scheduledOn: self.date) }
-                .sorted(by: self.sortTasks)
-            self.tasksDueToday = todaysTasks.filter { !$0.isCompleted }
-            // 完了済みタスク: 今日完了したもののみ表示 (completedAtがnilの場合はendDateをフォールバック)
-            let today = Calendar.current.startOfDay(for: self.date)
-            self.completedTasksToday = self.store.tasks.filter { task in
-                guard task.isCompleted else { return false }
-                let completionDate = task.completedAt ?? task.endDate ?? Date()
-                return Calendar.current.startOfDay(for: completionDate) == today
-            }.sorted(by: self.sortTasks)
-
-            self.habitStatuses = self.store.habits
-                .filter { !$0.isArchived && $0.schedule.isActive(on: self.date) }
-                .map { habit in
-                    DailyHabitStatus(habit: habit,
-                                     record: self.store.habitRecords.first {
-                                        $0.habitID == habit.id && Calendar.current.isDate($0.date, inSameDayAs: self.date)
-                                     })
+            var timelineChanged = false
+            if scope.contains(.memo), self.memoPad != self.store.memoPad {
+                self.memoPad = self.store.memoPad
+            }
+            if scope.contains(.events) {
+                let events = self.mergedEvents(on: self.date)
+                if self.events != events {
+                    self.events = events
+                    timelineChanged = true
                 }
-
-            self.healthSummary = self.store.healthSummaries.first { Calendar.current.isDate($0.date, inSameDayAs: self.date) }
-            self.diaryEntry = self.store.entry(for: self.date)
-            self.timelineItems = self.buildTimelineItems()
+            }
+            if scope.contains(.tasks) {
+                let pending = self.store.tasks
+                    .filter { !$0.isCompleted && TaskPresentation.isScheduled($0, on: self.date) }
+                    .sorted(by: self.sortTasks)
+                // Completion date falls back to the deadline for legacy tasks.
+                let today = Calendar.current.startOfDay(for: self.date)
+                let completed = self.store.tasks.filter { task in
+                    guard task.isCompleted else { return false }
+                    let completionDate = task.completedAt ?? task.endDate ?? Date()
+                    return Calendar.current.startOfDay(for: completionDate) == today
+                }.sorted(by: self.sortTasks)
+                if self.tasksDueToday != pending {
+                    self.tasksDueToday = pending
+                    timelineChanged = true
+                }
+                if self.completedTasksToday != completed {
+                    self.completedTasksToday = completed
+                    timelineChanged = true
+                }
+            }
+            if scope.contains(.habits) {
+                let records = HabitRecordIndex.firstRecords(on: self.date, from: self.store.habitRecords)
+                let statuses = self.store.habits
+                    .filter { !$0.isArchived && $0.schedule.isActive(on: self.date) }
+                    .map { DailyHabitStatus(habit: $0, record: records[$0.id]) }
+                if self.habitStatuses != statuses { self.habitStatuses = statuses }
+            }
+            if scope.contains(.health) {
+                let summary = self.store.healthSummaries.first { Calendar.current.isDate($0.date, inSameDayAs: self.date) }
+                if self.healthSummary != summary {
+                    self.healthSummary = summary
+                    timelineChanged = true
+                }
+            }
+            if scope.contains(.diary) {
+                let entry = self.store.entry(for: self.date)
+                if self.diaryEntry != entry { self.diaryEntry = entry }
+            }
+            if timelineChanged || scope == .all {
+                let items = self.buildTimelineItems()
+                if self.timelineItems != items { self.timelineItems = items }
+            }
         }
 
         if let animation = pendingAnimation {
@@ -152,28 +204,13 @@ final class TodayViewModel: ObservableObject {
         allowPermissionPrompt: Bool = false
     ) async {
         let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
         let anchor = anchorDate ?? date
-        let desiredRange = externalCalendarRange(for: anchor, calendar: calendar)
-
-        if force == false {
-            if let storedRange = store.currentExternalCalendarRange() {
-                let anchorMonth = monthStart(for: anchor, calendar: calendar)
-                let rangeStart = monthStart(for: storedRange.start, calendar: calendar)
-                let rangeEnd = monthStart(for: storedRange.end, calendar: calendar)
-                let thresholdStart = calendar.date(byAdding: .month, value: externalCalendarPrefetchThresholdMonths, to: rangeStart) ?? rangeStart
-                let thresholdEnd = calendar.date(byAdding: .month, value: -externalCalendarPrefetchThresholdMonths, to: rangeEnd) ?? rangeEnd
-                let withinStableWindow = anchorMonth >= thresholdStart && anchorMonth <= thresholdEnd
-                if withinStableWindow,
-                   let last = store.lastCalendarSyncDate,
-                   calendar.isDate(last, inSameDayAs: today) {
-                    return
-                }
-            } else if let last = store.lastCalendarSyncDate,
-                      calendar.isDate(last, inSameDayAs: today) {
-                return
-            }
-        }
+        guard ExternalCalendarSyncPolicy.shouldSync(anchor: anchor,
+                                                    storedRange: store.currentExternalCalendarRange(),
+                                                    lastSyncDate: store.lastCalendarSyncDate,
+                                                    calendar: calendar,
+                                                    force: force) else { return }
+        let desiredRange = ExternalCalendarSyncPolicy.desiredRange(for: anchor, calendar: calendar)
 
         let status = EKEventStore.authorizationStatus(for: .event)
         if status == .notDetermined && allowPermissionPrompt == false {
@@ -191,28 +228,15 @@ final class TodayViewModel: ObservableObject {
         do {
             calendarService.refreshCalendarLinks(store: store)
             let ekEvents = try await calendarService.fetchEvents(from: desiredRange.start, to: desiredRange.end)
-            let external = mapExternalEvents(from: ekEvents)
+            let external = ExternalCalendarEventMapper(links: store.appState.calendarCategoryLinks).map(ekEvents)
             await MainActor.run {
                 self.calendarAccessDenied = false
                 self.store.updateExternalCalendarEvents(external, range: desiredRange)
                 self.store.updateLastCalendarSync(date: Date())
-                self.refreshAll()
             }
         } catch {
             // Ignore errors for now; keep existing events
         }
-    }
-
-    private func monthStart(for date: Date, calendar: Calendar) -> Date {
-        calendar.date(from: calendar.dateComponents([.year, .month], from: date)) ?? date
-    }
-
-    private func externalCalendarRange(for anchor: Date, calendar: Calendar) -> ExternalCalendarRange {
-        let anchorMonth = monthStart(for: anchor, calendar: calendar)
-        let start = calendar.date(byAdding: .month, value: -externalCalendarPastMonths, to: anchorMonth) ?? anchorMonth
-        let endMonthStart = calendar.date(byAdding: .month, value: externalCalendarFutureMonths + 1, to: anchorMonth) ?? anchorMonth
-        let end = calendar.date(byAdding: .second, value: -1, to: endMonthStart) ?? endMonthStart
-        return ExternalCalendarRange(start: start, end: end)
     }
 
     private func buildTimelineItems() -> [JournalViewModel.TimelineItem] {
@@ -259,35 +283,12 @@ final class TodayViewModel: ObservableObject {
         return items.sorted(by: { $0.start < $1.start })
     }
 
-    private func isTask(_ task: Task, scheduledOn date: Date) -> Bool {
-        let calendar = Calendar.current
-        let start = task.startDate ?? task.endDate
-        let end = task.endDate ?? task.startDate
-        guard let anchor = start ?? end else { return false }
-        let normalizedStart = calendar.startOfDay(for: start ?? anchor)
-        let normalizedEnd = calendar.startOfDay(for: end ?? anchor)
-        let target = calendar.startOfDay(for: date)
-        return normalizedStart...normalizedEnd ~= target
-    }
-
     private func sortTasks(_ lhs: Task, _ rhs: Task) -> Bool {
-        if lhs.priority.rawValue != rhs.priority.rawValue {
-            return lhs.priority.rawValue > rhs.priority.rawValue
-        }
-        let lhsDate = displayDate(for: lhs) ?? .distantFuture
-        let rhsDate = displayDate(for: rhs) ?? .distantFuture
-        if lhsDate != rhsDate {
-            return lhsDate < rhsDate
-        }
-        return lhs.title < rhs.title
-    }
-
-    private func displayDate(for task: Task) -> Date? {
-        task.startDate ?? task.endDate
+        TaskPresentation.orderedBefore(lhs, rhs, preferring: .start)
     }
 
     private func timelineAnchor(for task: Task, defaultingTo date: Date) -> Date {
-        return task.startDate ?? task.endDate ?? date
+        TaskPresentation.displayDate(for: task, preferring: .start) ?? date
     }
 
     private func mergedEvents(on date: Date) -> [CalendarEvent] {
@@ -304,18 +305,4 @@ final class TodayViewModel: ObservableObject {
             .sorted(by: { $0.startDate < $1.startDate })
     }
 
-    private func mapExternalEvents(from ekEvents: [EKEvent]) -> [CalendarEvent] {
-        let links = store.appState.calendarCategoryLinks
-        let linkMap = Dictionary(uniqueKeysWithValues: links.map { ($0.calendarIdentifier, $0) })
-        let defaultCategory = CategoryPalette.defaultCategoryName
-
-        return ekEvents.compactMap { event in
-            let identifier = event.calendar.calendarIdentifier
-            if let link = linkMap[identifier] {
-                guard let category = link.categoryId else { return nil }
-                return CalendarEvent(event: event, categoryName: category)
-            }
-            return CalendarEvent(event: event, categoryName: defaultCategory)
-        }
-    }
 }

@@ -44,37 +44,10 @@ struct LetterContentView: View {
                 if !loadedImages.isEmpty {
                     Divider()
                     
-                    VStack(spacing: 12) {
-                        // セクションヘッダー
-                        HStack {
-                            Image(systemName: "photo.on.rectangle.angled")
-                                .foregroundColor(.orange)
-                            Text("添付写真")
-                                .font(.headline)
-                            Spacer()
-                            Text("\(loadedImages.count)枚")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        
-                        // カルーセル
-                        TabView(selection: $selectedPhotoIndex) {
-                            ForEach(loadedImages.indices, id: \.self) { index in
-                                Image(uiImage: loadedImages[index])
-                                    .resizable()
-                                    .scaledToFill()
-                                    .frame(maxWidth: .infinity)
-                                    .frame(height: 200)
-                                    .clipped()
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                                    .tag(index)
-                                    .onTapGesture {
-                                        showFullscreenPhoto = true
-                                    }
-                            }
-                        }
-                        .tabViewStyle(.page(indexDisplayMode: .automatic))
-                        .frame(height: 220)
+                    LetterPhotoCarousel(images: loadedImages,
+                                        selectedIndex: $selectedPhotoIndex,
+                                        accentColor: .orange) {
+                        showFullscreenPhoto = true
                     }
                 }
                 
@@ -94,7 +67,7 @@ struct LetterContentView: View {
     
     private func loadPhotos() {
         for path in letter.photoPaths {
-            let fullPath = resolvePhotoPath(path)
+            let fullPath = LetterPhotoFiles.resolvePath(path)
             if let data = FileManager.default.contents(atPath: fullPath),
                let image = UIImage(data: data) {
                 loadedImages.append(image)
@@ -102,73 +75,26 @@ struct LetterContentView: View {
         }
     }
     
-    /// 相対パスまたは絶対パスをフルパスに解決する
-    private func resolvePhotoPath(_ path: String) -> String {
-        // 既に絶対パスの場合はそのまま返す（後方互換性）
-        if path.hasPrefix("/") {
-            return path
-        }
-        // 相対パスの場合はDocumentsディレクトリに結合
-        guard let documentsDir = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            return path
-        }
-        return documentsDir.appendingPathComponent(path).path
-    }
-    
     // MARK: - フルスクリーン写真ビューア
     
     private var fullscreenPhotoViewer: some View {
-        ZStack {
-            Color.black.ignoresSafeArea()
-            
-            TabView(selection: $selectedPhotoIndex) {
-                ForEach(loadedImages.indices, id: \.self) { index in
-                    Image(uiImage: loadedImages[index])
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .tag(index)
-                }
-            }
-            .tabViewStyle(.page(indexDisplayMode: .automatic))
-            
-            // 閉じるボタン
-            VStack {
-                HStack {
-                    Spacer()
-                    Button {
-                        showFullscreenPhoto = false
-                    } label: {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.title)
-                            .foregroundStyle(.white.opacity(0.8))
-                            .padding()
-                    }
-                }
-                Spacer()
-                
-                // ページ表示
-                Text("\(selectedPhotoIndex + 1) / \(loadedImages.count)")
-                    .font(.caption)
-                    .foregroundColor(.white.opacity(0.8))
-                    .padding(.bottom, 40)
-            }
+        FullscreenPhotoGallery(photoCount: loadedImages.count,
+                               selectedIndex: $selectedPhotoIndex,
+                               onClose: { showFullscreenPhoto = false }) { index in
+            Image(uiImage: loadedImages[index])
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
     }
 }
 
 extension Date {
     var jaFullDateString: String {
-        let formatter = DateFormatter()
-        formatter.locale = .autoupdatingCurrent
-        formatter.setLocalizedDateFormatFromTemplate("yMd")
-        return formatter.string(from: self)
+        jaYearMonthDayString
     }
     
     var jaShortDateString: String {
-        let formatter = DateFormatter()
-        formatter.locale = .autoupdatingCurrent
-        formatter.setLocalizedDateFormatFromTemplate("yMd")
-        return formatter.string(from: self)
+        jaYearMonthDayString
     }
 }

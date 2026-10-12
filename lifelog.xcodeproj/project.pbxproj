@@ -76,11 +76,16 @@
 			membershipExceptions = (
 				Models/CalendarDayLink.swift,
 				Models/CalendarWeekStart.swift,
+				Models/ExternalCalendarEventIdentity.swift,
 				Models/LocationVisitTagPalette.swift,
 				Models/Models.swift,
 				Models/ScheduleMonth.swift,
 				Models/SwiftDataModels.swift,
+				Models/TaskPresentation.swift,
+				Models/TaskPresentationSource.swift,
+				Services/AppColorPalette.swift,
 				Services/ColorHex.swift,
+				Services/HabitContributionPalette.swift,
 				Services/EventQuerying.swift,
 				Services/Persistence.swift,
 			);

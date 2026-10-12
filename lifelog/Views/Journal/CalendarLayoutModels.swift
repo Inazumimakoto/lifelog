@@ -79,8 +79,7 @@ struct DayPreviewItem: Identifiable {
     var isMultiDayEvent: Bool {
         guard kind == .event, let start = eventStartDate, let end = eventEndDate else { return false }
         let calendar = Calendar.current
-        let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: end) ?? end
-        return !calendar.isDate(start, inSameDayAs: adjustedEnd)
+        return CalendarPreviewLayout.isMultiDayEvent(start: start, end: end, calendar: calendar)
     }
 
     func multiDayPosition(on date: Date) -> MultiDayPosition {
@@ -98,41 +97,5 @@ struct DayPreviewItem: Identifiable {
     }
 }
 
-struct CalendarWeekMultiDaySegment: Identifiable {
-    let id: String
-    let eventID: UUID
-    let title: String
-    let color: Color
-    let lane: Int
-    let startColumn: Int
-    let endColumn: Int
-    let continuesBeforeWeek: Bool
-    let continuesAfterWeek: Bool
-}
 
-struct CalendarDayMultiDayState {
-    let visibleLaneCount: Int
-    let occupiedVisibleLanes: Set<Int>
-    let hiddenMultiDayCount: Int
-
-    static let empty = CalendarDayMultiDayState(visibleLaneCount: 0,
-                                                occupiedVisibleLanes: [],
-                                                hiddenMultiDayCount: 0)
-}
-
-struct CalendarWeekMultiDayLayout {
-    let visibleLaneCount: Int
-    let dayStates: [CalendarDayMultiDayState]
-    let segments: [CalendarWeekMultiDaySegment]
-
-    static let empty = CalendarWeekMultiDayLayout(visibleLaneCount: 0,
-                                                  dayStates: Array(repeating: .empty, count: 7),
-                                                  segments: [])
-}
-
-enum CalendarCellRowContent {
-    case multiDayPlaceholder
-    case item(DayPreviewItem)
-    case overflow(Int)
-    case empty
-}
+typealias CalendarCellRowContent = CalendarPreviewLayout.Row<DayPreviewItem>

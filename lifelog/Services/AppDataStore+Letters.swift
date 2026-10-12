@@ -113,28 +113,20 @@ extension AppDataStore {
     private func scheduleLetterNotification(_ letter: Letter) {
         guard letter.status == .sealed else { return }
 
-        let content = UNMutableNotificationContent()
         let formatter = DateFormatter()
         formatter.locale = .autoupdatingCurrent
         formatter.setLocalizedDateFormatFromTemplate("yMd")
         let dateString = formatter.string(from: letter.createdAt)
 
-        content.title = String(localized: "📨 手紙が届きました")
-        content.body = String(localized: "\(dateString)のあなたから手紙が届きました")
-        content.sound = .default
-        content.userInfo = ["letterID": letter.id.uuidString]
-
         let triggerDate = letter.deliveryDate
         let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: triggerDate)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-
-        let request = UNNotificationRequest(identifier: "letter-\(letter.id.uuidString)", content: content, trigger: trigger)
-
-        UNUserNotificationCenter.current().add(request) { error in
-            if let error = error {
-                AppLogger.notifications.error("手紙通知スケジュールエラー: \(error)")
-            }
-        }
+        NotificationService.shared.scheduleCalendarNotification(
+            identifier: "letter-\(letter.id.uuidString)",
+            title: String(localized: "📨 手紙が届きました"),
+            body: String(localized: "\(dateString)のあなたから手紙が届きました"),
+            components: components,
+            userInfo: ["letterID": letter.id.uuidString],
+            errorMessage: "手紙通知スケジュールエラー")
     }
 
     // MARK: - Shared Letter (他ユーザーからの手紙)

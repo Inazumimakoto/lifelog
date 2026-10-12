@@ -10,21 +10,11 @@ import CoreLocation
 import Combine
 import PhotosUI
 import SwiftUI
-import CryptoKit
-import UIKit
 
 @MainActor
 final class DiaryViewModel: ObservableObject {
 
-    struct PhotoImportSummary: Equatable {
-        var addedPaths: [String] = []
-        var skippedCount: Int = 0
-        var failedLoadCount: Int = 0
-        var failedSaveCount: Int = 0
-        
-        var addedCount: Int { addedPaths.count }
-        var hasIssues: Bool { skippedCount > 0 || failedLoadCount > 0 || failedSaveCount > 0 }
-    }
+    typealias PhotoImportSummary = DiaryPhotoImporter.Summary
     
     /// テキスト入力のデバウンス時間（秒）
     private static let textDebounceInterval: TimeInterval = 0.5
@@ -146,7 +136,7 @@ final class DiaryViewModel: ObservableObject {
     
     func updateVisitTags(for locationID: UUID, tags: [String]) {
         guard let index = entry.locations.firstIndex(where: { $0.id == locationID }) else { return }
-        let normalized = Self.normalizedVisitTags(tags)
+        let normalized = DiaryVisitTagNormalizer.normalize(tags, limit: AppDataStore.maxLocationVisitTagsPerVisit)
         guard entry.locations[index].visitTags != normalized else { return }
         entry.locations[index].visitTags = normalized
         persist()
@@ -154,15 +144,16 @@ final class DiaryViewModel: ObservableObject {
     
     func applyVisitTagRename(oldName: String, newName: String) {
         var didChange = false
+        let oldKey = DiaryVisitTagNormalizer.key(for: oldName)
         for index in entry.locations.indices {
             var tags = entry.locations[index].visitTags
             var locationChanged = false
-            for tagIndex in tags.indices where Self.isSameTagName(tags[tagIndex], oldName) {
+            for tagIndex in tags.indices where DiaryVisitTagNormalizer.key(for: tags[tagIndex]) == oldKey {
                 tags[tagIndex] = newName
                 locationChanged = true
             }
             if locationChanged {
-                entry.locations[index].visitTags = Self.normalizedVisitTags(tags)
+                entry.locations[index].visitTags = DiaryVisitTagNormalizer.normalize(tags, limit: AppDataStore.maxLocationVisitTagsPerVisit)
                 didChange = true
             }
         }
@@ -173,9 +164,10 @@ final class DiaryViewModel: ObservableObject {
     
     func applyVisitTagDeletion(name: String) {
         var didChange = false
+        let deletedKey = DiaryVisitTagNormalizer.key(for: name)
         for index in entry.locations.indices {
             let before = entry.locations[index].visitTags
-            let filtered = before.filter { Self.isSameTagName($0, name) == false }
+            let filtered = before.filter { DiaryVisitTagNormalizer.key(for: $0) != deletedKey }
             guard filtered.count != before.count else { continue }
             entry.locations[index].visitTags = filtered
             didChange = true
@@ -206,7 +198,7 @@ final class DiaryViewModel: ObservableObject {
 
     func updateLocationLinks(forPhoto path: String, selectedLocationIDs: [UUID]) {
         let targetIDs = Set(selectedLocationIDs)
-        let identityByPath = makePhotoIdentityMap(paths: Set(entry.locations.flatMap(\.photoPaths)).union([path]))
+        let identityByPath = PhotoStorage.makeIdentityMap(for: Array(Set(entry.locations.flatMap(\.photoPaths)).union([path])))
         let selectedIdentity = identityByPath[path]
         var didChange = false
         for index in entry.locations.indices {
@@ -235,13 +227,14 @@ final class DiaryViewModel: ObservableObject {
         }
     }
 
-    func linkedDiaryPhotoPaths() -> Set<String> {
+    func linkedDiaryPhotoPaths() async -> Set<String> {
+        let photoPaths = entry.photoPaths
         let directLinkedPaths = Set(entry.locations.flatMap(\.photoPaths))
         guard directLinkedPaths.isEmpty == false else { return [] }
-        let targetPaths = Set(entry.photoPaths)
-        let identityByPath = makePhotoIdentityMap(paths: targetPaths.union(directLinkedPaths))
+        let targetPaths = Set(photoPaths)
+        let identityByPath = await PhotoStorage.identityMap(for: Array(targetPaths.union(directLinkedPaths)))
         let linkedIdentitySet = Set(directLinkedPaths.compactMap { identityByPath[$0] })
-        return Set(entry.photoPaths.filter { path in
+        return Set(photoPaths.filter { path in
             if directLinkedPaths.contains(path) {
                 return true
             }
@@ -250,15 +243,16 @@ final class DiaryViewModel: ObservableObject {
         })
     }
 
-    func linkedLocationIDs(forPhoto path: String) -> Set<UUID> {
-        let directMatches = Set(entry.locations.filter { $0.photoPaths.contains(path) }.map(\.id))
-        let allLocationPaths = Set(entry.locations.flatMap(\.photoPaths))
-        let identityByPath = makePhotoIdentityMap(paths: allLocationPaths.union([path]))
+    func linkedLocationIDs(forPhoto path: String) async -> Set<UUID> {
+        let locations = entry.locations
+        let directMatches = Set(locations.filter { $0.photoPaths.contains(path) }.map(\.id))
+        let allLocationPaths = Set(locations.flatMap(\.photoPaths))
+        let identityByPath = await PhotoStorage.identityMap(for: Array(allLocationPaths.union([path])))
         guard let targetIdentity = identityByPath[path] else {
             return directMatches
         }
         var linkedIDs = directMatches
-        for location in entry.locations where linkedIDs.contains(location.id) == false {
+        for location in locations where linkedIDs.contains(location.id) == false {
             if location.photoPaths.contains(where: { identityByPath[$0] == targetIdentity }) {
                 linkedIDs.insert(location.id)
             }
@@ -304,54 +298,17 @@ final class DiaryViewModel: ObservableObject {
                                       failedSaveCount: 0)
         }
         
-        let usableItems = Array(items.prefix(availableSlots))
-        var summary = PhotoImportSummary()
-        summary.skippedCount = max(0, items.count - usableItems.count)
-        let locationPhotoAssetIdentifierIndex = makeLocationPhotoAssetIdentifierIndex()
-        let locationPhotoDigestIndex = makeLocationPhotoDigestIndex()
-        let locationPhotoVisualDigestIndex = makeLocationPhotoVisualDigestIndex()
-        
-        for item in usableItems {
-            do {
-                guard let data = try await item.loadTransferable(type: Data.self) else {
-                    summary.failedLoadCount += 1
-                    continue
-                }
-                if let existingPath = matchedLocationPhotoPath(for: item,
-                                                               data: data,
-                                                               assetIdentifierIndex: locationPhotoAssetIdentifierIndex,
-                                                               digestIndex: locationPhotoDigestIndex,
-                                                               visualDigestIndex: locationPhotoVisualDigestIndex) {
-                    if entry.photoPaths.contains(existingPath) || summary.addedPaths.contains(existingPath) {
-                        summary.skippedCount += 1
-                    } else {
-                        summary.addedPaths.append(existingPath)
-                    }
-                    continue
-                }
-                do {
-                    let path = try await PhotoStorage.saveAsync(data: data,
-                                                                sourceAssetIdentifier: item.itemIdentifier)
-                    summary.addedPaths.append(path)
-                } catch {
-                    summary.failedSaveCount += 1
-                }
-            } catch {
-                summary.failedLoadCount += 1
+        let locationPhotoIdentityIndex = await PhotoStorage.identityIndex(for: entry.locationPhotoPaths)
+        let summary = await DiaryPhotoImporter.importPhotos(
+            from: photoImportItems(from: items),
+            maximumCount: availableSlots,
+            alreadyContains: { self.entry.photoPaths.contains($0) },
+            matchingPath: { identifier, data in
+                await PhotoStorage.matchingPhotoPath(assetIdentifier: identifier, data: data,
+                                                    in: locationPhotoIdentityIndex)
             }
-        }
-        
-        if summary.addedPaths.isEmpty == false {
-            if entry.date.isSameDay(as: targetDate) {
-                entry.photoPaths.append(contentsOf: summary.addedPaths)
-                persist()
-            } else {
-                var otherEntry = store.entry(for: targetDate) ?? DiaryEntry(date: targetDate, text: "")
-                otherEntry.photoPaths.append(contentsOf: summary.addedPaths)
-                store.upsert(entry: otherEntry)
-            }
-        }
-        
+        )
+        appendImportedPhotos(summary.addedPaths, for: targetDate, to: \.photoPaths)
         return summary
     }
 
@@ -359,38 +316,30 @@ final class DiaryViewModel: ObservableObject {
         guard items.isEmpty == false else { return PhotoImportSummary() }
 
         let targetDate = entry.date
-        var summary = PhotoImportSummary()
-
-        for item in items {
-            do {
-                guard let data = try await item.loadTransferable(type: Data.self) else {
-                    summary.failedLoadCount += 1
-                    continue
-                }
-                do {
-                    let path = try await PhotoStorage.saveAsync(data: data,
-                                                                sourceAssetIdentifier: item.itemIdentifier)
-                    summary.addedPaths.append(path)
-                } catch {
-                    summary.failedSaveCount += 1
-                }
-            } catch {
-                summary.failedLoadCount += 1
-            }
-        }
-
-        if summary.addedPaths.isEmpty == false {
-            if entry.date.isSameDay(as: targetDate) {
-                entry.locationPhotoPaths.append(contentsOf: summary.addedPaths)
-                persist()
-            } else {
-                var otherEntry = store.entry(for: targetDate) ?? DiaryEntry(date: targetDate, text: "")
-                otherEntry.locationPhotoPaths.append(contentsOf: summary.addedPaths)
-                store.upsert(entry: otherEntry)
-            }
-        }
-
+        let summary = await DiaryPhotoImporter.importPhotos(from: photoImportItems(from: items))
+        appendImportedPhotos(summary.addedPaths, for: targetDate, to: \.locationPhotoPaths)
         return summary
+    }
+
+    private func photoImportItems(from items: [PhotosPickerItem]) -> [DiaryPhotoImporter.Item] {
+        items.map { item in
+            DiaryPhotoImporter.Item(assetIdentifier: item.itemIdentifier) {
+                try await item.loadTransferable(type: Data.self)
+            }
+        }
+    }
+
+    private func appendImportedPhotos(_ paths: [String], for date: Date,
+                                      to destination: WritableKeyPath<DiaryEntry, [String]>) {
+        guard !paths.isEmpty else { return }
+        if entry.date.isSameDay(as: date) {
+            entry[keyPath: destination].append(contentsOf: paths)
+            persist()
+        } else {
+            var otherEntry = store.entry(for: date) ?? DiaryEntry(date: date, text: "")
+            otherEntry[keyPath: destination].append(contentsOf: paths)
+            store.upsert(entry: otherEntry)
+        }
     }
 
     func deletePhoto(at offsets: IndexSet) {
@@ -460,74 +409,6 @@ final class DiaryViewModel: ObservableObject {
         allPhotoPathsInOrder.filter { selection.contains($0) }
     }
 
-    private func makeLocationPhotoDigestIndex() -> [String: [String]] {
-        var index: [String: [String]] = [:]
-        for path in entry.locationPhotoPaths {
-            guard let fingerprint = PhotoStorage.fingerprint(for: path) else { continue }
-            index[fingerprint.digest, default: []].append(path)
-        }
-        return index
-    }
-
-    private func makeLocationPhotoAssetIdentifierIndex() -> [String: [String]] {
-        PhotoStorage.assetIdentifierIndex(for: entry.locationPhotoPaths)
-    }
-
-    private func makePhotoIdentityMap(paths: Set<String>) -> [String: String] {
-        guard paths.isEmpty == false else { return [:] }
-        let pathList = Array(paths)
-        let assetIdentifierByPath = PhotoStorage.assetIdentifierMap(for: pathList)
-        var identityByPath: [String: String] = [:]
-        for path in pathList {
-            if let identifier = assetIdentifierByPath[path], identifier.isEmpty == false {
-                identityByPath[path] = "asset:\(identifier)"
-                continue
-            }
-            guard let fingerprint = PhotoStorage.fingerprint(for: path) else { continue }
-            if let visualDigest = fingerprint.visualDigest, visualDigest.isEmpty == false {
-                identityByPath[path] = "visual:\(visualDigest)"
-                continue
-            }
-            identityByPath[path] = "digest:\(fingerprint.digest)"
-        }
-        return identityByPath
-    }
-
-    /// フォーマット差分（メタデータ/再エンコード）を吸収するための画像内容ベース索引。
-    private func makeLocationPhotoVisualDigestIndex() -> [String: [String]] {
-        var index: [String: [String]] = [:]
-        for path in entry.locationPhotoPaths {
-            guard let digest = PhotoStorage.fingerprint(for: path)?.visualDigest else { continue }
-            index[digest, default: []].append(path)
-        }
-        return index
-    }
-
-    private func matchedLocationPhotoPath(for item: PhotosPickerItem,
-                                          data: Data,
-                                          assetIdentifierIndex: [String: [String]],
-                                          digestIndex: [String: [String]],
-                                          visualDigestIndex: [String: [String]]) -> String? {
-        if let itemIdentifier = item.itemIdentifier,
-           let matched = assetIdentifierIndex[itemIdentifier]?.first {
-            return matched
-        }
-        let digest = sha256DigestHex(data: data)
-        if let matched = digestIndex[digest]?.first {
-            return matched
-        }
-        guard let visualDigest = normalizedImageDigestHex(data: data) else { return nil }
-        return visualDigestIndex[visualDigest]?.first
-    }
-
-    private func sha256DigestHex(data: Data) -> String {
-        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-    }
-
-    private func normalizedImageDigestHex(data: Data) -> String? {
-        PhotoStorage.visualDigest(for: data)
-    }
-
     private var allPhotoPathsInOrder: [String] {
         entry.photoPaths + entry.locationPhotoPaths
     }
@@ -587,33 +468,6 @@ final class DiaryViewModel: ObservableObject {
         let lat = (location.latitude * 10_000).rounded() / 10_000
         let lon = (location.longitude * 10_000).rounded() / 10_000
         return "coord:\(lat),\(lon)"
-    }
-    
-    private static func normalizedVisitTags(_ tags: [String]) -> [String] {
-        var seen: Set<String> = []
-        var normalized: [String] = []
-        for raw in tags {
-            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard trimmed.isEmpty == false else { continue }
-            let key = normalizedTagKey(trimmed)
-            guard seen.contains(key) == false else { continue }
-            seen.insert(key)
-            normalized.append(trimmed)
-            if normalized.count >= AppDataStore.maxLocationVisitTagsPerVisit {
-                break
-            }
-        }
-        return normalized
-    }
-    
-    private static func normalizedTagKey(_ name: String) -> String {
-        name
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
-    }
-    
-    private static func isSameTagName(_ lhs: String, _ rhs: String) -> Bool {
-        normalizedTagKey(lhs) == normalizedTagKey(rhs)
     }
     
     // MARK: - Debounce Methods

@@ -86,7 +86,9 @@ final class ShoppingListViewModel: ObservableObject {
                 guard !items.isEmpty else { return nil }
                 return PendingGroup(id: place.id.uuidString, title: place.name, items: items)
             }
-        let unassigned = pending.filter { $0.placeID == nil }
+        // A sync page can remove a place before its item updates arrive. Keep those items
+        // visible even when a local edit postpones the remote item update.
+        let unassigned = pending.filter { !hasAssignedPlace($0) }
         if !unassigned.isEmpty {
             groups.append(PendingGroup(id: "unassigned", title: String(localized: "未指定"), items: unassigned))
         }
@@ -187,9 +189,14 @@ final class ShoppingListViewModel: ObservableObject {
     private func matchesFilter(_ item: ShoppingItem) -> Bool {
         switch filter {
         case .all: return true
-        case .unassigned: return item.placeID == nil
+        case .unassigned: return !hasAssignedPlace(item)
         case .place(let id): return item.placeID == id
         }
+    }
+
+    private func hasAssignedPlace(_ item: ShoppingItem) -> Bool {
+        guard let id = item.placeID else { return false }
+        return places.contains { $0.id == id }
     }
 
     private func addedOrder(_ lhs: ShoppingItem, _ rhs: ShoppingItem) -> Bool {

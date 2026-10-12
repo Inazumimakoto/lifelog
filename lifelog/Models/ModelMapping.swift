@@ -136,18 +136,7 @@ private enum DiaryLocationCoding {
 // MARK: - Habit Mapping
 extension Habit {
     init(sd: SDHabit) {
-        let schedule: HabitSchedule
-        switch sd.scheduleType {
-        case "daily":
-            schedule = .daily
-        case "weekdays":
-            schedule = .weekdays
-        case "custom":
-            let days = sd.scheduleDays.compactMap { Weekday(rawValue: $0) }
-            schedule = .custom(days: days)
-        default:
-            schedule = .daily // Fallback
-        }
+        let schedule = HabitSchedule(storedType: sd.scheduleType, days: sd.scheduleDays) ?? .daily
         
         self.init(
             id: sd.id,
@@ -181,18 +170,9 @@ extension SDHabit {
         self.iconName = domain.iconName
         self.colorHex = domain.colorHex
         
-        // Update flattened schedule
-        switch domain.schedule {
-        case .daily:
-            self.scheduleType = "daily"
-            self.scheduleDays = []
-        case .weekdays:
-            self.scheduleType = "weekdays"
-            self.scheduleDays = []
-        case .custom(let days):
-            self.scheduleType = "custom"
-            self.scheduleDays = days.map { $0.rawValue }
-        }
+        let storedSchedule = domain.schedule.storedComponents
+        self.scheduleType = storedSchedule.type
+        self.scheduleDays = storedSchedule.days
         
         self.isArchived = domain.isArchived
         self.createdAt = domain.createdAt

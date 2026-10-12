@@ -25,8 +25,21 @@ class NotificationService {
     static let shared = NotificationService()
     
     private let center = UNUserNotificationCenter.current()
-    
-    private init() {}
+    private let referenceDate: () -> Date
+    private let requestHandler: ((UNNotificationRequest) -> Void)?
+    private let cancellationHandler: (([String]) -> Void)?
+
+    init(referenceDate: @escaping () -> Date = { Date() },
+         requestHandler: ((UNNotificationRequest) -> Void)? = nil,
+         cancellationHandler: (([String]) -> Void)? = nil) {
+        self.referenceDate = referenceDate
+        self.requestHandler = requestHandler
+        self.cancellationHandler = cancellationHandler
+    }
+
+    // This service has no actor-bound teardown. Avoid Swift 6.2's crashing
+    // MainActor back-deployment deinit when synchronous callers release it.
+    nonisolated deinit {}
     
     // MARK: - 通知許可
     
@@ -57,131 +70,48 @@ class NotificationService {
     /// 予定の通知をスケジュール
     func scheduleEventReminder(eventId: UUID, title: String, startDate: Date, minutesBefore: Int) {
         guard minutesBefore > 0 else { return }
-        
-        let notificationDate = startDate.addingTimeInterval(-Double(minutesBefore * 60))
-        guard notificationDate > Date() else { return }
-        
-        let content = UNMutableNotificationContent()
-        content.title = String(localized: "予定のリマインダー")
-        content.body = title
-        content.sound = .default
-        
-        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: notificationDate)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-        
-        let identifier = "\(NotificationType.event.rawValue)-\(eventId.uuidString)"
-        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-        
-        center.add(request) { error in
-            if let error = error {
-                AppLogger.notifications.error("予定通知スケジュールエラー: \(error)")
-            }
-        }
+        scheduleEventReminderAtDate(eventId: eventId, title: title,
+                                    reminderDate: startDate.addingTimeInterval(-Double(minutesBefore * 60)))
     }
 
     /// 予定の通知をスケジュール（日時指定）
     func scheduleEventReminderAtDate(eventId: UUID, title: String, reminderDate: Date) {
-        guard reminderDate > Date() else { return }
-        
-        let content = UNMutableNotificationContent()
-        content.title = String(localized: "予定のリマインダー")
-        content.body = title
-        content.sound = .default
-        
-        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: reminderDate)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-        
-        let identifier = "\(NotificationType.event.rawValue)-\(eventId.uuidString)"
-        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-        
-        center.add(request) { error in
-            if let error = error {
-                AppLogger.notifications.error("予定通知スケジュールエラー: \(error)")
-            }
-        }
+        scheduleOneTimeReminder(identifier: identifier(for: .event, key: eventId.uuidString),
+                                title: String(localized: "予定のリマインダー"), body: title,
+                                fireDate: reminderDate, errorMessage: "予定通知スケジュールエラー")
     }
 
     /// 予定の通知をキャンセル
     func cancelEventReminder(eventId: UUID) {
-        let identifier = "\(NotificationType.event.rawValue)-\(eventId.uuidString)"
-        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+        cancel(identifier: identifier(for: .event, key: eventId.uuidString))
     }
 
     /// 外部予定の通知をスケジュール
     func scheduleExternalEventReminder(externalEventKey: String, title: String, startDate: Date, minutesBefore: Int) {
         guard minutesBefore > 0 else { return }
-
-        let notificationDate = startDate.addingTimeInterval(-Double(minutesBefore * 60))
-        guard notificationDate > Date() else { return }
-
-        let content = UNMutableNotificationContent()
-        content.title = String(localized: "予定のリマインダー")
-        content.body = title
-        content.sound = .default
-
-        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: notificationDate)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-
-        let identifier = "\(NotificationType.externalEvent.rawValue)-\(externalEventKey)"
-        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-
-        center.add(request) { error in
-            if let error = error {
-                AppLogger.notifications.error("外部予定通知スケジュールエラー: \(error)")
-            }
-        }
+        scheduleExternalEventReminderAtDate(externalEventKey: externalEventKey, title: title,
+                                            reminderDate: startDate.addingTimeInterval(-Double(minutesBefore * 60)))
     }
 
     /// 外部予定の通知をスケジュール（日時指定）
     func scheduleExternalEventReminderAtDate(externalEventKey: String, title: String, reminderDate: Date) {
-        guard reminderDate > Date() else { return }
-
-        let content = UNMutableNotificationContent()
-        content.title = String(localized: "予定のリマインダー")
-        content.body = title
-        content.sound = .default
-
-        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: reminderDate)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-
-        let identifier = "\(NotificationType.externalEvent.rawValue)-\(externalEventKey)"
-        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-
-        center.add(request) { error in
-            if let error = error {
-                AppLogger.notifications.error("外部予定通知スケジュールエラー: \(error)")
-            }
-        }
+        scheduleOneTimeReminder(identifier: identifier(for: .externalEvent, key: externalEventKey),
+                                title: String(localized: "予定のリマインダー"), body: title,
+                                fireDate: reminderDate, errorMessage: "外部予定通知スケジュールエラー")
     }
 
     // MARK: - タスクリマインダー
     
     /// タスクの通知をスケジュール
     func scheduleTaskReminder(taskId: UUID, title: String, reminderDate: Date) {
-        guard reminderDate > Date() else { return }
-        
-        let content = UNMutableNotificationContent()
-        content.title = String(localized: "タスクのリマインダー")
-        content.body = title
-        content.sound = .default
-        
-        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: reminderDate)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-        
-        let identifier = "\(NotificationType.task.rawValue)-\(taskId.uuidString)"
-        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-        
-        center.add(request) { error in
-            if let error = error {
-                AppLogger.notifications.error("タスク通知スケジュールエラー: \(error)")
-            }
-        }
+        scheduleOneTimeReminder(identifier: identifier(for: .task, key: taskId.uuidString),
+                                title: String(localized: "タスクのリマインダー"), body: title,
+                                fireDate: reminderDate, errorMessage: "タスク通知スケジュールエラー")
     }
     
     /// タスクの通知をキャンセル
     func cancelTaskReminder(taskId: UUID) {
-        let identifier = "\(NotificationType.task.rawValue)-\(taskId.uuidString)"
-        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+        cancel(identifier: identifier(for: .task, key: taskId.uuidString))
     }
     
     // MARK: - 記念日リマインダー
@@ -192,7 +122,7 @@ class NotificationService {
         
         // 次の記念日を計算（今年または来年）
         var nextDate = targetDate
-        let today = Date()
+        let today = referenceDate()
         while nextDate < today {
             nextDate = calendar.date(byAdding: .year, value: 1, to: nextDate) ?? nextDate
         }
@@ -213,54 +143,28 @@ class NotificationService {
             guard let finalDate = calendar.date(from: dateComponents), finalDate > today else { return }
         }
         
-        let content = UNMutableNotificationContent()
+        let notificationTitle: String
         if daysBefore == 0 {
-            content.title = String(localized: "今日は記念日です")
+            notificationTitle = String(localized: "今日は記念日です")
         } else {
-            content.title = String(localized: "記念日まであと\(daysBefore)日")
+            notificationTitle = String(localized: "記念日まであと\(daysBefore)日")
         }
-        content.body = title
-        content.sound = .default
-        
-        // repeatsYearly: 毎年繰り返す（年を含めないtrigger）
-        let trigger = UNCalendarNotificationTrigger(dateMatching: dateComponents, repeats: repeatsYearly)
-        
-        let identifier = "\(NotificationType.anniversary.rawValue)-\(anniversaryId.uuidString)"
-        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-        
-        center.add(request) { error in
-            if let error = error {
-                AppLogger.notifications.error("記念日通知スケジュールエラー: \(error)")
-            }
-        }
+        scheduleCalendarNotification(identifier: identifier(for: .anniversary, key: anniversaryId.uuidString),
+                                     title: notificationTitle, body: title,
+                                     components: dateComponents, repeats: repeatsYearly,
+                                     errorMessage: "記念日通知スケジュールエラー")
     }
 
     /// 記念日の通知をキャンセル
     func cancelAnniversaryReminder(anniversaryId: UUID) {
-        let identifier = "\(NotificationType.anniversary.rawValue)-\(anniversaryId.uuidString)"
-        center.removePendingNotificationRequests(withIdentifiers: [identifier])
+        cancel(identifier: identifier(for: .anniversary, key: anniversaryId.uuidString))
     }
     
     /// 記念日の通知をスケジュール（日時指定）
     func scheduleAnniversaryReminderAtDate(anniversaryId: UUID, title: String, reminderDate: Date) {
-        guard reminderDate > Date() else { return }
-        
-        let content = UNMutableNotificationContent()
-        content.title = String(localized: "記念日のリマインダー")
-        content.body = title
-        content.sound = .default
-        
-        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: reminderDate)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-        
-        let identifier = "\(NotificationType.anniversary.rawValue)-\(anniversaryId.uuidString)"
-        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-        
-        center.add(request) { error in
-            if let error = error {
-                AppLogger.notifications.error("記念日通知スケジュールエラー: \(error)")
-            }
-        }
+        scheduleOneTimeReminder(identifier: identifier(for: .anniversary, key: anniversaryId.uuidString),
+                                title: String(localized: "記念日のリマインダー"), body: title,
+                                fireDate: reminderDate, errorMessage: "記念日通知スケジュールエラー")
     }
 
     // MARK: - 日記リマインダー
@@ -274,7 +178,7 @@ class NotificationService {
         cancelDiaryReminder()
         
         let calendar = Calendar.current
-        let now = Date()
+        let now = referenceDate()
         
         // 今日の指定時刻を計算
         var dateComponents = calendar.dateComponents([.year, .month, .day], from: now)
@@ -288,54 +192,87 @@ class NotificationService {
             targetDate = calendar.date(byAdding: .day, value: 1, to: targetDate) ?? targetDate
         }
         
-        let content = UNMutableNotificationContent()
-        content.title = String(localized: "日記を書きましょう")
-        content.body = String(localized: "今日の出来事を振り返ってみませんか？")
-        content.sound = .default
-        
         let triggerComponents = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: targetDate)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: triggerComponents, repeats: false)
-        let request = UNNotificationRequest(identifier: diaryReminderIdentifier, content: content, trigger: trigger)
-        
-        center.add(request) { error in
-            if let error = error {
-                AppLogger.notifications.error("日記通知スケジュールエラー: \(error)")
-            }
-        }
+        scheduleDiaryReminder(components: triggerComponents)
+    }
+
+    /// 日記リマインダーをスケジュール（通知対象日の計算は呼び出し元で行う）
+    func scheduleDiaryReminder(components: DateComponents) {
+        scheduleCalendarNotification(identifier: diaryReminderIdentifier,
+                                     title: String(localized: "日記を書きましょう"),
+                                     body: String(localized: "今日の出来事を振り返ってみませんか？"),
+                                     components: components,
+                                     errorMessage: "日記通知スケジュールエラー")
     }
     
     /// 日記リマインダーをキャンセル
     func cancelDiaryReminder() {
-        center.removePendingNotificationRequests(withIdentifiers: [diaryReminderIdentifier])
+        cancel(identifier: diaryReminderIdentifier)
     }
 
     // MARK: - 今日の予定・タスク通知
 
     /// 今日の予定・タスク通知をスケジュール（次回1件のみ）
     func scheduleTodayOverviewReminder(fireDate: Date, body: String) {
-        guard fireDate > Date() else { return }
+        guard fireDate > referenceDate() else { return }
 
         cancelTodayOverviewReminder()
 
-        let content = UNMutableNotificationContent()
-        content.title = String(localized: "今日の予定・タスク")
-        content.body = body
-        content.sound = .default
-
         let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
-        let request = UNNotificationRequest(identifier: todayOverviewReminderIdentifier, content: content, trigger: trigger)
-
-        center.add(request) { error in
-            if let error = error {
-                AppLogger.notifications.error("今日の予定・タスク通知スケジュールエラー: \(error)")
-            }
-        }
+        scheduleCalendarNotification(identifier: todayOverviewReminderIdentifier,
+                                     title: String(localized: "今日の予定・タスク"), body: body,
+                                     components: components,
+                                     errorMessage: "今日の予定・タスク通知スケジュールエラー")
     }
 
     /// 今日の予定・タスク通知をキャンセル
     func cancelTodayOverviewReminder() {
-        center.removePendingNotificationRequests(withIdentifiers: [todayOverviewReminderIdentifier])
+        cancel(identifier: todayOverviewReminderIdentifier)
+    }
+
+    // MARK: - 共通の通知作成
+
+    /// 通知ごとの日時判定・キャンセル方針を保ったまま、要求の作成と送信を共通化する。
+    func scheduleCalendarNotification(identifier: String, title: String, body: String,
+                                      components: DateComponents, repeats: Bool = false,
+                                      userInfo: [AnyHashable: Any] = [:], errorMessage: String) {
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.sound = .default
+        content.userInfo = userInfo
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: repeats)
+        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
+
+        if let requestHandler {
+            requestHandler(request)
+        } else {
+            center.add(request) { error in
+                if let error {
+                    AppLogger.notifications.error("\(errorMessage): \(error)")
+                }
+            }
+        }
+    }
+
+    private func scheduleOneTimeReminder(identifier: String, title: String, body: String,
+                                         fireDate: Date, errorMessage: String) {
+        guard fireDate > referenceDate() else { return }
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
+        scheduleCalendarNotification(identifier: identifier, title: title, body: body,
+                                     components: components, errorMessage: errorMessage)
+    }
+
+    private func identifier(for type: NotificationType, key: String) -> String {
+        "\(type.rawValue)-\(key)"
+    }
+
+    private func cancel(identifier: String) {
+        if let cancellationHandler {
+            cancellationHandler([identifier])
+        } else {
+            center.removePendingNotificationRequests(withIdentifiers: [identifier])
+        }
     }
     
     // MARK: - 全通知管理

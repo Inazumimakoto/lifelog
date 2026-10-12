@@ -53,6 +53,24 @@ enum HabitSchedule: Codable, Identifiable, Hashable {
         }
     }
 
+    /// The flattened SwiftData representation shared by creation and updates.
+    var storedComponents: (type: String, days: [Int]) {
+        switch self {
+        case .daily: return ("daily", [])
+        case .weekdays: return ("weekdays", [])
+        case .custom(let days): return ("custom", days.map(\.rawValue))
+        }
+    }
+
+    init?(storedType: String, days: [Int]) {
+        switch storedType {
+        case "daily": self = .daily
+        case "weekdays": self = .weekdays
+        case "custom": self = .custom(days: days.compactMap(Weekday.init(rawValue:)))
+        default: return nil
+        }
+    }
+
     func isActive(on date: Date) -> Bool {
         switch self {
         case .daily:
@@ -648,7 +666,10 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
 
 extension CalendarEvent {
     init(event: EKEvent, categoryName: String) {
-        self.init(id: UUID(),
+        self.init(id: ExternalCalendarEventIdentity.id(
+                    calendarIdentifier: event.calendar.calendarIdentifier,
+                    eventIdentifier: event.eventIdentifier ?? event.calendarItemIdentifier,
+                    occurrenceDate: event.occurrenceDate),
                   title: event.title,
                   detail: event.notes ?? "",
                   startDate: event.startDate,

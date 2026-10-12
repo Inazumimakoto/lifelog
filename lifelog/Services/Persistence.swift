@@ -108,7 +108,8 @@ struct PersistenceController {
             SDLetter.self,
             SDSharedLetter.self,
             SDShoppingItem.self,
-            SDShoppingPlace.self
+            SDShoppingPlace.self,
+            SDShoppingSyncState.self
         ])
         
         if inMemory {

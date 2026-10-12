@@ -15,7 +15,8 @@ import SwiftUI // For Color if needed, though usually stored as Hex String/Int i
 final class SDShoppingItem {
     @Attribute(.unique) var id: UUID
     var title: String
-    var quantity: String
+    // ShoppingStore moves old quantities into note. See docs/requirements.md: 買い物リスト.
+    @Attribute(originalName: "quantity") var legacyQuantity: String = ""
     var note: String
     var placeID: UUID?
     var createdAt: Date
@@ -24,14 +25,12 @@ final class SDShoppingItem {
 
     init(id: UUID = UUID(),
          title: String,
-         quantity: String = "",
          note: String = "",
          placeID: UUID? = nil,
          createdAt: Date = Date(),
          purchasedAt: Date? = nil) {
         self.id = id
         self.title = title
-        self.quantity = quantity
         self.note = note
         self.placeID = placeID
         self.createdAt = createdAt
@@ -49,6 +48,19 @@ final class SDShoppingPlace {
         self.id = id
         self.name = name
         self.orderIndex = orderIndex
+    }
+}
+
+/// Persist sync cursor, acknowledged versions and pending operations with the shopping rows.
+/// The scalar schema is shared with widgets and Release even while sync UI is a DEBUG prototype.
+@Model
+final class SDShoppingSyncState {
+    @Attribute(.unique) var id: String
+    var payload: Data
+
+    init(id: String = "shopping", payload: Data) {
+        self.id = id
+        self.payload = payload
     }
 }
 
@@ -160,18 +172,9 @@ final class SDHabit {
         self.iconName = iconName
         self.colorHex = colorHex
         
-        // Flatten logic
-        switch schedule {
-        case .daily:
-            self.scheduleType = "daily"
-            self.scheduleDays = []
-        case .weekdays:
-            self.scheduleType = "weekdays"
-            self.scheduleDays = []
-        case .custom(let days):
-            self.scheduleType = "custom"
-            self.scheduleDays = days.map { $0.rawValue }
-        }
+        let storedSchedule = schedule.storedComponents
+        self.scheduleType = storedSchedule.type
+        self.scheduleDays = storedSchedule.days
         
         self.isArchived = isArchived
         self.createdAt = createdAt
@@ -180,17 +183,9 @@ final class SDHabit {
     }
     
     func scheduleIsActive(on date: Date) -> Bool {
-        switch scheduleType {
-        case "daily":
-            return true
-        case "weekdays":
-            return !Calendar.current.isDateInWeekend(date)
-        case "custom":
-            let weekdayInt = Calendar.current.component(.weekday, from: date)
-            return scheduleDays.contains(weekdayInt)
-        default:
-            return false
-        }
+        // Unknown stored schedules stay inactive in widgets, while the app's
+        // domain mapping preserves its existing daily fallback.
+        HabitSchedule(storedType: scheduleType, days: scheduleDays)?.isActive(on: date) ?? false
     }
 }
 

@@ -271,26 +271,11 @@ struct ScheduleProvider: TimelineProvider {
     }
 
     private func isTask(_ task: SDTask, scheduledOn date: Date) -> Bool {
-        let calendar = Calendar.current
-        let start = task.startDate ?? task.endDate
-        let end = task.endDate ?? task.startDate
-        guard let anchor = start ?? end else { return false }
-        let normalizedStart = calendar.startOfDay(for: start ?? anchor)
-        let normalizedEnd = calendar.startOfDay(for: end ?? anchor)
-        let target = calendar.startOfDay(for: date)
-        return normalizedStart...normalizedEnd ~= target
+        TaskPresentation.isScheduled(task, on: date)
     }
 
     private func sortTasks(_ lhs: SDTask, _ rhs: SDTask) -> Bool {
-        if lhs.priority.rawValue != rhs.priority.rawValue {
-            return lhs.priority.rawValue > rhs.priority.rawValue
-        }
-        let lhsDate = lhs.startDate ?? lhs.endDate ?? .distantFuture
-        let rhsDate = rhs.startDate ?? rhs.endDate ?? .distantFuture
-        if lhsDate != rhsDate {
-            return lhsDate < rhsDate
-        }
-        return lhs.title < rhs.title
+        TaskPresentation.orderedBefore(lhs, rhs, preferring: .start)
     }
 }
 
@@ -324,7 +309,7 @@ private enum ScheduleCategoryPalette {
         guard let token = map[normalizedName] else {
             return .accentColor
         }
-        return parseColorToken(token) ?? .accentColor
+        return AppColorPalette.color(for: token)
     }
 
     private static func currentMap() -> [String: String] {
@@ -338,29 +323,7 @@ private enum ScheduleCategoryPalette {
         return decoded
     }
 
-    private static func parseColorToken(_ token: String) -> Color? {
-        let trimmed = token.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let uiColor = UIColor(hex: trimmed) {
-            return Color(uiColor: uiColor)
-        }
 
-        switch trimmed.lowercased() {
-        case "red": return .red
-        case "orange": return .orange
-        case "yellow": return .yellow
-        case "green": return .green
-        case "mint": return .mint
-        case "teal": return .teal
-        case "cyan": return .cyan
-        case "blue": return .blue
-        case "indigo": return .indigo
-        case "purple": return .purple
-        case "pink": return .pink
-        case "brown": return .brown
-        case "gray", "grey": return .gray
-        default: return nil
-        }
-    }
 }
 
 // UIColor(hex:) は共有ファイル ColorHex.swift へ移動した。

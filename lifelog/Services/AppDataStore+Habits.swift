@@ -20,8 +20,14 @@ extension AppDataStore {
         let calendar = Calendar.current
         let dateDay = calendar.startOfDay(for: date)
 
-        // Check streak before toggling
-        let streakBefore = calculateCurrentStreak(for: habitID, upTo: date)
+        // Build the history index once; scanning every record for each streak
+        // day made long-running habits block checkbox feedback on the main actor.
+        var completedDays = HabitCompletionQuery.completedDays(for: habitID,
+                                                                from: habitRecords,
+                                                                calendar: calendar)
+        let streakBefore = HabitCompletionQuery.currentDailyStreak(upTo: date,
+                                                                  completedDays: completedDays,
+                                                                  calendar: calendar)
         var isCompleting = true
 
         if let index = habitRecords.firstIndex(where: {
@@ -29,54 +35,20 @@ extension AppDataStore {
         }) {
             isCompleting = !habitRecords[index].isCompleted
             habitRecords[index].isCompleted.toggle()
-            // If toggling to completed and date is before createdAt, update createdAt
-            if habitRecords[index].isCompleted, let habitIndex = habits.firstIndex(where: { $0.id == habitID }) {
-                let createdDay = calendar.startOfDay(for: habits[habitIndex].createdAt)
-                if dateDay < createdDay {
-                    habits[habitIndex].createdAt = dateDay
-                }
-            }
         } else {
             let record = HabitRecord(habitID: habitID, date: date, isCompleted: true)
             habitRecords.append(record)
-            // New record is completed, check if we need to update createdAt
-            if let habitIndex = habits.firstIndex(where: { $0.id == habitID }) {
-                let createdDay = calendar.startOfDay(for: habits[habitIndex].createdAt)
-                if dateDay < createdDay {
-                    habits[habitIndex].createdAt = dateDay
-                }
-            }
         }
 
-        // Switch execution to non-UI blocking task if possible, but for data safety we do it here
-        // Mirror to SwiftData
-        if let updatedRecord = habitRecords.first(where: { $0.habitID == habitID && Calendar.current.isDate($0.date, inSameDayAs: date) }) {
-             let recordID = updatedRecord.id
-             let desc = FetchDescriptor<SDHabitRecord>(predicate: #Predicate { $0.id == recordID })
-             if let existingRecord = try? modelContext.fetch(desc).first {
-                 existingRecord.isCompleted = updatedRecord.isCompleted
-             } else {
-                 let newRecord = SDHabitRecord(domain: updatedRecord)
-                 modelContext.insert(newRecord)
-             }
-        }
-
-        // Sync Habit.createdAt if changed
-        if let memoryHabit = habits.first(where: { $0.id == habitID }) {
-            let habitID = memoryHabit.id
-            let habitDesc = FetchDescriptor<SDHabit>(predicate: #Predicate { $0.id == habitID })
-            if let sdHabit = try? modelContext.fetch(habitDesc).first {
-                if sdHabit.createdAt != memoryHabit.createdAt {
-                    sdHabit.createdAt = memoryHabit.createdAt
-                }
-            }
-        }
-        saveContext()
-        reloadHabitWidgetTimeline()
+        if isCompleting { backdateHabitCreationIfNeeded(habitID, on: dateDay, calendar: calendar) }
+        persistHabitCompletion(habitID, on: date, calendar: calendar)
 
         // Haptic feedback
         if isCompleting {
-            let streakAfter = calculateCurrentStreak(for: habitID, upTo: date)
+            completedDays.insert(dateDay)
+            let streakAfter = HabitCompletionQuery.currentDailyStreak(upTo: date,
+                                                                     completedDays: completedDays,
+                                                                     calendar: calendar)
             if streakAfter > streakBefore && streakAfter >= 3 {
                 // 3日以上の連続達成更新時は特別なハプティック
                 HapticManager.streak()
@@ -122,43 +94,15 @@ extension AppDataStore {
         }
     }
 
-    private func calculateCurrentStreak(for habitID: UUID, upTo date: Date) -> Int {
-        let calendar = Calendar.current
-        var streakCount = 0
-        var currentDate = calendar.startOfDay(for: date)
-
-        while true {
-            let isCompleted = habitRecords.contains {
-                $0.habitID == habitID &&
-                calendar.isDate($0.date, inSameDayAs: currentDate) &&
-                $0.isCompleted
-            }
-
-            if isCompleted {
-                streakCount += 1
-            } else {
-                break
-            }
-
-            guard let previousDay = calendar.date(byAdding: .day, value: -1, to: currentDate) else { break }
-            currentDate = previousDay
-        }
-
-        return streakCount
-    }
-
     private func checkAllHabitsComplete(on date: Date) {
         let calendar = Calendar.current
         let activeHabits = habits.filter { !$0.isArchived && $0.schedule.isActive(on: date) }
         guard !activeHabits.isEmpty else { return }
 
-        let allComplete = activeHabits.allSatisfy { habit in
-            habitRecords.contains {
-                $0.habitID == habit.id &&
-                calendar.isDate($0.date, inSameDayAs: date) &&
-                $0.isCompleted
-            }
-        }
+        let completedIDs = HabitCompletionQuery.completedHabitIDs(on: date,
+                                                                  from: habitRecords,
+                                                                  calendar: calendar)
+        let allComplete = activeHabits.allSatisfy { completedIDs.contains($0.id) }
 
         if allComplete {
             HapticManager.allHabitsComplete()
@@ -169,13 +113,7 @@ extension AppDataStore {
         let calendar = Calendar.current
         let dateDay = calendar.startOfDay(for: date)
 
-        // If completing a habit on a date, potentially update the habit's createdAt
-        if completed, let habitIndex = habits.firstIndex(where: { $0.id == habitID }) {
-            let createdDay = calendar.startOfDay(for: habits[habitIndex].createdAt)
-            if dateDay < createdDay {
-                habits[habitIndex].createdAt = dateDay
-            }
-        }
+        if completed { backdateHabitCreationIfNeeded(habitID, on: dateDay, calendar: calendar) }
 
         if let index = habitRecords.firstIndex(where: {
             $0.habitID == habitID && Calendar.current.isDate($0.date, inSameDayAs: date)
@@ -186,24 +124,35 @@ extension AppDataStore {
             habitRecords.append(record)
         }
 
-        // Mirror to SwiftData
-        if let updatedRecord = habitRecords.first(where: { $0.habitID == habitID && Calendar.current.isDate($0.date, inSameDayAs: date) }) {
-             let recordID = updatedRecord.id
-             let desc = FetchDescriptor<SDHabitRecord>(predicate: #Predicate { $0.id == recordID })
-             if let existingRecord = try? modelContext.fetch(desc).first {
-                 existingRecord.isCompleted = updatedRecord.isCompleted
-             } else {
-                 let newRecord = SDHabitRecord(domain: updatedRecord)
-                 modelContext.insert(newRecord)
-             }
+        persistHabitCompletion(habitID, on: date, calendar: calendar)
+    }
+
+    private func backdateHabitCreationIfNeeded(_ habitID: UUID, on dateDay: Date, calendar: Calendar) {
+        guard let habitIndex = habits.firstIndex(where: { $0.id == habitID }) else { return }
+        let createdDay = calendar.startOfDay(for: habits[habitIndex].createdAt)
+        if dateDay < createdDay { habits[habitIndex].createdAt = dateDay }
+    }
+
+    /// Both completion entry points keep the first record for the day and its ID.
+    private func persistHabitCompletion(_ habitID: UUID, on date: Date, calendar: Calendar) {
+        if let updatedRecord = habitRecords.first(where: {
+            $0.habitID == habitID && calendar.isDate($0.date, inSameDayAs: date)
+        }) {
+            let recordID = updatedRecord.id
+            let descriptor = FetchDescriptor<SDHabitRecord>(predicate: #Predicate { $0.id == recordID })
+            if let existingRecord = try? modelContext.fetch(descriptor).first {
+                existingRecord.isCompleted = updatedRecord.isCompleted
+            } else {
+                modelContext.insert(SDHabitRecord(domain: updatedRecord))
+            }
         }
+
         if let memoryHabit = habits.first(where: { $0.id == habitID }) {
             let habitID = memoryHabit.id
-            let habitDesc = FetchDescriptor<SDHabit>(predicate: #Predicate { $0.id == habitID })
-            if let sdHabit = try? modelContext.fetch(habitDesc).first {
-                if sdHabit.createdAt != memoryHabit.createdAt {
-                     sdHabit.createdAt = memoryHabit.createdAt
-                }
+            let descriptor = FetchDescriptor<SDHabit>(predicate: #Predicate { $0.id == habitID })
+            if let sdHabit = try? modelContext.fetch(descriptor).first,
+               sdHabit.createdAt != memoryHabit.createdAt {
+                sdHabit.createdAt = memoryHabit.createdAt
             }
         }
         saveContext()

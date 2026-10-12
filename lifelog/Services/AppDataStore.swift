@@ -36,9 +36,18 @@ final class AppDataStore: ObservableObject {
 
     // MARK: - Cache
     var eventsCache: [Date: [CalendarEvent]] = [:]
+    var needsDiaryPhotoSyncRefresh = false
     var externalCalendarRange: ExternalCalendarRange? = nil
     var externalReminderRescheduleGeneration: UInt = 0
+    var nextExternalReminderRefreshDate: Date?
     private(set) var hasExistingUserFootprintForInitialPermissions = false
+    private var healthLoadTask: _Concurrency.Task<Bool, Never>?
+    private var healthAuthorizationTask: _Concurrency.Task<Bool, Never>?
+    private var needsHealthPersistence = false
+
+    // Avoid Swift's implicit isolated-deinit back-deployment crash on iOS 26.1.
+    // Same workaround as ShoppingStore; no custom actor-bound teardown is needed.
+    nonisolated deinit {}
 
     // MARK: - Legacy Persistence Keys
     static let tasksDefaultsKey = "Tasks_Storage_V1"
@@ -68,6 +77,9 @@ final class AppDataStore: ObservableObject {
     // MARK: - SwiftData Context
     let modelContext: ModelContext
     let shoppingStore: ShoppingStore
+#if DEBUG
+    let shoppingSync: ShoppingSyncService
+#endif
 
     static let maxLocationVisitTagsPerVisit = 8
     static let maxLocationVisitTagNameLength = 15
@@ -94,14 +106,20 @@ final class AppDataStore: ObservableObject {
 
     // MARK: - Init
 
-    init() {
+    init(container: ModelContainer? = nil, startsBackgroundServices: Bool = true) {
         // Setup SwiftData
-        let container = PersistenceController.shared.container
+        let container = container ?? PersistenceController.shared.container
         self.modelContext = container.mainContext
+#if DEBUG
+        let shoppingStore = ShoppingStore(container: container, supportsShoppingSync: startsBackgroundServices)
+        self.shoppingStore = shoppingStore
+        self.shoppingSync = ShoppingSyncService(store: shoppingStore)
+#else
         self.shoppingStore = ShoppingStore(container: container)
+#endif
 
         // 1. Run Migration (if needed)
-        if !PersistenceController.isSimulatorDemoMode {
+        if startsBackgroundServices && !PersistenceController.isSimulatorDemoMode {
             MigrationManager.shared.migrate(modelContext: modelContext)
         }
 
@@ -166,6 +184,10 @@ final class AppDataStore: ObservableObject {
         } catch {
             AppLogger.data.error("Failed to fetch initial data from SwiftData: \(error)")
         }
+
+        // Deterministic in-memory tests load only their injected store. They do
+        // not migrate defaults, seed user data, request integrations or notify.
+        guard startsBackgroundServices else { return }
 
         self.externalCalendarEvents = Self.loadValue(forKey: Self.externalCalendarEventsDefaultsKey, defaultValue: [])
         let storedRange: ExternalCalendarRange? = Self.loadValue(forKey: Self.externalCalendarRangeDefaultsKey, defaultValue: nil)
@@ -243,67 +265,61 @@ final class AppDataStore: ObservableObject {
     func loadHealthData(requestAuthorizationIfNeeded: Bool = false) async -> Bool {
         guard !PersistenceController.isSimulatorDemoMode else { return false }
         if requestAuthorizationIfNeeded {
+            let preAuthorizationLoadTask = healthLoadTask
+            let authorizationTask: _Concurrency.Task<Bool, Never>
+            if let pending = healthAuthorizationTask {
+                authorizationTask = pending
+            } else {
+                authorizationTask = _Concurrency.Task { @MainActor [self] in
+                    defer { healthAuthorizationTask = nil }
+                    return await HealthKitManager.shared.requestAuthorization()
+                }
+                healthAuthorizationTask = authorizationTask
+            }
             UserDefaults.standard.set(true, forKey: InitialPermissionsState.healthRequestedKey)
-            let authorizationCompleted = await HealthKitManager.shared.requestAuthorization()
+            let authorizationCompleted = await authorizationTask.value
             guard authorizationCompleted else { return false }
+            // A refresh that started before granting access may have queried an
+            // empty HealthKit store. Finish it, then fetch using the new grant.
+            if let pending = preAuthorizationLoadTask { _ = await pending.value }
         } else {
+            if let authorizationTask = healthAuthorizationTask {
+                guard await authorizationTask.value else { return false }
+            }
             guard UserDefaults.standard.bool(forKey: InitialPermissionsState.healthRequestedKey) else {
                 return false
             }
         }
 
-        // Fetch recent 7 days for quick update, then full year in background.
-        let recentFetched = await HealthKitManager.shared.fetchHealthData(for: 7)
-        if !recentFetched.isEmpty {
-            mergeHealthSummaries(recentFetched)
+        // Startup, permission completion and pull-to-refresh can overlap. Share
+        // one fetch so they do not issue the same year of HealthKit queries.
+        if let healthLoadTask { return await healthLoadTask.value }
+        let task = _Concurrency.Task { @MainActor [self] in
+            defer { healthLoadTask = nil }
+            let recentFetched = await HealthKitManager.shared.fetchHealthData(for: 7)
+            let recentChanged = mergeHealthSummaries(recentFetched)
+            let fullFetched = await HealthKitManager.shared.fetchHealthData(for: 365)
+            let fullChanged = mergeHealthSummaries(fullFetched)
+            if recentChanged || fullChanged || needsHealthPersistence || modelContext.hasChanges {
+                persistHealthSummaries()
+            }
+            return true
         }
+        healthLoadTask = task
+        return await task.value
+    }
 
-        let fullFetched = await HealthKitManager.shared.fetchHealthData(for: 365)
-        if !fullFetched.isEmpty {
-            mergeHealthSummaries(fullFetched)
-            persistHealthSummaries()
-        }
-
+    @discardableResult
+    private func mergeHealthSummaries(_ newData: [HealthSummary]) -> Bool {
+        guard !newData.isEmpty else { return false }
+        let merged = HealthSummaryMerging.merge(existing: healthSummaries, incoming: newData)
+        guard merged != healthSummaries else { return false }
+        healthSummaries = merged
         return true
     }
 
-    private func mergeHealthSummaries(_ newData: [HealthSummary]) {
-        var summaryDict = Dictionary(uniqueKeysWithValues: healthSummaries.map { ($0.date, $0) })
-        for summary in newData {
-            if var existing = summaryDict[summary.date] {
-                // 既存データがある場合は、天気データを保持しながらマージ
-                // HealthKitデータで更新
-                existing.steps = summary.steps ?? existing.steps
-                existing.sleepHours = summary.sleepHours ?? existing.sleepHours
-                existing.sleepStart = summary.sleepStart ?? existing.sleepStart
-                existing.sleepEnd = summary.sleepEnd ?? existing.sleepEnd
-                existing.activeEnergy = summary.activeEnergy ?? existing.activeEnergy
-                existing.moveMinutes = summary.moveMinutes ?? existing.moveMinutes
-                existing.exerciseMinutes = summary.exerciseMinutes ?? existing.exerciseMinutes
-                existing.standHours = summary.standHours ?? existing.standHours
-                if !summary.sleepStages.isEmpty {
-                    existing.sleepStages = summary.sleepStages
-                }
-                // 天気データは新データにある場合のみ更新（nilで上書きしない）
-                if summary.weatherCondition != nil {
-                    existing.weatherCondition = summary.weatherCondition
-                }
-                if summary.highTemperature != nil {
-                    existing.highTemperature = summary.highTemperature
-                }
-                if summary.lowTemperature != nil {
-                    existing.lowTemperature = summary.lowTemperature
-                }
-                summaryDict[summary.date] = existing
-            } else {
-                // 新規データ
-                summaryDict[summary.date] = summary
-            }
-        }
-        healthSummaries = Array(summaryDict.values).sorted { $0.date > $1.date }
-    }
-
     private func persistHealthSummaries() {
+        needsHealthPersistence = true
         // Full Sync to SwiftData (keyed by Date to avoid duplication if IDs change)
         // 1. Fetch all existing SDHealthSummaries
         let descriptor = FetchDescriptor<SDHealthSummary>()
@@ -318,7 +334,9 @@ final class AppDataStore: ObservableObject {
                 let dateKey = calendar.startOfDay(for: item.date)
                 if let existing = existingMap[dateKey] {
                     // Update
-                    existing.update(from: item)
+                    if !HealthSummaryMerging.hasSameContent(HealthSummary(sd: existing), item) {
+                        existing.update(from: item)
+                    }
                     existingMap.removeValue(forKey: dateKey)
                 } else {
                     // Insert
@@ -334,6 +352,7 @@ final class AppDataStore: ObservableObject {
             }
 
             saveContext()
+            if !modelContext.hasChanges { needsHealthPersistence = false }
         }
     }
 
@@ -343,9 +362,16 @@ final class AppDataStore: ObservableObject {
         let targetDate = calendar.startOfDay(for: date)
 
         if let index = healthSummaries.firstIndex(where: { calendar.isDate($0.date, inSameDayAs: targetDate) }) {
-            healthSummaries[index].weatherCondition = condition
-            healthSummaries[index].highTemperature = high
-            healthSummaries[index].lowTemperature = low
+            var summary = healthSummaries[index]
+            guard summary.weatherCondition != condition || summary.highTemperature != high ||
+                  summary.lowTemperature != low else {
+                if needsHealthPersistence || modelContext.hasChanges { persistHealthSummaries() }
+                return
+            }
+            summary.weatherCondition = condition
+            summary.highTemperature = high
+            summary.lowTemperature = low
+            healthSummaries[index] = summary
         } else {
             var summary = HealthSummary(date: targetDate)
             summary.weatherCondition = condition
@@ -365,6 +391,7 @@ final class AppDataStore: ObservableObject {
     /// クラッシュはさせない(UI 上は操作が成功して見えるため、落とすより
     /// ログに残して次回起動時の SwiftData 再読込に委ねる方が被害が小さい)。
     func saveContext(operation: StaticString = #function) {
+        guard modelContext.hasChanges else { return }
         do {
             try modelContext.save()
         } catch {

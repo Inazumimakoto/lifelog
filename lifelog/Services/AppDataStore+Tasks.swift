@@ -47,14 +47,7 @@ extension AppDataStore {
             tasks.remove(at: index)
         }
 
-        for id in idsToDelete {
-             let descriptor = FetchDescriptor<SDTask>(predicate: #Predicate { $0.id == id })
-             if let existing = try? modelContext.fetch(descriptor).first {
-                 modelContext.delete(existing)
-             }
-        }
-        saveContext()
-        rescheduleTodayOverviewReminderIfNeeded()
+        persistTaskDeletion(withIDs: idsToDelete)
     }
 
     func deleteTasks(withIDs ids: [UUID]) {
@@ -63,11 +56,15 @@ extension AppDataStore {
         }
         tasks.removeAll { ids.contains($0.id) }
 
+        persistTaskDeletion(withIDs: ids)
+    }
+
+    private func persistTaskDeletion(withIDs ids: [UUID]) {
         for id in ids {
-             let descriptor = FetchDescriptor<SDTask>(predicate: #Predicate { $0.id == id })
-             if let existing = try? modelContext.fetch(descriptor).first {
-                 modelContext.delete(existing)
-             }
+            let descriptor = FetchDescriptor<SDTask>(predicate: #Predicate { $0.id == id })
+            if let existing = try? modelContext.fetch(descriptor).first {
+                modelContext.delete(existing)
+            }
         }
         saveContext()
         rescheduleTodayOverviewReminderIfNeeded()
@@ -121,14 +118,7 @@ extension AppDataStore {
     }
 
     func isTask(_ task: Task, scheduledOn date: Date) -> Bool {
-        let calendar = Calendar.current
-        let start = task.startDate ?? task.endDate
-        let end = task.endDate ?? task.startDate
-        guard let anchor = start ?? end else { return false }
-        let normalizedStart = calendar.startOfDay(for: start ?? anchor)
-        let normalizedEnd = calendar.startOfDay(for: end ?? anchor)
-        let target = calendar.startOfDay(for: date)
-        return normalizedStart...normalizedEnd ~= target
+        TaskPresentation.isScheduled(task, on: date)
     }
 
     // MARK: - Task Persister
