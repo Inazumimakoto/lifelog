@@ -20,5 +20,7 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>UILaunchStoryboardName</key>
+	<string>StartupLaunchScreen</string>
 </dict>
 </plist>

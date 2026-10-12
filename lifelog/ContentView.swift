@@ -16,6 +16,8 @@ struct ContentView: View {
     // Only destination view models observe their data sources. Observing the whole
     // store here invalidated every tab when a diary, habit or health value changed.
     let store: AppDataStore
+    // Keep UIKit presentations behind the launch animation; see docs/ui-guidelines.md §起動時の表示.
+    var isStartupComplete: Bool = true
     @EnvironmentObject private var deepLinkManager: DeepLinkManager
     @ObservedObject private var monetization = MonetizationService.shared
     @ObservedObject private var deepLinkHandler = DeepLinkHandler.shared
@@ -41,6 +43,7 @@ struct ContentView: View {
     @State private var premiumAlertMessage: String?
     @State private var showMemoEditorFromWidget = false
     @State private var isHandlingWidgetDestination = false
+    @State private var hasAuthorizedPendingWidgetMemo = false
     @State private var showStoreRecoveryNotice = false
     @AppStorage(WallpaperCalendarAnnouncementState.hasSeenKey) private var hasSeenWallpaperCalendarAnnouncement = false
     @State private var showWallpaperCalendarAnnouncement = false
@@ -48,7 +51,11 @@ struct ContentView: View {
     @AppStorage(InitialPermissionsState.completedKey) private var hasCompletedInitialPermissionsSetup = false
     @State private var showInitialPermissionsSetup = false
 
-    var body: some View {
+    private var canPresentStartupContent: Bool {
+        isStartupComplete && (appLockService.isAppLockEnabled == false || appLockService.isUnlocked)
+    }
+
+    private var mainTabs: some View {
         TabView(selection: $selection) {
             navigationStack(for: 0) {
                 TodayView(store: store)
@@ -108,31 +115,17 @@ struct ContentView: View {
             lastSelection = newSelection
         }
         .toast()
+    }
+
+    private var letterRoutingContent: some View {
+        mainTabs
         // ディープリンク: 未来への手紙の通知タップ
         .onChange(of: deepLinkManager.pendingLetterID) { _, letterID in
-            guard let letterID = letterID else { return }
-            guard monetization.canUseLetters else {
-                deepLinkManager.clearPendingLetter()
-                premiumAlertMessage = monetization.lettersMessage()
-                return
-            }
-            // 開封可能な手紙を検索
-            if let letter = store.letters.first(where: { $0.id == letterID && $0.isDeliverable }) {
-                letterToOpen = letter
-            } else {
-                // 見つからない場合（すでに開封済みなど）はクリア
-                deepLinkManager.clearPendingLetter()
-            }
+            handlePendingLetterIfNeeded(letterID)
         }
         // ディープリンク: 共有手紙の通知タップ
         .onChange(of: deepLinkManager.pendingSharedLetterID) { _, letterID in
-            guard let letterID = letterID else { return }
-            guard monetization.canUseLetters else {
-                deepLinkManager.clearPendingSharedLetter()
-                premiumAlertMessage = monetization.lettersMessage()
-                return
-            }
-            fetchSharedLetter(id: letterID)
+            handlePendingSharedLetterIfNeeded(letterID)
         }
         .fullScreenCover(item: $letterToOpen) { letter in
             LetterOpeningView(letter: letter) {
@@ -155,18 +148,22 @@ struct ContentView: View {
                 showSharedLetterOpening = true
             }
         }
+    }
+
+    private var invitePresentationContent: some View {
+        letterRoutingContent
         // 招待リンクの確認シート
-        .sheet(isPresented: $deepLinkHandler.showInviteConfirmation) {
+        .sheet(isPresented: startupPresentationBinding($deepLinkHandler.showInviteConfirmation)) {
             InviteConfirmationView()
         }
         // 招待リンク用サインインフロー
-        .sheet(isPresented: $deepLinkHandler.showSignInFlow) {
+        .sheet(isPresented: startupPresentationBinding($deepLinkHandler.showSignInFlow)) {
             InviteSignInFlowView()
         }
         // 招待リンクのエラーアラート
         .alert("招待リンク", isPresented: Binding(
-            get: { deepLinkHandler.errorMessage != nil },
-            set: { if !$0 { deepLinkHandler.errorMessage = nil } }
+            get: { canPresentStartupContent && deepLinkHandler.errorMessage != nil },
+            set: { if canPresentStartupContent && !$0 { deepLinkHandler.errorMessage = nil } }
         )) {
             Button("OK") {
                 deepLinkHandler.clear()
@@ -175,7 +172,7 @@ struct ContentView: View {
             Text(deepLinkHandler.errorMessage ?? "")
         }
         // 友達追加成功のガイドアラート
-        .alert("友達を追加しました！", isPresented: $deepLinkHandler.showAddedSuccess) {
+        .alert("友達を追加しました！", isPresented: startupPresentationBinding($deepLinkHandler.showAddedSuccess)) {
             Button("手紙を書く画面へ") {
                 deepLinkHandler.showAddedSuccess = false
                 showLetterSharingFromInvite = true
@@ -200,6 +197,10 @@ struct ContentView: View {
                     }
             }
         }
+    }
+
+    private var noticePresentationContent: some View {
+        invitePresentationContent
         .sheet(isPresented: $showPaywall) {
             PremiumPaywallView()
         }
@@ -222,12 +223,18 @@ struct ContentView: View {
         } message: {
             Text("保存データの読み込みに失敗したため、新しいデータベースで起動しました。以前のデータファイルは端末内に退避されています。お問い合わせいただければ復旧を試みられる場合があります。")
         }
+    }
+
+    private var startupLifecycleContent: some View {
+        noticePresentationContent
         .onAppear {
-            consumeStoreRecoveryFlagIfNeeded()
             syncMemoPrivacySettingsToSharedDefaults()
-            handleWidgetDestinationIfNeeded(deepLinkManager.pendingWidgetDestination)
-            presentInitialPermissionsSetupIfNeeded()
-            presentWallpaperCalendarAnnouncementIfNeeded()
+            handleStartupPresentationsIfNeeded()
+        }
+        .onChange(of: isStartupComplete) { _, isComplete in
+            if isComplete {
+                handleStartupPresentationsIfNeeded()
+            }
         }
         .onChange(of: isMemoTextHidden) { _, _ in
             syncMemoPrivacySettingsToSharedDefaults()
@@ -241,9 +248,12 @@ struct ContentView: View {
             handleWidgetDestinationIfNeeded(destination)
         }
         .onChange(of: appLockService.isUnlocked) { _, _ in
-            presentInitialPermissionsSetupIfNeeded()
-            presentWallpaperCalendarAnnouncementIfNeeded()
+            handleStartupPresentationsIfNeeded()
         }
+    }
+
+    var body: some View {
+        startupLifecycleContent
         .modifier(WallpaperCalendarAnnouncementOverlayModifier(
             isPresented: $showWallpaperCalendarAnnouncement,
             onDismiss: dismissWallpaperCalendarAnnouncement,
@@ -267,6 +277,49 @@ struct ContentView: View {
             }
         }
     }
+
+    private func startupPresentationBinding(_ presentation: Binding<Bool>) -> Binding<Bool> {
+        Binding(
+            get: { canPresentStartupContent && presentation.wrappedValue },
+            set: { if canPresentStartupContent { presentation.wrappedValue = $0 } }
+        )
+    }
+
+    private func handleStartupPresentationsIfNeeded() {
+        guard canPresentStartupContent else { return }
+        consumeStoreRecoveryFlagIfNeeded()
+        handleWidgetDestinationIfNeeded(deepLinkManager.pendingWidgetDestination)
+        handlePendingLetterIfNeeded(deepLinkManager.pendingLetterID)
+        handlePendingSharedLetterIfNeeded(deepLinkManager.pendingSharedLetterID)
+        presentInitialPermissionsSetupIfNeeded()
+        presentWallpaperCalendarAnnouncementIfNeeded()
+    }
+
+    private func handlePendingLetterIfNeeded(_ letterID: UUID?) {
+        guard canPresentStartupContent, let letterID else { return }
+        guard monetization.canUseLetters else {
+            deepLinkManager.clearPendingLetter()
+            premiumAlertMessage = monetization.lettersMessage()
+            return
+        }
+        // 開封可能な手紙を検索
+        if let letter = store.letters.first(where: { $0.id == letterID && $0.isDeliverable }) {
+            letterToOpen = letter
+        } else {
+            // 見つからない場合（すでに開封済みなど）はクリア
+            deepLinkManager.clearPendingLetter()
+        }
+    }
+
+    private func handlePendingSharedLetterIfNeeded(_ letterID: String?) {
+        guard canPresentStartupContent, let letterID else { return }
+        guard monetization.canUseLetters else {
+            deepLinkManager.clearPendingSharedLetter()
+            premiumAlertMessage = monetization.lettersMessage()
+            return
+        }
+        fetchSharedLetter(id: letterID)
+    }
     
     private func fetchSharedLetter(id: String) {
         _Concurrency.Task {
@@ -274,16 +327,19 @@ struct ContentView: View {
                 let letters = try await LetterReceivingService.shared.getReceivedLetters()
                 if let letter = letters.first(where: { $0.id == id && $0.status == "delivered" }) {
                     await MainActor.run {
+                        guard canPresentStartupContent else { return }
                         sharedLetterToOpen = letter
                     }
                 } else {
                     // 見つからない（既読など）
                     await MainActor.run {
+                        guard canPresentStartupContent else { return }
                         deepLinkManager.clearPendingSharedLetter()
                     }
                 }
             } catch {
                 await MainActor.run {
+                    guard canPresentStartupContent else { return }
                     deepLinkManager.clearPendingSharedLetter()
                 }
             }
@@ -291,24 +347,35 @@ struct ContentView: View {
     }
 
     private func handleWidgetDestinationIfNeeded(_ destination: DeepLinkManager.WidgetDestination?) {
-        guard let destination, !isHandlingWidgetDestination else { return }
+        guard canPresentStartupContent, let destination, !isHandlingWidgetDestination else { return }
 
-        deepLinkManager.clearPendingWidgetDestination()
         isHandlingWidgetDestination = true
 
         _Concurrency.Task { @MainActor in
             defer { isHandlingWidgetDestination = false }
+            guard canPresentStartupContent else { return }
 
             switch destination {
             case .calendar(let date):
+                hasAuthorizedPendingWidgetMemo = false
+                deepLinkManager.clearPendingWidgetDestination()
                 calendarDateFromWidget = date
                 selection = 1
             case .memo:
-                if isMemoTextHidden, requiresMemoOpenAuthentication {
+                if isMemoTextHidden, requiresMemoOpenAuthentication, !hasAuthorizedPendingWidgetMemo {
                     let isAuthorized = await appLockService.authenticateForSensitiveAction(reason: "メモを開くには認証が必要です")
-                    guard isAuthorized else { return }
+                    guard isAuthorized else {
+                        deepLinkManager.clearPendingWidgetDestination()
+                        return
+                    }
+                    // Retain this result if LocalAuthentication made the app
+                    // inactive and the app lock must be unlocked again first.
+                    hasAuthorizedPendingWidgetMemo = true
                 }
 
+                guard canPresentStartupContent else { return }
+                hasAuthorizedPendingWidgetMemo = false
+                deepLinkManager.clearPendingWidgetDestination()
                 selection = 0
                 showMemoEditorFromWidget = true
             }
@@ -316,7 +383,7 @@ struct ContentView: View {
     }
 
     private func presentInitialPermissionsSetupIfNeeded() {
-        guard hasCompletedInitialPermissionsSetup == false else { return }
+        guard canPresentStartupContent, hasCompletedInitialPermissionsSetup == false else { return }
         if store.hasExistingUserFootprintForInitialPermissions {
             hasCompletedInitialPermissionsSetup = true
             return
@@ -340,7 +407,8 @@ struct ContentView: View {
     }
 
     private func presentWallpaperCalendarAnnouncementIfNeeded() {
-        guard hasCompletedInitialPermissionsSetup,
+        guard canPresentStartupContent,
+              hasCompletedInitialPermissionsSetup,
               monetization.canUseWallpaperCalendar,
               hasSeenWallpaperCalendarAnnouncement == false,
               showWallpaperCalendarAnnouncement == false,
@@ -351,7 +419,8 @@ struct ContentView: View {
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            guard hasCompletedInitialPermissionsSetup,
+            guard canPresentStartupContent,
+                  hasCompletedInitialPermissionsSetup,
                   monetization.canUseWallpaperCalendar,
                   hasSeenWallpaperCalendarAnnouncement == false,
                   showWallpaperCalendarAnnouncement == false,
@@ -379,6 +448,7 @@ struct ContentView: View {
 
     /// ストア復旧フラグを読み取り、一度だけユーザーに通知する
     private func consumeStoreRecoveryFlagIfNeeded() {
+        guard canPresentStartupContent else { return }
         let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier)
         guard defaults?.bool(forKey: PersistenceController.storeRecoveryOccurredKey) == true else { return }
         defaults?.removeObject(forKey: PersistenceController.storeRecoveryOccurredKey)

@@ -19,6 +19,7 @@ struct lifelogApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     
     @StateObject private var storeOwner = AppDataStoreOwner()
+    @State private var hasFinishedStartup = false
     private var store: AppDataStore { storeOwner.store }
     @ObservedObject private var deepLinkManager = DeepLinkManager.shared
     @ObservedObject private var monetizationService = MonetizationService.shared
@@ -41,9 +42,11 @@ struct lifelogApp: App {
     var body: some Scene {
         WindowGroup {
             ZStack {
-                ContentView(store: store)
+                ContentView(store: store, isStartupComplete: hasFinishedStartup)
                     .environmentObject(store)
                     .environmentObject(deepLinkManager)
+                    .allowsHitTesting(hasFinishedStartup)
+                    .accessibilityHidden(!hasFinishedStartup)
                     .onAppear {
                         // 日記リマインダーを再スケジュール（今日書いていなければ通知）
                         syncMemoPrivacySettingsToSharedDefaults()
@@ -64,9 +67,27 @@ struct lifelogApp: App {
                 
                 if !appLockService.isUnlocked && appLockService.isAppLockEnabled {
                     LockView()
+                        .allowsHitTesting(hasFinishedStartup)
+                        .accessibilityHidden(!hasFinishedStartup)
                         .transition(.opacity)
                         .zIndex(999)
                 }
+
+                if !hasFinishedStartup {
+                    StartupLogoView {
+                        hasFinishedStartup = true
+                    }
+                    .zIndex(1000)
+                }
+            }
+            .onChange(of: hasFinishedStartup) { _, isComplete in
+                guard isComplete else { return }
+                if scenePhase == .active && appLockService.isAppLockEnabled && !appLockService.isUnlocked {
+                    appLockService.authenticate()
+                }
+#if DEBUG
+                presentShoppingConnectionIfAllowed()
+#endif
             }
 #if DEBUG
             .sheet(item: $shoppingConnectionSheet, onDismiss: {
@@ -99,7 +120,7 @@ struct lifelogApp: App {
                     appLockService.lock()
                 } else if newPhase == .active {
                     // アプリがアクティブになった時にロックが有効なら認証を試みる
-                    if appLockService.isAppLockEnabled && !appLockService.isUnlocked {
+                    if hasFinishedStartup && appLockService.isAppLockEnabled && !appLockService.isUnlocked {
                         appLockService.authenticate()
                     }
 #if DEBUG
@@ -146,7 +167,7 @@ struct lifelogApp: App {
 
     private func presentShoppingConnectionIfAllowed() {
         guard shoppingConnection.presentationRequested, shoppingConnectionSheet == nil,
-              scenePhase == .active, !isShoppingConnectionLocked else { return }
+              hasFinishedStartup, scenePhase == .active, !isShoppingConnectionLocked else { return }
         shoppingConnectionSheet = ShoppingConnectionSheet()
     }
 #endif

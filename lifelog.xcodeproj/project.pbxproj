@@ -60,7 +60,41 @@
 		0E027D482EEBC0D2006CB36F /* Exceptions for "lifelog" folder in "lifelog" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				"Components/DetailMemoEditor 2.swift",
+				"Components/DismissiblePhotoViewer 2.swift",
+				"Components/FullscreenPhotoGallery 2.swift",
+				"Components/LetterPhotoCarousel 2.swift",
+				"Components/LetterSignInContent 2.swift",
 				Info.plist,
+				"Models/CalendarDayMultiDayState 2.swift",
+				"Models/CalendarPreviewLayout 2.swift",
+				"Models/CalendarWeekMultiDayLayout 2.swift",
+				"Models/CalendarWeekMultiDaySegment 2.swift",
+				"Models/DiaryVisitTagNormalizer 2.swift",
+				"Models/ExternalCalendarEventIdentity 2.swift",
+				"Models/HabitSchedule+Presentation 2.swift",
+				"Models/PhotoLocationSelection 2.swift",
+				"Models/ShoppingSyncState 2.swift",
+				"Models/TaskPresentation 2.swift",
+				"Models/TaskPresentationSource 2.swift",
+				"Models/TimelineHourBounds 2.swift",
+				"Services/AppColorPalette 2.swift",
+				"Services/AppDataStoreOwner 2.swift",
+				"Services/DiaryPhotoImporter 2.swift",
+				"Services/ExternalCalendarEventMapper 2.swift",
+				"Services/ExternalCalendarSyncPolicy 2.swift",
+				"Services/ExternalReminderRefreshTiming 2.swift",
+				"Services/HabitCompletionQuery 2.swift",
+				"Services/HabitContributionPalette 2.swift",
+				"Services/HealthQueryWindow 2.swift",
+				"Services/HealthSummaryMerging 2.swift",
+				"Services/LetterPhotoFiles 2.swift",
+				"Services/PhotoIdentityIndex 2.swift",
+				"Services/PhotoImageLoader 2.swift",
+				"Services/ShoppingConnectionService 2.swift",
+				"Services/ShoppingSyncService 2.swift",
+				"ViewModels/HabitRecordIndex 2.swift",
+				"Views/Shopping/ShoppingConnectionView 2.swift",
 			);
 			target = 0E6196E52EC5A3A000A0734C /* lifelog */;
 		};
@@ -91,6 +125,35 @@
 			);
 			target = 0EB039702EE55C1200AFE3B0 /* LifelogWidgetsExtension */;
 		};
+		A12F8500B83D476DA89C0001 /* Exceptions for "lifelogTests" folder in "lifelogTests" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				"AppDataStorePerformanceTests 2.swift",
+				"CalendarEventQueryTests 2.swift",
+				"CalendarPersistencePerformanceTests 2.swift",
+				"DiaryPhotoImporterTests 2.swift",
+				"ExternalCalendarEventIdentityTests 2.swift",
+				"ExternalCalendarEventMapperTests 2.swift",
+				"ExternalCalendarSyncPolicyTests 2.swift",
+				"HabitCompletionPersistenceTests 2.swift",
+				"HabitCompletionQueryTests 2.swift",
+				"HabitRecordIndexTests 2.swift",
+				"HabitScheduleMappingTests 2.swift",
+				"HabitsViewModelTests 2.swift",
+				"HealthQueryWindowTests 2.swift",
+				"HealthSummaryMergingTests 2.swift",
+				"JournalViewModelTests 2.swift",
+				"NotificationServiceTests 2.swift",
+				"PerformanceTestStore 2.swift",
+				"PhotoImagePerformanceTests 2.swift",
+				"PhotoLocationSelectionTests 2.swift",
+				"ShoppingSyncMigrationTests 2.swift",
+				"ShoppingSyncServiceTests 2.swift",
+				"TaskDeletionPersistenceTests 2.swift",
+				"TaskPresentationTests 2.swift",
+			);
+			target = AB10000000000000000000A1 /* lifelogTests */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -113,6 +176,9 @@
 		};
 		AB10000000000000000000AB /* lifelogTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				A12F8500B83D476DA89C0001 /* Exceptions for "lifelogTests" folder in "lifelogTests" target */,
+			);
 			path = lifelogTests;
 			sourceTree = "<group>";
 		};
@@ -514,7 +580,6 @@
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "現在地の天気情報を取得・表示するために位置情報を使用します。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -556,7 +621,6 @@
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "現在地の天気情報を取得・表示するために位置情報を使用します。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
-				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				LD_RUNPATH_SEARCH_PATHS = (

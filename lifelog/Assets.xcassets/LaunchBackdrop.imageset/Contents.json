@@ -1,0 +1,25 @@
+{
+  "images" : [
+    {
+      "filename" : "launch_backdrop_light.pdf",
+      "idiom" : "universal"
+    },
+    {
+      "appearances" : [
+        {
+          "appearance" : "luminosity",
+          "value" : "dark"
+        }
+      ],
+      "filename" : "launch_backdrop_dark.pdf",
+      "idiom" : "universal"
+    }
+  ],
+  "properties" : {
+    "preserves-vector-representation" : true
+  },
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
