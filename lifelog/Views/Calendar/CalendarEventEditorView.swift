@@ -11,6 +11,7 @@ struct CalendarEventEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var formState: CalendarEventEditorFormState
     @StateObject private var detailDraft: LongFormTextDraft
+    @ObservedObject private var categoryPalette = CategoryPaletteObserver.shared
     @State private var isShowingCategorySelection = false
     @State private var showDeleteConfirmation = false
 
@@ -164,27 +165,11 @@ struct CalendarEventEditorView: View {
                 formState.endDate = calendar.startOfDay(for: max(formState.endDate, formState.startDate))
             }
         }
-        .onChange(of: formState.category) { _, newCategory in
-            // 新規作成時のみカテゴリ変更で通知設定を連動
-            guard originalEvent == nil else { return }
-            let categoryEnabled = UserDefaults.standard.bool(forKey: "eventCategoryNotificationEnabled")
-            guard categoryEnabled else { return }
-
-            let setting = NotificationSettingsManager.shared.getOrCreateSetting(for: newCategory)
-            formState.hasReminder = setting.enabled
-            if setting.enabled {
-                formState.useRelativeReminder = setting.useRelativeTime
-                if setting.useRelativeTime {
-                    formState.reminderMinutes = setting.minutesBefore
-                    formState.reminderDate = formState.startDate.addingTimeInterval(-Double(setting.minutesBefore * 60))
-                } else {
-                    let cal = Calendar.current
-                    formState.reminderDate = cal.date(bySettingHour: setting.hour, minute: setting.minute, second: 0, of: formState.startDate) ?? formState.startDate
-                }
-            }
-        }
         .sheet(isPresented: $isShowingCategorySelection) {
-            CategorySelectionView(selectedCategory: $formState.category)
+            CategorySelectionView(selectedCategory: Binding(
+                get: { formState.category },
+                set: { formState.selectCategory($0) }
+            ))
         }
         .confirmationDialog("この予定を削除しますか？", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("削除", role: .destructive) {

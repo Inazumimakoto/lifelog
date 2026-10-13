@@ -33,38 +33,63 @@ struct PersistenceController {
         Bundle.main.object(forInfoDictionaryKey: "NSExtension") != nil
     }
 
-    /// Explicitly enabled on the simulator only; the shared flag also survives widget/date-link launches.
+    private static var isRunningTests: Bool {
+        let environment = ProcessInfo.processInfo.environment
+        return environment["XCTestConfigurationFilePath"] != nil ||
+            environment["XCTestBundlePath"] != nil ||
+            environment["XCTestSessionIdentifier"] != nil || NSClassFromString("XCTestCase") != nil
+    }
+
+    /// Debug simulator launches use an isolated demo by default. Explicit opt-out
+    /// and XCTest hosts retain the normal store; device/Release never enable it.
     static var isSimulatorDemoMode: Bool {
         #if DEBUG && targetEnvironment(simulator)
+        guard !isRunningTests else { return false }
         guard let defaults = UserDefaults(suiteName: screenshotsAppGroupIdentifier) else { return false }
-        if !isRunningInExtension,
-           ProcessInfo.processInfo.arguments.contains("-simulator-demo-off") {
-            if defaults.bool(forKey: simulatorDemoModeKey) {
-                defaults.removeObject(forKey: simulatorDemoModeKey)
-            }
-            return false
+        let storedPreference = defaults.object(forKey: simulatorDemoModeKey) as? Bool
+        let enabled = simulatorDemoModePreference(
+            arguments: Set(ProcessInfo.processInfo.arguments),
+            storedPreference: storedPreference,
+            isRunningInExtension: isRunningInExtension,
+            isRunningTests: isRunningTests
+        )
+        if !isRunningInExtension, storedPreference != enabled {
+            defaults.set(enabled, forKey: simulatorDemoModeKey)
         }
-        if !isRunningInExtension,
-           ProcessInfo.processInfo.arguments.contains("-simulator-demo-data"),
-           !defaults.bool(forKey: simulatorDemoModeKey) {
-            defaults.set(true, forKey: simulatorDemoModeKey)
-        }
-        return defaults.bool(forKey: simulatorDemoModeKey)
+        return enabled
         #else
         return false
         #endif
     }
 
+    #if DEBUG && targetEnvironment(simulator)
+    static func simulatorDemoModePreference(arguments: Set<String>, storedPreference: Bool?,
+                                           isRunningInExtension: Bool, isRunningTests: Bool) -> Bool {
+        guard !isRunningTests else { return false }
+        if isRunningInExtension { return storedPreference ?? false }
+        if arguments.contains("-simulator-demo-off") { return false }
+        if arguments.contains("-simulator-demo-data") ||
+            !screenshotsLaunchArguments.isDisjoint(with: arguments) { return true }
+        return storedPreference ?? true
+    }
+    #endif
+
     private static var isScreenshotsModeLaunch: Bool {
+        #if DEBUG && targetEnvironment(simulator)
+        guard !isRunningTests else { return false }
         let arguments = Set(ProcessInfo.processInfo.arguments)
+        guard !arguments.contains("-simulator-demo-off") else { return false }
         return screenshotsLaunchArguments.isDisjoint(with: arguments) == false
+        #else
+        return false
+        #endif
     }
 
     /// Active App Group used by app + widgets.
     ///
     /// - App launch:
-    ///   - `-screenshots-mode` -> screenshots group
-    ///   - default -> normal group
+    ///   - Debug simulator demo -> screenshots group, separate demo store
+    ///   - explicit opt-out, device, Release, XCTest -> normal group
     /// - Widget extension:
     ///   - follows the latest app selection stored in shared defaults.
     static var appGroupIdentifier: String {

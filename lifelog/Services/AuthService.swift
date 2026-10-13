@@ -94,6 +94,7 @@ class AuthService: ObservableObject {
     
     /// Apple サインイン結果を処理
     func handleAppleSignIn(result: Result<ASAuthorization, Error>) async {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         isLoading = true
         errorMessage = nil
         
@@ -218,6 +219,7 @@ class AuthService: ObservableObject {
     
     /// ユーザーデータをFirestoreに保存
     func saveUserToFirestore(_ user: LetterUser) async throws {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         let data: [String: Any] = [
             "emoji": user.emoji,
             "displayName": user.displayName,
@@ -234,6 +236,7 @@ class AuthService: ObservableObject {
     
     /// プロフィールを更新
     func updateProfile(emoji: String, displayName: String) async throws {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         guard var user = currentUser else { return }
         
         user.emoji = emoji
@@ -292,6 +295,8 @@ class AuthService: ObservableObject {
     /// 手紙通知設定をFirestoreに保存
     /// Cloud Functionsがプッシュ通知を送信する際に参照
     func updateLetterNotificationEnabled(_ enabled: Bool) async {
+        // Firebase can retain a real session even while demo UI is signed out.
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         guard let userId = Auth.auth().currentUser?.uid else { return }
         
         do {
@@ -308,6 +313,7 @@ class AuthService: ObservableObject {
     
     /// ユーザーをブロック
     func blockUser(_ userId: String) async throws {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         guard let currentUserId = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "AuthService", code: -1, userInfo: [NSLocalizedDescriptionKey: "ログインが必要です"])
         }
@@ -329,6 +335,7 @@ class AuthService: ObservableObject {
 
     /// ユーザーのブロックを解除
     func unblockUser(_ userId: String) async throws {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         guard let currentUserId = Auth.auth().currentUser?.uid else {
             throw NSError(domain: "AuthService", code: -1, userInfo: [NSLocalizedDescriptionKey: "ログインが必要です"])
         }
@@ -359,6 +366,7 @@ class AuthService: ObservableObject {
     ///   同期されているため、削除は他のデバイスにも伝播し、未開封の手紙が二度と
     ///   復号できなくなる可能性がある。UI 側で必ず警告のうえユーザーに選ばせること。
     func signOut(deletingEncryptionKey: Bool = false) throws {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         // 鍵削除を先に行う: サインアウト成功後に鍵削除だけ失敗すると
         // 「削除したつもりで鍵が残る」状態になりユーザーに気づく手段がない
         if deletingEncryptionKey {

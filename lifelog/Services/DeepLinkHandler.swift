@@ -34,6 +34,7 @@ class DeepLinkHandler: ObservableObject {
     
     /// URLを処理
     func handleURL(_ url: URL) {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         // URLはリリースで <private> に伏せられる
         AppLogger.general.debug("Handling URL: \(url)")
 
@@ -99,6 +100,7 @@ class DeepLinkHandler: ObservableObject {
     
     /// 即時友達追加
     func addFriend() {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         guard let linkId = pendingInviteLinkId else { return }
         
         isLoading = true
@@ -132,6 +134,7 @@ class DeepLinkHandler: ObservableObject {
     
     /// サインイン完了後に呼び出し（招待処理を続行）
     func onSignInCompleted() {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         showSignInFlow = false
         
         // 保留中の招待リンクがあれば処理を再開

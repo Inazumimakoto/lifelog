@@ -104,12 +104,14 @@ final class ShoppingConnectionService: ObservableObject {
     }
 
     func showConnection() {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         presentationRequested = true
     }
 
     /// URL data identifies a pending request, never an account or an authorization decision.
     @discardableResult
     func handleApprovalURL(_ url: URL) -> Bool {
+        guard !PersistenceController.isSimulatorDemoMode else { return false }
         guard let id = Self.approvalID(from: url) else { return false }
         if id != approvalRequestID && !queuedApprovalIDs.contains(id) {
             if approvalRequestID == nil { approvalRequestID = id }
@@ -140,6 +142,8 @@ final class ShoppingConnectionService: ObservableObject {
     }
 
     func restoreSession() async {
+        // Demo mode must leave the normal shopping account's Keychain intact.
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         guard (!didRestore || errorMessage != nil), !isBusy else { return }
         isBusy = true
         defer { isBusy = false }
@@ -167,6 +171,7 @@ final class ShoppingConnectionService: ObservableObject {
     }
 
     func prepareAppleChallenge() async {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         guard !isBusy, accountID == nil else { return }
         challenge = nil
         activeAppleChallenge = nil
@@ -191,6 +196,7 @@ final class ShoppingConnectionService: ObservableObject {
     }
 
     func configureAppleRequest(_ request: ASAuthorizationAppleIDRequest) {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         guard let prepared = challenge, prepared.isUsable else {
             activeAppleChallenge = nil
             errorMessage = ConnectionError.expired.localizedDescription
@@ -203,6 +209,7 @@ final class ShoppingConnectionService: ObservableObject {
     }
 
     func finishAppleSignIn(_ result: Result<ASAuthorization, Error>) async {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         let prepared = activeAppleChallenge
         activeAppleChallenge = nil
         challenge = nil
@@ -234,6 +241,7 @@ final class ShoppingConnectionService: ObservableObject {
     }
 
     func logout() async {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         guard !isBusy else { return }
         isBusy = true
         errorMessage = nil
@@ -351,6 +359,7 @@ final class ShoppingConnectionService: ObservableObject {
     }
 
     private func validCredentials(forceRefresh: Bool = false) async throws -> Credentials {
+        guard !PersistenceController.isSimulatorDemoMode else { throw ConnectionError.signInRequired }
         if let pendingKeychainCredentials {
             try SessionKeychain.save(pendingKeychainCredentials)
             self.pendingKeychainCredentials = nil
@@ -412,6 +421,7 @@ final class ShoppingConnectionService: ObservableObject {
     }
 
     private func data(path: String, method: String, token: String?, body: Data?) async throws -> Data {
+        guard !PersistenceController.isSimulatorDemoMode else { throw ConnectionError.unavailable }
         guard path.hasPrefix("/auth/"), let url = URL(string: Self.apiOrigin + path) else { throw ConnectionError.invalidResponse }
         var request = URLRequest(url: url)
         request.httpMethod = method

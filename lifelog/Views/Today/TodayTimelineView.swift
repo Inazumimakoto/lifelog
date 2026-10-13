@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct TodayTimelineView: View {
+    @ObservedObject private var categoryPalette = CategoryPaletteObserver.shared
     var items: [JournalViewModel.TimelineItem]
     var anchorDate: Date
     

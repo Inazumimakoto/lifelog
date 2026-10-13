@@ -132,6 +132,11 @@ final class JournalViewModel: ObservableObject {
     }
 
     private func bind() {
+        // Palette edits change presentation, not cached calendar data.
+        CategoryPalette.changes
+            .sink { [weak self] in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+
         // @Published sends its new value before storage changes. Invalidate the
         // deadline index synchronously so a redraw cannot observe an old snapshot.
         store.$tasks

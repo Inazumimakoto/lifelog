@@ -80,6 +80,7 @@ struct CalendarDetailSnapshot {
 }
 
 struct CalendarDetailPanel: View {
+    @ObservedObject private var categoryPalette = CategoryPaletteObserver.shared
     let snapshot: CalendarDetailSnapshot
     let store: AppDataStore
     let isDiaryTextHidden: Bool
@@ -505,6 +506,7 @@ struct DetailPagerHeightKey: PreferenceKey {
 }
 
 struct TimelineColumnView: View {
+    @ObservedObject private var categoryPalette = CategoryPaletteObserver.shared
     var date: Date
     var items: [JournalViewModel.TimelineItem]
     var isSelected: Bool

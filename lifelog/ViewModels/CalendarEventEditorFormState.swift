@@ -10,6 +10,7 @@ import Combine
 
 /// カレンダーイベントエディターのフォーム状態を管理するクラス
 /// @StateObjectとして使用することで、ビューが再作成されても状態が保持される
+@MainActor
 class CalendarEventEditorFormState: ObservableObject {
     struct Draft: Equatable {
         var title: String
@@ -37,11 +38,25 @@ class CalendarEventEditorFormState: ObservableObject {
     
     private let draftKey: String
     private var isConfigured = false
+    private var isNewEvent = true
+    private var categoryReplacementObservation: AnyCancellable?
 
     init(event: CalendarEvent? = nil, defaultDate: Date = Date()) {
         self.draftKey = Self.makeDraftKey(event: event, defaultDate: defaultDate)
+        CalendarEventEditorDraftCache.startObservingCategoryReplacements()
         configure(event: event, defaultDate: defaultDate)
+        categoryReplacementObservation = CategoryPalette.categoryReplacements
+            .sink { [weak self] replacement in
+                guard let self, self.category == replacement.oldName else { return }
+                // A category rename/deletion only migrates identity. It must
+                // preserve this unsaved event's text, dates, and reminders.
+                self.category = replacement.newName
+            }
     }
+
+    // Match AppDataStore's iOS 26.1 isolated-deinit workaround; Combine handles
+    // cancellation without requiring actor-bound teardown.
+    nonisolated deinit {}
 
     var draft: Draft {
         Draft(title: title,
@@ -60,6 +75,7 @@ class CalendarEventEditorFormState: ObservableObject {
     func configure(event: CalendarEvent?, defaultDate: Date) {
         guard !isConfigured else { return }
         isConfigured = true
+        isNewEvent = event == nil
         
         let calendar = Calendar.current
         let initialStart = event?.startDate ?? calendar.date(bySettingHour: 9, minute: 0, second: 0, of: defaultDate) ?? defaultDate
@@ -121,6 +137,29 @@ class CalendarEventEditorFormState: ObservableObject {
         restoreCachedDraftIfAvailable()
     }
 
+    /// Only an explicit picker selection applies category reminder defaults.
+    /// docs/requirements.md §Settings: management changes also update drafts,
+    /// while retaining the event's independently edited fields.
+    func selectCategory(_ newCategory: String) {
+        guard category != newCategory else { return }
+        category = newCategory
+        guard isNewEvent, NotificationSettingsManager.shared.isEventCategoryNotificationEnabled else { return }
+
+        let setting = NotificationSettingsManager.shared.getOrCreateSetting(for: newCategory)
+        hasReminder = setting.enabled
+        guard setting.enabled else { return }
+        useRelativeReminder = setting.useRelativeTime
+        if setting.useRelativeTime {
+            reminderMinutes = setting.minutesBefore
+            reminderDate = startDate.addingTimeInterval(-Double(setting.minutesBefore * 60))
+        } else {
+            reminderDate = Calendar.current.date(bySettingHour: setting.hour,
+                                                 minute: setting.minute,
+                                                 second: 0,
+                                                 of: startDate) ?? startDate
+        }
+    }
+
     func cacheDraft(detailOverride: String? = nil) {
         var draft = draft
         if let detailOverride {
@@ -172,6 +211,20 @@ class CalendarEventEditorFormState: ObservableObject {
     }
 }
 
+@MainActor
 private enum CalendarEventEditorDraftCache {
     static var drafts: [String: CalendarEventEditorFormState.Draft] = [:]
+    private static var categoryReplacementObservation: AnyCancellable?
+
+    static func startObservingCategoryReplacements() {
+        guard categoryReplacementObservation == nil else { return }
+        // Keep this subscription alive after every editor closes so reopening
+        // a cached draft never resurrects a renamed or deleted category.
+        categoryReplacementObservation = CategoryPalette.categoryReplacements
+            .sink { replacement in
+                for key in Array(drafts.keys) where drafts[key]?.category == replacement.oldName {
+                    drafts[key]?.category = replacement.newName
+                }
+            }
+    }
 }

@@ -71,6 +71,7 @@ struct SettingsView: View {
     
     var body: some View {
         Form {
+            calendarSettingsSection
             appSettingsSection
             
             // ストレージ
@@ -444,14 +445,21 @@ struct SettingsView: View {
         }
     }
 
-    private var appSettingsSection: some View {
-        Section("アプリ設定") {
+    private var calendarSettingsSection: some View {
+        Section("カレンダー") {
             Picker(selection: $calendarWeekStartRawValue) {
                 ForEach(CalendarWeekStart.allCases) { weekStart in
                     Text(weekStart.title).tag(weekStart.rawValue)
                 }
             } label: {
                 Label("calendar.weekStart.title", systemImage: "calendar")
+                    .foregroundStyle(.primary)
+            }
+
+            NavigationLink {
+                CalendarCategoryManagementView(store: store)
+            } label: {
+                Label("calendar.categories.title", systemImage: "tag")
                     .foregroundStyle(.primary)
             }
 
@@ -480,7 +488,11 @@ struct SettingsView: View {
                 }
             }
             .foregroundStyle(.primary)
-            
+        }
+    }
+
+    private var appSettingsSection: some View {
+        Section("アプリ設定") {
             Toggle(isOn: appLockToggleBinding) {
                 Label("アプリロック", systemImage: "lock.fill")
                     .foregroundStyle(.primary)

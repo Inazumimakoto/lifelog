@@ -17,6 +17,8 @@ final class CalendarEventService {
     nonisolated deinit {}
 
     func requestAccessIfNeeded(shouldPrompt: Bool = true) async -> Bool {
+        // Demo data must not request access to or import the device calendars.
+        guard !PersistenceController.isSimulatorDemoMode else { return false }
         let status = EKEventStore.authorizationStatus(for: .event)
         switch status {
         case .fullAccess:
@@ -36,6 +38,7 @@ final class CalendarEventService {
     }
 
     func fetchEvents(from startDate: Date, to endDate: Date) async throws -> [EKEvent] {
+        guard !PersistenceController.isSimulatorDemoMode else { return [] }
         guard Self.hasFullCalendarAccess else { return [] }
         guard startDate <= endDate else { return [] }
 
@@ -45,6 +48,7 @@ final class CalendarEventService {
     }
 
     func refreshCalendarLinks(store: AppDataStore) {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         // Only access calendars if authorized
         guard Self.hasFullCalendarAccess else { return }
         

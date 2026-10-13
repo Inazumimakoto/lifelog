@@ -162,7 +162,14 @@ extension AppDataStore {
     }
 
     func updateCalendarLinks(with calendars: [EKCalendar]) {
-        var links = appState.calendarCategoryLinks
+        // docs/requirements.md §Settings: list only calendars still on this
+        // device, while preserving each calendar's chosen category and order.
+        let availableIdentifiers = Set(calendars.map { $0.calendarIdentifier as String })
+        var seenIdentifiers = Set<String>()
+        var links = appState.calendarCategoryLinks.filter {
+            availableIdentifiers.contains($0.calendarIdentifier) &&
+                seenIdentifiers.insert($0.calendarIdentifier).inserted
+        }
         for calendar in calendars {
             let colorHex = calendar.cgColor?.hexString
             if let index = links.firstIndex(where: { $0.calendarIdentifier == calendar.calendarIdentifier }) {
@@ -224,8 +231,20 @@ extension AppDataStore {
         guard let index = appState.calendarCategoryLinks.firstIndex(where: { $0.calendarIdentifier == calendarIdentifier }) else {
             return
         }
+        guard appState.calendarCategoryLinks[index].categoryId != categoryName else { return }
         appState.calendarCategoryLinks[index].categoryId = categoryName
         persistAppState()
+
+        // Apply selection changes immediately to the cached source events.
+        // EventKit refresh can restore events when a hidden calendar is shown.
+        let updatedEvents = externalCalendarEvents.compactMap { event -> CalendarEvent? in
+            guard event.sourceCalendarIdentifier == calendarIdentifier else { return event }
+            guard let categoryName else { return nil }
+            var updated = event
+            updated.calendarName = categoryName
+            return updated
+        }
+        updateExternalCalendarEvents(updatedEvents)
     }
 
     func renameCalendarCategory(from oldName: String, to newName: String) {

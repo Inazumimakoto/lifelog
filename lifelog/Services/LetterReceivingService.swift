@@ -98,6 +98,8 @@ class LetterReceivingService {
     
     /// 受信した手紙一覧を取得（配信済みのみ）
     func getReceivedLetters() async throws -> [ReceivedLetter] {
+        // Auth.auth() may retain the real account while demo UI stays signed out.
+        guard !PersistenceController.isSimulatorDemoMode else { return [] }
         guard let currentUser = Auth.auth().currentUser else {
             throw ReceiveError.notAuthenticated
         }
@@ -138,6 +140,7 @@ class LetterReceivingService {
     
     /// 未開封の手紙数を取得
     func getUnreadCount() async throws -> Int {
+        guard !PersistenceController.isSimulatorDemoMode else { return 0 }
         guard let currentUser = Auth.auth().currentUser else {
             return 0
         }
@@ -154,6 +157,7 @@ class LetterReceivingService {
     
     /// 手紙を開封して復号
     func openLetter(letterId: String) async throws -> DecryptedLetter {
+        guard !PersistenceController.isSimulatorDemoMode else { throw ReceiveError.notAuthenticated }
         guard let currentUser = Auth.auth().currentUser else {
             throw ReceiveError.notAuthenticated
         }
@@ -331,6 +335,7 @@ class LetterReceivingService {
     
     /// 手紙を削除（開封後のみ）
     func deleteLetter(letterId: String) async throws {
+        guard !PersistenceController.isSimulatorDemoMode else { throw ReceiveError.notAuthenticated }
         guard let currentUser = Auth.auth().currentUser else {
             throw ReceiveError.notAuthenticated
         }

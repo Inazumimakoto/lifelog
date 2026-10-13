@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Combine
 import SwiftUI
 import WidgetKit
 
@@ -267,6 +268,7 @@ extension CGColor {
 }
 
 
+@MainActor
 enum CategoryPalette {
     struct CustomCategory: Codable, Hashable, Identifiable {
         var name: String
@@ -280,6 +282,23 @@ enum CategoryPalette {
     private static let sharedDefaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier)
     private static var cachedCategoriesData: Data?
     private static var cachedCategories: [String: String]?
+    private static let changesSubject = PassthroughSubject<Void, Never>()
+    private static let categoryReplacementsSubject = PassthroughSubject<(oldName: String, newName: String), Never>()
+
+    /// Category colors are presentation inputs even when event/category names do
+    /// not change. Publish after storage updates so observers read the new color.
+    static var changes: AnyPublisher<Void, Never> {
+        changesSubject.eraseToAnyPublisher()
+    }
+
+    static var categoryReplacements: AnyPublisher<(oldName: String, newName: String), Never> {
+        categoryReplacementsSubject.eraseToAnyPublisher()
+    }
+
+    static func notifyCategoryReplacement(from oldName: String, to newName: String) {
+        guard oldName != newName else { return }
+        categoryReplacementsSubject.send((oldName: oldName, newName: newName))
+    }
 
     private static let defaultCategories: [String: String] = [
         "仕事": "orange", "趣味": "green", "旅行": "blue"
@@ -288,18 +307,18 @@ enum CategoryPalette {
     static let colorChoices: [String] = AppColorPalette.presets
 
     static func initializeIfNeeded() {
-        var currentCategories = allCategoriesMapping()
-        var madeChanges = false
-        for (name, color) in defaultCategories {
-            if currentCategories[name] == nil {
-                currentCategories[name] = color
-                madeChanges = true
-            }
+        // Seed a new installation once. Deleted or renamed built-in categories
+        // are user choices and must not be restored on the next launch.
+        if let data = sharedDefaults?.data(forKey: storageKey),
+           decodedCategories(from: data) != nil {
+            return
         }
-        
-        if madeChanges {
-            persist(map: currentCategories)
+        if let data = defaults.data(forKey: storageKey),
+           decodedCategories(from: data) != nil {
+            sharedDefaults?.set(data, forKey: storageKey)
+            return
         }
+        persist(map: defaultCategories, force: true)
     }
 
     static func color(for name: String) -> Color {
@@ -371,13 +390,15 @@ enum CategoryPalette {
         return decoded
     }
 
-    private static func persist(map: [String: String]) {
+    private static func persist(map: [String: String], force: Bool = false) {
+        guard force || map != allCategoriesMapping() else { return }
         if let data = try? JSONEncoder().encode(map) {
             cachedCategoriesData = data
             cachedCategories = map
             defaults.set(data, forKey: storageKey)
             sharedDefaults?.set(data, forKey: storageKey)
             WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
+            changesSubject.send()
         }
     }
 
@@ -393,6 +414,21 @@ enum CategoryPalette {
         return categories.keys.sorted().first ?? "仕事"
     }
 
+}
+
+/// Child views can keep their event inputs unchanged while independently
+/// observing category colors. This does not rebuild calendar data or view state.
+@MainActor
+final class CategoryPaletteObserver: ObservableObject {
+    static let shared = CategoryPaletteObserver()
+    let objectWillChange = ObservableObjectPublisher()
+
+    private var observation: AnyCancellable?
+
+    private init() {
+        observation = CategoryPalette.changes
+            .sink { [weak self] in self?.objectWillChange.send() }
+    }
 }
 
 enum BuiltInDisplayName {

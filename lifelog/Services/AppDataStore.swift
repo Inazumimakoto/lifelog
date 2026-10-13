@@ -61,12 +61,20 @@ final class AppDataStore: ObservableObject {
     private var healthLoadTask: _Concurrency.Task<Bool, Never>?
     private var healthAuthorizationTask: _Concurrency.Task<Bool, Never>?
     private var needsHealthPersistence = false
+    private var categoryPaletteObservation: AnyCancellable?
 
     // Avoid Swift's implicit isolated-deinit back-deployment crash on iOS 26.1.
     // Same workaround as ShoppingStore; no custom actor-bound teardown is needed.
     nonisolated deinit {}
 
     // MARK: - Legacy Persistence Keys
+    #if DEBUG && targetEnvironment(simulator)
+    func reloadSimulatorDemoHealthSummaries() throws {
+        healthSummaries = try modelContext.fetch(FetchDescriptor<SDHealthSummary>())
+            .map { HealthSummary(sd: $0) }
+    }
+    #endif
+
     static let tasksDefaultsKey = "Tasks_Storage_V1"
     static let diaryDefaultsKey = "DiaryEntries_Storage_V1"
     static let habitsDefaultsKey = "Habits_Storage_V1"
@@ -128,12 +136,18 @@ final class AppDataStore: ObservableObject {
         let container = container ?? PersistenceController.shared.container
         self.modelContext = container.mainContext
 #if DEBUG
-        let shoppingStore = ShoppingStore(container: container, supportsShoppingSync: startsBackgroundServices)
+        let shoppingStore = ShoppingStore(container: container,
+                                          supportsShoppingSync: startsBackgroundServices && !PersistenceController.isSimulatorDemoMode)
         self.shoppingStore = shoppingStore
         self.shoppingSync = ShoppingSyncService(store: shoppingStore)
 #else
         self.shoppingStore = ShoppingStore(container: container)
 #endif
+
+        // docs/ui-guidelines.md §カレンダー: color-only edits must refresh rows
+        // without rewriting events or fetching the external calendar again.
+        categoryPaletteObservation = CategoryPalette.changes
+            .sink { [weak self] in self?.objectWillChange.send() }
 
         // 1. Run Migration (if needed)
         if startsBackgroundServices && !PersistenceController.isSimulatorDemoMode {
@@ -230,9 +244,6 @@ final class AppDataStore: ObservableObject {
         #if DEBUG && targetEnvironment(simulator)
         if PersistenceController.isSimulatorDemoMode {
             seedSimulatorDemoDataIfNeeded()
-        } else if !Self.screenshotsModeLaunchArguments.isDisjoint(with: Set(ProcessInfo.processInfo.arguments)) {
-            seedSampleDataIfNeeded()
-            seedJapaneseScheduleForScreenshotsIfNeeded()
         }
         #endif
         _Concurrency.Task {

@@ -96,6 +96,9 @@ final class TodayViewModel: ObservableObject {
         observe(store.$diaryEntries, refreshing: .diary)
         observe(store.$memoPad, refreshing: .memo)
         observe($date, refreshing: .all)
+        CategoryPalette.changes
+            .sink { [weak self] in self?.objectWillChange.send() }
+            .store(in: &cancellables)
     }
 
     private func observe<P: Publisher>(_ publisher: P, refreshing scope: RefreshScope)
@@ -256,6 +259,7 @@ final class TodayViewModel: ObservableObject {
         anchorDate: Date? = nil,
         allowPermissionPrompt: Bool = false
     ) async {
+        guard !PersistenceController.isSimulatorDemoMode else { return }
         let calendar = Calendar.current
         let anchor = anchorDate ?? date
         guard ExternalCalendarSyncPolicy.shouldSync(anchor: anchor,
