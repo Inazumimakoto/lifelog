@@ -13,6 +13,9 @@ final class CalendarEventService {
     private let eventStore = EKEventStore()
     private static let eventQuery = CalendarEventQueryCoordinator()
 
+    // Match AppDataStore's workaround for isolated teardown on iOS 26.1.
+    nonisolated deinit {}
+
     func requestAccessIfNeeded(shouldPrompt: Bool = true) async -> Bool {
         let status = EKEventStore.authorizationStatus(for: .event)
         switch status {

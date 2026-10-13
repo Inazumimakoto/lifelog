@@ -8,9 +8,10 @@
 import Foundation
 import Combine
 import SwiftUI
+import UIKit
 
-struct HabitHeatCell: Identifiable, Hashable {
-    enum State: String, Hashable {
+nonisolated struct HabitHeatCell: Identifiable, Hashable, Sendable {
+    enum State: String, Hashable, Sendable {
         case inactive
         case pending
         case completed
@@ -37,7 +38,7 @@ struct HabitDaySummary: Identifiable, Hashable {
 @MainActor
 final class HabitsViewModel: ObservableObject {
 
-    struct HabitWeekStatus: Identifiable {
+    struct HabitWeekStatus: Identifiable, Equatable {
         let habit: Habit
         let dates: [Date]
         let records: [Date: HabitRecord]
@@ -53,7 +54,7 @@ final class HabitsViewModel: ObservableObject {
         }
     }
 
-    private struct HabitStreakSnapshot {
+    private struct HabitStreakSnapshot: Equatable {
         let current: Int
         let best: Int
     }
@@ -70,12 +71,28 @@ final class HabitsViewModel: ObservableObject {
     private var pendingAnimation: Animation?
     private var recordsLookupCache: [UUID: [Date: HabitRecord]] = [:]
     private var streakSnapshots: [UUID: HabitStreakSnapshot] = [:]
+    private var allHabits: [Habit] = []
+    private var projectionDay: Date?
+    private var projectionCalendar = Calendar.current
+    private var startOfYear = Date.distantPast
+    private var startOfMonth = Date.distantPast
+    private var yearlyRate = HabitAggregateProjection.Rate()
+    private var monthlyRate = HabitAggregateProjection.Rate()
+    private var refreshGeneration = 0
+    private var refreshTask: _Concurrency.Task<Void, Never>?
+    private var projectionTask: _Concurrency.Task<HabitAggregateProjection, Never>?
+    private var pendingCompletionDays: [UUID: Set<Date>] = [:]
 
     private let store: AppDataStore
+    private let dateProvider: () -> Date
     private var cancellables = Set<AnyCancellable>()
 
-    init(store: AppDataStore, referenceDate: Date = Date()) {
+    // Match AppDataStore's workaround for Swift's isolated-deinit back-deployment crash.
+    nonisolated deinit {}
+
+    init(store: AppDataStore, referenceDate: Date = Date(), dateProvider: @escaping () -> Date = { Date() }) {
         self.store = store
+        self.dateProvider = dateProvider
         self.weekDates = Self.makeWeekDates(around: referenceDate)
         bind()
         refresh()
@@ -90,39 +107,200 @@ final class HabitsViewModel: ObservableObject {
     private func bind() {
         store.$habits
             .removeDuplicates()
-            .combineLatest(store.$habitRecords.removeDuplicates())
-            // init already refreshes; one store operation can publish both sources.
             .dropFirst()
-            .debounce(for: .zero, scheduler: DispatchQueue.main)
-            .sink { [weak self] _, _ in
-                self?.refresh()
+            .sink { [weak self] habits in
+                // @Published sends before storage changes; use its new value.
+                self?.refresh(allHabits: habits)
             }
+            .store(in: &cancellables)
+
+        store.habitRecordChanges
+            .sink { [weak self] change in
+                switch change {
+                case .reset:
+                    self?.refresh()
+                case .completion(let habitID, let day):
+                    self?.updateCompletion(for: habitID, on: day)
+                }
+            }
+            .store(in: &cancellables)
+
+        NotificationCenter.default.publisher(for: .NSCalendarDayChanged)
+            .merge(with: NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification),
+                   NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification))
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.refreshForCurrentDayIfNeeded() }
             .store(in: &cancellables)
     }
 
-    private func refresh() {
-        let updates = { [self] in
-            let recordsLookup = HabitRecordIndex.latestRecordsByHabit(from: self.store.habitRecords)
-            self.recordsLookupCache = recordsLookup
+    private func refresh(allHabits newHabits: [Habit]? = nil) {
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: dateProvider())
+        if let projectionDay, projectionDay != today || projectionCalendar != calendar {
+            weekDates = Self.makeWeekDates(around: today)
+        }
+        projectionDay = today
+        projectionCalendar = calendar
+        allHabits = newHabits ?? store.habits
+        recordsLookupCache = store.latestHabitRecordsByHabit()
+        // Metadata and day changes invalidate the meaning of the old snapshot.
+        // Accessors use the fresh record cache until the worker supplies a new one.
+        streakSnapshots = [:]
+        let activeHabits = allHabits.filter { !$0.isArchived }
+        if habits != activeHabits { habits = activeHabits }
+        let newStatuses = activeHabits.map {
+            HabitWeekStatus(habit: $0, dates: weekDates, records: recordsLookupCache[$0.id] ?? [:])
+        }
+        if statuses != newStatuses { statuses = newStatuses }
 
-            // Filter out archived habits - only show active ones
-            self.habits = self.store.habits.filter { !$0.isArchived }
-            self.statuses = self.habits.map { habit in
-                let recordsDictionary = recordsLookup[habit.id] ?? [:]
-                return HabitWeekStatus(habit: habit, dates: weekDates, records: recordsDictionary)
+        // Only complete rebuilds need all history. Completion events below keep
+        // these caches ready while the tab is hidden (docs/requirements.md §4.6).
+        let snapshots = allHabits.map { snapshot(for: $0, records: recordsLookupCache[$0.id] ?? [:], calendar: calendar) }
+        refreshGeneration += 1
+        let generation = refreshGeneration
+        pendingCompletionDays = [:]
+        refreshTask?.cancel()
+        projectionTask?.cancel()
+        let work = _Concurrency.Task.detached(priority: .userInitiated) {
+            HabitAggregateProjection.build(habits: snapshots, today: today, calendar: calendar)
+        }
+        projectionTask = work
+        refreshTask = _Concurrency.Task { [weak self] in
+            let result = await work.value
+            guard !_Concurrency.Task.isCancelled, let self,
+                  self.refreshGeneration == generation else { return }
+            self.apply(result)
+            self.projectionTask = nil
+            self.refreshTask = nil
+
+            // A checkbox can change while the full value snapshot is building.
+            // Replay only those cells against the current store-backed lookup.
+            let pending = self.pendingCompletionDays
+            self.pendingCompletionDays = [:]
+            for (habitID, days) in pending {
+                for day in days { self.updateProjection(for: habitID, on: day) }
             }
-            self.rebuildHeatmaps(with: recordsLookup)
-            self.rebuildStreakSnapshots(with: recordsLookup)
+        }
+    }
+
+    private func apply(_ projection: HabitAggregateProjection) {
+        let habitsByID = Dictionary(uniqueKeysWithValues: allHabits.map { ($0.id, $0) })
+        let newStreakSnapshots = projection.streaks.mapValues { HabitStreakSnapshot(current: $0.current, best: $0.best) }
+        if streakSnapshots != newStreakSnapshots {
+            objectWillChange.send()
+            streakSnapshots = newStreakSnapshots
+        }
+        // Keep domain models on the main actor; the worker only passes habit IDs.
+        var datedSummaries: [Date: HabitDaySummary] = [:]
+        datedSummaries.reserveCapacity(projection.yearlySummaries.count)
+        for (day, summary) in projection.yearlySummaries {
+            datedSummaries[day] = HabitDaySummary(date: day,
+                                                scheduledHabits: summary.scheduledIDs.compactMap { habitsByID[$0] },
+                                                completedHabits: summary.completedIDs.compactMap { habitsByID[$0] })
+        }
+        if yearStartDate != projection.yearStartDate { yearStartDate = projection.yearStartDate }
+        if yearlySummaries != datedSummaries { yearlySummaries = datedSummaries }
+        if miniHeatmaps != projection.miniHeatmaps { miniHeatmaps = projection.miniHeatmaps }
+        startOfYear = projection.startOfYear
+        startOfMonth = projection.startOfMonth
+        yearlyRate = projection.yearlyRate
+        monthlyRate = projection.monthlyRate
+        publishAverageRates()
+    }
+
+    private func updateCompletion(for habitID: UUID, on date: Date) {
+        refreshForCurrentDayIfNeeded()
+        let day = projectionCalendar.startOfDay(for: date)
+        let records = store.latestHabitRecords(for: habitID)
+        let previousRecords = recordsLookupCache[habitID] ?? [:]
+        guard records[day] != previousRecords[day] else {
+            pendingAnimation = nil
+            return
+        }
+        recordsLookupCache[habitID] = records
+        let updates = { [self] in
+            if let index = statuses.firstIndex(where: { $0.id == habitID }) {
+                statuses[index] = HabitWeekStatus(habit: statuses[index].habit, dates: weekDates, records: records)
+            }
+            updateProjection(for: habitID, on: day)
         }
 
         if let animation = pendingAnimation {
-            withAnimation(animation) {
-                updates()
-            }
+            withAnimation(animation) { updates() }
             pendingAnimation = nil
         } else {
             updates()
         }
+        if refreshTask != nil { pendingCompletionDays[habitID, default: []].insert(day) }
+    }
+
+    private func updateProjection(for habitID: UUID, on day: Date) {
+        let records = recordsLookupCache[habitID] ?? [:]
+        if let habit = habits.first(where: { $0.id == habitID }) {
+            let today = projectionDay ?? projectionCalendar.startOfDay(for: dateProvider())
+            if let index = miniHeatmaps[habitID]?.firstIndex(where: { $0.date == day }) {
+                let state: HabitHeatCell.State = day > today || !habit.schedule.isActive(on: day)
+                    ? .inactive : (records[day]?.isCompleted == true ? .completed : .pending)
+                let cell = HabitHeatCell(date: day, state: state, isToday: day == today)
+                if miniHeatmaps[habitID]?[index] != cell { miniHeatmaps[habitID]?[index] = cell }
+            }
+            let current = Self.calculateCurrentStreak(for: habit, asOf: today, records: records, calendar: projectionCalendar)
+            let best = calculateMaxStreak(for: habit, asOf: today, records: records, calendar: projectionCalendar)
+            let snapshot = HabitStreakSnapshot(current: current, best: max(best, current))
+            if streakSnapshots[habitID] != snapshot {
+                objectWillChange.send()
+                streakSnapshots[habitID] = snapshot
+            }
+        }
+
+        guard let previous = yearlySummaries[day], previous.scheduledHabits.contains(where: { $0.id == habitID }) else { return }
+        let previousIDs = Set(previous.completedHabits.map(\.id))
+        let completed = previous.scheduledHabits.filter {
+            $0.id == habitID ? records[day]?.isCompleted == true : previousIDs.contains($0.id)
+        }
+        guard completed != previous.completedHabits else { return }
+        let summary = HabitDaySummary(date: day, scheduledHabits: previous.scheduledHabits, completedHabits: completed)
+        yearlySummaries[day] = summary
+        let delta = Double(summary.completedCount - previous.completedCount) / Double(summary.scheduledCount)
+        if day >= startOfYear { yearlyRate.total += delta }
+        if day >= startOfMonth { monthlyRate.total += delta }
+        publishAverageRates()
+    }
+
+    private func publishAverageRates() {
+        if yearlyAverageRate != yearlyRate.average { yearlyAverageRate = yearlyRate.average }
+        if monthlyAverageRate != monthlyRate.average { monthlyAverageRate = monthlyRate.average }
+    }
+
+    func refreshForCurrentDayIfNeeded() {
+        let calendar = Calendar.current
+        guard projectionDay != calendar.startOfDay(for: dateProvider()) || projectionCalendar != calendar else { return }
+        refresh()
+    }
+
+    /// Allows callers/tests that need the initial aggregate to await its publication.
+    func awaitPendingRefresh() async {
+        while let refreshTask { await refreshTask.value }
+    }
+
+    private func snapshot(for habit: Habit, records: [Date: HabitRecord], calendar: Calendar) -> HabitAggregateProjection.HabitSnapshot {
+        let weekdays: Set<Int>
+        switch habit.schedule {
+        case .daily:
+            weekdays = Set(1...7)
+        case .weekdays:
+            weekdays = Set(Self.makeWeekDates(around: dateProvider()).filter { !calendar.isDateInWeekend($0) }.map {
+                calendar.component(.weekday, from: $0)
+            })
+        case .custom(let days):
+            weekdays = Set(days.map(\.rawValue))
+        }
+        return HabitAggregateProjection.HabitSnapshot(id: habit.id,
+                                                       createdDay: calendar.startOfDay(for: habit.createdAt),
+                                                       archivedDay: habit.archivedAt.map { calendar.startOfDay(for: $0) },
+                                                       isArchived: habit.isArchived,
+                                                       activeWeekdays: weekdays,
+                                                       completedDays: Set(records.compactMap { $0.value.isCompleted ? $0.key : nil }))
     }
 
     func toggle(habit: Habit, on date: Date) {
@@ -152,19 +330,14 @@ final class HabitsViewModel: ObservableObject {
     }
 
     func monthlyCompletionCount(for habit: Habit, in month: Date = Date()) -> Int {
-        let calendar = Calendar.current
-        return store.habitRecords.filter {
-            $0.habitID == habit.id &&
-            $0.isCompleted &&
-            calendar.isDate($0.date, equalTo: month, toGranularity: .month)
-        }.count
+        store.habitCompletionCount(for: habit.id, in: month)
     }
 
     func currentStreak(for habit: Habit, asOf date: Date = Date()) -> Int {
         let calendar = Calendar.current
         let targetDay = calendar.startOfDay(for: date)
-        let today = calendar.startOfDay(for: Date())
-        if targetDay == today, let snapshot = streakSnapshots[habit.id] {
+        let today = calendar.startOfDay(for: dateProvider())
+        if targetDay == today, projectionDay == today, let snapshot = streakSnapshots[habit.id] {
             return snapshot.current
         }
 
@@ -175,8 +348,8 @@ final class HabitsViewModel: ObservableObject {
     func maxStreak(for habit: Habit, asOf date: Date = Date()) -> Int {
         let calendar = Calendar.current
         let targetDay = calendar.startOfDay(for: date)
-        let today = calendar.startOfDay(for: Date())
-        if targetDay == today, let snapshot = streakSnapshots[habit.id] {
+        let today = calendar.startOfDay(for: dateProvider())
+        if targetDay == today, projectionDay == today, let snapshot = streakSnapshots[habit.id] {
             return snapshot.best
         }
 
@@ -195,29 +368,7 @@ final class HabitsViewModel: ObservableObject {
         return yearlySummaries[day]
     }
 
-    // MARK: - Heatmap Builders
-
-    private func rebuildHeatmaps(with recordsLookup: [UUID: [Date: HabitRecord]]) {
-        computeYearlyHeatmap(with: recordsLookup)
-        computeMiniHeatmaps(with: recordsLookup)
-        computeAverageRates()
-    }
-
-    private func rebuildStreakSnapshots(with recordsLookup: [UUID: [Date: HabitRecord]]) {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        var map: [UUID: HabitStreakSnapshot] = [:]
-        map.reserveCapacity(habits.count)
-
-        for habit in habits {
-            let records = recordsLookup[habit.id] ?? [:]
-            let current = Self.calculateCurrentStreak(for: habit, asOf: today, records: records, calendar: calendar)
-            let longest = calculateMaxStreak(for: habit, asOf: today, records: records, calendar: calendar)
-            map[habit.id] = HabitStreakSnapshot(current: current, best: max(longest, current))
-        }
-
-        streakSnapshots = map
-    }
+    // MARK: - Streak Calculations
 
     static func calculateCurrentStreak(
         for habit: Habit,
@@ -280,94 +431,4 @@ final class HabitsViewModel: ObservableObject {
         return longest
     }
 
-    private func computeYearlyHeatmap(with recordsLookup: [UUID: [Date: HabitRecord]]) {
-        let calendar = Calendar.current
-        let startOfCurrentWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: Date())) ?? calendar.startOfDay(for: Date())
-        let weeks = 53
-        guard let start = calendar.date(byAdding: .weekOfYear, value: -(weeks - 1), to: startOfCurrentWeek) else { return }
-
-        // Use ALL habits (including archived) for historical data display
-        let allHabits = store.habits
-        
-        var map: [Date: HabitDaySummary] = [:]
-        for offset in 0..<(weeks * 7) {
-            guard let date = calendar.date(byAdding: .day, value: offset, to: start) else { continue }
-            let day = calendar.startOfDay(for: date)
-            
-            // Filter habits that were active on this specific day
-            // A habit is active if: createdAt <= day AND (archivedAt is nil OR archivedAt > day)
-            let activeHabitsOnDay = allHabits.filter { habit in
-                let createdDay = calendar.startOfDay(for: habit.createdAt)
-                guard createdDay <= day else { return false }
-                if let archivedAt = habit.archivedAt {
-                    let archivedDay = calendar.startOfDay(for: archivedAt)
-                    return day < archivedDay
-                }
-                return true
-            }
-            
-            let scheduled = activeHabitsOnDay.filter { $0.schedule.isActive(on: day) }
-            let completed = scheduled.filter { recordsLookup[$0.id]?[day]?.isCompleted == true }
-            map[day] = HabitDaySummary(date: day,
-                                       scheduledHabits: scheduled,
-                                       completedHabits: completed)
-        }
-
-        yearStartDate = start
-        yearWeekCount = weeks
-        yearlySummaries = map
-    }
-
-    private func computeMiniHeatmaps(with recordsLookup: [UUID: [Date: HabitRecord]]) {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let weeksToShow = 10
-        let startOfCurrentWeek = calendar.date(from: calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: today)) ?? today
-        guard let start = calendar.date(byAdding: .weekOfYear, value: -(weeksToShow - 1), to: startOfCurrentWeek) else { return }
-        let totalDays = weeksToShow * 7
-
-        var map: [UUID: [HabitHeatCell]] = [:]
-
-        for habit in habits {
-            var cells: [HabitHeatCell] = []
-            for offset in 0..<totalDays {
-                guard let date = calendar.date(byAdding: .day, value: offset, to: start) else { continue }
-                let day = calendar.startOfDay(for: date)
-                let isFuture = day > today
-                let isActive = habit.schedule.isActive(on: day)
-                if isActive == false || isFuture {
-                    cells.append(HabitHeatCell(date: day, state: .inactive, isToday: calendar.isDate(day, inSameDayAs: today)))
-                    continue
-                }
-
-                let isDone = recordsLookup[habit.id]?[day]?.isCompleted == true
-                cells.append(HabitHeatCell(date: day,
-                                           state: isDone ? .completed : .pending,
-                                           isToday: calendar.isDate(day, inSameDayAs: today)))
-            }
-            map[habit.id] = cells
-        }
-
-        miniHeatmaps = map
-    }
-
-    private func computeAverageRates() {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: Date())
-        let startOfYear = calendar.date(from: calendar.dateComponents([.year], from: today)) ?? today
-        let startOfMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: today)) ?? today
-
-        let summaries = yearlySummaries.values
-        func averageRate(from collection: [HabitDaySummary]) -> Double {
-            let eligible = collection.filter { $0.scheduledCount > 0 }
-            guard eligible.isEmpty == false else { return 0 }
-            let total = eligible.reduce(0.0) { partial, summary in
-                partial + Double(summary.completedCount) / Double(summary.scheduledCount)
-            }
-            return total / Double(eligible.count)
-        }
-
-        yearlyAverageRate = averageRate(from: summaries.filter { $0.date >= startOfYear })
-        monthlyAverageRate = averageRate(from: summaries.filter { $0.date >= startOfMonth })
-    }
 }

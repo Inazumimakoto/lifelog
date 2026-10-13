@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import Combine
 import SwiftData
 import SwiftUI
 import WidgetKit
@@ -13,41 +14,60 @@ extension AppDataStore {
     // MARK: - Habits
 
     func records(for date: Date) -> [HabitRecord] {
-        habitRecords.filter { Calendar.current.isDate($0.date, inSameDayAs: date) }
+        indexedHabitRecords().records(on: date, from: habitRecords)
+    }
+
+    func firstHabitRecords(on date: Date) -> [UUID: HabitRecord] {
+        indexedHabitRecords().firstRecords(on: date, from: habitRecords)
+    }
+
+    func firstHabitRecord(for habitID: UUID, on date: Date) -> HabitRecord? {
+        indexedHabitRecords().firstIndex(for: habitID, on: date).map { habitRecords[$0] }
+    }
+
+    func latestHabitRecords(for habitID: UUID) -> [Date: HabitRecord] {
+        indexedHabitRecords().latestByHabit[habitID] ?? [:]
+    }
+
+    func latestHabitRecordsByHabit() -> [UUID: [Date: HabitRecord]] {
+        indexedHabitRecords().latestByHabit
+    }
+
+    func habitCompletionCount(for habitID: UUID) -> Int {
+        indexedHabitRecords().completionCount(for: habitID)
+    }
+
+    func habitCompletionCount(for habitID: UUID, in month: Date) -> Int {
+        indexedHabitRecords().completionCount(for: habitID, in: month)
+    }
+
+    private func indexedHabitRecords(calendar: Calendar = .current) -> HabitRecordLookup {
+        if let lookup = habitRecordLookup, lookup.calendar == calendar { return lookup }
+        let lookup = HabitRecordLookup(records: habitRecords, calendar: calendar)
+        habitRecordLookup = lookup
+        return lookup
     }
 
     func toggleHabit(_ habitID: UUID, on date: Date) {
         let calendar = Calendar.current
         let dateDay = calendar.startOfDay(for: date)
 
-        // Build the history index once; scanning every record for each streak
-        // day made long-running habits block checkbox feedback on the main actor.
-        var completedDays = HabitCompletionQuery.completedDays(for: habitID,
-                                                                from: habitRecords,
-                                                                calendar: calendar)
+        // docs/requirements.md §6: a checkbox edit touches its habit/day only.
+        let lookup = indexedHabitRecords(calendar: calendar)
         let streakBefore = HabitCompletionQuery.currentDailyStreak(upTo: date,
-                                                                  completedDays: completedDays,
+                                                                  completedDays: lookup.completedDays(for: habitID),
                                                                   calendar: calendar)
-        var isCompleting = true
-
-        if let index = habitRecords.firstIndex(where: {
-            $0.habitID == habitID && Calendar.current.isDate($0.date, inSameDayAs: date)
-        }) {
-            isCompleting = !habitRecords[index].isCompleted
-            habitRecords[index].isCompleted.toggle()
-        } else {
-            let record = HabitRecord(habitID: habitID, date: date, isCompleted: true)
-            habitRecords.append(record)
-        }
+        let isCompleting = lookup.firstIndex(for: habitID, on: date)
+            .map { !habitRecords[$0].isCompleted } ?? true
 
         if isCompleting { backdateHabitCreationIfNeeded(habitID, on: dateDay, calendar: calendar) }
+        updateHabitCompletion(habitID, on: date, completed: isCompleting, lookup: lookup)
         persistHabitCompletion(habitID, on: date, calendar: calendar)
 
         // Haptic feedback
         if isCompleting {
-            completedDays.insert(dateDay)
             let streakAfter = HabitCompletionQuery.currentDailyStreak(upTo: date,
-                                                                     completedDays: completedDays,
+                                                                     completedDays: lookup.completedDays(for: habitID),
                                                                      calendar: calendar)
             if streakAfter > streakBefore && streakAfter >= 3 {
                 // 3日以上の連続達成更新時は特別なハプティック
@@ -99,9 +119,7 @@ extension AppDataStore {
         let activeHabits = habits.filter { !$0.isArchived && $0.schedule.isActive(on: date) }
         guard !activeHabits.isEmpty else { return }
 
-        let completedIDs = HabitCompletionQuery.completedHabitIDs(on: date,
-                                                                  from: habitRecords,
-                                                                  calendar: calendar)
+        let completedIDs = indexedHabitRecords(calendar: calendar).completedHabitIDs(on: date)
         let allComplete = activeHabits.allSatisfy { completedIDs.contains($0.id) }
 
         if allComplete {
@@ -115,16 +133,31 @@ extension AppDataStore {
 
         if completed { backdateHabitCreationIfNeeded(habitID, on: dateDay, calendar: calendar) }
 
-        if let index = habitRecords.firstIndex(where: {
-            $0.habitID == habitID && Calendar.current.isDate($0.date, inSameDayAs: date)
-        }) {
-            habitRecords[index].isCompleted = completed
-        } else if completed {
-            let record = HabitRecord(habitID: habitID, date: date, isCompleted: true)
-            habitRecords.append(record)
-        }
-
+        updateHabitCompletion(habitID, on: date, completed: completed,
+                              lookup: indexedHabitRecords(calendar: calendar))
         persistHabitCompletion(habitID, on: date, calendar: calendar)
+    }
+
+    private func updateHabitCompletion(_ habitID: UUID, on date: Date, completed: Bool,
+                                      lookup: HabitRecordLookup) {
+        if let index = lookup.firstIndex(for: habitID, on: date) {
+            let previous = habitRecords[index]
+            guard previous.isCompleted != completed else { return }
+            var record = previous
+            record.isCompleted = completed
+            isUpdatingHabitCompletion = true
+            habitRecords[index] = record
+            lookup.updateCompletion(record, replacing: previous, at: index)
+        } else {
+            guard completed else { return }
+            let record = HabitRecord(habitID: habitID, date: date, isCompleted: true)
+            let index = habitRecords.count
+            isUpdatingHabitCompletion = true
+            habitRecords.append(record)
+            lookup.append(record, at: index)
+        }
+        isUpdatingHabitCompletion = false
+        habitRecordChanges.send(.completion(habitID: habitID, day: lookup.calendar.startOfDay(for: date)))
     }
 
     private func backdateHabitCreationIfNeeded(_ habitID: UUID, on dateDay: Date, calendar: Calendar) {
@@ -135,9 +168,8 @@ extension AppDataStore {
 
     /// Both completion entry points keep the first record for the day and its ID.
     private func persistHabitCompletion(_ habitID: UUID, on date: Date, calendar: Calendar) {
-        if let updatedRecord = habitRecords.first(where: {
-            $0.habitID == habitID && calendar.isDate($0.date, inSameDayAs: date)
-        }) {
+        if let recordIndex = indexedHabitRecords(calendar: calendar).firstIndex(for: habitID, on: date) {
+            let updatedRecord = habitRecords[recordIndex]
             let recordID = updatedRecord.id
             let descriptor = FetchDescriptor<SDHabitRecord>(predicate: #Predicate { $0.id == recordID })
             if let existingRecord = try? modelContext.fetch(descriptor).first {

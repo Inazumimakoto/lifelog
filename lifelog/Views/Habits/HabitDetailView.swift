@@ -195,9 +195,7 @@ struct HabitDetailView: View {
     }
 
     private func record(on date: Date) -> HabitRecord? {
-        store.habitRecords.first {
-            $0.habitID == currentHabit.id && calendar.isDate($0.date, inSameDayAs: date)
-        }
+        store.firstHabitRecord(for: currentHabit.id, on: date)
     }
 
     private func buildCells(days: Int) -> [HabitHeatCell] {
@@ -268,7 +266,7 @@ struct HabitDetailView: View {
     }
 
     private func totalCompletions() -> Int {
-        store.habitRecords.filter { $0.habitID == currentHabit.id && $0.isCompleted }.count
+        store.habitCompletionCount(for: currentHabit.id)
     }
 }
 

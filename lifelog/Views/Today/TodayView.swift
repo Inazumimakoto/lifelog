@@ -556,17 +556,7 @@ struct TodayView: View {
                                 viewModel.toggleHabit(status.habit)
                             }
                         } label: {
-                            HStack {
-                                Label(status.habit.title, systemImage: status.habit.iconName)
-                                    .foregroundStyle(Color(hex: status.habit.colorHex) ?? .accentColor)
-                                Spacer()
-                                AnimatedCheckmark(
-                                    isCompleted: status.isCompleted,
-                                    color: Color(hex: status.habit.colorHex) ?? .accentColor,
-                                    size: 26
-                                )
-                            }
-                            .contentShape(Rectangle())
+                            TodayHabitRow(status: status)
                         }
                         .buttonStyle(.plain)
                     }

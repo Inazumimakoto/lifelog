@@ -23,7 +23,14 @@ final class AppDataStore: ObservableObject {
     @Published var tasks: [Task] = []
     @Published var diaryEntries: [DiaryEntry] = []
     @Published var habits: [Habit] = []
-    @Published var habitRecords: [HabitRecord] = []
+    @Published var habitRecords: [HabitRecord] = [] {
+        didSet {
+            // Bulk loading/replacement needs a new index; checkbox edits update it in place.
+            guard !isUpdatingHabitCompletion else { return }
+            habitRecordLookup = nil
+            habitRecordChanges.send(.reset)
+        }
+    }
     @Published var anniversaries: [Anniversary] = []
     @Published private(set) var healthSummaries: [HealthSummary] = []
     @Published var calendarEvents: [CalendarEvent] = []
@@ -35,6 +42,16 @@ final class AppDataStore: ObservableObject {
     @Published var locationVisitTagDefinitions: [LocationVisitTagDefinition] = []
 
     // MARK: - Cache
+
+    enum HabitRecordChange {
+        case reset
+        case completion(habitID: UUID, day: Date)
+    }
+
+    // Emit after mutation so subscribers can read the indexed record immediately.
+    let habitRecordChanges = PassthroughSubject<HabitRecordChange, Never>()
+    var habitRecordLookup: HabitRecordLookup?
+    var isUpdatingHabitCompletion = false
     var eventsCache: [Date: [CalendarEvent]] = [:]
     var needsDiaryPhotoSyncRefresh = false
     var externalCalendarRange: ExternalCalendarRange? = nil
@@ -144,6 +161,7 @@ final class AppDataStore: ObservableObject {
             // HabitRecords
             let sdRecords = try modelContext.fetch(FetchDescriptor<SDHabitRecord>())
             self.habitRecords = sdRecords.map { HabitRecord(sd: $0) }
+            self.habitRecordLookup = HabitRecordLookup(records: habitRecords)
 
             // Anniversaries
             let sdAnniversaries = try modelContext.fetch(FetchDescriptor<SDAnniversary>(sortBy: [SortDescriptor(\.orderIndex)]))

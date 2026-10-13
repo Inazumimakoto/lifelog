@@ -16,6 +16,13 @@ final class TodayViewModel: ObservableObject {
     struct DailyHabitStatus: Identifiable, Equatable {
         let habit: Habit
         let record: HabitRecord?
+        let currentStreak: Int
+
+        init(habit: Habit, record: HabitRecord?, currentStreak: Int = 0) {
+            self.habit = habit
+            self.record = record
+            self.currentStreak = currentStreak
+        }
 
         var id: UUID { habit.id }
 
@@ -51,6 +58,10 @@ final class TodayViewModel: ObservableObject {
     }
     private var pendingRefresh: RefreshScope = []
     private var refreshIsScheduled = false
+    private var calendarAtLastHabitRefresh = Calendar.current
+
+    // Match AppDataStore's workaround for isolated teardown on iOS 26.1.
+    nonisolated deinit {}
 
     init(store: AppDataStore, date: Date = Date(), calendarService: CalendarEventService? = nil) {
         self.store = store
@@ -70,7 +81,17 @@ final class TodayViewModel: ObservableObject {
         observe(store.$calendarEvents, refreshing: .events)
         observe(store.$externalCalendarEvents, refreshing: .events)
         observe(store.$habits, refreshing: .habits)
-        observe(store.$habitRecords, refreshing: .habits)
+        store.habitRecordChanges
+            .sink { [weak self] change in
+                guard let self else { return }
+                switch change {
+                case .reset:
+                    self.scheduleRefresh(for: .habits)
+                case let .completion(habitID, day):
+                    self.refreshHabit(habitID, on: day)
+                }
+            }
+            .store(in: &cancellables)
         observe(store.$healthSummaries, refreshing: .health)
         observe(store.$diaryEntries, refreshing: .diary)
         observe(store.$memoPad, refreshing: .memo)
@@ -133,10 +154,11 @@ final class TodayViewModel: ObservableObject {
                 }
             }
             if scope.contains(.habits) {
-                let records = HabitRecordIndex.firstRecords(on: self.date, from: self.store.habitRecords)
+                self.calendarAtLastHabitRefresh = .current
+                let records = self.store.firstHabitRecords(on: self.date)
                 let statuses = self.store.habits
                     .filter { !$0.isArchived && $0.schedule.isActive(on: self.date) }
-                    .map { DailyHabitStatus(habit: $0, record: records[$0.id]) }
+                    .map { self.habitStatus(for: $0, record: records[$0.id], calendar: self.calendarAtLastHabitRefresh) }
                 if self.habitStatuses != statuses { self.habitStatuses = statuses }
             }
             if scope.contains(.health) {
@@ -164,6 +186,37 @@ final class TodayViewModel: ObservableObject {
         } else {
             updates()
         }
+    }
+
+    /// Home checkbox feedback stays local to the changed row (§4.1/§6).
+    private func refreshHabit(_ habitID: UUID, on day: Date) {
+        let calendar = Calendar.current
+        // A timezone/calendar change can add or remove scheduled rows.
+        guard calendarAtLastHabitRefresh == calendar else {
+            refreshAll(scope: .habits)
+            return
+        }
+        // Earlier edits can extend or break the displayed day's streak, while
+        // the checkbox still represents the displayed day (§4.1/§4.6).
+        guard calendar.startOfDay(for: day) <= calendar.startOfDay(for: date),
+              let index = habitStatuses.firstIndex(where: { $0.habit.id == habitID }) else { return }
+        let habit = store.habits.first { $0.id == habitID } ?? habitStatuses[index].habit
+        let updated = habitStatus(for: habit,
+                                  record: store.firstHabitRecord(for: habitID, on: date),
+                                  calendar: calendar)
+        if habitStatuses[index] != updated { habitStatuses[index] = updated }
+    }
+
+    private func habitStatus(for habit: Habit, record: HabitRecord?, calendar: Calendar) -> DailyHabitStatus {
+        // Reuse the shared day index and the Habits tab's schedule-aware rule.
+        // Each checkbox edit recalculates only its own habit's current streak.
+        let streak = HabitsViewModel.calculateCurrentStreak(
+            for: habit,
+            asOf: calendar.startOfDay(for: date),
+            records: store.latestHabitRecords(for: habit.id),
+            calendar: calendar
+        )
+        return DailyHabitStatus(habit: habit, record: record, currentStreak: streak)
     }
 
     // MARK: - Actions

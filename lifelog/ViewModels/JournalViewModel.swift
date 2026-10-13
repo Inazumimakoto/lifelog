@@ -86,6 +86,24 @@ final class JournalViewModel: ObservableObject {
     // while a page renders must not trigger another view update.
     private var detailSnapshotCache: [Date: CalendarDetailSnapshot] = [:]
     private var timelineItemsCache: [Date: [TimelineItem]] = [:]
+    private struct CalendarCacheContext: Equatable {
+        let displayIdentifier: Calendar.Identifier
+        let displayTimeZone: TimeZone
+        let currentIdentifier: Calendar.Identifier
+        let currentTimeZone: TimeZone
+
+        init(displayCalendar: Calendar, currentCalendar: Calendar) {
+            displayIdentifier = displayCalendar.identifier
+            displayTimeZone = TimeZone(identifier: displayCalendar.timeZone.identifier) ?? displayCalendar.timeZone
+            currentIdentifier = currentCalendar.identifier
+            currentTimeZone = TimeZone(identifier: currentCalendar.timeZone.identifier) ?? currentCalendar.timeZone
+        }
+    }
+    private var calendarCacheContext: CalendarCacheContext?
+    private var calendarCacheNeedsRebuild = false
+
+    // Match AppDataStore's workaround for isolated teardown on iOS 26.1.
+    nonisolated deinit {}
 
     init(store: AppDataStore,
          anchorDate: Date = Date(),
@@ -123,8 +141,7 @@ final class JournalViewModel: ObservableObject {
             .store(in: &cancellables)
 
         let calendarSources = store.$tasks.removeDuplicates()
-            .combineLatest(store.$habitRecords.removeDuplicates(),
-                           store.$diaryEntries.removeDuplicates(),
+            .combineLatest(store.$diaryEntries.removeDuplicates(),
                            store.$calendarEvents.removeDuplicates())
         let detailSources = store.$externalCalendarEvents.removeDuplicates()
             .combineLatest(store.$habits.removeDuplicates(), store.$healthSummaries.removeDuplicates())
@@ -133,17 +150,125 @@ final class JournalViewModel: ObservableObject {
             .dropFirst() // init already builds the first month.
             .debounce(for: .zero, scheduler: DispatchQueue.main)
             .sink { [weak self] _ in
-                guard let self else { return }
-                // Calendar/detail snapshots have seven actual inputs. Memo,
-                // shopping, letters and appState must not evict these caches.
-                self.monthCache.removeAll()
-                self.tasksByDayCache = nil
-                self.detailSnapshotCache.removeAll()
-                self.timelineItemsCache.removeAll()
-                self.dataRevision &+= 1
-                self.rebuild()
+                self?.invalidateCalendarData()
             }
             .store(in: &cancellables)
+
+        // docs/requirements.md §Today/Calendar: a checkbox changes one day.
+        // The store publishes this event after updating its indexes, unlike
+        // @Published's willSet emission. Do not debounce away rapid checks.
+        store.habitRecordChanges
+            .sink { [weak self] change in
+                guard let self else { return }
+                switch change {
+                case .reset:
+                    self.invalidateCalendarData()
+                case let .completion(habitID, day):
+                    self.updateHabitCompletion(habitID: habitID, on: day)
+                }
+            }
+            .store(in: &cancellables)
+    }
+
+    private func invalidateCalendarData() {
+        // Memo, shopping, letters and appState must not evict these caches.
+        clearCalendarCaches()
+        calendarCacheContext = CalendarCacheContext(displayCalendar: displayCalendar, currentCalendar: .current)
+        calendarCacheNeedsRebuild = false
+        dataRevision &+= 1
+        rebuild(keepingSelection: true)
+    }
+
+    private func clearCalendarCaches() {
+        monthCache.removeAll()
+        tasksByDayCache = nil
+        detailSnapshotCache.removeAll()
+        timelineItemsCache.removeAll()
+    }
+
+    private func refreshCalendarCacheContext() {
+        let context = CalendarCacheContext(displayCalendar: displayCalendar, currentCalendar: .current)
+        if let previous = calendarCacheContext, previous != context {
+            // Stored Date keys use the former day boundaries after a system
+            // calendar/timezone change. Getter cache maintenance stays silent.
+            clearCalendarCaches()
+            calendarCacheNeedsRebuild = true
+        }
+        calendarCacheContext = context
+    }
+
+    private func sharesCurrentDayBoundaries(_ calendar: Calendar) -> Bool {
+        let current = Calendar.current
+        return calendar.identifier == current.identifier && calendar.timeZone == current.timeZone
+    }
+
+    private func updateHabitCompletion(habitID: UUID, on date: Date) {
+        refreshCalendarCacheContext()
+        // The store signal names a day in Calendar.current. An injected display
+        // calendar may split that day across two grid cells, so rebuild it using
+        // its original grouping semantics instead of guessing which cell changed.
+        guard !calendarCacheNeedsRebuild, sharesCurrentDayBoundaries(displayCalendar) else {
+            invalidateCalendarData()
+            return
+        }
+        let day = Calendar.current.startOfDay(for: date)
+        let records = store.records(for: day)
+        var updatedContent = false
+
+        // A date may also appear in the trailing/leading cells of a neighbor
+        // month. Update every cached copy without rebuilding other days.
+        for month in Array(monthCache.keys) {
+            guard var cachedDays = monthCache[month],
+                  let index = cachedDays.firstIndex(where: { $0.date.startOfDay == day }),
+                  cachedDays[index].habits != records else { continue }
+            cachedDays[index] = replacingHabits(in: cachedDays[index], with: records)
+            monthCache[month] = cachedDays
+            updatedContent = true
+        }
+
+        if let snapshot = detailSnapshotCache[day] {
+            let record = store.firstHabitRecord(for: habitID, on: day)
+            let statuses = snapshot.habitStatuses.map { status in
+                status.habit.id == habitID
+                    ? TodayViewModel.DailyHabitStatus(habit: status.habit, record: record)
+                    : status
+            }
+            if statuses != snapshot.habitStatuses {
+                detailSnapshotCache[day] = CalendarDetailSnapshot(
+                    date: snapshot.date,
+                    events: snapshot.events,
+                    pendingTasks: snapshot.pendingTasks,
+                    completedTasks: snapshot.completedTasks,
+                    habitStatuses: statuses,
+                    healthSummary: snapshot.healthSummary,
+                    diaryEntry: snapshot.diaryEntry
+                )
+                updatedContent = true
+            }
+        }
+
+        if let index = days.firstIndex(where: { $0.date.startOfDay == day }),
+           days[index].habits != records {
+            var updatedDays = days
+            updatedDays[index] = replacingHabits(in: updatedDays[index], with: records)
+            days = updatedDays
+            updatedContent = true
+        }
+
+        // Pager pages read implementation caches directly; publish only after
+        // all cached copies agree. Task and timeline indexes remain reusable.
+        // The detail panel can still hold a selected snapshot after the bounded
+        // cache evicts it. It must redraw even when no cached grid contains day.
+        if updatedContent || selectedDate.startOfDay == day { dataRevision &+= 1 }
+    }
+
+    private func replacingHabits(in day: CalendarDay, with records: [HabitRecord]) -> CalendarDay {
+        CalendarDay(date: day.date,
+                    isWithinDisplayedMonth: day.isWithinDisplayedMonth,
+                    tasks: day.tasks,
+                    events: day.events,
+                    habits: records,
+                    diary: day.diary)
     }
 
     private func rebuild(keepingSelection: Bool = false) {
@@ -214,6 +339,7 @@ final class JournalViewModel: ObservableObject {
     }
 
     func tasks(on date: Date) -> [Task] {
+        refreshCalendarCacheContext()
         let calendar = displayCalendar
         return indexedTasksByDay(calendar: calendar)[calendar.startOfDay(for: date)] ?? []
     }
@@ -238,10 +364,11 @@ final class JournalViewModel: ObservableObject {
     }
 
     func habits(on date: Date) -> [HabitRecord] {
-        store.habitRecords.filter { $0.date.startOfDay == date.startOfDay }
+        store.records(for: date)
     }
 
     func timelineItems(for date: Date) -> [TimelineItem] {
+        refreshCalendarCacheContext()
         let calendar = Calendar.current
         let dayStart = calendar.startOfDay(for: date)
         if let cached = timelineItemsCache[dayStart] { return cached }
@@ -322,10 +449,11 @@ final class JournalViewModel: ObservableObject {
     }
 
     func calendarDetailSnapshot(for date: Date) -> CalendarDetailSnapshot {
+        refreshCalendarCacheContext()
         let day = Calendar.current.startOfDay(for: date)
         if let cached = detailSnapshotCache[day] { return cached }
         let tasks = tasksInRange(on: date).sorted { TaskPresentation.orderedBefore($0, $1, preferring: .start) }
-        let records = HabitRecordIndex.firstRecords(on: date, from: store.habitRecords)
+        let records = store.firstHabitRecords(on: date)
         let statuses = store.habits
             .filter { !$0.isArchived && $0.schedule.isActive(on: date) }
             .map { TodayViewModel.DailyHabitStatus(habit: $0, record: records[$0.id]) }
@@ -404,6 +532,7 @@ final class JournalViewModel: ObservableObject {
     }
 
     func calendarDays(for anchor: Date) -> [CalendarDay] {
+        refreshCalendarCacheContext()
         let calendar = displayCalendar
         let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: anchor)) ?? anchor
         if let cached = monthCache[monthStart] {
@@ -442,11 +571,14 @@ final class JournalViewModel: ObservableObject {
 
         let tasksByDay = indexedTasksByDay(calendar: calendar)
 
+        let useIndexedHabitRecords = sharesCurrentDayBoundaries(calendar)
         var habitsByDay: [Date: [HabitRecord]] = [:]
-        for record in store.habitRecords {
-            let day = calendar.startOfDay(for: record.date)
-            if day >= gridStart && day <= gridEnd {
-                habitsByDay[day, default: []].append(record)
+        if !useIndexedHabitRecords {
+            for record in store.habitRecords {
+                let day = calendar.startOfDay(for: record.date)
+                if day >= gridStart && day <= gridEnd {
+                    habitsByDay[day, default: []].append(record)
+                }
             }
         }
 
@@ -464,7 +596,7 @@ final class JournalViewModel: ObservableObject {
             let isWithinMonth = calendar.isDate(date, equalTo: anchor, toGranularity: .month)
             let events = eventsByDay[dayStart] ?? []
             let tasks = tasksByDay[dayStart] ?? []
-            let records = habitsByDay[dayStart] ?? []
+            let records = useIndexedHabitRecords ? store.records(for: date) : habitsByDay[dayStart] ?? []
             let diary = diaryByDay[dayStart]
             tempDays.append(.init(date: date,
                                   isWithinDisplayedMonth: isWithinMonth,
