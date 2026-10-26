@@ -26,7 +26,7 @@ enum WallpaperCalendarRendererError: LocalizedError {
 
 @MainActor
 final class WallpaperCalendarRenderer {
-    private static let renderVersion = 6
+    private static let renderVersion = 9
 
     private let settingsStore: WallpaperCalendarSettingsStore
     private let dataProvider: WallpaperCalendarDataProvider
@@ -54,12 +54,14 @@ final class WallpaperCalendarRenderer {
         self.fileManager = fileManager
     }
 
+    nonisolated deinit {}
+
     func render(force: Bool = false,
                 now: Date = Date(),
                 screenSize: CGSize? = nil,
                 scale: CGFloat? = nil) throws -> URL {
-        let resolvedScreenSize = screenSize ?? UIScreen.main.bounds.size
-        let resolvedScale = scale ?? UIScreen.main.scale
+        let resolvedScreenSize = screenSize ?? WallpaperCalendarCanvas.size
+        let resolvedScale = scale ?? WallpaperCalendarCanvas.scale
         let settings = settingsStore.load()
         let snapshot = dataProvider.makeSnapshot(settings: settings, now: now)
         let backgroundURL = settingsStore.backgroundImageURL(for: settings)
@@ -139,11 +141,13 @@ final class WallpaperCalendarRenderer {
                                 settings: WallpaperCalendarSettings,
                                 isDarkAppearance: Bool) {
         if let backgroundImage {
-            backgroundImage.draw(in: aspectFillRect(
-                imageSize: backgroundImage.size,
-                targetRect: rect,
-                adjustment: settings.backgroundAdjustment
-            ))
+            let background = WallpaperCalendarPhotoBackground(image: backgroundImage)
+            background.update(size: rect.size,
+                              adjustment: settings.backgroundAdjustment,
+                              contentsScale: UIGraphicsGetCurrentContext()?.ctm.a.magnitude ?? 1)
+            if let context = UIGraphicsGetCurrentContext() {
+                background.layer.render(in: context)
+            }
             UIColor.black.withAlphaComponent(isDarkAppearance ? 0.18 : 0.08).setFill()
             UIBezierPath(rect: rect).fill()
         } else {
@@ -369,38 +373,6 @@ final class WallpaperCalendarRenderer {
         dateRowHeight +
         cellRowSpacing +
         CGFloat(lane) * (previewRowHeight + cellRowSpacing)
-    }
-
-    private func aspectFillRect(imageSize: CGSize,
-                                targetRect: CGRect,
-                                adjustment: WallpaperCalendarBackgroundAdjustment) -> CGRect {
-        guard imageSize.width > 0, imageSize.height > 0 else { return targetRect }
-        let resolvedAdjustment = adjustment.clamped(for: imageSize, canvasSize: targetRect.size)
-        let scale = max(targetRect.width / imageSize.width, targetRect.height / imageSize.height) *
-            CGFloat(resolvedAdjustment.scale)
-        let width = imageSize.width * scale
-        let height = imageSize.height * scale
-        let x = targetRect.midX - width / 2 + CGFloat(resolvedAdjustment.offsetX) * targetRect.width
-        let y = targetRect.midY - height / 2 + CGFloat(resolvedAdjustment.offsetY) * targetRect.height
-        return clampedBackgroundRect(
-            CGRect(x: x, y: y, width: width, height: height),
-            targetRect: targetRect
-        )
-    }
-
-    private func clampedBackgroundRect(_ rect: CGRect, targetRect: CGRect) -> CGRect {
-        let x = rect.width > targetRect.width
-            ? min(max(rect.minX, targetRect.maxX - rect.width), targetRect.minX)
-            : targetRect.midX - rect.width / 2
-        let y = rect.height > targetRect.height
-            ? min(max(rect.minY, targetRect.maxY - rect.height), targetRect.minY)
-            : targetRect.midY - rect.height / 2
-        return CGRect(
-            x: x,
-            y: y,
-            width: rect.width,
-            height: rect.height
-        )
     }
 
     private func previewBarPath(rect: CGRect,

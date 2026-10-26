@@ -24,6 +24,8 @@ final class WallpaperCalendarSettingsStore {
         self.fileManager = fileManager
     }
 
+    nonisolated deinit {}
+
     func load() -> WallpaperCalendarSettings {
         guard let data = defaults.data(forKey: settingsKey),
               let decoded = try? JSONDecoder().decode(WallpaperCalendarSettings.self, from: data)

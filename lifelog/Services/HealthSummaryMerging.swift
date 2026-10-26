@@ -21,7 +21,14 @@ enum HealthSummaryMerging {
             stored.moveMinutes = summary.moveMinutes ?? stored.moveMinutes
             stored.exerciseMinutes = summary.exerciseMinutes ?? stored.exerciseMinutes
             stored.standHours = summary.standHours ?? stored.standHours
-            if !summary.sleepStages.isEmpty && !sameStages(stored.sleepStages, summary.sleepStages) {
+            stored.activeEnergyGoal = summary.activeEnergyGoal ?? stored.activeEnergyGoal
+            stored.moveMinutesGoal = summary.moveMinutesGoal ?? stored.moveMinutesGoal
+            stored.exerciseMinutesGoal = summary.exerciseMinutesGoal ?? stored.exerciseMinutesGoal
+            stored.standHoursGoal = summary.standHoursGoal ?? stored.standHoursGoal
+            stored.fitnessMoveMode = summary.fitnessMoveMode ?? stored.fitnessMoveMode
+            // A refreshed sleep measurement may now have no stages. Do not
+            // leave an obsolete stage timeline attached to the new duration.
+            if (summary.sleepHours != nil || !summary.sleepStages.isEmpty) && !sameStages(stored.sleepStages, summary.sleepStages) {
                 stored.sleepStages = summary.sleepStages
             }
             stored.weatherCondition = summary.weatherCondition ?? stored.weatherCondition
@@ -32,7 +39,7 @@ enum HealthSummaryMerging {
         return byDate.values.sorted { $0.date > $1.date }
     }
 
-    // Legacy SleepStage creates UUIDs on every decode/fetch. Those generated
+    // HealthKit refreshes can create fresh SleepStage UUIDs. Those generated
     // identities are not a changed sleep measurement and must not force writes.
     static func hasSameContent(_ lhs: HealthSummary, _ rhs: HealthSummary) -> Bool {
         guard sameStages(lhs.sleepStages, rhs.sleepStages) else { return false }

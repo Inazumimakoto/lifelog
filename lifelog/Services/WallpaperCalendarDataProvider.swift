@@ -125,6 +125,8 @@ struct WallpaperCalendarFingerprintPayload: Codable {
 
 @MainActor
 final class WallpaperCalendarDataProvider {
+    nonisolated deinit {}
+
     static let itemLimit = 4
 
     static var calendar: Calendar {
@@ -168,41 +170,17 @@ final class WallpaperCalendarDataProvider {
     }
 
     private func fetchEvents(from rangeStart: Date, to rangeEndExclusive: Date) -> [CalendarEvent] {
-        // マージ・重複排除・整列は共有 EventQuerying に一本化する。
-        let internalEvents = fetchInternalEvents(from: rangeStart, to: rangeEndExclusive)
         let externalEvents = fetchExternalEvents(from: rangeStart, to: rangeEndExclusive)
-        return EventQuerying.mergedDedupedSorted(
-            internalEvents: internalEvents,
-            externalEvents: externalEvents
-        )
-    }
-
-    private func fetchInternalEvents(from rangeStart: Date, to rangeEndExclusive: Date) -> [CalendarEvent] {
         do {
-            let context = PersistenceController.shared.container.mainContext
-            let storageRange = EventQuerying.storageRange(rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive, calendar: Self.calendar)
-            let storedStart = storageRange.start, storedEnd = storageRange.end
-            let descriptor = FetchDescriptor<SDCalendarEvent>(
-                predicate: #Predicate<SDCalendarEvent> { $0.startDate < storedEnd && $0.endDate > storedStart },
-                sortBy: [SortDescriptor(\.startDate)]
+            return try CalendarEventStorageQuery.events(
+                in: PersistenceController.shared.container.mainContext,
+                from: rangeStart,
+                to: rangeEndExclusive,
+                externalEvents: externalEvents,
+                calendar: Self.calendar
             )
-            return try context.fetch(descriptor).map {
-                CalendarEvent(
-                    id: $0.id,
-                    title: $0.title,
-                    detail: $0.detail ?? "",
-                    startDate: $0.startDate,
-                    endDate: $0.endDate,
-                    calendarName: $0.calendarName,
-                    isAllDay: $0.isAllDay,
-                    sourceCalendarIdentifier: $0.sourceCalendarIdentifier,
-                    reminderMinutes: $0.reminderMinutes,
-                    reminderDate: $0.reminderDate,
-                    dateOnlyTimeZoneIdentifier: $0.dateOnlyTimeZoneIdentifier
-                )
-            }.filter { EventQuerying.overlaps($0, rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive, calendar: Self.calendar) }
         } catch {
-            return []
+            return EventQuerying.mergedDedupedSorted(internalEvents: [], externalEvents: externalEvents)
         }
     }
 
@@ -229,7 +207,8 @@ final class WallpaperCalendarDataProvider {
                         isCompleted: $0.isCompleted,
                         reminderDate: $0.reminderDate,
                         completedAt: $0.completedAt,
-                        dateOnlyTimeZoneIdentifier: $0.dateOnlyTimeZoneIdentifier
+                        dateOnlyTimeZoneIdentifier: $0.dateOnlyTimeZoneIdentifier,
+                        urlString: $0.urlString
                     )
                 }
                 .filter { task in

@@ -79,6 +79,10 @@ struct TaskEditorView: View {
                 }
             }
             
+            Section("URL") {
+                ScheduleLinkEditor(urlString: $formState.urlString)
+            }
+
             Section("通知") {
                 Toggle("リマインダー", isOn: $formState.hasReminder)
                 if formState.hasReminder {
@@ -110,7 +114,7 @@ struct TaskEditorView: View {
                     formState.clearCachedDraft()
                     dismiss()
                 }
-                .disabled(formState.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(!formState.canSave)
             }
             ToolbarItem(placement: .cancellationAction) {
                 Button("キャンセル", role: .cancel) {

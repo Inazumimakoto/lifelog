@@ -7,6 +7,7 @@ import Foundation
 import EventKit
 import UserNotifications
 import SwiftData
+import WidgetKit
 import os
 
 extension AppDataStore {
@@ -15,6 +16,10 @@ extension AppDataStore {
 
     func events(on date: Date) -> [CalendarEvent] {
         let calendar = Calendar.current
+        if eventsCacheCalendar != calendar {
+            eventsCache.removeAll()
+            eventsCacheCalendar = calendar
+        }
         let dayStart = calendar.startOfDay(for: date)
 
         // キャッシュチェック
@@ -25,19 +30,22 @@ extension AppDataStore {
         guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return [] }
         // マージ・重複排除・整列の方針は共有の EventQuerying に一本化する。
         // 内部/外部それぞれ当日と重なるものに絞ってからマージする。
-        let internalEvents = EventQuerying.overlapping(calendarEvents, rangeStart: dayStart, rangeEndExclusive: dayEnd)
-        let externalEvents = EventQuerying.overlapping(externalCalendarEvents, rangeStart: dayStart, rangeEndExclusive: dayEnd)
-        let result = EventQuerying.mergedDedupedSorted(
-            internalEvents: internalEvents,
-            externalEvents: externalEvents
-        )
+        let result = events(from: dayStart, to: dayEnd, calendar: calendar)
 
         // キャッシュに保存
         eventsCache[dayStart] = result
         return result
     }
 
+    /// All schedule consumers resolve rules and exceptions over a bounded range (§4.2).
+    func events(from start: Date, to end: Date, calendar: Calendar = .current) -> [CalendarEvent] {
+        EventQuerying.resolved(internalEvents: calendarEvents, exceptions: calendarExceptions,
+                              externalEvents: externalCalendarEvents,
+                              rangeStart: start, rangeEndExclusive: end, calendar: calendar)
+    }
+
     func addCalendarEvent(_ event: CalendarEvent) {
+        guard event.sourceCalendarIdentifier == nil, event.occurrenceReference == nil else { return }
         // Retrying an add after a failed fetch/save must not duplicate its ID.
         let changed: Bool
         if let index = calendarEvents.firstIndex(where: { $0.id == event.id }) {
@@ -55,11 +63,22 @@ extension AppDataStore {
         guard changed else { return }
         scheduleEventNotification(event)
         rescheduleTodayOverviewReminderIfNeeded()
+        WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
     }
 
     func updateCalendarEvent(_ event: CalendarEvent) {
+        guard event.sourceCalendarIdentifier == nil else { return }
+        if let reference = event.occurrenceReference {
+            saveCalendarException(seriesID: reference.seriesID, originalStart: reference.originalStartDate,
+                                  replacement: event)
+            return
+        }
         guard let index = calendarEvents.firstIndex(where: { $0.id == event.id }) else { return }
-        let changed = calendarEvents[index] != event
+        let previous = calendarEvents[index]
+        let wasRecurring = previous.recurrenceRule != nil
+        let changed = previous != event
+        let reminderChanged = previous.recurrenceRule != event.recurrenceRule ||
+            !hasSameCalendarReminderContent(previous, event)
         if changed {
             eventsCache.removeAll()
             calendarEvents[index] = event
@@ -68,30 +87,97 @@ extension AppDataStore {
         // failed fetch. Retry just this row without publishing it a second time.
         persistCalendarEvent(event)
         guard changed else { return }
-        scheduleEventNotification(event)
-        rescheduleTodayOverviewReminderIfNeeded()
+        if reminderChanged {
+            scheduleEventNotification(event)
+            if wasRecurring && event.recurrenceRule == nil { rescheduleExternalEventNotifications() }
+            rescheduleTodayOverviewReminderIfNeeded()
+            WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
+        }
+    }
+
+    /// Identity/rule changes are handled by callers. Memo and URL edits do not
+    /// change reminder requests and must not expand eighteen months of a series.
+    func hasSameCalendarReminderContent(_ lhs: CalendarEvent, _ rhs: CalendarEvent) -> Bool {
+        lhs.title == rhs.title && lhs.startDate == rhs.startDate && lhs.endDate == rhs.endDate &&
+            lhs.calendarName == rhs.calendarName && lhs.isAllDay == rhs.isAllDay &&
+            lhs.sourceCalendarIdentifier == rhs.sourceCalendarIdentifier &&
+            lhs.reminderMinutes == rhs.reminderMinutes && lhs.reminderDate == rhs.reminderDate &&
+            lhs.dateOnlyTimeZoneIdentifier == rhs.dateOnlyTimeZoneIdentifier
+    }
+
+    /// Generated occurrence IDs must never be interpreted as stored series IDs.
+    func deleteCalendarEvent(_ event: CalendarEvent) {
+        guard event.sourceCalendarIdentifier == nil else { return }
+        if let reference = event.occurrenceReference {
+            saveCalendarException(seriesID: reference.seriesID, originalStart: reference.originalStartDate,
+                                  replacement: nil)
+        } else {
+            deleteCalendarEvent(event.id)
+        }
     }
 
     func deleteCalendarEvent(_ eventID: UUID) {
-        let changed = calendarEvents.contains { $0.id == eventID }
-        if changed {
-            eventsCache.removeAll()
-            calendarEvents.removeAll { $0.id == eventID }
-        }
+        deleteCalendarEvents(withIDs: [eventID])
+    }
+
+    /// Split segments are committed together, then removed from published state.
+    /// A fresh context sees rows inserted by scoped edits immediately (§4.2).
+    func deleteCalendarEvents(withIDs eventIDs: Set<UUID>) {
         do {
-            var descriptor = FetchDescriptor<SDCalendarEvent>(predicate: #Predicate { $0.id == eventID })
-            descriptor.fetchLimit = 1
-            if let existing = try modelContext.fetch(descriptor).first {
-                modelContext.delete(existing)
-            }
-            // Keep this path usable when memory already reflects a failed save.
-            saveContext()
+            try deleteCalendarEvents(withIDs: eventIDs, save: { try $0.save() })
         } catch {
-            AppLogger.data.error("Calendar event deletion fetch failed: \(error)")
+            AppLogger.data.error("Calendar event deletion failed: \(error)")
         }
-        guard changed else { return }
-        calendarNotificationService.cancelEventReminder(eventId: eventID)
+    }
+
+    /// The save hook verifies failure/retry behavior without touching user stores.
+    func deleteCalendarEvents(withIDs eventIDs: Set<UUID>, save: (ModelContext) throws -> Void) throws {
+        guard !eventIDs.isEmpty else { return }
+        let context = ModelContext(modelContext.container)
+        context.autosaveEnabled = false
+        let requestedIDs = Array(eventIDs)
+        let eventRows = try context.fetch(FetchDescriptor<SDCalendarEvent>(predicate: #Predicate {
+            requestedIDs.contains($0.id)
+        }))
+        let pendingModels = modelContext.insertedModelsArray + modelContext.changedModelsArray
+        let pendingEvents = pendingModels.compactMap { $0 as? SDCalendarEvent }
+            .filter { eventIDs.contains($0.id) }
+        let protectedIDs = Set(eventRows.filter { $0.sourceCalendarIdentifier != nil }.map(\.id))
+            .union(calendarEvents.filter { eventIDs.contains($0.id) && $0.sourceCalendarIdentifier != nil }.map(\.id))
+            .union(pendingEvents.filter { $0.sourceCalendarIdentifier != nil }.map(\.id))
+        let deletableIDs = eventIDs.subtracting(protectedIDs)
+        guard !deletableIDs.isEmpty else { return }
+        let seriesIDs = Array(deletableIDs)
+        let exceptionRows = try context.fetch(FetchDescriptor<SDCalendarEventException>(predicate: #Predicate {
+            seriesIDs.contains($0.seriesID)
+        }))
+        for row in eventRows where deletableIDs.contains(row.id) { context.delete(row) }
+        for row in exceptionRows { context.delete(row) }
+        let persistedChange = context.hasChanges
+        if persistedChange {
+            do { try save(context) }
+            catch { context.rollback(); throw error }
+        }
+        let remainingEvents = calendarEvents.filter { !deletableIDs.contains($0.id) }
+        let remainingExceptions = calendarExceptions.filter { !deletableIDs.contains($0.seriesID) }
+        let pendingTargets = pendingEvents.filter { deletableIDs.contains($0.id) }
+        let deletedExceptionIDs = Set(exceptionRows.map(\.id))
+        let pendingExceptions = pendingModels.compactMap { $0 as? SDCalendarEventException }
+            .filter { deletableIDs.contains($0.seriesID) || deletedExceptionIDs.contains($0.id) }
+        let memoryChanged = remainingEvents != calendarEvents || remainingExceptions != calendarExceptions
+        guard persistedChange || memoryChanged || !pendingTargets.isEmpty || !pendingExceptions.isEmpty else { return }
+        // A failed earlier save can leave an inserted/dirty target only in the
+        // main context. Cancel just those rows so its later autosave cannot
+        // recreate a successfully deleted segment; unrelated edits stay pending.
+        for pending in pendingTargets { modelContext.delete(pending) }
+        for pending in pendingExceptions { modelContext.delete(pending) }
+        if remainingEvents != calendarEvents { calendarEvents = remainingEvents }
+        if remainingExceptions != calendarExceptions { calendarExceptions = remainingExceptions }
+        eventsCache.removeAll()
+        for eventID in deletableIDs { calendarNotificationService.cancelEventReminder(eventId: eventID) }
+        rescheduleExternalEventNotifications()
         rescheduleTodayOverviewReminderIfNeeded()
+        WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
     }
 
     func updateExternalCalendarEvents(
@@ -263,6 +349,13 @@ extension AppDataStore {
             persistCalendarEvents()
         }
 
+        for exception in calendarExceptions {
+            guard var replacement = exception.replacement, replacement.calendarName == source else { continue }
+            replacement.calendarName = target
+            saveCalendarException(seriesID: exception.seriesID, originalStart: exception.originalStartDate,
+                                  replacement: replacement, refreshReminders: false)
+        }
+
         var hasExternalChanges = false
         for index in externalCalendarEvents.indices where externalCalendarEvents[index].calendarName == source {
             externalCalendarEvents[index].calendarName = target
@@ -293,6 +386,10 @@ extension AppDataStore {
         let parentEnabled = manager.isEventCategoryNotificationEnabled
 
         for event in calendarEvents {
+            if event.recurrenceRule != nil {
+                calendarNotificationService.cancelEventReminder(eventId: event.id)
+                continue
+            }
             let defaultStrategy = parentEnabled
                 ? eventCategoryDefaultReminderStrategy(for: event, setting: settingsByCategory[event.calendarName])
                 : nil
@@ -473,13 +570,49 @@ extension AppDataStore {
 
     func rescheduleExternalEventNotifications(referenceDate: Date = Date()) {
         let now = referenceDate
-        let maxScheduledExternalReminders = 48
+        // External and recurring occurrences share the same bounded plan.
+        // Never register a repeating trigger that would ignore skipped dates.
+        let maxScheduledReminders = 48
+        let calendar = Calendar.current
+        let horizon = calendar.date(byAdding: .month, value: 18, to: now) ?? now
         let settingsManager = NotificationSettingsManager.shared
         let parentEnabled = settingsManager.isEventCategoryNotificationEnabled
-        let settings = parentEnabled
-            ? settingsManager.ensureCategorySettings(for: Array(Set(externalCalendarEvents.map(\.calendarName))))
-            : []
-        let settingsByCategory = Dictionary(uniqueKeysWithValues: settings.map { ($0.categoryName, $0) })
+        let settingsByCategory: [String: CategoryNotificationSetting]
+        if parentEnabled {
+            var categories = Set((calendarEvents + externalCalendarEvents).map(\.calendarName))
+            for exception in calendarExceptions {
+                if let replacement = exception.replacement { categories.insert(replacement.calendarName) }
+            }
+            let settings = settingsManager.ensureCategorySettings(for: Array(categories))
+            settingsByCategory = Dictionary(uniqueKeysWithValues: settings.map { ($0.categoryName, $0) })
+        } else {
+            settingsByCategory = [:]
+        }
+
+        func configuredStrategy(for event: CalendarEvent) -> EventReminderStrategy? {
+            let defaultStrategy = parentEnabled
+                ? eventCategoryDefaultReminderStrategy(for: event, setting: settingsByCategory[event.calendarName])
+                : nil
+            return explicitReminderStrategy(for: event) ?? defaultStrategy
+        }
+
+        let notifyingOverrideSeries = Set(calendarExceptions.compactMap { exception -> UUID? in
+            guard let replacement = exception.replacement, configuredStrategy(for: replacement) != nil else { return nil }
+            return exception.seriesID
+        })
+        // Most records have no reminder. Exclude them before constructing and
+        // hashing hundreds of generated occurrences, while retaining a series
+        // whose individually edited occurrence has its own reminder.
+        let recurringSeries = calendarEvents.filter {
+            $0.recurrenceRule != nil &&
+                (notifyingOverrideSeries.contains($0.id) || configuredStrategy(for: $0) != nil)
+        }
+        let recurringEvents = EventRecurrenceExpander.occurrences(
+            events: recurringSeries, exceptions: calendarExceptions,
+            rangeStart: calendar.startOfDay(for: now), rangeEndExclusive: horizon, calendar: calendar,
+            sortResults: false
+        )
+        let plannedEvents = externalCalendarEvents + recurringEvents
 
         struct PendingExternalReminder {
             let event: CalendarEvent
@@ -487,12 +620,9 @@ extension AppDataStore {
             let fireDate: Date
         }
 
-        let candidates: [PendingExternalReminder] = externalCalendarEvents.compactMap { event in
+        let candidates: [PendingExternalReminder] = plannedEvents.compactMap { event in
             // Decode persisted category settings once for the whole batch.
-            let defaultStrategy = parentEnabled
-                ? eventCategoryDefaultReminderStrategy(for: event, setting: settingsByCategory[event.calendarName])
-                : nil
-            guard let strategy = explicitReminderStrategy(for: event) ?? defaultStrategy else { return nil }
+            guard let strategy = configuredStrategy(for: event) else { return nil }
 
             let fireDate: Date
             switch strategy {
@@ -508,29 +638,41 @@ extension AppDataStore {
 
         let remindersToSchedule = candidates
             .sorted(by: { $0.fireDate < $1.fireDate })
-            .prefix(maxScheduledExternalReminders)
-        nextExternalReminderRefreshDate = remindersToSchedule.first?.fireDate
+            .prefix(maxScheduledReminders)
+        let dailyRefresh = calendar.date(byAdding: .day, value: 1, to: now) ?? horizon
+        nextExternalReminderRefreshDate = recurringSeries.isEmpty
+            ? remindersToSchedule.first?.fireDate
+            : min(remindersToSchedule.first?.fireDate ?? dailyRefresh, dailyRefresh)
 
         externalReminderRescheduleGeneration &+= 1
         let generation = externalReminderRescheduleGeneration
 
-        NotificationService.shared.cancelAllReminders(ofType: .externalEvent) { [weak self] in
+        calendarNotificationService.cancelAllReminders(ofTypes: [.externalEvent, .recurringEvent], shouldCancel: { [weak self] in
+            self?.externalReminderRescheduleGeneration == generation
+        }) { [weak self] in
             DispatchQueue.main.async {
                 guard let self else { return }
                 guard self.externalReminderRescheduleGeneration == generation else { return }
 
                 for candidate in remindersToSchedule {
+                    if candidate.event.occurrenceReference != nil {
+                        self.calendarNotificationService.scheduleRecurringEventReminder(
+                            occurrenceID: candidate.event.id, title: candidate.event.title,
+                            reminderDate: candidate.fireDate
+                        )
+                        continue
+                    }
                     let externalEventKey = self.externalEventReminderKey(for: candidate.event)
                     switch candidate.strategy {
                     case .relative(let minutesBefore):
-                        NotificationService.shared.scheduleExternalEventReminder(
+                        self.calendarNotificationService.scheduleExternalEventReminder(
                             externalEventKey: externalEventKey,
                             title: candidate.event.title,
                             startDate: candidate.event.startDate,
                             minutesBefore: minutesBefore
                         )
                     case .absolute(let reminderDate):
-                        NotificationService.shared.scheduleExternalEventReminderAtDate(
+                        self.calendarNotificationService.scheduleExternalEventReminderAtDate(
                             externalEventKey: externalEventKey,
                             title: candidate.event.title,
                             reminderDate: reminderDate
@@ -565,6 +707,11 @@ extension AppDataStore {
     private func scheduleEventNotification(_ event: CalendarEvent, strategy: EventReminderStrategy?) {
         // キャンセルしてから再スケジュール
         calendarNotificationService.cancelEventReminder(eventId: event.id)
+
+        if event.recurrenceRule != nil {
+            rescheduleExternalEventNotifications()
+            return
+        }
 
         guard let strategy else { return }
 

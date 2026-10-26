@@ -40,18 +40,7 @@ class MigrationManager {
             if let data = UserDefaults.standard.data(forKey: tasksKey),
                let items = try? JSONDecoder().decode([Task].self, from: data) {
                 for item in items {
-                    let newItem = SDTask(
-                        id: item.id,
-                        title: item.title,
-                        detail: item.detail,
-                        startDate: item.startDate,
-                        endDate: item.endDate,
-                        priority: item.priority,
-                        isCompleted: item.isCompleted,
-                        reminderDate: item.reminderDate,
-                        completedAt: item.completedAt,
-                        dateOnlyTimeZoneIdentifier: item.dateOnlyTimeZoneIdentifier
-                    )
+                    let newItem = SDTask(domain: item)
                     modelContext.insert(newItem)
                 }
             }
@@ -141,19 +130,7 @@ class MigrationManager {
             if let data = UserDefaults.standard.data(forKey: calendarEventsKey),
                let items = try? JSONDecoder().decode([CalendarEvent].self, from: data) {
                 for item in items {
-                    let newItem = SDCalendarEvent(
-                        id: item.id,
-                        title: item.title,
-                        detail: item.detail,
-                        startDate: item.startDate,
-                        endDate: item.endDate,
-                        calendarName: item.calendarName,
-                        isAllDay: item.isAllDay,
-                        sourceCalendarIdentifier: item.sourceCalendarIdentifier,
-                        reminderMinutes: item.reminderMinutes,
-                        reminderDate: item.reminderDate,
-                        dateOnlyTimeZoneIdentifier: item.dateOnlyTimeZoneIdentifier
-                    )
+                    let newItem = SDCalendarEvent(domain: item)
                     modelContext.insert(newItem)
                 }
             }

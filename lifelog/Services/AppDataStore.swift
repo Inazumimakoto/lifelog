@@ -33,9 +33,16 @@ final class AppDataStore: ObservableObject {
     }
     @Published var anniversaries: [Anniversary] = []
     @Published private(set) var healthSummaries: [HealthSummary] = []
-    @Published var calendarEvents: [CalendarEvent] = []
+    @Published var calendarEvents: [CalendarEvent] = [] {
+        didSet { eventsCache.removeAll() }
+    }
+    @Published var calendarExceptions: [CalendarEventException] = [] {
+        didSet { eventsCache.removeAll() }
+    }
     @Published var memoPad: MemoPad = MemoPad()
-    @Published var externalCalendarEvents: [CalendarEvent] = []
+    @Published var externalCalendarEvents: [CalendarEvent] = [] {
+        didSet { eventsCache.removeAll() }
+    }
     @Published var letters: [Letter] = []
     @Published var sharedLetters: [SharedLetter] = []  // 他ユーザーからの手紙
     @Published var appState: AppState = AppState()
@@ -53,6 +60,7 @@ final class AppDataStore: ObservableObject {
     var habitRecordLookup: HabitRecordLookup?
     var isUpdatingHabitCompletion = false
     var eventsCache: [Date: [CalendarEvent]] = [:]
+    var eventsCacheCalendar: Calendar?
     var needsDiaryPhotoSyncRefresh = false
     var externalCalendarRange: ExternalCalendarRange? = nil
     var externalReminderRescheduleGeneration: UInt = 0
@@ -183,6 +191,8 @@ final class AppDataStore: ObservableObject {
             // CalendarEvents (Internal)
             let sdEvents = try modelContext.fetch(FetchDescriptor<SDCalendarEvent>())
             self.calendarEvents = sdEvents.map { CalendarEvent(sd: $0) }
+            self.calendarExceptions = try modelContext.fetch(FetchDescriptor<SDCalendarEventException>())
+                .map { CalendarEventException(sd: $0) }
 
             // Letters
             let sdLetters = try modelContext.fetch(FetchDescriptor<SDLetter>())

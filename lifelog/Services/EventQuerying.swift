@@ -23,6 +23,30 @@ enum EventQuerying {
     static let externalCalendarEventsDefaultsKey = "ExternalCalendarEvents_Storage_V1"
     static let externalCalendarRangeDefaultsKey = "ExternalCalendarRange_Storage_V1"
 
+    /// All consumers resolve local series before combining externally expanded events.
+    static func resolved(
+        internalEvents: [CalendarEvent],
+        exceptions: [CalendarEventException],
+        externalEvents: [CalendarEvent],
+        rangeStart: Date,
+        rangeEndExclusive: Date,
+        calendar: Calendar = .current
+    ) -> [CalendarEvent] {
+        guard rangeStart < rangeEndExclusive else { return [] }
+        let internalOccurrences = EventRecurrenceExpander.occurrences(
+            events: internalEvents, exceptions: exceptions,
+            rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive, calendar: calendar, sortResults: false
+        )
+        let externalOccurrences = overlapping(externalEvents, rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive, calendar: calendar)
+        return mergedDeduped(internalEvents: internalOccurrences, externalEvents: externalOccurrences)
+            .sorted { lhs, rhs in
+                let left = lhs.displayStartDate(calendar: calendar), right = rhs.displayStartDate(calendar: calendar)
+                if left != right { return left < right }
+                if lhs.title != rhs.title { return lhs.title < rhs.title }
+                return lhs.id.uuidString < rhs.id.uuidString
+            }
+    }
+
     // MARK: - External Events Decode
 
     /// 共有 UserDefaults(App Group)から外部カレンダーイベントの
@@ -90,7 +114,12 @@ enum EventQuerying {
         internalEvents: [CalendarEvent],
         externalEvents: [CalendarEvent]
     ) -> [CalendarEvent] {
-        (internalEvents + externalEvents)
+        mergedDeduped(internalEvents: internalEvents, externalEvents: externalEvents)
+            .sorted(by: sortByStartThenTitle)
+    }
+
+    private static func mergedDeduped(internalEvents: [CalendarEvent], externalEvents: [CalendarEvent]) -> [CalendarEvent] {
+        Array((internalEvents + externalEvents)
             .reduce(into: [UUID: CalendarEvent]()) { result, event in
                 if let existing = result[event.id] {
                     // 開始が後(より新しい)方を残す。
@@ -99,7 +128,6 @@ enum EventQuerying {
                     result[event.id] = event
                 }
             }
-            .values
-            .sorted(by: sortByStartThenTitle)
+            .values)
     }
 }

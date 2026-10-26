@@ -26,13 +26,26 @@ struct EventsView: View {
                 Text("予定はカレンダーとホームで共有されます。外部カレンダーの予定は編集できません。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                if viewModel.hasRecurringEvents {
+                    Text(viewModel.recurrenceRangeDescription)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    NavigationLink("繰り返し予定を管理") {
+                        RecurringEventSeriesListView(store: store)
+                    }
+                }
             }
             ForEach(EventsViewModel.EventSection.allCases) { section in
                 let events = viewModel.events(for: section)
-                if events.isEmpty == false {
+                if !events.isEmpty || (viewModel.hasRecurringEvents && section != .today) {
                     Section(section.displayName) {
                         ForEach(events) { event in
                             eventRow(event)
+                        }
+                        if viewModel.hasRecurringEvents && section == .upcoming {
+                            Button("さらに先の繰り返し予定を表示") { viewModel.loadMoreUpcomingEvents() }
+                        } else if viewModel.hasRecurringEvents && section == .past {
+                            Button("さらに前の繰り返し予定を表示") { viewModel.loadMorePastEvents() }
                         }
                     }
                 }
@@ -81,7 +94,14 @@ struct EventsView: View {
                 },
                                         onDelete: {
                     viewModel.delete(event)
-                })
+                },
+                                        onSkipWeek: { store.skipCalendarWeek(containing: event) },
+                                        onEndSeries: { store.endCalendarSeries(startingAt: event) },
+                                        exceptions: store.calendarExceptions,
+                                        onRestoreException: { store.restoreCalendarException($0) },
+                                        onDeleteSeries: { store.deleteCalendarSeries(containing: event) },
+                                        canDeleteWeek: { store.canDeleteCalendarWeek(containing: event) },
+                                        editStore: store)
             }
         }
     }
@@ -104,6 +124,9 @@ struct EventsView: View {
                     Text(event.detail)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                }
+                if let url = event.linkURL {
+                    ScheduleLinkButton(url: url)
                 }
                 HStack(spacing: 4) {
                     Text(CategoryPalette.displayName(for: event.calendarName))

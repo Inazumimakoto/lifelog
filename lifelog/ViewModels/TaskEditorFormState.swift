@@ -15,6 +15,7 @@ final class TaskEditorFormState: ObservableObject {
     struct Draft: Equatable {
         var title: String
         var detail: String
+        var urlString: String
         var startDate: Date
         var endDate: Date
         var priority: TaskPriority
@@ -25,6 +26,7 @@ final class TaskEditorFormState: ObservableObject {
 
     @Published var title: String = ""
     @Published var detail: String = ""
+    @Published var urlString: String = ""
     @Published var startDate: Date = Date()
     @Published var endDate: Date = Date()
     @Published var priority: TaskPriority = .medium
@@ -44,6 +46,10 @@ final class TaskEditorFormState: ObservableObject {
 
     nonisolated deinit {}
 
+    var canSave: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && ScheduleLink.isValid(urlString)
+    }
+
     func makeTask(detailOverride: String? = nil) -> Task {
         let zone = originalTask?.dateOnlyTimeZoneIdentifier ?? calendar.timeZone.identifier
         let sourceStart = DateOnlyProjection.sourceDate(fromDisplay: startDate, sourceTimeZoneIdentifier: zone, calendar: calendar)
@@ -61,12 +67,14 @@ final class TaskEditorFormState: ObservableObject {
              isCompleted: originalTask?.isCompleted ?? false,
              reminderDate: hasReminder ? reminderDate : nil,
              completedAt: originalTask?.completedAt,
-             dateOnlyTimeZoneIdentifier: zone)
+             dateOnlyTimeZoneIdentifier: zone,
+             urlString: ScheduleLink.normalizedString(from: urlString))
     }
 
     var draft: Draft {
         Draft(title: title,
               detail: detail,
+              urlString: urlString,
               startDate: startDate,
               endDate: endDate,
               priority: priority,
@@ -90,6 +98,7 @@ final class TaskEditorFormState: ObservableObject {
         
         title = task?.title ?? ""
         detail = task?.detail ?? ""
+        urlString = task?.urlString ?? ""
         startDate = base
         endDate = max(base, end)
         priority = task?.priority ?? .medium
@@ -145,6 +154,7 @@ final class TaskEditorFormState: ObservableObject {
         isConfigured = false
         title = ""
         detail = ""
+        urlString = ""
         startDate = Date()
         endDate = Date()
         priority = .medium
@@ -157,6 +167,7 @@ final class TaskEditorFormState: ObservableObject {
         guard let cached = TaskEditorDraftCache.drafts[draftKey]?.draft else { return }
         title = cached.title
         detail = cached.detail
+        urlString = cached.urlString
         startDate = cached.startDate
         endDate = cached.endDate
         priority = cached.priority

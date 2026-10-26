@@ -152,6 +152,7 @@ final class JournalViewModel: ObservableObject {
             .combineLatest(store.$habits.removeDuplicates(), store.$healthSummaries.removeDuplicates())
         calendarSources
             .combineLatest(detailSources)
+            .combineLatest(store.$calendarExceptions.removeDuplicates())
             .dropFirst() // init already builds the first month.
             .debounce(for: .zero, scheduler: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -558,9 +559,8 @@ final class JournalViewModel: ObservableObject {
         let gridEndNext = calendar.date(byAdding: .day, value: 1, to: gridEnd) ?? gridEnd
 
         var eventsByDay: [Date: [CalendarEvent]] = [:]
-        let allEvents = store.calendarEvents + store.externalCalendarEvents
         if gridStart <= gridEnd {
-            for event in EventQuerying.overlapping(allEvents, rangeStart: gridStart, rangeEndExclusive: gridEndNext, calendar: calendar) {
+            for event in store.events(from: gridStart, to: gridEndNext, calendar: calendar) {
                 let eventStartDay = calendar.startOfDay(for: event.displayStartDate(calendar: calendar))
                 let end = event.displayEndDate(calendar: calendar)
                 let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: end) ?? end

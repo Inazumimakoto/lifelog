@@ -210,7 +210,7 @@ extension AppDataStore {
         let descriptor = FetchDescriptor<SDHabit>(predicate: #Predicate { $0.id == habitID })
         if let existing = try? modelContext.fetch(descriptor).first {
              existing.update(from: habit)
-             saveContext()
+            saveContext()
         }
         reloadHabitWidgetTimeline()
     }
@@ -225,7 +225,7 @@ extension AppDataStore {
         if let existing = try? modelContext.fetch(descriptor).first {
              existing.isArchived = true
              existing.archivedAt = habits[index].archivedAt
-             saveContext()
+            saveContext()
         }
         reloadHabitWidgetTimeline()
     }

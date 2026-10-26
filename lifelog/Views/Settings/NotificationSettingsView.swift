@@ -31,14 +31,6 @@ struct NotificationSettingsView: View {
     @State private var previousPrioritySettings: [PriorityNotificationSetting] = []
     @State private var hasLoaded: Bool = false
     
-    private let reminderOptions: [(String, Int)] = [
-        ("5分前", 5),
-        ("15分前", 15),
-        ("30分前", 30),
-        ("1時間前", 60),
-        ("1日前", 1440)
-    ]
-    
     // 未来への手紙通知
     @AppStorage("letterNotificationEnabled") private var letterNotificationEnabled: Bool = true
     
@@ -198,12 +190,7 @@ struct NotificationSettingsView: View {
                             .pickerStyle(.segmented)
                             
                             if setting.useRelativeTime {
-                                Picker("通知タイミング", selection: $setting.minutesBefore) {
-                                    ForEach(reminderOptions, id: \.1) { option in
-                                        Text(option.0).tag(option.1)
-                                    }
-                                }
-                                .pickerStyle(.segmented)
+                                EventReminderTimingPicker(title: "通知タイミング", minutesBefore: $setting.minutesBefore)
                             } else {
                                 DatePicker(
                                     "通知時刻",

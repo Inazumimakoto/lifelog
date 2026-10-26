@@ -20,7 +20,8 @@ extension Task {
             isCompleted: sd.isCompleted,
             reminderDate: sd.reminderDate,
             completedAt: sd.completedAt,
-            dateOnlyTimeZoneIdentifier: sd.dateOnlyTimeZoneIdentifier
+            dateOnlyTimeZoneIdentifier: sd.dateOnlyTimeZoneIdentifier,
+            urlString: sd.urlString
         )
     }
 }
@@ -37,7 +38,8 @@ extension SDTask {
             isCompleted: domain.isCompleted,
             reminderDate: domain.reminderDate,
             completedAt: domain.completedAt,
-            dateOnlyTimeZoneIdentifier: domain.dateOnlyTimeZoneIdentifier
+            dateOnlyTimeZoneIdentifier: domain.dateOnlyTimeZoneIdentifier,
+            urlString: domain.urlString
         )
     }
     
@@ -51,6 +53,7 @@ extension SDTask {
         self.reminderDate = domain.reminderDate
         self.completedAt = domain.completedAt
         self.dateOnlyTimeZoneIdentifier = domain.dateOnlyTimeZoneIdentifier
+        self.urlString = domain.urlString
     }
 }
 
@@ -280,6 +283,11 @@ extension HealthSummary {
         summary.moveMinutes = sd.moveMinutes
         summary.exerciseMinutes = sd.exerciseMinutes
         summary.standHours = sd.standHours
+        summary.activeEnergyGoal = sd.activeEnergyGoal
+        summary.moveMinutesGoal = sd.moveMinutesGoal
+        summary.exerciseMinutesGoal = sd.exerciseMinutesGoal
+        summary.standHoursGoal = sd.standHoursGoal
+        summary.fitnessMoveMode = sd.fitnessMoveModeRaw.flatMap(FitnessMoveMode.init(rawValue:))
         summary.sleepStart = sd.sleepStart
         summary.sleepEnd = sd.sleepEnd
         summary.sleepStages = sd.sleepStages
@@ -301,6 +309,11 @@ extension SDHealthSummary {
             moveMinutes: domain.moveMinutes,
             exerciseMinutes: domain.exerciseMinutes,
             standHours: domain.standHours,
+            activeEnergyGoal: domain.activeEnergyGoal,
+            moveMinutesGoal: domain.moveMinutesGoal,
+            exerciseMinutesGoal: domain.exerciseMinutesGoal,
+            standHoursGoal: domain.standHoursGoal,
+            fitnessMoveModeRaw: domain.fitnessMoveMode?.rawValue,
             sleepStart: domain.sleepStart,
             sleepEnd: domain.sleepEnd,
             sleepStages: domain.sleepStages,
@@ -318,6 +331,11 @@ extension SDHealthSummary {
         self.moveMinutes = domain.moveMinutes
         self.exerciseMinutes = domain.exerciseMinutes
         self.standHours = domain.standHours
+        self.activeEnergyGoal = domain.activeEnergyGoal
+        self.moveMinutesGoal = domain.moveMinutesGoal
+        self.exerciseMinutesGoal = domain.exerciseMinutesGoal
+        self.standHoursGoal = domain.standHoursGoal
+        self.fitnessMoveModeRaw = domain.fitnessMoveMode?.rawValue
         self.sleepStart = domain.sleepStart
         self.sleepEnd = domain.sleepEnd
         self.sleepStages = domain.sleepStages
@@ -330,6 +348,12 @@ extension SDHealthSummary {
 // MARK: - CalendarEvent Mapping
 extension CalendarEvent {
     init(sd: SDCalendarEvent) {
+        let rule: EventRecurrenceRule?
+        if let data = sd.recurrenceRuleData {
+            rule = try? JSONDecoder().decode(EventRecurrenceRule.self, from: data)
+        } else {
+            rule = nil
+        }
         self.init(
             id: sd.id,
             title: sd.title,
@@ -341,13 +365,22 @@ extension CalendarEvent {
             sourceCalendarIdentifier: sd.sourceCalendarIdentifier,
             reminderMinutes: sd.reminderMinutes,
             reminderDate: sd.reminderDate,
-            dateOnlyTimeZoneIdentifier: sd.dateOnlyTimeZoneIdentifier
+            dateOnlyTimeZoneIdentifier: sd.dateOnlyTimeZoneIdentifier,
+            recurrenceRule: rule,
+            urlString: sd.urlString
         )
     }
 }
 
 extension SDCalendarEvent {
+    @MainActor
     convenience init(domain: CalendarEvent) {
+        let ruleData: Data?
+        if let rule = domain.recurrenceRule {
+            ruleData = try? JSONEncoder().encode(rule)
+        } else {
+            ruleData = nil
+        }
         self.init(
             id: domain.id,
             title: domain.title,
@@ -359,10 +392,13 @@ extension SDCalendarEvent {
             sourceCalendarIdentifier: domain.sourceCalendarIdentifier,
             reminderMinutes: domain.reminderMinutes,
             reminderDate: domain.reminderDate,
-            dateOnlyTimeZoneIdentifier: domain.dateOnlyTimeZoneIdentifier
+            dateOnlyTimeZoneIdentifier: domain.dateOnlyTimeZoneIdentifier,
+            recurrenceRuleData: ruleData,
+            urlString: domain.urlString
         )
     }
     
+    @MainActor
     func update(from domain: CalendarEvent) {
         self.title = domain.title
         self.detail = domain.detail
@@ -374,6 +410,39 @@ extension SDCalendarEvent {
         self.reminderMinutes = domain.reminderMinutes
         self.reminderDate = domain.reminderDate
         self.dateOnlyTimeZoneIdentifier = domain.dateOnlyTimeZoneIdentifier
+        self.urlString = domain.urlString
+        if let rule = domain.recurrenceRule {
+            self.recurrenceRuleData = try? JSONEncoder().encode(rule)
+        } else {
+            self.recurrenceRuleData = nil
+        }
+    }
+}
+
+extension SDCalendarEventException {
+    @MainActor
+    convenience init(domain: CalendarEventException) {
+        let replacementData: Data?
+        if let replacement = domain.replacement {
+            replacementData = try? JSONEncoder().encode(replacement)
+        } else {
+            replacementData = nil
+        }
+        self.init(id: domain.id,
+                  seriesID: domain.seriesID,
+                  originalStartDate: domain.originalStartDate,
+                  replacementData: replacementData)
+    }
+
+    @MainActor
+    func update(from domain: CalendarEventException) {
+        seriesID = domain.seriesID
+        originalStartDate = domain.originalStartDate
+        if let replacement = domain.replacement {
+            replacementData = try? JSONEncoder().encode(replacement)
+        } else {
+            replacementData = nil
+        }
     }
 }
 

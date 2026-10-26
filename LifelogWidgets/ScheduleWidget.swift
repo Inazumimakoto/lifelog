@@ -177,14 +177,19 @@ struct ScheduleProvider: TimelineProvider {
 
     @MainActor
     private func fetchEvents(from rangeStart: Date, to rangeEnd: Date) -> [ScheduleEventItem] {
-        // マージ・重複排除・整列は共有 EventQuerying に一本化する。
-        // 内部/外部は CalendarEvent でマージしてから表示用 ScheduleEventItem へ変換する。
-        let internalEvents = fetchInternalEvents(from: rangeStart, to: rangeEnd)
+        // Resolve the same masters and exceptions used by Today and Calendar.
         let externalEvents = fetchExternalEvents(from: rangeStart, to: rangeEnd)
-        let merged = EventQuerying.mergedDedupedSorted(
-            internalEvents: internalEvents,
-            externalEvents: externalEvents
-        )
+        let merged: [CalendarEvent]
+        do {
+            merged = try CalendarEventStorageQuery.events(
+                in: PersistenceController.shared.container.mainContext,
+                from: rangeStart,
+                to: rangeEnd,
+                externalEvents: externalEvents
+            )
+        } catch {
+            merged = EventQuerying.mergedDedupedSorted(internalEvents: [], externalEvents: externalEvents)
+        }
         return merged.map {
             ScheduleEventItem(
                 id: $0.id,
@@ -194,37 +199,6 @@ struct ScheduleProvider: TimelineProvider {
                 isAllDay: $0.isAllDay,
                 categoryName: $0.calendarName
             )
-        }
-    }
-
-    @MainActor
-    private func fetchInternalEvents(from rangeStart: Date, to rangeEnd: Date) -> [CalendarEvent] {
-        do {
-            let context = PersistenceController.shared.container.mainContext
-            let storageRange = EventQuerying.storageRange(rangeStart: rangeStart, rangeEndExclusive: rangeEnd)
-            let storedStart = storageRange.start, storedEnd = storageRange.end
-            let descriptor = FetchDescriptor<SDCalendarEvent>(
-                predicate: #Predicate<SDCalendarEvent> { $0.startDate < storedEnd && $0.endDate > storedStart },
-                sortBy: [SortDescriptor(\.startDate)]
-            )
-
-            return try context.fetch(descriptor).map {
-                CalendarEvent(
-                    id: $0.id,
-                    title: $0.title,
-                    detail: $0.detail ?? "",
-                    startDate: $0.startDate,
-                    endDate: $0.endDate,
-                    calendarName: $0.calendarName,
-                    isAllDay: $0.isAllDay,
-                    sourceCalendarIdentifier: $0.sourceCalendarIdentifier,
-                    reminderMinutes: $0.reminderMinutes,
-                    reminderDate: $0.reminderDate,
-                    dateOnlyTimeZoneIdentifier: $0.dateOnlyTimeZoneIdentifier
-                )
-            }.filter { EventQuerying.overlaps($0, rangeStart: rangeStart, rangeEndExclusive: rangeEnd) }
-        } catch {
-            return []
         }
     }
 

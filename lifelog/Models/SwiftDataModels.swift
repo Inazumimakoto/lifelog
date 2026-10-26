@@ -64,6 +64,7 @@ final class SDTask {
     var reminderDate: Date?
     var completedAt: Date?
     var dateOnlyTimeZoneIdentifier: String?
+    var urlString: String?
 
     init(id: UUID = UUID(),
          title: String,
@@ -74,7 +75,8 @@ final class SDTask {
          isCompleted: Bool = false,
          reminderDate: Date? = nil,
          completedAt: Date? = nil,
-         dateOnlyTimeZoneIdentifier: String? = nil) {
+         dateOnlyTimeZoneIdentifier: String? = nil,
+         urlString: String? = nil) {
         self.id = id
         self.title = title
         self.detail = detail
@@ -85,6 +87,7 @@ final class SDTask {
         self.reminderDate = reminderDate
         self.completedAt = completedAt
         self.dateOnlyTimeZoneIdentifier = dateOnlyTimeZoneIdentifier
+        self.urlString = urlString
     }
 }
 
@@ -258,6 +261,11 @@ final class SDHealthSummary {
     var moveMinutes: Double?
     var exerciseMinutes: Double?
     var standHours: Double?
+    var activeEnergyGoal: Double?
+    var moveMinutesGoal: Double?
+    var exerciseMinutesGoal: Double?
+    var standHoursGoal: Double?
+    var fitnessMoveModeRaw: String?
     var sleepStart: Date?
     var sleepEnd: Date?
     var sleepStages: [SleepStage] // SleepStage must be persistent-compatible (Codable) which it is
@@ -275,6 +283,11 @@ final class SDHealthSummary {
          moveMinutes: Double? = nil,
          exerciseMinutes: Double? = nil,
          standHours: Double? = nil,
+         activeEnergyGoal: Double? = nil,
+         moveMinutesGoal: Double? = nil,
+         exerciseMinutesGoal: Double? = nil,
+         standHoursGoal: Double? = nil,
+         fitnessMoveModeRaw: String? = nil,
          sleepStart: Date? = nil,
          sleepEnd: Date? = nil,
          sleepStages: [SleepStage] = [],
@@ -289,6 +302,11 @@ final class SDHealthSummary {
         self.moveMinutes = moveMinutes
         self.exerciseMinutes = exerciseMinutes
         self.standHours = standHours
+        self.activeEnergyGoal = activeEnergyGoal
+        self.moveMinutesGoal = moveMinutesGoal
+        self.exerciseMinutesGoal = exerciseMinutesGoal
+        self.standHoursGoal = standHoursGoal
+        self.fitnessMoveModeRaw = fitnessMoveModeRaw
         self.sleepStart = sleepStart
         self.sleepEnd = sleepEnd
         self.sleepStages = sleepStages
@@ -312,6 +330,9 @@ final class SDCalendarEvent {
     var reminderMinutes: Int?
     var reminderDate: Date?
     var dateOnlyTimeZoneIdentifier: String?
+    /// Optional scalar sidecar keeps existing single events migration compatible.
+    var recurrenceRuleData: Data?
+    var urlString: String?
 
     init(id: UUID = UUID(),
          title: String,
@@ -323,7 +344,9 @@ final class SDCalendarEvent {
          sourceCalendarIdentifier: String? = nil,
          reminderMinutes: Int? = nil,
          reminderDate: Date? = nil,
-         dateOnlyTimeZoneIdentifier: String? = nil) {
+         dateOnlyTimeZoneIdentifier: String? = nil,
+         recurrenceRuleData: Data? = nil,
+         urlString: String? = nil) {
         self.id = id
         self.title = title
         self.detail = detail
@@ -335,6 +358,24 @@ final class SDCalendarEvent {
         self.reminderMinutes = reminderMinutes
         self.reminderDate = reminderDate
         self.dateOnlyTimeZoneIdentifier = dateOnlyTimeZoneIdentifier
+        self.recurrenceRuleData = recurrenceRuleData
+        self.urlString = urlString
+    }
+}
+
+@Model
+final class SDCalendarEventException {
+    @Attribute(.unique) var id: UUID
+    var seriesID: UUID
+    var originalStartDate: Date
+    /// nil is an explicit cancellation; otherwise stores one replacement event.
+    var replacementData: Data?
+
+    init(id: UUID = UUID(), seriesID: UUID, originalStartDate: Date, replacementData: Data? = nil) {
+        self.id = id
+        self.seriesID = seriesID
+        self.originalStartDate = originalStartDate
+        self.replacementData = replacementData
     }
 }
 

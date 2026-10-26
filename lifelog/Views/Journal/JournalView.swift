@@ -168,7 +168,14 @@ struct JournalView: View {
             NavigationStack {
                 CalendarEventEditorView(event: event,
                                         onSave: { updated in store.updateCalendarEvent(updated) },
-                                        onDelete: { store.deleteCalendarEvent(event.id) })
+                                        onDelete: { store.deleteCalendarEvent(event) },
+                                        onSkipWeek: { store.skipCalendarWeek(containing: event) },
+                                        onEndSeries: { store.endCalendarSeries(startingAt: event) },
+                                        exceptions: store.calendarExceptions,
+                                        onRestoreException: { store.restoreCalendarException($0) },
+                                        onDeleteSeries: { store.deleteCalendarSeries(containing: event) },
+                                        canDeleteWeek: { store.canDeleteCalendarWeek(containing: event) },
+                                        editStore: store)
             }
         }
         .sheet(item: $editingTask) { task in
@@ -199,17 +206,18 @@ struct JournalView: View {
                 EventsView(store: store)
             }
         }
-        .confirmationDialog("予定を削除", isPresented: $showTimelineDeleteConfirmation, presenting: timelineEventToDelete) { event in
-            Button("削除", role: .destructive) {
-                store.deleteCalendarEvent(event.id)
-                timelineEventToDelete = nil
+        .calendarEventDeletionDialog(
+            isPresented: $showTimelineDeleteConfirmation,
+            event: timelineEventToDelete,
+            onDelete: timelineDeletionAction { store.deleteCalendarEvent($0) },
+            onSkipWeek: timelineDeletionAction { store.skipCalendarWeek(containing: $0) },
+            onEndSeries: timelineDeletionAction { store.endCalendarSeries(startingAt: $0) },
+            onDeleteSeries: timelineDeletionAction { store.deleteCalendarSeries(containing: $0) },
+            canDeleteWeek: {
+                guard let event = timelineEventToDelete else { return false }
+                return store.canDeleteCalendarWeek(containing: event)
             }
-            Button("キャンセル", role: .cancel) {
-                timelineEventToDelete = nil
-            }
-        } message: { event in
-            Text("\"\(event.title)\" を削除しますか？")
-        }
+        )
         .confirmationDialog("この日に何を追加しますか？", isPresented: $showAddMenu, titleVisibility: .visible) {
             Button("タスクを追加") {
                 guard let date = pendingAddDate else { return }
@@ -403,11 +411,13 @@ struct JournalView: View {
             let deleteAction: (() -> Void)? = {
                 guard item.kind == .event,
                       let id = item.sourceId,
-                      let event = store.calendarEvents.first(where: { $0.id == id }) else { return nil }
+                      let event = store.events(on: item.start).first(where: { $0.id == id && $0.sourceCalendarIdentifier == nil }) else { return nil }
                 return {
                     tappedTimelineItem = nil
-                    timelineEventToDelete = event
-                    showTimelineDeleteConfirmation = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        timelineEventToDelete = event
+                        showTimelineDeleteConfirmation = true
+                    }
                 }
             }()
 
@@ -490,11 +500,21 @@ struct JournalView: View {
         }
     }
 
+    /// Capture the original occurrence before the chooser changes presentation
+    /// state. Dismissing a chooser must not erase the selected series identity.
+    private func timelineDeletionAction(_ action: @escaping (CalendarEvent) -> Void) -> (() -> Void)? {
+        guard let event = timelineEventToDelete else { return nil }
+        return {
+            action(event)
+            timelineEventToDelete = nil
+        }
+    }
+
     private func handleEdit(for item: JournalViewModel.TimelineItem) {
         switch item.kind {
         case .event:
             guard let id = item.sourceId,
-                  let event = store.calendarEvents.first(where: { $0.id == id }) else { return }
+                  let event = store.events(on: item.start).first(where: { $0.id == id && $0.sourceCalendarIdentifier == nil }) else { return }
             editingEvent = event
         case .task:
              guard let id = item.sourceId,
@@ -530,6 +550,8 @@ struct JournalView: View {
         HStack(alignment: .center, spacing: 12) {
             Text("カレンダー")
                 .font(.largeTitle.bold())
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
             Spacer()
             Picker("", selection: $calendarMode) {
                 Text("予定").tag(CalendarMode.schedule)

@@ -39,7 +39,7 @@ final class MonetizationService: ObservableObject {
     ]
     private let lifetimeProductID = "com.inazumimakoto.lifelify.premium.lifetime"
     // Temporary release mode: all premium features are unlocked and billing is disabled.
-    private let isBillingTemporarilyDisabled = true
+    private let isBillingTemporarilyDisabled = MonetizationPolicy.isBillingTemporarilyDisabled
 
     private var allPremiumProductIDs: Set<String> {
         var ids = subscriptionProductIDs
@@ -61,10 +61,10 @@ final class MonetizationService: ObservableObject {
     @Published private(set) var hasLoadedProducts: Bool = false
     @Published var errorMessage: String?
 
-    let freeHabitLimit = 3
-    let freeCountdownLimit = 1
-    let freeDiaryPhotoLimit = 3
-    let premiumDiaryPhotoLimit = 10
+    let freeHabitLimit = MonetizationPolicy.freeHabitLimit
+    let freeCountdownLimit = MonetizationPolicy.freeCountdownLimit
+    let freeDiaryPhotoLimit = MonetizationPolicy.freeDiaryPhotoLimit
+    let premiumDiaryPhotoLimit = MonetizationPolicy.premiumDiaryPhotoLimit
 
 #if DEBUG
     private let debugStorefrontCountryCodeKey = "debug.monetization.storefrontCountryCode"
@@ -80,7 +80,12 @@ final class MonetizationService: ObservableObject {
     }
 
     var isPremiumUnlocked: Bool {
-        isBillingDisabled || isJapanStorefront || hasPremiumEntitlement
+        policy.isPremiumUnlocked
+    }
+
+    private var policy: MonetizationPolicy {
+        MonetizationPolicy(billingDisabled: isBillingDisabled, storefrontCountryCode: storefrontCountryCode,
+                           hasPremiumEntitlement: hasPremiumEntitlement)
     }
 
     var canUseHabitGrass: Bool {
@@ -108,7 +113,7 @@ final class MonetizationService: ObservableObject {
     }
 
     var diaryPhotoLimit: Int {
-        isPremiumUnlocked ? premiumDiaryPhotoLimit : freeDiaryPhotoLimit
+        policy.diaryPhotoLimit
     }
 
     private init() {
@@ -147,13 +152,11 @@ final class MonetizationService: ObservableObject {
     }
 
     func canAddHabit(activeHabitCount: Int) -> Bool {
-        guard isPremiumUnlocked == false else { return true }
-        return activeHabitCount < freeHabitLimit
+        policy.canAddHabit(activeHabitCount: activeHabitCount)
     }
 
     func canAddCountdown(currentCount: Int) -> Bool {
-        guard isPremiumUnlocked == false else { return true }
-        return currentCount < freeCountdownLimit
+        policy.canAddCountdown(currentCount: currentCount)
     }
 
     func habitLimitMessage() -> String {

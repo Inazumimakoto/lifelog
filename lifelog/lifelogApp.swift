@@ -94,6 +94,7 @@ struct lifelogApp: App {
 
                     syncMemoPrivacySettingsToSharedDefaults()
                     store.resumeDiaryPhotoSync()
+                    store.refreshCalendarRemindersIfNeeded()
                     store.rescheduleTodayOverviewReminderIfNeeded()
                     WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
                     WidgetCenter.shared.reloadTimelines(ofKind: "HabitWidget")

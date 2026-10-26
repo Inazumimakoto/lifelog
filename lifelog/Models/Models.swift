@@ -222,6 +222,9 @@ struct Task: Identifiable, Codable, Hashable {
     var completedAt: Date?
     /// Optional for legacy records. Dates are civil days in this source zone.
     var dateOnlyTimeZoneIdentifier: String?
+    var urlString: String?
+
+    var linkURL: URL? { ScheduleLink.url(from: urlString) }
 
     init(id: UUID = UUID(),
          title: String,
@@ -232,7 +235,8 @@ struct Task: Identifiable, Codable, Hashable {
          isCompleted: Bool = false,
          reminderDate: Date? = nil,
          completedAt: Date? = nil,
-         dateOnlyTimeZoneIdentifier: String? = nil) {
+         dateOnlyTimeZoneIdentifier: String? = nil,
+         urlString: String? = nil) {
         self.id = id
         self.title = title
         self.detail = detail
@@ -243,6 +247,7 @@ struct Task: Identifiable, Codable, Hashable {
         self.reminderDate = reminderDate
         self.completedAt = completedAt
         self.dateOnlyTimeZoneIdentifier = dateOnlyTimeZoneIdentifier
+        self.urlString = urlString
     }
 }
 
@@ -568,6 +573,11 @@ struct Anniversary: Identifiable, Codable, Hashable {
     }
 }
 
+enum FitnessMoveMode: String, Codable {
+    case energy
+    case time
+}
+
 struct HealthSummary: Identifiable, Hashable, Codable {
     var id: UUID = UUID()
     var date: Date
@@ -577,6 +587,12 @@ struct HealthSummary: Identifiable, Hashable, Codable {
     var moveMinutes: Double?
     var exerciseMinutes: Double?
     var standHours: Double?
+    // §4.8: Ring goals belong to each day; never substitute fixed targets.
+    var activeEnergyGoal: Double?
+    var moveMinutesGoal: Double?
+    var exerciseMinutesGoal: Double?
+    var standHoursGoal: Double?
+    var fitnessMoveMode: FitnessMoveMode?
     var sleepStart: Date?
     var sleepEnd: Date?
     var sleepStages: [SleepStage] = []
@@ -604,6 +620,12 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
     var reminderDate: Date?
     /// All-day day labels retain this zone; timed events always remain instants.
     var dateOnlyTimeZoneIdentifier: String?
+    var recurrenceRule: EventRecurrenceRule?
+    /// Present only on resolved occurrences, never on the stored series master.
+    var occurrenceReference: CalendarEventOccurrenceReference?
+    var urlString: String?
+
+    var linkURL: URL? { ScheduleLink.url(from: urlString) }
 
     init(id: UUID = UUID(),
          title: String,
@@ -615,7 +637,10 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
          sourceCalendarIdentifier: String? = nil,
          reminderMinutes: Int? = nil,
          reminderDate: Date? = nil,
-         dateOnlyTimeZoneIdentifier: String? = nil) {
+         dateOnlyTimeZoneIdentifier: String? = nil,
+         recurrenceRule: EventRecurrenceRule? = nil,
+         occurrenceReference: CalendarEventOccurrenceReference? = nil,
+         urlString: String? = nil) {
         self.id = id
         self.title = title
         self.detail = detail
@@ -627,6 +652,9 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
         self.reminderMinutes = reminderMinutes
         self.reminderDate = reminderDate
         self.dateOnlyTimeZoneIdentifier = dateOnlyTimeZoneIdentifier
+        self.recurrenceRule = recurrenceRule
+        self.occurrenceReference = occurrenceReference
+        self.urlString = urlString
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -641,6 +669,9 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
         case reminderMinutes
         case reminderDate
         case dateOnlyTimeZoneIdentifier
+        case recurrenceRule
+        case occurrenceReference
+        case urlString
     }
 
     init(from decoder: Decoder) throws {
@@ -656,7 +687,10 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
             sourceCalendarIdentifier: try container.decodeIfPresent(String.self, forKey: .sourceCalendarIdentifier),
             reminderMinutes: try container.decodeIfPresent(Int.self, forKey: .reminderMinutes),
             reminderDate: try container.decodeIfPresent(Date.self, forKey: .reminderDate),
-            dateOnlyTimeZoneIdentifier: try container.decodeIfPresent(String.self, forKey: .dateOnlyTimeZoneIdentifier)
+            dateOnlyTimeZoneIdentifier: try container.decodeIfPresent(String.self, forKey: .dateOnlyTimeZoneIdentifier),
+            recurrenceRule: try container.decodeIfPresent(EventRecurrenceRule.self, forKey: .recurrenceRule),
+            occurrenceReference: try container.decodeIfPresent(CalendarEventOccurrenceReference.self, forKey: .occurrenceReference),
+            urlString: try container.decodeIfPresent(String.self, forKey: .urlString)
         )
     }
 
@@ -673,6 +707,9 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
         try container.encodeIfPresent(reminderMinutes, forKey: .reminderMinutes)
         try container.encodeIfPresent(reminderDate, forKey: .reminderDate)
         try container.encodeIfPresent(dateOnlyTimeZoneIdentifier, forKey: .dateOnlyTimeZoneIdentifier)
+        try container.encodeIfPresent(recurrenceRule, forKey: .recurrenceRule)
+        try container.encodeIfPresent(occurrenceReference, forKey: .occurrenceReference)
+        try container.encodeIfPresent(urlString, forKey: .urlString)
     }
 
     func displayStartDate(calendar: Calendar = .current) -> Date {
@@ -696,7 +733,8 @@ extension CalendarEvent {
                   endDate: event.endDate,
                   calendarName: categoryName,
                   isAllDay: event.isAllDay,
-                  sourceCalendarIdentifier: event.calendar.calendarIdentifier)
+                  sourceCalendarIdentifier: event.calendar.calendarIdentifier,
+                  urlString: event.url?.absoluteString)
     }
 }
 
@@ -705,15 +743,17 @@ enum SleepStageType: String, Codable, CaseIterable, Identifiable {
     case rem
     case core
     case deep
+    case unspecified
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
-        case .awake: return "覚醒"
-        case .rem: return "レム"
-        case .core: return "コア"
-        case .deep: return "深い"
+        case .awake: return String(localized: "覚醒")
+        case .rem: return String(localized: "レム")
+        case .core: return String(localized: "コア")
+        case .deep: return String(localized: "深い")
+        case .unspecified: return String(localized: "不明")
         }
     }
 
@@ -723,17 +763,25 @@ enum SleepStageType: String, Codable, CaseIterable, Identifiable {
         case .rem: return .pink
         case .core: return .blue
         case .deep: return .indigo
+        case .unspecified: return .gray
         }
     }
 
-    static var timelineOrder: [SleepStageType] { [.awake, .rem, .core, .deep] }
+    static var timelineOrder: [SleepStageType] { [.awake, .rem, .core, .deep, .unspecified] }
 }
 
 struct SleepStage: Identifiable, Codable, Hashable {
-    let id = UUID()
+    let id: UUID
     var start: Date
     var end: Date
     var stage: SleepStageType
+
+    init(id: UUID = UUID(), start: Date, end: Date, stage: SleepStageType) {
+        self.id = id
+        self.start = start
+        self.end = end
+        self.stage = stage
+    }
 
     var durationMinutes: Double {
         end.timeIntervalSince(start) / 60

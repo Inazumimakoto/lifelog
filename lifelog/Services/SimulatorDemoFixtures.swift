@@ -57,8 +57,28 @@ enum SimulatorDemoFixtures {
             summary.moveMinutes = 45 + Double((offset + 6) * 5)
             summary.exerciseMinutes = 20 + Double((offset + 6) % 3 * 5)
             summary.standHours = 10
+            summary.activeEnergyGoal = 450
+            summary.moveMinutesGoal = 60
+            summary.exerciseMinutesGoal = 30
+            summary.standHoursGoal = 12
+            summary.fitnessMoveMode = .energy
             summary.sleepEnd = calendar.date(bySettingHour: 7, minute: 0, second: 0, of: date)
-            summary.sleepStart = summary.sleepEnd?.addingTimeInterval(-(summary.sleepHours ?? 7) * 3_600)
+            // The demo includes a 15-minute awakening, excluded from sleepHours.
+            summary.sleepStart = summary.sleepEnd?.addingTimeInterval(-((summary.sleepHours ?? 7) * 3_600 + 900))
+            if let start = summary.sleepStart, let end = summary.sleepEnd {
+                let firstCoreEnd = start.addingTimeInterval(3_600)
+                let deepEnd = firstCoreEnd.addingTimeInterval(5_400)
+                let awakeEnd = deepEnd.addingTimeInterval(900)
+                let remEnd = awakeEnd.addingTimeInterval(3_600)
+                let dateIndex = calendar.ordinality(of: .day, in: .era, for: date)! * 10
+                summary.sleepStages = [
+                    SleepStage(id: identifier(namespace: "DE510000", index: dateIndex), start: start, end: firstCoreEnd, stage: .core),
+                    SleepStage(id: identifier(namespace: "DE510000", index: dateIndex + 1), start: firstCoreEnd, end: deepEnd, stage: .deep),
+                    SleepStage(id: identifier(namespace: "DE510000", index: dateIndex + 2), start: deepEnd, end: awakeEnd, stage: .awake),
+                    SleepStage(id: identifier(namespace: "DE510000", index: dateIndex + 3), start: awakeEnd, end: remEnd, stage: .rem),
+                    SleepStage(id: identifier(namespace: "DE510000", index: dateIndex + 4), start: remEnd, end: end, stage: .core)
+                ]
+            }
             return summary
         }
         let place = ShoppingPlace(id: identifier(namespace: "DE700000", index: 1),

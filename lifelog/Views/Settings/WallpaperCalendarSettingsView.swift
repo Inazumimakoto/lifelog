@@ -324,6 +324,7 @@ struct WallpaperCalendarSettingsView: View {
 
     private func onboardingLayoutOption(_ preset: WallpaperCalendarLayoutPreset, phoneWidth: CGFloat) -> some View {
         let isSelected = settings.layoutPreset.normalized == preset
+        let canvasSize = WallpaperCalendarCanvas.size
 
         return VStack(spacing: 10) {
             if let page = previewPages.first(where: { $0.preset == preset.normalized }) {
@@ -337,7 +338,7 @@ struct WallpaperCalendarSettingsView: View {
                 .accessibilityHidden(true)
             } else {
                 ProgressView()
-                    .frame(width: phoneWidth, height: phoneWidth * 852 / 393)
+                    .frame(width: phoneWidth, height: phoneWidth * canvasSize.height / canvasSize.width)
             }
 
             HStack(spacing: 4) {
@@ -798,7 +799,10 @@ private struct WallpaperCalendarPreviewEditor: View {
     let onRemoveBackground: () -> Void
 
     private let previewWidth: CGFloat = 272
-    private let previewHeight: CGFloat = 852 * (272.0 / 393.0)
+    private var previewHeight: CGFloat {
+        let canvasSize = WallpaperCalendarCanvas.size
+        return canvasSize.height * previewWidth / canvasSize.width
+    }
 
     var body: some View {
         VStack(spacing: 12) {
@@ -1154,7 +1158,7 @@ private struct WallpaperBackgroundAdjustmentSheet: View {
     @State private var dragStartAdjustment: WallpaperCalendarBackgroundAdjustment?
     @State private var scaleStartAdjustment: WallpaperCalendarBackgroundAdjustment?
 
-    private let phoneSize = CGSize(width: 393, height: 852)
+    private var phoneSize: CGSize { WallpaperCalendarCanvas.size }
 
     init(snapshot: WallpaperCalendarSnapshot,
          settings: WallpaperCalendarSettings,
@@ -1185,13 +1189,13 @@ private struct WallpaperBackgroundAdjustmentSheet: View {
                     adjustedPreview(width: previewWidth, previewSize: previewSize)
 
                     VStack(alignment: .leading, spacing: 12) {
-                        Label("ドラッグで移動、ピンチで拡大", systemImage: "hand.draw")
+                        Label("ドラッグで移動、ピンチで拡大・縮小", systemImage: "hand.draw")
                             .font(.subheadline.weight(.semibold))
 
                         HStack {
                             Image(systemName: "minus.magnifyingglass")
                                 .foregroundStyle(.secondary)
-                            Slider(value: scaleBinding, in: WallpaperCalendarBackgroundAdjustment.minScale...WallpaperCalendarBackgroundAdjustment.maxScale)
+                            Slider(value: scaleBinding, in: minimumScale...WallpaperCalendarBackgroundAdjustment.maxScale)
                             Image(systemName: "plus.magnifyingglass")
                                 .foregroundStyle(.secondary)
                         }
@@ -1250,10 +1254,14 @@ private struct WallpaperBackgroundAdjustmentSheet: View {
         adjustment.clamped(for: backgroundImage.size, canvasSize: phoneSize)
     }
 
+    private var minimumScale: Double {
+        WallpaperCalendarBackgroundAdjustment.minimumScale(for: backgroundImage.size, canvasSize: phoneSize)
+    }
+
     private var scaleBinding: Binding<Double> {
         Binding(
             get: {
-                adjustment.scale
+                clampedAdjustment.scale
             },
             set: { newValue in
                 adjustment = WallpaperCalendarBackgroundAdjustment(
@@ -1313,7 +1321,7 @@ struct WallpaperCalendarLockScreenPreview: View {
     let backgroundImage: UIImage?
     let isDarkAppearance: Bool
 
-    private let phoneSize = CGSize(width: 393, height: 852)
+    private var phoneSize: CGSize { WallpaperCalendarCanvas.size }
 
     var body: some View {
         ZStack {
@@ -1512,13 +1520,13 @@ struct WallpaperCalendarLockScreenPreview: View {
 }
 
 private extension View {
+    @MainActor
     func scaledPhonePreview(width: CGFloat) -> some View {
-        let baseWidth: CGFloat = 393
-        let baseHeight: CGFloat = 852
-        let scale = width / baseWidth
+        let canvasSize = WallpaperCalendarCanvas.size
+        let scale = width / canvasSize.width
         return self
-            .frame(width: baseWidth, height: baseHeight)
+            .frame(width: canvasSize.width, height: canvasSize.height)
             .scaleEffect(scale)
-            .frame(width: width, height: baseHeight * scale)
+            .frame(width: width, height: canvasSize.height * scale)
     }
 }

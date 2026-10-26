@@ -90,7 +90,6 @@ struct WallpaperCalendarSettings: Codable, Equatable {
 
 struct WallpaperCalendarBackgroundAdjustment: Codable, Equatable {
     static let defaultValue = WallpaperCalendarBackgroundAdjustment()
-    static let minScale = 1.0
     static let maxScale = 3.0
 
     var scale: Double
@@ -105,27 +104,75 @@ struct WallpaperCalendarBackgroundAdjustment: Codable, Equatable {
         self.offsetY = offsetY
     }
 
+    // docs/requirements.md §4.11: allow the entire photo to fit above its blurred background.
+    static func minimumScale(for imageSize: CGSize, canvasSize: CGSize) -> Double {
+        guard let fillScale = aspectFillScale(for: imageSize, canvasSize: canvasSize) else { return 1 }
+        let fitScale = min(canvasSize.width / imageSize.width, canvasSize.height / imageSize.height)
+        let result = Double(fitScale / fillScale)
+        return result.isFinite && result > 0 ? min(1, result) : 1
+    }
+
     func clamped(for imageSize: CGSize, canvasSize: CGSize) -> WallpaperCalendarBackgroundAdjustment {
-        let resolvedScale = min(max(scale, Self.minScale), Self.maxScale)
-        guard imageSize.width > 0,
-              imageSize.height > 0,
-              canvasSize.width > 0,
-              canvasSize.height > 0
-        else {
+        let minimumScale = Self.minimumScale(for: imageSize, canvasSize: canvasSize)
+        let finiteScale = scale.isFinite ? scale : Self.defaultValue.scale
+        let resolvedScale = min(max(finiteScale, minimumScale), Self.maxScale)
+        guard let scaledSize = Self.scaledImageSize(for: imageSize, canvasSize: canvasSize, scale: resolvedScale) else {
             return WallpaperCalendarBackgroundAdjustment(scale: resolvedScale)
         }
 
-        let baseScale = max(canvasSize.width / imageSize.width, canvasSize.height / imageSize.height)
-        let scaledWidth = imageSize.width * baseScale * resolvedScale
-        let scaledHeight = imageSize.height * baseScale * resolvedScale
-        let maxOffsetX = max(0, (scaledWidth - canvasSize.width) / 2) / canvasSize.width
-        let maxOffsetY = max(0, (scaledHeight - canvasSize.height) / 2) / canvasSize.height
+        let maxOffsetX = Self.maximumOffset(imageLength: scaledSize.width, canvasLength: canvasSize.width)
+        let maxOffsetY = Self.maximumOffset(imageLength: scaledSize.height, canvasLength: canvasSize.height)
+        let finiteOffsetX = offsetX.isFinite ? offsetX : 0
+        let finiteOffsetY = offsetY.isFinite ? offsetY : 0
 
         return WallpaperCalendarBackgroundAdjustment(
             scale: resolvedScale,
-            offsetX: min(max(offsetX, -maxOffsetX), maxOffsetX),
-            offsetY: min(max(offsetY, -maxOffsetY), maxOffsetY)
+            offsetX: min(max(finiteOffsetX, -maxOffsetX), maxOffsetX),
+            offsetY: min(max(finiteOffsetY, -maxOffsetY), maxOffsetY)
         )
+    }
+
+    func imageRect(for imageSize: CGSize, in canvasRect: CGRect) -> CGRect {
+        guard Self.isValidSize(canvasRect.size),
+              canvasRect.minX.isFinite, canvasRect.minY.isFinite,
+              canvasRect.maxX.isFinite, canvasRect.maxY.isFinite else { return .zero }
+        let adjustment = clamped(for: imageSize, canvasSize: canvasRect.size)
+        guard let scaledSize = Self.scaledImageSize(for: imageSize, canvasSize: canvasRect.size, scale: adjustment.scale) else {
+            return canvasRect
+        }
+        let rect = CGRect(
+            x: canvasRect.midX - scaledSize.width / 2 + CGFloat(adjustment.offsetX) * canvasRect.width,
+            y: canvasRect.midY - scaledSize.height / 2 + CGFloat(adjustment.offsetY) * canvasRect.height,
+            width: scaledSize.width,
+            height: scaledSize.height
+        )
+        guard rect.minX.isFinite, rect.minY.isFinite,
+              rect.maxX.isFinite, rect.maxY.isFinite else { return canvasRect }
+        return rect
+    }
+
+    private static func isValidSize(_ size: CGSize) -> Bool {
+        size.width.isFinite && size.height.isFinite && size.width > 0 && size.height > 0
+    }
+
+    private static func aspectFillScale(for imageSize: CGSize, canvasSize: CGSize) -> CGFloat? {
+        guard isValidSize(imageSize), isValidSize(canvasSize) else { return nil }
+        let scale = max(canvasSize.width / imageSize.width, canvasSize.height / imageSize.height)
+        return scale.isFinite && scale > 0 ? scale : nil
+    }
+
+    private static func scaledImageSize(for imageSize: CGSize, canvasSize: CGSize, scale: Double) -> CGSize? {
+        guard let fillScale = aspectFillScale(for: imageSize, canvasSize: canvasSize) else { return nil }
+        let size = CGSize(width: imageSize.width * fillScale * scale,
+                          height: imageSize.height * fillScale * scale)
+        return isValidSize(size) ? size : nil
+    }
+
+    private static func maximumOffset(imageLength: CGFloat, canvasLength: CGFloat) -> Double {
+        let overflow = max(0, (imageLength - canvasLength) / 2)
+        let margin = min(canvasLength, imageLength) * 0.25
+        let offset = Double((overflow + margin) / canvasLength)
+        return offset.isFinite ? offset : 0
     }
 }
 

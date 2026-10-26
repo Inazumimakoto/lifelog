@@ -230,7 +230,14 @@ struct TodayView: View {
             NavigationStack {
                 CalendarEventEditorView(event: event,
                                         onSave: { updated in store.updateCalendarEvent(updated) },
-                                        onDelete: { store.deleteCalendarEvent(event.id) })
+                                        onDelete: { store.deleteCalendarEvent(event) },
+                                        onSkipWeek: { store.skipCalendarWeek(containing: event) },
+                                        onEndSeries: { store.endCalendarSeries(startingAt: event) },
+                                        exceptions: store.calendarExceptions,
+                                        onRestoreException: { store.restoreCalendarException($0) },
+                                        onDeleteSeries: { store.deleteCalendarSeries(containing: event) },
+                                        canDeleteWeek: { store.canDeleteCalendarWeek(containing: event) },
+                                        editStore: store)
             }
         }
         .sheet(item: $editingTask) { task in
@@ -368,6 +375,9 @@ struct TodayView: View {
                                         Text(event.detail)
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
+                                    }
+                                    if let url = event.linkURL {
+                                        ScheduleLinkButton(url: url)
                                     }
                                     HStack(spacing: 6) {
                                         if event.calendarName.isEmpty == false {

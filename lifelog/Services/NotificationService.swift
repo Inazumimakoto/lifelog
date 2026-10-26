@@ -14,6 +14,7 @@ import os
 enum NotificationType: String {
     case event = "event"
     case externalEvent = "external-event"
+    case recurringEvent = "recurring-event"
     case task = "task"
     case anniversary = "anniversary"
     case diary = "diary"
@@ -28,6 +29,7 @@ class NotificationService {
     private let referenceDate: () -> Date
     private let requestHandler: ((UNNotificationRequest) -> Void)?
     private let cancellationHandler: (([String]) -> Void)?
+    private var injectedPendingIdentifiers: Set<String> = []
 
     init(referenceDate: @escaping () -> Date = { Date() },
          requestHandler: ((UNNotificationRequest) -> Void)? = nil,
@@ -86,6 +88,12 @@ class NotificationService {
         cancel(identifier: identifier(for: .event, key: eventId.uuidString))
     }
 
+    func scheduleRecurringEventReminder(occurrenceID: UUID, title: String, reminderDate: Date) {
+        scheduleOneTimeReminder(identifier: identifier(for: .recurringEvent, key: occurrenceID.uuidString),
+                                title: String(localized: "予定のリマインダー"), body: title,
+                                fireDate: reminderDate, errorMessage: "繰り返し予定通知スケジュールエラー")
+    }
+
     /// 外部予定の通知をスケジュール
     func scheduleExternalEventReminder(externalEventKey: String, title: String, startDate: Date, minutesBefore: Int) {
         guard minutesBefore > 0 else { return }
@@ -98,6 +106,10 @@ class NotificationService {
         scheduleOneTimeReminder(identifier: identifier(for: .externalEvent, key: externalEventKey),
                                 title: String(localized: "予定のリマインダー"), body: title,
                                 fireDate: reminderDate, errorMessage: "外部予定通知スケジュールエラー")
+    }
+    /// Disabling a default can cancel its cached request without scheduling or requesting permission.
+    func cancelExternalEventReminder(externalEventKey: String) {
+        cancel(identifier: identifier(for: .externalEvent, key: externalEventKey))
     }
 
     // MARK: - タスクリマインダー
@@ -117,13 +129,12 @@ class NotificationService {
     // MARK: - 記念日リマインダー
     
     /// 記念日の通知をスケジュール
-    func scheduleAnniversaryReminder(anniversaryId: UUID, title: String, targetDate: Date, daysBefore: Int, time: Date, repeatsYearly: Bool = false) {
-        let calendar = Calendar.current
+    func scheduleAnniversaryReminder(anniversaryId: UUID, title: String, targetDate: Date, daysBefore: Int, time: Date, repeatsYearly: Bool = false, calendar: Calendar = .current) {
         
         // 次の記念日を計算（今年または来年）
         var nextDate = targetDate
         let today = referenceDate()
-        while nextDate < today {
+        while repeatsYearly && nextDate < today {
             nextDate = calendar.date(byAdding: .year, value: 1, to: nextDate) ?? nextDate
         }
         
@@ -135,6 +146,8 @@ class NotificationService {
         var dateComponents = calendar.dateComponents([.month, .day], from: reminderDate)
         dateComponents.hour = timeComponents.hour
         dateComponents.minute = timeComponents.minute
+        dateComponents.calendar = calendar
+        dateComponents.timeZone = calendar.timeZone
         
         // 毎年繰り返さない場合は年も指定
         if !repeatsYearly {
@@ -245,6 +258,7 @@ class NotificationService {
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
 
         if let requestHandler {
+            injectedPendingIdentifiers.insert(identifier)
             requestHandler(request)
         } else {
             center.add(request) { error in
@@ -268,6 +282,7 @@ class NotificationService {
     }
 
     private func cancel(identifier: String) {
+        injectedPendingIdentifiers.remove(identifier)
         if let cancellationHandler {
             cancellationHandler([identifier])
         } else {
@@ -279,12 +294,33 @@ class NotificationService {
     
     /// 特定タイプの全通知をキャンセル
     func cancelAllReminders(ofType type: NotificationType, completion: (() -> Void)? = nil) {
+        cancelAllReminders(ofTypes: [type], completion: completion)
+    }
+
+    func cancelAllReminders(ofTypes types: [NotificationType], shouldCancel: @escaping () -> Bool = { true },
+                            completion: (() -> Void)? = nil) {
+        let prefixes = types.map { $0.rawValue + "-" }
+        if requestHandler != nil {
+            guard shouldCancel() else { return }
+            let identifiers = injectedPendingIdentifiers.filter { identifier in
+                prefixes.contains { identifier.hasPrefix($0) }
+            }
+            injectedPendingIdentifiers.subtract(identifiers)
+            cancellationHandler?(Array(identifiers))
+            completion?()
+            return
+        }
         center.getPendingNotificationRequests { requests in
             let identifiers = requests
-                .filter { $0.identifier.hasPrefix(type.rawValue) }
+                .filter { request in prefixes.contains { request.identifier.hasPrefix($0) } }
                 .map { $0.identifier }
-            self.center.removePendingNotificationRequests(withIdentifiers: identifiers)
-            completion?()
+            DispatchQueue.main.async {
+                // Validate before cancellation too: an older asynchronous read
+                // must not remove requests that a newer plan has just replaced.
+                guard shouldCancel() else { return }
+                self.center.removePendingNotificationRequests(withIdentifiers: identifiers)
+                completion?()
+            }
         }
     }
 }

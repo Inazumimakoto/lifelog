@@ -15,7 +15,7 @@ class HealthKitManager {
     static let shared = HealthKitManager()
     let healthStore = HKHealthStore()
     
-    private let readTypes: Set<HKObjectType> = [
+    private let legacyReadTypes: Set<HKObjectType> = [
         HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!,
         HKObjectType.quantityType(forIdentifier: .stepCount)!,
         HKObjectType.quantityType(forIdentifier: .activeEnergyBurned)!,
@@ -23,6 +23,10 @@ class HealthKitManager {
         HKObjectType.quantityType(forIdentifier: .appleExerciseTime)!,
         HKObjectType.categoryType(forIdentifier: .appleStandHour)!
     ]
+
+    private var readTypes: Set<HKObjectType> {
+        legacyReadTypes.union([HKObjectType.activitySummaryType()])
+    }
     
     private init() { }
     
@@ -47,7 +51,9 @@ class HealthKitManager {
         }
 
         do {
-            let status = try await healthStore.statusForAuthorizationRequest(toShare: [], read: readTypes)
+            // Backfill old grants without treating the newly added ring-summary
+            // type as evidence that legacy sleep/steps were never requested.
+            let status = try await healthStore.statusForAuthorizationRequest(toShare: [], read: legacyReadTypes)
             return status == .unnecessary
         } catch {
             AppLogger.health.error("Error checking HealthKit authorization request status: \(error.localizedDescription)")
@@ -63,13 +69,14 @@ class HealthKitManager {
             summaries[date] = HealthSummary(date: date)
         }
 
-        // These five independent HealthKit queries previously waited for each
-        // other, extending both the recent-data and full-year refresh latency.
+        // Independent queries run together, then ring summaries supply the
+        // actual per-day goals (§4.8).
         async let sleepResult = fetchSleepData(from: window.start, to: window.endExclusive)
         async let stepsResult = fetchCumulativeQuantity(for: .stepCount, from: window.start, to: window.endExclusive)
         async let energyResult = fetchCumulativeQuantity(for: .activeEnergyBurned, from: window.start, to: window.endExclusive)
         async let exerciseResult = fetchCumulativeQuantity(for: .appleExerciseTime, from: window.start, to: window.endExclusive)
         async let standResult = fetchStandHours(from: window.start, to: window.endExclusive)
+        async let fitnessResult = fetchFitnessData(from: window.start, to: window.endExclusive)
         let (sleepData, steps, activeEnergy, exerciseTime, standHours) = await (
             sleepResult, stepsResult, energyResult, exerciseResult, standResult
         )
@@ -78,7 +85,10 @@ class HealthKitManager {
             summaries[date]?.sleepStart = sleepInfo.start
             summaries[date]?.sleepEnd = sleepInfo.end
             summaries[date]?.sleepHours = sleepInfo.duration
-            summaries[date]?.sleepStages = sleepInfo.stages.sorted(by: { $0.start < $1.start })
+            summaries[date]?.sleepStages = sleepInfo.stages.compactMap { interval in
+                guard let stage = Self.sleepStageType(for: interval.state) else { return nil }
+                return SleepStage(start: interval.start, end: interval.end, stage: stage)
+            }
         }
         
         for (date, value) in steps {
@@ -96,13 +106,31 @@ class HealthKitManager {
         for (date, value) in standHours {
             summaries[date]?.standHours = value
         }
+
+        for fitness in await fitnessResult {
+            summaries[fitness.date]?.activeEnergy = fitness.activeEnergy
+            summaries[fitness.date]?.moveMinutes = fitness.moveMinutes
+            summaries[fitness.date]?.exerciseMinutes = fitness.exerciseMinutes
+            summaries[fitness.date]?.standHours = fitness.standHours
+            summaries[fitness.date]?.activeEnergyGoal = fitness.activeEnergyGoal
+            summaries[fitness.date]?.moveMinutesGoal = fitness.moveMinutesGoal
+            summaries[fitness.date]?.exerciseMinutesGoal = fitness.exerciseMinutesGoal
+            summaries[fitness.date]?.standHoursGoal = fitness.standHoursGoal
+            summaries[fitness.date]?.fitnessMoveMode = fitness.fitnessMoveMode
+        }
         
         return Array(summaries.values).sorted(by: { $0.date > $1.date })
     }
     
-    private func fetchSleepData(from startDate: Date, to endDate: Date) async -> [Date: SleepAggregate] {
+    private func fetchSleepData(from startDate: Date, to endDate: Date) async -> [Date: SleepSampleAggregation.DailySummary] {
         let sleepType = HKObjectType.categoryType(forIdentifier: .sleepAnalysis)!
-        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: endDate, options: .strictEndDate)
+        let calendar = Calendar.current
+        guard let bounds = SleepSampleAggregation.queryBounds(from: startDate, to: endDate, calendar: calendar) else {
+            return [:]
+        }
+        // Read whole boundary samples plus the adjacent nights. Session wake-up
+        // days, rather than individual stage end dates, select the requested days.
+        let predicate = HKQuery.predicateForSamples(withStart: bounds.start, end: bounds.end, options: [])
         
         return await withCheckedContinuation { continuation in
             let query = HKSampleQuery(sampleType: sleepType, predicate: predicate, limit: HKObjectQueryNoLimit, sortDescriptors: nil) { _, samples, error in
@@ -111,84 +139,49 @@ class HealthKitManager {
                     return
                 }
                 
-                var sleepDataByDay: [Date: SleepAggregate] = [:]
-                let calendar = Calendar.current
-
-                for sample in samples {
-                    guard self.isAsleepSample(sample) else { continue }
-                    let stageType = self.sleepStageType(for: sample)
-                    let sampleStart = sample.startDate
-                    let sampleEnd = sample.endDate
-                    
-                    // 起床日（endDateの日付）を基準にする
-                    let wakeUpDay = calendar.startOfDay(for: sampleEnd)
-                    
-                    // サンプル全体の時間を計算（日付を跨ぐ場合も含む）
-                    let hours = sampleEnd.timeIntervalSince(sampleStart) / 3600
-                    
-                    if var existing = sleepDataByDay[wakeUpDay] {
-                        // 既存のデータがある場合、同じ睡眠セッションかチェック
-                        // 連続した睡眠（2時間以内のギャップ）のみマージ
-                        let gap = abs(existing.end.timeIntervalSince(sampleStart))
-                        let reverseGap = abs(sampleEnd.timeIntervalSince(existing.start))
-                        let isSameSession = min(gap, reverseGap) < 7200 // 2時間以内
-                        
-                        if isSameSession {
-                            existing.start = min(existing.start, sampleStart)
-                            existing.end = max(existing.end, sampleEnd)
-                            existing.duration += hours
-                            if let stageType {
-                                existing.stages.append(SleepStage(start: sampleStart, end: sampleEnd, stage: stageType))
-                            }
-                            sleepDataByDay[wakeUpDay] = existing
-                        }
-                        // 別のセッション（例：昼寝と夜の睡眠）は最新の夜の睡眠を優先
-                        // → 既存データを維持（より早い時刻のサンプルを無視）
-                    } else {
-                        // 新規作成
-                        var aggregate = SleepAggregate(
-                            start: sampleStart,
-                            end: sampleEnd,
-                            duration: hours,
-                            stages: []
-                        )
-                        if let stageType {
-                            aggregate.stages.append(SleepStage(start: sampleStart, end: sampleEnd, stage: stageType))
-                        }
-                        sleepDataByDay[wakeUpDay] = aggregate
-                    }
-                }
-                continuation.resume(returning: sleepDataByDay)
+                let normalized = samples.compactMap(Self.sleepSample(for:))
+                continuation.resume(returning: SleepSampleAggregation.aggregate(
+                    normalized, from: startDate, to: endDate, calendar: calendar
+                ))
             }
             healthStore.execute(query)
         }
     }
 
-    private func isAsleepSample(_ sample: HKCategorySample) -> Bool {
-        guard let value = HKCategoryValueSleepAnalysis(rawValue: sample.value) else { return false }
+    nonisolated private static func sleepSample(for sample: HKCategorySample) -> SleepSampleAggregation.Sample? {
+        guard let value = HKCategoryValueSleepAnalysis(rawValue: sample.value) else { return nil }
+        let state: SleepSampleAggregation.State
         switch value {
-        case .asleepUnspecified, .asleepCore, .asleepDeep, .asleepREM:
-            return true
+        case .inBed: state = .inBed
+        case .awake: state = .awake
+        case .asleepUnspecified: state = .unspecified
+        case .asleepCore: state = .core
+        case .asleepDeep: state = .deep
+        case .asleepREM: state = .rem
         default:
-            return false
-        }
-    }
-
-    private func sleepStageType(for sample: HKCategorySample) -> SleepStageType? {
-        guard let stageValue = HKCategoryValueSleepAnalysis(rawValue: sample.value) else {
             return nil
         }
+        let deviceIdentifier = sample.device?.localIdentifier ?? sample.sourceRevision.productType ?? ""
+        let sourceIdentifier = sample.sourceRevision.source.bundleIdentifier + "|" + deviceIdentifier
+        return SleepSampleAggregation.Sample(start: sample.startDate,
+                                             end: sample.endDate,
+                                             state: state,
+                                             sourceIdentifier: sourceIdentifier)
+    }
 
-        switch stageValue {
+    private static func sleepStageType(for state: SleepSampleAggregation.State) -> SleepStageType? {
+        switch state {
         case .awake:
             return .awake
-        case .asleepREM:
+        case .rem:
             return .rem
-        case .asleepDeep:
+        case .deep:
             return .deep
-        case .asleepCore, .asleepUnspecified:
+        case .core:
             return .core
-        default:
+        case .unspecified:
+            return .unspecified
+        case .inBed:
             return nil
         }
     }
@@ -265,11 +258,4 @@ class HealthKitManager {
             healthStore.execute(query)
         }
     }
-}
-
-private struct SleepAggregate {
-    var start: Date
-    var end: Date
-    var duration: Double
-    var stages: [SleepStage]
 }

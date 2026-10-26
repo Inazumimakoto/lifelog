@@ -79,6 +79,7 @@ final class TodayViewModel: ObservableObject {
         // the timeline. @Published emits before assignment, so defer store reads.
         observe(store.$tasks, refreshing: .tasks)
         observe(store.$calendarEvents, refreshing: .events)
+        observe(store.$calendarExceptions, refreshing: .events)
         observe(store.$externalCalendarEvents, refreshing: .events)
         observe(store.$habits, refreshing: .habits)
         store.habitRecordChanges
@@ -251,7 +252,7 @@ final class TodayViewModel: ObservableObject {
     }
 
     func deleteEvent(_ event: CalendarEvent) {
-        store.deleteCalendarEvent(event.id)
+        store.deleteCalendarEvent(event)
     }
 
     func syncExternalCalendarsIfNeeded(
@@ -349,17 +350,7 @@ final class TodayViewModel: ObservableObject {
     }
 
     private func mergedEvents(on date: Date) -> [CalendarEvent] {
-        let calendar = Calendar.current
-        let dayStart = calendar.startOfDay(for: date)
-        guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) else { return [] }
-
-        let internalEvents = store.calendarEvents
-            .filter { $0.startDate < dayEnd && $0.endDate > dayStart }
-        let externalEvents = store.externalCalendarEvents
-            .filter { $0.startDate < dayEnd && $0.endDate > dayStart }
-
-        return (internalEvents + externalEvents)
-            .sorted(by: { $0.startDate < $1.startDate })
+        store.events(on: date)
     }
 
 }

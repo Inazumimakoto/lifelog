@@ -14,54 +14,36 @@ final class HealthViewModel: ObservableObject {
     @Published private(set) var summaries: [HealthSummary] = []
     @Published private(set) var correlationPoints: [HealthCorrelationPoint] = []
     @Published private(set) var sleepSegments: [SleepSegment] = []
-    @Published private(set) var sleepQualityPoints: [SleepQualityPoint] = []
-    @Published private(set) var sleepQualityScore: Int = 0
 
     @Published private(set) var wellnessPoints: [DailyWellnessPoint] = []
 
     private static func makeWellnessPoints(
-        from correlationPoints: [HealthCorrelationPoint],
+        health: [HealthSummary],
+        diaryMetrics: [Date: DiaryMetrics],
         calendar: Calendar
     ) -> [DailyWellnessPoint] {
-        // Correlation points already follow the summaries' ascending date order.
-        let points = correlationPoints
-            .map { point -> (Date, HealthCorrelationPoint) in
-                (calendar.startOfDay(for: point.date), point)
-            }
-        guard points.isEmpty == false else { return [] }
-        let maxSteps = Double(points.map { $0.1.steps }.max() ?? 0)
-        let maxSleep = points.map { $0.1.sleepHours }.max() ?? 0
-        let stepsDenominator = max(maxSteps, 1)
-        let sleepDenominator = max(maxSleep, 1)
-
-        return points.map { entry in
-            let date = entry.0
-            let point = entry.1
-            let stepsPercent = Double(point.steps) / stepsDenominator * 100
-            let sleepPercent = point.sleepHours / sleepDenominator * 100
-            var moodPercent: Double?
-            if let mood = point.mood {
-                moodPercent = Double(mood.rawValue - 1) / 4 * 100
-            }
-            var conditionPercent: Double?
-            if let condition = point.condition {
-                conditionPercent = Double(condition - 1) / 4 * 100
-            }
+        // §4.8: align all four measurements by calendar day. A missing
+        // HealthKit measurement or diary score must stay missing in every row.
+        var healthByDay: [Date: HealthSummary] = [:]
+        for summary in health {
+            let day = calendar.startOfDay(for: summary.date)
+            if healthByDay[day] == nil { healthByDay[day] = summary }
+        }
+        let days = Set(healthByDay.keys).union(diaryMetrics.keys).sorted()
+        return days.map { date in
+            let summary = healthByDay[date]
+            let diary = diaryMetrics[date]
             return DailyWellnessPoint(date: date,
-                                      steps: point.steps,
-                                      sleepHours: point.sleepHours,
-                                      mood: point.mood,
-                                      condition: point.condition,
-                                      stepsPercent: stepsPercent,
-                                      sleepPercent: sleepPercent,
-                                      moodPercent: moodPercent,
-                                      conditionPercent: conditionPercent)
+                                      steps: summary?.steps,
+                                      sleepHours: summary?.sleepHours,
+                                      mood: diary?.mood,
+                                      condition: diary?.condition)
         }
     }
 
     private struct DiaryMetrics: Equatable {
-        let mood: MoodLevel
-        let condition: Int
+        let mood: MoodLevel?
+        let condition: Int?
     }
 
     private struct CalendarEnvironment: Equatable {
@@ -74,10 +56,10 @@ final class HealthViewModel: ObservableObject {
 
     private let store: AppDataStore
     private let calendarProvider: () -> Calendar
+    private let dateProvider: () -> Date
     private var cancellables = Set<AnyCancellable>()
     private var lastHealthInput: [HealthSummary]?
-    private var lastCalendarEnvironment: CalendarEnvironment?
-    private var sleepQualityReferenceDay: Date?
+    private var lastHealthCalendar: Calendar?
 
     // Avoid the Swift 6.2 back-deployment crash while synthesizing an isolated
     // deinitializer: https://github.com/swiftlang/swift/issues/88036
@@ -85,11 +67,13 @@ final class HealthViewModel: ObservableObject {
 
     init(store: AppDataStore,
          calendarProvider: @escaping () -> Calendar = { .current },
+         dateProvider: @escaping () -> Date = Date.init,
          notificationCenter: NotificationCenter = .default) {
         self.store = store
         self.calendarProvider = calendarProvider
+        self.dateProvider = dateProvider
         let calendar = calendarProvider()
-        self.calendarEnvironment = Self.environment(for: calendar)
+        self.calendarEnvironment = Self.environment(for: calendar, referenceDate: dateProvider())
         bind(notificationCenter: notificationCenter)
         refresh(health: store.healthSummaries,
                 diaryMetrics: Self.diaryMetrics(from: store.diaryEntries, calendar: calendar),
@@ -98,6 +82,15 @@ final class HealthViewModel: ObservableObject {
 
     func requestHealthKitAuthorization() async {
         await store.loadHealthData(requestAuthorizationIfNeeded: true)
+    }
+
+    func refreshHealthData() async {
+        await store.loadHealthData()
+    }
+
+    func loadHealthHistory() async {
+        guard summaries.isEmpty else { return }
+        await store.loadHealthData()
     }
 
     private func bind(notificationCenter: NotificationCenter) {
@@ -127,7 +120,7 @@ final class HealthViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 guard let self else { return }
-                let environment = Self.environment(for: self.calendarProvider())
+                let environment = Self.environment(for: self.calendarProvider(), referenceDate: self.dateProvider())
                 if self.calendarEnvironment != environment {
                     self.calendarEnvironment = environment
                 }
@@ -135,9 +128,9 @@ final class HealthViewModel: ObservableObject {
             .store(in: &cancellables)
     }
 
-    private static func environment(for calendar: Calendar) -> CalendarEnvironment {
+    private static func environment(for calendar: Calendar, referenceDate: Date) -> CalendarEnvironment {
         CalendarEnvironment(calendar: calendar,
-                            day: calendar.startOfDay(for: Date()),
+                            day: calendar.startOfDay(for: referenceDate),
                             localeIdentifier: Locale.current.identifier)
     }
 
@@ -147,24 +140,37 @@ final class HealthViewModel: ObservableObject {
         for entry in entries {
             let day = calendar.startOfDay(for: entry.date)
             if result[day] == nil {
-                result[day] = DiaryMetrics(mood: entry.mood ?? .neutral,
-                                          condition: entry.conditionScore ?? 3)
+                result[day] = DiaryMetrics(mood: entry.mood,
+                                          condition: entry.conditionScore)
             }
         }
         return result
     }
 
+    private static func normalizedSummaries(_ health: [HealthSummary], calendar: Calendar) -> [HealthSummary] {
+        // docs/requirements.md §4.8: time-zone changes can leave two stored
+        // midnight instants on one current calendar day. Count that day once.
+        // Apply the newest non-nil measurement last, retaining older goals and
+        // measurements when the newer record contains only missing fields.
+        let normalized = health.sorted { $0.date < $1.date }.map { summary in
+            var daily = summary
+            daily.date = calendar.startOfDay(for: summary.date)
+            return daily
+        }
+        return HealthSummaryMerging.merge(existing: [], incoming: normalized)
+            .sorted { $0.date < $1.date }
+    }
+
     private func refresh(health: [HealthSummary],
                          diaryMetrics: [Date: DiaryMetrics],
                          environment: CalendarEnvironment) {
-        let environmentChanged = lastCalendarEnvironment != environment
-        lastCalendarEnvironment = environment
-        if lastHealthInput != health {
-            lastHealthInput = health
-            let sorted = health.sorted { $0.date < $1.date }
-            if summaries != sorted { summaries = sorted }
-        }
         let calendar = environment.calendar
+        if lastHealthInput != health || lastHealthCalendar != calendar {
+            lastHealthInput = health
+            lastHealthCalendar = calendar
+            let normalized = Self.normalizedSummaries(health, calendar: calendar)
+            if summaries != normalized { summaries = normalized }
+        }
         let correlations: [HealthCorrelationPoint] = summaries.compactMap { summary in
             guard let steps = summary.steps,
                   let sleep = summary.sleepHours else { return nil }
@@ -179,25 +185,26 @@ final class HealthViewModel: ObservableObject {
         if correlationsChanged {
             correlationPoints = correlations
         }
-        if correlationsChanged || environmentChanged {
-            let wellness = Self.makeWellnessPoints(from: correlations, calendar: calendar)
-            if wellnessPoints != wellness { wellnessPoints = wellness }
-        }
+        let wellness = Self.makeWellnessPoints(health: summaries, diaryMetrics: diaryMetrics, calendar: calendar)
+        if wellnessPoints != wellness { wellnessPoints = wellness }
         let segments = summaries.compactMap { summary -> SleepSegment? in
             guard let start = summary.sleepStart,
                   let end = summary.sleepEnd else { return nil }
             return SleepSegment(date: summary.date, start: start, end: end)
         }
-        let today = environment.day
-        if sleepSegments != segments || sleepQualityReferenceDay != today || environmentChanged {
-            if sleepSegments != segments { sleepSegments = segments }
-            sleepQualityReferenceDay = today
-            updateSleepQuality(calendar: calendar)
-        }
+        if sleepSegments != segments { sleepSegments = segments }
     }
 
     var weeklySummaries: [HealthSummary] {
-        Array(summaries.suffix(7))
+        let range = HealthHistoryPeriod.week.dateRange(endingOn: calendarEnvironment.day,
+                                                       calendar: calendarEnvironment.calendar)
+        return summaries.filter { range.contains($0.date) }
+    }
+
+    var weeklyWellnessPoints: [DailyWellnessPoint] {
+        let range = HealthHistoryPeriod.week.dateRange(endingOn: calendarEnvironment.day,
+                                                       calendar: calendarEnvironment.calendar)
+        return wellnessPoints.filter { range.contains($0.date) }
     }
 
     var averageSteps: Int {
@@ -210,6 +217,12 @@ final class HealthViewModel: ObservableObject {
         let sleeps = weeklySummaries.compactMap { $0.sleepHours }
         guard !sleeps.isEmpty else { return 0 }
         return sleeps.reduce(0, +) / Double(sleeps.count)
+    }
+
+    var averageActiveEnergy: Double {
+        let values = weeklySummaries.compactMap { $0.activeEnergy }
+        guard !values.isEmpty else { return 0 }
+        return values.reduce(0, +) / Double(values.count)
     }
 
     var averageMoveMinutes: Double {
@@ -228,70 +241,6 @@ final class HealthViewModel: ObservableObject {
         let values = weeklySummaries.compactMap { $0.standHours }
         guard !values.isEmpty else { return 0 }
         return values.reduce(0, +) / Double(values.count)
-    }
-
-    private func updateSleepQuality(calendar: Calendar) {
-        let today = calendar.startOfDay(for: Date())
-        let todaySegment = sleepSegments.first { calendar.isDate($0.date, inSameDayAs: today) }
-        let latestSegment = todaySegment ?? sleepSegments.max(by: { $0.date < $1.date })
-
-        guard let segment = latestSegment,
-              segment.durationHours > 0 else {
-            if !sleepQualityPoints.isEmpty { sleepQualityPoints = [] }
-            if sleepQualityScore != 0 { sleepQualityScore = 0 }
-            return
-        }
-
-        let curve = generateQualityCurve(for: segment)
-        if sleepQualityPoints != curve { sleepQualityPoints = curve }
-
-        guard curve.isEmpty == false else {
-            if sleepQualityScore != 0 { sleepQualityScore = 0 }
-            return
-        }
-
-        let average = curve.map(\.quality).reduce(0, +) / Double(curve.count)
-        let score = Int(average.rounded())
-        if sleepQualityScore != score { sleepQualityScore = score }
-    }
-
-    private func generateQualityCurve(for segment: SleepSegment) -> [SleepQualityPoint] {
-        let duration = segment.end.timeIntervalSince(segment.start)
-        guard duration > 0 else { return [] }
-
-        let step = max(duration / 12, 15 * 60) // ensure at least 15 min granularity
-        var points: [SleepQualityPoint] = []
-        var current = segment.start
-
-        let durationPenalty = max(0, 7 - segment.durationHours) * 3
-
-        while current <= segment.end {
-            let elapsed = current.timeIntervalSince(segment.start)
-            let progress = elapsed / duration // 0...1
-            let circadian = sin(progress * .pi) // peaks mid-sleep
-
-            let depthBonus: Double
-            switch progress {
-            case 0.15..<0.45:
-                depthBonus = 10
-            case 0.45..<0.75:
-                depthBonus = 18
-            default:
-                depthBonus = 0
-            }
-
-            let rawScore = 60 + (25 * circadian) + depthBonus - durationPenalty
-            let clampedScore = max(35, min(100, rawScore))
-
-            points.append(SleepQualityPoint(timestamp: current, quality: clampedScore))
-            current = current.addingTimeInterval(step)
-        }
-
-        if let last = points.last, last.timestamp < segment.end {
-            points.append(SleepQualityPoint(timestamp: segment.end, quality: last.quality))
-        }
-
-        return points
     }
 
 }
@@ -324,7 +273,7 @@ struct SleepSegment: Identifiable, Equatable {
     }
 
     var durationHours: Double {
-        max(endHour - startHour, 0)
+        max(end.timeIntervalSince(start) / 3_600, 0)
     }
 
     var durationText: String {
@@ -332,21 +281,11 @@ struct SleepSegment: Identifiable, Equatable {
     }
 }
 
-struct SleepQualityPoint: Identifiable, Equatable {
-    var id: Date { timestamp }
-    let timestamp: Date
-    let quality: Double
-}
-
 struct DailyWellnessPoint: Identifiable, Equatable {
     var id: Date { date }
     let date: Date
-    let steps: Int
-    let sleepHours: Double
+    let steps: Int?
+    let sleepHours: Double?
     let mood: MoodLevel?
     let condition: Int?
-    let stepsPercent: Double
-    let sleepPercent: Double
-    let moodPercent: Double?
-    let conditionPercent: Double?
 }

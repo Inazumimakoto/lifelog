@@ -23,6 +23,18 @@ struct TaskRowView: View {
     }
 
     var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            toggleButton
+            if let url = task.linkURL {
+                ScheduleLinkButton(url: url)
+                    .padding(.leading, 32)
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: task.isCompleted)
+    }
+
+    // Keep opening the URL separate from the completion action.
+    private var toggleButton: some View {
         Button(action: {
             // ハプティックフィードバック
             if task.isCompleted {
@@ -76,7 +88,6 @@ struct TaskRowView: View {
             .contentShape(Rectangle())  // タップ領域を横幅全体に拡張
         }
         .buttonStyle(.plain)
-        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: task.isCompleted)
     }
 
     private var toggleIcon: some View {

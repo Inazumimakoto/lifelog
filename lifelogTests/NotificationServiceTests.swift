@@ -4,6 +4,24 @@ import UserNotifications
 
 @MainActor
 final class NotificationServiceTests: XCTestCase {
+    func testOneMinuteEventReminders_scheduleAtOneMinuteBeforeStart() throws {
+        var requests: [UNNotificationRequest] = []
+        let now = date(day: 8, hour: 12)
+        let service = NotificationService(referenceDate: { now }, requestHandler: { requests.append($0) })
+        let start = date(day: 9, hour: 14)
+        let fireDate = start.addingTimeInterval(-60)
+
+        service.scheduleEventReminder(eventId: UUID(), title: "Event", startDate: start, minutesBefore: 1)
+        service.scheduleExternalEventReminder(externalEventKey: "external", title: "External", startDate: start, minutesBefore: 1)
+
+        XCTAssertEqual(requests.count, 2)
+        for request in requests {
+            let trigger = try XCTUnwrap(request.trigger as? UNCalendarNotificationTrigger)
+            XCTAssertFalse(trigger.repeats)
+            XCTAssertEqual(trigger.dateComponents, components(fireDate))
+        }
+    }
+
     func testRelativeAndAbsoluteEventReminders_keepSameRequestAndFireTime() throws {
         var requests: [UNNotificationRequest] = []
         let now = date(day: 8, hour: 12)

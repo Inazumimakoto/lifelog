@@ -13,22 +13,57 @@ struct CalendarEventEditorView: View {
     @StateObject private var detailDraft: LongFormTextDraft
     @ObservedObject private var categoryPalette = CategoryPaletteObserver.shared
     @State private var isShowingCategorySelection = false
-    @State private var showDeleteConfirmation = false
+    @State private var showDeletionDialog = false
     @State private var didFinishEditing = false
+    @State private var saveFlow: SaveFlowRequest?
+    @State private var didSaveInFlow = false
+    @State private var saveError: String?
 
     var onSave: (CalendarEvent) -> Void
     var onDelete: (() -> Void)?
+    var onSkipWeek: (() -> Void)?
+    var onEndSeries: (() -> Void)?
+    var exceptions: [CalendarEventException]
+    var onRestoreException: ((CalendarEventException) -> Void)?
+    var onDeleteSeries: (() -> Void)?
+    var canDeleteWeek: () -> Bool
 
     private let originalEvent: CalendarEvent?
     private let defaultDate: Date
+    private let editStore: AppDataStore?
     private var isReadOnly: Bool { originalEvent?.sourceCalendarIdentifier != nil }
+    private var isOccurrence: Bool { originalEvent?.occurrenceReference != nil }
+
+    private struct SaveFlowRequest: Identifiable {
+        let id = UUID()
+        let store: AppDataStore
+        let original: CalendarEvent
+        let edited: CalendarEvent
+        let allowsOccurrence: Bool
+        let initialPlan: CalendarEventEditPlan?
+    }
 
     init(defaultDate: Date = Date(),
          event: CalendarEvent? = nil,
          onSave: @escaping (CalendarEvent) -> Void,
-         onDelete: (() -> Void)? = nil) {
+         onDelete: (() -> Void)? = nil,
+         onSkipWeek: (() -> Void)? = nil,
+         onEndSeries: (() -> Void)? = nil,
+         exceptions: [CalendarEventException] = [],
+         onRestoreException: ((CalendarEventException) -> Void)? = nil,
+         onDeleteSeries: (() -> Void)? = nil,
+         canDeleteWeek: @escaping () -> Bool = { false },
+         editStore: AppDataStore? = nil) {
         self.onSave = onSave
         self.onDelete = onDelete
+        self.onSkipWeek = onSkipWeek
+        self.onEndSeries = onEndSeries
+        let seriesID = event?.occurrenceReference?.seriesID ?? event?.id
+        self.exceptions = exceptions.filter { $0.seriesID == seriesID }
+        self.onRestoreException = onRestoreException
+        self.onDeleteSeries = onDeleteSeries
+        self.canDeleteWeek = canDeleteWeek
+        self.editStore = editStore
         self.originalEvent = event
         self.defaultDate = defaultDate
         let formState = CalendarEventEditorFormState(event: event, defaultDate: defaultDate)
@@ -56,6 +91,12 @@ struct CalendarEventEditorView: View {
                 }
                 .foregroundColor(.primary)
             }
+            .disabled(isReadOnly)
+
+            Section("URL") {
+                ScheduleLinkEditor(urlString: $formState.urlString, isReadOnly: isReadOnly)
+            }
+
             Section("時間") {
                 Toggle("終日", isOn: $formState.isAllDay)
                 DatePicker("開始", selection: $formState.startDate, displayedComponents: formState.isAllDay ? [.date] : [.date, .hourAndMinute])
@@ -66,6 +107,7 @@ struct CalendarEventEditorView: View {
                         if formState.isAllDay {
                             formState.startDate = formState.calendar.startOfDay(for: newValue)
                         }
+                        formState.recurrenceEndDate = max(formState.recurrenceEndDate, formState.recurrenceEndLowerBound)
                         // 開始前モードの場合のみ、reminderDateを連動更新
                         if formState.useRelativeReminder {
                             formState.reminderDate = newValue.addingTimeInterval(-Double(formState.reminderMinutes * 60))
@@ -79,24 +121,28 @@ struct CalendarEventEditorView: View {
                         }
                     }
             }
+            .disabled(isReadOnly)
             
+            CalendarEventRecurrenceSection(form: formState)
+                .disabled(isReadOnly)
+
             Section("通知") {
                 Toggle("リマインダー", isOn: $formState.hasReminder)
                 if formState.hasReminder {
-                    Picker("通知方法", selection: $formState.useRelativeReminder) {
-                        Text("開始前").tag(true)
-                        Text("日時指定").tag(false)
+                    if !formState.isRepeating || isOccurrence {
+                        Picker("通知方法", selection: $formState.useRelativeReminder) {
+                            Text("開始前").tag(true)
+                            Text("日時指定").tag(false)
+                        }
+                        .pickerStyle(.segmented)
+                    } else {
+                        Text("繰り返し予定は、各回の開始前に通知します。")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
                     }
-                    .pickerStyle(.segmented)
                     
                     if formState.useRelativeReminder {
-                        Picker("タイミング", selection: $formState.reminderMinutes) {
-                            Text("5分前").tag(5)
-                            Text("15分前").tag(15)
-                            Text("30分前").tag(30)
-                            Text("1時間前").tag(60)
-                            Text("1日前").tag(1440)
-                        }
+                        EventReminderTimingPicker(title: "タイミング", minutesBefore: $formState.reminderMinutes)
                         .onChange(of: formState.reminderMinutes) { _, newValue in
                             formState.reminderDate = formState.startDate.addingTimeInterval(-Double(newValue * 60))
                         }
@@ -105,35 +151,29 @@ struct CalendarEventEditorView: View {
                     }
                 }
             }
+            .disabled(isReadOnly)
             
-            if originalEvent != nil && onDelete != nil && !isReadOnly {
+            if !isReadOnly, let onRestoreException {
+                CalendarEventExceptionsSection(exceptions: exceptions, onRestore: onRestoreException)
+            }
+
+            if originalEvent != nil && (onDelete != nil || onDeleteSeries != nil) && !isReadOnly {
                 Section {
-                    Button(role: .destructive) {
-                        showDeleteConfirmation = true
-                    } label: {
-                        HStack {
-                            Spacer()
-                            Text("予定を削除")
-                            Spacer()
-                        }
+                    Button("予定を削除", role: .destructive) {
+                        showDeletionDialog = true
                     }
                 }
             }
         }
-        .disabled(isReadOnly)
         .environment(\.calendar, formState.calendar)
         .environment(\.timeZone, formState.calendar.timeZone)
         .navigationTitle(originalEvent == nil ? "予定を追加" : "予定を編集")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("保存") {
-                    let event = formState.makeEvent(detailOverride: detailDraft.text)
-                    onSave(event)
-                    didFinishEditing = true
-                    formState.clearCachedDraft()
-                    dismiss()
+                    save()
                 }
-                .disabled(isReadOnly || formState.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(isReadOnly || !formState.canSave)
             }
             ToolbarItem(placement: .cancellationAction) {
                 Button("キャンセル", role: .cancel) {
@@ -159,19 +199,88 @@ struct CalendarEventEditorView: View {
                 set: { formState.selectCategory($0) }
             ))
         }
-        .confirmationDialog("この予定を削除しますか？", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
-            Button("削除", role: .destructive) {
-                onDelete?()
-                didFinishEditing = true
-                formState.clearCachedDraft()
-                dismiss()
+        .sheet(item: $saveFlow, onDismiss: {
+            if didSaveInFlow { finishEditing() }
+        }) { request in
+            CalendarEventSaveFlowView(store: request.store,
+                                      original: request.original,
+                                      edited: request.edited,
+                                      allowsOccurrence: request.allowsOccurrence,
+                                      initialPlan: request.initialPlan) {
+                didSaveInFlow = true
             }
-            Button("キャンセル", role: .cancel) { }
+            .environment(\.calendar, formState.calendar)
+            .environment(\.timeZone, formState.calendar.timeZone)
         }
+        .alert("予定を保存できませんでした", isPresented: Binding(
+            get: { saveError != nil }, set: { if !$0 { saveError = nil } }
+        )) {
+            Button("OK", role: .cancel) { saveError = nil }
+        } message: {
+            Text(saveError ?? "")
+        }
+        .calendarEventDeletionDialog(isPresented: $showDeletionDialog,
+                                     event: originalEvent,
+                                     onDelete: finishingAfterDeletion(onDelete),
+                                     onSkipWeek: finishingAfterDeletion(onSkipWeek),
+                                     onEndSeries: finishingAfterDeletion(onEndSeries),
+                                     onDeleteSeries: finishingAfterDeletion(onDeleteSeries),
+                                     canDeleteWeek: canDeleteWeek)
         .onDisappear {
             if !didFinishEditing && !isReadOnly {
                 formState.cacheDraft(detailOverride: detailDraft.text)
             }
+        }
+    }
+
+    private func save() {
+        let edited = formState.makeEvent(detailOverride: detailDraft.text)
+        // Cached drafts retain their original baseline for safe changed-field
+        // comparison. Never mix that draft with the outer view's newer snapshot.
+        guard let original = formState.originalEvent,
+              original.recurrenceRule != nil || original.occurrenceReference != nil else {
+            onSave(edited)
+            finishEditing()
+            return
+        }
+        guard let editStore else {
+            saveError = String(localized: "画面を開き直して、もう一度お試しください。")
+            return
+        }
+
+        didSaveInFlow = false
+        if original.occurrenceReference != nil {
+            saveFlow = SaveFlowRequest(store: editStore, original: original, edited: edited,
+                                       allowsOccurrence: !formState.hasRecurrenceRuleChanges, initialPlan: nil)
+            return
+        }
+        do {
+            let plan = try editStore.prepareCalendarEventEdit(original: original, edited: edited, scope: .series)
+            // Turning a whole series into one event needs explicit review even
+            // when no exceptions are affected.
+            if !plan.unmatchedExceptions.isEmpty || edited.recurrenceRule == nil {
+                saveFlow = SaveFlowRequest(store: editStore, original: original, edited: edited,
+                                           allowsOccurrence: false, initialPlan: plan)
+            } else {
+                try editStore.applyCalendarEventEdit(plan)
+                finishEditing()
+            }
+        } catch {
+            saveError = error.localizedDescription
+        }
+    }
+
+    private func finishEditing() {
+        didFinishEditing = true
+        formState.clearCachedDraft()
+        dismiss()
+    }
+
+    private func finishingAfterDeletion(_ action: (() -> Void)?) -> (() -> Void)? {
+        guard let action else { return nil }
+        return {
+            action()
+            finishEditing()
         }
     }
 }

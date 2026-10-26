@@ -84,11 +84,11 @@ final class RetiredIntegrationStoreMigrationTests: XCTestCase {
         XCTAssertTrue(FileManager.default.fileExists(atPath: storeURL.path))
 
         // Verify the migration and a second ordinary launch, both with only the
-        // current 13 native entities. No fallback/quarantine/reset path is used.
+        // current native entities. No fallback/quarantine/reset path is used.
         for _ in 0..<2 {
             try autoreleasepool {
                 let schema = PersistenceController.localSchema
-                XCTAssertEqual(schema.entities.count, 13)
+                XCTAssertEqual(schema.entities.count, nativeTypes.count)
                 let container = try makeContainer(at: storeURL, schema: schema)
                 let context = ModelContext(container)
                 context.autosaveEnabled = false
@@ -147,7 +147,7 @@ final class RetiredIntegrationStoreMigrationTests: XCTestCase {
 
     private var nativeTypes: [any PersistentModel.Type] {
         [SDTask.self, SDDiaryEntry.self, SDHabit.self, SDHabitRecord.self,
-         SDAnniversary.self, SDHealthSummary.self, SDCalendarEvent.self,
+         SDAnniversary.self, SDHealthSummary.self, SDCalendarEvent.self, SDCalendarEventException.self,
          SDMemoPad.self, SDAppState.self, SDLetter.self, SDSharedLetter.self,
          SDShoppingItem.self, SDShoppingPlace.self]
     }

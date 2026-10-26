@@ -347,16 +347,16 @@
       "comment" : "Calendar display week start preference (shared with widgets and wallpaper).",
       "extractionState" : "manual",
       "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "月曜"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Monday"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "月曜"
           }
         },
         "ko" : {
@@ -383,16 +383,16 @@
       "comment" : "Calendar display week start preference (shared with widgets and wallpaper).",
       "extractionState" : "manual",
       "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "日曜"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sunday"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日曜"
           }
         },
         "ko" : {
@@ -553,6 +553,9 @@
           }
         }
       }
+    },
+    "コア" : {
+
     },
     "この日の予定を開く" : {
       "localizations" : {
@@ -867,6 +870,12 @@
           }
         }
       }
+    },
+    "レム" : {
+
+    },
+    "不明" : {
+
     },
     "中" : {
       "localizations" : {
@@ -1529,6 +1538,9 @@
         }
       }
     },
+    "深い" : {
+
+    },
     "火" : {
       "comment" : "Literal from LifelogWidgets/HabitWidget.swift",
       "localizations" : {
@@ -1773,6 +1785,9 @@
           }
         }
       }
+    },
+    "覚醒" : {
+
     },
     "記念日" : {
       "comment" : "Literal from LifelogWidgets/AnniversaryWidget.swift",

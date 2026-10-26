@@ -103,9 +103,8 @@ private struct WallpaperCalendarAnnouncementOverlay: View {
 
     private var preview: some View {
         let width: CGFloat = 154
-        let baseWidth: CGFloat = 393
-        let baseHeight: CGFloat = 852
-        let scale = width / baseWidth
+        let canvasSize = WallpaperCalendarCanvas.size
+        let scale = width / canvasSize.width
 
         return WallpaperCalendarLockScreenPreview(
             snapshot: snapshot,
@@ -113,9 +112,9 @@ private struct WallpaperCalendarAnnouncementOverlay: View {
             backgroundImage: backgroundImage,
             isDarkAppearance: true
         )
-        .frame(width: baseWidth, height: baseHeight)
+        .frame(width: canvasSize.width, height: canvasSize.height)
         .scaleEffect(scale)
-        .frame(width: width, height: baseHeight * scale)
+        .frame(width: width, height: canvasSize.height * scale)
         .shadow(color: Color.black.opacity(0.22), radius: 12, x: 0, y: 8)
     }
 }

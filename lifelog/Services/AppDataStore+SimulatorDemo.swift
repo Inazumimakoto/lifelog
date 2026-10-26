@@ -188,6 +188,26 @@ extension AppDataStore {
         }
         let healthDates = Set(storedHealth.map { calendar.startOfDay(for: $0.date) })
         let healthIDs = Set(storedHealth.map(\.id))
+        // Fill the new preview-only health fields on existing owned demo days.
+        // Their saved measurements and any non-demo summaries stay intact.
+        for fixture in fixtures.healthSummaries {
+            guard let stored = storedHealth.first(where: { $0.id == fixture.id }) else { continue }
+            if stored.fitnessMoveModeRaw == nil {
+                stored.activeEnergyGoal = fixture.activeEnergyGoal
+                stored.moveMinutesGoal = fixture.moveMinutesGoal
+                stored.exerciseMinutesGoal = fixture.exerciseMinutesGoal
+                stored.standHoursGoal = fixture.standHoursGoal
+                stored.fitnessMoveModeRaw = fixture.fitnessMoveMode?.rawValue
+                changed = true
+            }
+            if stored.sleepStages.isEmpty,
+               stored.sleepHours == fixture.sleepHours,
+               stored.sleepEnd == fixture.sleepEnd {
+                stored.sleepStart = fixture.sleepStart
+                stored.sleepStages = fixture.sleepStages
+                changed = true
+            }
+        }
         for health in fixtures.healthSummaries where !healthDates.contains(calendar.startOfDay(for: health.date)) &&
             !healthIDs.contains(health.id) {
             modelContext.insert(SDHealthSummary(domain: health))

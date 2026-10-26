@@ -131,6 +131,7 @@ struct PersistenceController {
             SDAnniversary.self,
             SDHealthSummary.self,
             SDCalendarEvent.self,
+            SDCalendarEventException.self,
             SDMemoPad.self,
             SDAppState.self,
             SDLetter.self,

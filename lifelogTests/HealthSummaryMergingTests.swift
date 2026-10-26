@@ -63,4 +63,37 @@ final class HealthSummaryMergingTests: XCTestCase {
 
         XCTAssertEqual(result.map(\.id), [later.id, first.id])
     }
+
+    func testRingGoalRefresh_updatesGoalsAndPreservesIdentity() {
+        var stored = HealthSummary(date: day)
+        stored.activeEnergyGoal = 450
+        stored.exerciseMinutesGoal = 30
+        stored.fitnessMoveMode = .energy
+        var fetched = HealthSummary(date: day)
+        fetched.activeEnergyGoal = 500
+        fetched.exerciseMinutesGoal = 0
+        fetched.fitnessMoveMode = .time
+        fetched.moveMinutesGoal = 60
+
+        let merged = HealthSummaryMerging.merge(existing: [stored], incoming: [fetched])[0]
+
+        XCTAssertEqual(merged.id, stored.id)
+        XCTAssertEqual(merged.activeEnergyGoal, 500)
+        XCTAssertEqual(merged.exerciseMinutesGoal, 0)
+        XCTAssertEqual(merged.fitnessMoveMode, .time)
+        XCTAssertEqual(merged.moveMinutesGoal, 60)
+    }
+
+    func testRefreshedSleepWithoutStages_clearsObsoleteTimeline() {
+        var stored = HealthSummary(date: day)
+        stored.sleepHours = 7
+        stored.sleepStages = [SleepStage(start: day, end: day.addingTimeInterval(3600), stage: .deep)]
+        var fetched = HealthSummary(date: day)
+        fetched.sleepHours = 6
+
+        let merged = HealthSummaryMerging.merge(existing: [stored], incoming: [fetched])[0]
+
+        XCTAssertEqual(merged.sleepHours, 6)
+        XCTAssertTrue(merged.sleepStages.isEmpty)
+    }
 }

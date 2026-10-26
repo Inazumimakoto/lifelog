@@ -12,9 +12,28 @@ import Combine
 /// @StateObjectとして使用することで、ビューが再作成されても状態が保持される
 @MainActor
 final class CalendarEventEditorFormState: ObservableObject {
+    enum RecurrenceFrequency: String, CaseIterable, Identifiable {
+        case none
+        case daily
+        case weekly
+        case biweekly
+
+        var id: String { rawValue }
+
+        var displayName: String {
+            switch self {
+            case .none: return String(localized: "繰り返しなし")
+            case .daily: return String(localized: "毎日")
+            case .weekly: return String(localized: "毎週")
+            case .biweekly: return String(localized: "隔週")
+            }
+        }
+    }
+
     struct Draft: Equatable {
         var title: String
         var detail: String
+        var urlString: String
         var category: String
         var startDate: Date
         var endDate: Date
@@ -23,10 +42,15 @@ final class CalendarEventEditorFormState: ObservableObject {
         var useRelativeReminder: Bool
         var reminderMinutes: Int
         var reminderDate: Date
+        var recurrenceFrequency: RecurrenceFrequency
+        var recurrenceWeekdays: Set<Int>
+        var hasRecurrenceEnd: Bool
+        var recurrenceEndDate: Date
     }
 
     @Published var title: String = ""
     @Published var detail: String = ""
+    @Published var urlString: String = ""
     @Published var category: String = CategoryPalette.defaultCategoryName
     @Published var startDate: Date = Date()
     @Published var endDate: Date = Date()
@@ -35,6 +59,10 @@ final class CalendarEventEditorFormState: ObservableObject {
     @Published var useRelativeReminder: Bool = true
     @Published var reminderMinutes: Int = 30
     @Published var reminderDate: Date = Date()
+    @Published var recurrenceFrequency: RecurrenceFrequency = .none
+    @Published var recurrenceWeekdays: Set<Int> = []
+    @Published var hasRecurrenceEnd = false
+    @Published var recurrenceEndDate: Date = Date()
     
     private let draftKey: String
     private var isConfigured = false
@@ -51,10 +79,17 @@ final class CalendarEventEditorFormState: ObservableObject {
         configure(event: event, defaultDate: defaultDate)
         categoryReplacementObservation = CategoryPalette.categoryReplacements
             .sink { [weak self] replacement in
-                guard let self, self.category == replacement.oldName else { return }
+                guard let self else { return }
                 // A category rename/deletion only migrates identity. It must
                 // preserve this unsaved event's text, dates, and reminders.
-                self.category = replacement.newName
+                // The saved baseline can still use the old category after the
+                // user has selected a different category in the unsaved draft.
+                if self.originalEvent?.calendarName == replacement.oldName {
+                    self.originalEvent?.calendarName = replacement.newName
+                }
+                if self.category == replacement.oldName {
+                    self.category = replacement.newName
+                }
             }
     }
 
@@ -64,10 +99,78 @@ final class CalendarEventEditorFormState: ObservableObject {
 
     var calendar: Calendar {
         var value = Calendar.current
-        if let identifier = originalEvent?.dateOnlyTimeZoneIdentifier, let zone = TimeZone(identifier: identifier) {
+        let identifier = originalEvent?.recurrenceRule?.timeZoneIdentifier ?? originalEvent?.dateOnlyTimeZoneIdentifier
+        if let identifier, let zone = TimeZone(identifier: identifier) {
             value.timeZone = zone
         }
         return value
+    }
+
+    var isOccurrence: Bool { originalEvent?.occurrenceReference != nil }
+    var isRepeating: Bool { recurrenceFrequency != .none }
+    var usesWeeklyRecurrence: Bool { recurrenceFrequency == .weekly || recurrenceFrequency == .biweekly }
+    var recurrenceEndLowerBound: Date {
+        let firstDay = calendar.startOfDay(for: startDate)
+        // Ending at the very first occurrence intentionally leaves a cutoff
+        // before the series starts. Resaving that series must not revive it.
+        guard let originalEnd = originalEvent?.recurrenceRule?.until else { return firstDay }
+        return min(firstDay, calendar.startOfDay(for: originalEnd))
+    }
+    var canSave: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty &&
+            ScheduleLink.isValid(urlString) &&
+            (!usesWeeklyRecurrence || !recurrenceWeekdays.isEmpty)
+    }
+
+    var hasRecurrenceRuleChanges: Bool { recurrenceRule != originalEvent?.recurrenceRule }
+
+    /// Retain untouched rule metadata, including the original interval anchor.
+    /// The save flow chooses whether changed controls apply to the future or series (§4.2).
+    var recurrenceRule: EventRecurrenceRule? {
+        guard isRepeating else { return nil }
+        if let originalRule = originalEvent?.recurrenceRule, recurrenceControlsMatch(originalRule) {
+            return originalRule
+        }
+        return EventRecurrenceRule(frequency: recurrenceFrequency == .daily ? .daily : .weekly,
+                                   interval: recurrenceFrequency == .biweekly ? 2 : 1,
+                                   weekdays: usesWeeklyRecurrence ? recurrenceWeekdays.sorted() : [],
+                                   until: hasRecurrenceEnd ? max(recurrenceEndDate, recurrenceEndLowerBound) : nil,
+                                   timeZoneIdentifier: calendar.timeZone.identifier,
+                                   anchorDate: originalEvent?.recurrenceRule?.anchorDate,
+                                   seriesGroupID: originalEvent?.recurrenceRule?.seriesGroupID)
+    }
+
+    func selectRecurrenceFrequency(_ frequency: RecurrenceFrequency) {
+        recurrenceFrequency = frequency
+        if usesWeeklyRecurrence && recurrenceWeekdays.isEmpty {
+            recurrenceWeekdays = [calendar.component(.weekday, from: startDate)]
+        }
+        if isRepeating {
+            useRelativeReminder = true
+            reminderDate = startDate.addingTimeInterval(-Double(reminderMinutes * 60))
+        }
+    }
+
+    private func recurrenceControlsMatch(_ rule: EventRecurrenceRule) -> Bool {
+        let originalFrequency: RecurrenceFrequency = rule.frequency == .daily ? .daily : (rule.interval == 2 ? .biweekly : .weekly)
+        guard recurrenceFrequency == originalFrequency, hasRecurrenceEnd == (rule.until != nil) else { return false }
+        if usesWeeklyRecurrence {
+            let referenceDate = rule.anchorDate ?? originalEvent?.occurrenceReference?.originalStartDate ?? originalEvent?.startDate ?? startDate
+            let originalDays = Set(rule.weekdays.isEmpty ? [calendar.component(.weekday, from: referenceDate)] : rule.weekdays)
+            guard recurrenceWeekdays == originalDays else { return false }
+        }
+        if let until = rule.until {
+            return calendar.isDate(recurrenceEndDate, inSameDayAs: until)
+        }
+        return true
+    }
+
+    func toggleRecurrenceWeekday(_ weekday: Int) {
+        if recurrenceWeekdays.contains(weekday) {
+            recurrenceWeekdays.remove(weekday)
+        } else {
+            recurrenceWeekdays.insert(weekday)
+        }
     }
 
     func makeEvent(detailOverride: String? = nil) -> CalendarEvent {
@@ -91,12 +194,16 @@ final class CalendarEventEditorFormState: ObservableObject {
                              sourceCalendarIdentifier: originalEvent?.sourceCalendarIdentifier,
                              reminderMinutes: relative ? reminderMinutes : nil,
                              reminderDate: absolute ? reminderDate : nil,
-                             dateOnlyTimeZoneIdentifier: isAllDay ? calendar.timeZone.identifier : nil)
+                             dateOnlyTimeZoneIdentifier: isAllDay ? calendar.timeZone.identifier : nil,
+                             recurrenceRule: recurrenceRule,
+                             occurrenceReference: originalEvent?.occurrenceReference,
+                             urlString: ScheduleLink.normalizedString(from: urlString))
     }
 
     var draft: Draft {
         Draft(title: title,
               detail: detail,
+              urlString: urlString,
               category: category,
               startDate: startDate,
               endDate: endDate,
@@ -104,7 +211,11 @@ final class CalendarEventEditorFormState: ObservableObject {
               hasReminder: hasReminder,
               useRelativeReminder: useRelativeReminder,
               reminderMinutes: reminderMinutes,
-              reminderDate: reminderDate)
+              reminderDate: reminderDate,
+              recurrenceFrequency: recurrenceFrequency,
+              recurrenceWeekdays: recurrenceWeekdays,
+              hasRecurrenceEnd: hasRecurrenceEnd,
+              recurrenceEndDate: recurrenceEndDate)
     }
     
     /// フォームを初期値で設定する（一度だけ実行される）
@@ -126,10 +237,21 @@ final class CalendarEventEditorFormState: ObservableObject {
         
         title = event?.title ?? ""
         detail = event?.detail ?? ""
+        urlString = event?.urlString ?? ""
         category = event?.calendarName ?? CategoryPalette.defaultCategoryName
         startDate = event?.isAllDay == true ? calendar.startOfDay(for: initialStart) : initialStart
         endDate = event?.isAllDay == true ? calendar.startOfDay(for: allDayEndForState) : initialEnd
         isAllDay = event?.isAllDay ?? false
+        if let rule = event?.recurrenceRule {
+            recurrenceFrequency = rule.frequency == .daily ? .daily : (rule.interval == 2 ? .biweekly : .weekly)
+            let referenceDate = rule.anchorDate ?? event?.occurrenceReference?.originalStartDate ?? initialStart
+            recurrenceWeekdays = Set(rule.weekdays.isEmpty ? [calendar.component(.weekday, from: referenceDate)] : rule.weekdays)
+            hasRecurrenceEnd = rule.until != nil
+            recurrenceEndDate = rule.until ?? calendar.date(byAdding: .month, value: 3, to: initialStart) ?? initialStart
+        } else {
+            recurrenceWeekdays = [calendar.component(.weekday, from: initialStart)]
+            recurrenceEndDate = calendar.date(byAdding: .month, value: 3, to: initialStart) ?? initialStart
+        }
         
         // カテゴリ別通知設定を読み込み（新規作成時のみ適用）
         let initialCategory = event?.calendarName ?? CategoryPalette.defaultCategoryName
@@ -171,6 +293,10 @@ final class CalendarEventEditorFormState: ObservableObject {
         useRelativeReminder = useRelative
         reminderMinutes = defaultMinutes
         reminderDate = defaultReminderDate
+        if isRepeating && !isOccurrence {
+            useRelativeReminder = true
+            reminderDate = startDate.addingTimeInterval(-Double(reminderMinutes * 60))
+        }
 
         restoreCachedDraftIfAvailable()
     }
@@ -225,6 +351,7 @@ final class CalendarEventEditorFormState: ObservableObject {
         isConfigured = false
         title = ""
         detail = ""
+        urlString = ""
         category = CategoryPalette.defaultCategoryName
         startDate = Date()
         endDate = Date()
@@ -233,12 +360,17 @@ final class CalendarEventEditorFormState: ObservableObject {
         useRelativeReminder = true
         reminderMinutes = 30
         reminderDate = Date()
+        recurrenceFrequency = .none
+        recurrenceWeekdays = []
+        hasRecurrenceEnd = false
+        recurrenceEndDate = Date()
     }
 
     private func restoreCachedDraftIfAvailable() {
         guard let cached = CalendarEventEditorDraftCache.drafts[draftKey]?.draft else { return }
         title = cached.title
         detail = cached.detail
+        urlString = cached.urlString
         category = cached.category
         startDate = cached.startDate
         endDate = cached.endDate
@@ -247,6 +379,10 @@ final class CalendarEventEditorFormState: ObservableObject {
         useRelativeReminder = cached.useRelativeReminder
         reminderMinutes = cached.reminderMinutes
         reminderDate = cached.reminderDate
+        recurrenceFrequency = cached.recurrenceFrequency
+        recurrenceWeekdays = cached.recurrenceWeekdays
+        hasRecurrenceEnd = cached.hasRecurrenceEnd
+        recurrenceEndDate = cached.recurrenceEndDate
     }
 
     private static func makeDraftKey(event: CalendarEvent?, defaultDate: Date) -> String {
@@ -273,9 +409,13 @@ private enum CalendarEventEditorDraftCache {
         // a cached draft never resurrects a renamed or deleted category.
         categoryReplacementObservation = CategoryPalette.categoryReplacements
             .sink { replacement in
-                for key in Array(drafts.keys) where drafts[key]?.draft.category == replacement.oldName {
-                    drafts[key]?.draft.category = replacement.newName
-                    drafts[key]?.originalEvent?.calendarName = replacement.newName
+                for key in Array(drafts.keys) {
+                    if drafts[key]?.originalEvent?.calendarName == replacement.oldName {
+                        drafts[key]?.originalEvent?.calendarName = replacement.newName
+                    }
+                    if drafts[key]?.draft.category == replacement.oldName {
+                        drafts[key]?.draft.category = replacement.newName
+                    }
                 }
             }
     }
