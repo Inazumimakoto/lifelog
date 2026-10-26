@@ -68,6 +68,8 @@ final class EmotionTagManager: ObservableObject {
     @Published var customTags: [EmotionTag] = []
     
     private let userDefaultsKey = "customEmotionTags"
+    private let defaults: UserDefaults
+    nonisolated deinit {}
     
     /// デフォルトのタグ一覧
     static let defaultTags: [EmotionTag] = [
@@ -89,12 +91,14 @@ final class EmotionTagManager: ObservableObject {
         EmotionTag(emoji: "😌", name: "穏やか", moodRange: 4...5),
         EmotionTag(emoji: "💪", name: "やる気", moodRange: 4...5),
         EmotionTag(emoji: "✨", name: "充実", moodRange: 4...5)
-    ]
-    
-    private init() {
-        loadCustomTags()
+    ].enumerated().map { index, tag in
+        EmotionTag(id: UUID(uuidString: String(format: "f1000000-0000-4000-8000-%012d", index + 1))!, emoji: tag.emoji, name: tag.name, moodRange: tag.moodRange)
     }
     
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults; loadCustomTags()
+    }
+
     /// 全タグ（デフォルト + カスタム）
     var allTags: [EmotionTag] {
         Self.defaultTags + customTags
@@ -124,12 +128,12 @@ final class EmotionTagManager: ObservableObject {
     
     private func saveCustomTags() {
         if let data = try? JSONEncoder().encode(customTags) {
-            UserDefaults.standard.set(data, forKey: userDefaultsKey)
+            defaults.set(data, forKey: userDefaultsKey)
         }
     }
     
     private func loadCustomTags() {
-        if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
+        if let data = defaults.data(forKey: userDefaultsKey),
            let tags = try? JSONDecoder().decode([EmotionTag].self, from: data) {
             customTags = tags
         }

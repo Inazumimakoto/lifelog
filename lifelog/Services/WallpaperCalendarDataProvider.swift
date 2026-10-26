@@ -180,8 +180,10 @@ final class WallpaperCalendarDataProvider {
     private func fetchInternalEvents(from rangeStart: Date, to rangeEndExclusive: Date) -> [CalendarEvent] {
         do {
             let context = PersistenceController.shared.container.mainContext
+            let storageRange = EventQuerying.storageRange(rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive, calendar: Self.calendar)
+            let storedStart = storageRange.start, storedEnd = storageRange.end
             let descriptor = FetchDescriptor<SDCalendarEvent>(
-                predicate: #Predicate<SDCalendarEvent> { $0.startDate < rangeEndExclusive && $0.endDate > rangeStart },
+                predicate: #Predicate<SDCalendarEvent> { $0.startDate < storedEnd && $0.endDate > storedStart },
                 sortBy: [SortDescriptor(\.startDate)]
             )
             return try context.fetch(descriptor).map {
@@ -195,9 +197,10 @@ final class WallpaperCalendarDataProvider {
                     isAllDay: $0.isAllDay,
                     sourceCalendarIdentifier: $0.sourceCalendarIdentifier,
                     reminderMinutes: $0.reminderMinutes,
-                    reminderDate: $0.reminderDate
+                    reminderDate: $0.reminderDate,
+                    dateOnlyTimeZoneIdentifier: $0.dateOnlyTimeZoneIdentifier
                 )
-            }
+            }.filter { EventQuerying.overlaps($0, rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive, calendar: Self.calendar) }
         } catch {
             return []
         }
@@ -207,7 +210,7 @@ final class WallpaperCalendarDataProvider {
         // 外部イベントの読み出しとデコードは共有 EventQuerying に集約。
         let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier)
         let events = EventQuerying.loadExternalEvents(from: defaults)
-        return EventQuerying.overlapping(events, rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive)
+        return EventQuerying.overlapping(events, rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive, calendar: Self.calendar)
     }
 
     private func fetchTasks(from rangeStart: Date, to rangeEndExclusive: Date) -> [Task] {
@@ -225,11 +228,12 @@ final class WallpaperCalendarDataProvider {
                         priority: $0.priority,
                         isCompleted: $0.isCompleted,
                         reminderDate: $0.reminderDate,
-                        completedAt: $0.completedAt
+                        completedAt: $0.completedAt,
+                        dateOnlyTimeZoneIdentifier: $0.dateOnlyTimeZoneIdentifier
                     )
                 }
                 .filter { task in
-                    guard let displayDate = task.endDate ?? task.startDate else { return false }
+                    guard let displayDate = TaskPresentation.displayDate(for: task, preferring: .deadline, calendar: Self.calendar) else { return false }
                     let day = Self.calendar.startOfDay(for: displayDate)
                     return day >= rangeStart && day < rangeEndExclusive
                 }
@@ -247,9 +251,10 @@ final class WallpaperCalendarDataProvider {
         }
 
         var result: [Date: [CalendarEvent]] = [:]
-        for event in events where event.startDate < rangeEndExclusive && event.endDate > rangeStart {
-            let eventStartDay = calendar.startOfDay(for: event.startDate)
-            let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: event.endDate) ?? event.endDate
+        for event in EventQuerying.overlapping(events, rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive, calendar: calendar) {
+            let eventStartDay = calendar.startOfDay(for: event.displayStartDate(calendar: calendar))
+            let end = event.displayEndDate(calendar: calendar)
+            let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: end) ?? end
             let eventEndDay = max(calendar.startOfDay(for: adjustedEnd), eventStartDay)
             var day = max(eventStartDay, rangeStart)
             let lastDay = min(eventEndDay, rangeLastDay)
@@ -268,7 +273,7 @@ final class WallpaperCalendarDataProvider {
                             calendar: Calendar) -> [Date: [Task]] {
         var result: [Date: [Task]] = [:]
         for task in tasks {
-            guard let displayDate = task.endDate ?? task.startDate else { continue }
+            guard let displayDate = TaskPresentation.displayDate(for: task, preferring: .deadline, calendar: calendar) else { continue }
             let day = calendar.startOfDay(for: displayDate)
             guard day >= rangeStart && day < rangeEndExclusive else { continue }
             result[day, default: []].append(task)
@@ -336,8 +341,8 @@ final class WallpaperCalendarDataProvider {
                 categoryName: $0.calendarName,
                 color: CategoryPalette.color(for: $0.calendarName),
                 kind: .event,
-                startDate: $0.startDate,
-                endDate: $0.endDate,
+                startDate: $0.displayStartDate(calendar: Self.calendar),
+                endDate: $0.displayEndDate(calendar: Self.calendar),
                 isAllDay: $0.isAllDay,
                 priority: nil
             )
@@ -350,8 +355,8 @@ final class WallpaperCalendarDataProvider {
                 categoryName: nil,
                 color: $0.priority.color,
                 kind: .task,
-                startDate: $0.startDate,
-                endDate: $0.endDate,
+                startDate: DateOnlyProjection.project($0.startDate, sourceTimeZoneIdentifier: $0.dateOnlyTimeZoneIdentifier, calendar: Self.calendar),
+                endDate: DateOnlyProjection.project($0.endDate, sourceTimeZoneIdentifier: $0.dateOnlyTimeZoneIdentifier, calendar: Self.calendar),
                 isAllDay: false,
                 priority: $0.priority
             )
@@ -390,8 +395,8 @@ final class WallpaperCalendarDataProvider {
                 WallpaperCalendarFingerprintPayload.Event(
                     id: $0.id,
                     title: $0.title,
-                    start: $0.startDate.timeIntervalSince1970,
-                    end: $0.endDate.timeIntervalSince1970,
+                    start: $0.displayStartDate(calendar: Self.calendar).timeIntervalSince1970,
+                    end: $0.displayEndDate(calendar: Self.calendar).timeIntervalSince1970,
                     categoryName: $0.calendarName,
                     isAllDay: $0.isAllDay
                 )
@@ -400,8 +405,8 @@ final class WallpaperCalendarDataProvider {
                 WallpaperCalendarFingerprintPayload.TaskItem(
                     id: $0.id,
                     title: $0.title,
-                    start: $0.startDate?.timeIntervalSince1970,
-                    end: $0.endDate?.timeIntervalSince1970,
+                    start: DateOnlyProjection.project($0.startDate, sourceTimeZoneIdentifier: $0.dateOnlyTimeZoneIdentifier, calendar: Self.calendar)?.timeIntervalSince1970,
+                    end: DateOnlyProjection.project($0.endDate, sourceTimeZoneIdentifier: $0.dateOnlyTimeZoneIdentifier, calendar: Self.calendar)?.timeIntervalSince1970,
                     priority: $0.priority.rawValue,
                     isCompleted: $0.isCompleted
                 )
@@ -450,6 +455,6 @@ final class WallpaperCalendarDataProvider {
 
     private func isMultiDayEvent(_ event: CalendarEvent) -> Bool {
         let calendar = Self.calendar
-        return CalendarPreviewLayout.isMultiDayEvent(start: event.startDate, end: event.endDate, calendar: calendar)
+        return CalendarPreviewLayout.isMultiDayEvent(event, calendar: calendar)
     }
 }

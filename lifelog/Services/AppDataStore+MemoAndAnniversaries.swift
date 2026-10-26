@@ -15,19 +15,18 @@ extension AppDataStore {
     func addAnniversary(_ anniversary: Anniversary) {
         let newIndex = anniversaries.count
         anniversaries.append(anniversary)
-        scheduleAnniversaryNotification(anniversary)
 
         let sdItem = SDAnniversary(domain: anniversary)
         sdItem.orderIndex = newIndex
         modelContext.insert(sdItem)
         saveContext()
+        scheduleAnniversaryNotification(anniversary)
         reloadAnniversaryWidgetTimeline()
     }
 
     func updateAnniversary(_ anniversary: Anniversary) {
         guard let index = anniversaries.firstIndex(where: { $0.id == anniversary.id }) else { return }
         anniversaries[index] = anniversary
-        scheduleAnniversaryNotification(anniversary)
 
         let id = anniversary.id
         let descriptor = FetchDescriptor<SDAnniversary>(predicate: #Predicate { $0.id == id })
@@ -35,12 +34,13 @@ extension AppDataStore {
              existing.update(from: anniversary)
              saveContext()
         }
+        scheduleAnniversaryNotification(anniversary)
         reloadAnniversaryWidgetTimeline()
     }
 
     func deleteAnniversary(_ anniversaryID: UUID) {
         anniversaries.removeAll { $0.id == anniversaryID }
-        NotificationService.shared.cancelAnniversaryReminder(anniversaryId: anniversaryID)
+        anniversaryNotificationService.cancelAnniversaryReminder(anniversaryId: anniversaryID)
 
         let descriptor = FetchDescriptor<SDAnniversary>(predicate: #Predicate { $0.id == anniversaryID })
         if let existing = try? modelContext.fetch(descriptor).first {
@@ -127,12 +127,12 @@ extension AppDataStore {
 
     func scheduleAnniversaryNotification(_ anniversary: Anniversary) {
         // キャンセルしてから再スケジュール
-        NotificationService.shared.cancelAnniversaryReminder(anniversaryId: anniversary.id)
+        anniversaryNotificationService.cancelAnniversaryReminder(anniversaryId: anniversary.id)
 
         if let daysBefore = anniversary.reminderDaysBefore,
            let time = anniversary.reminderTime {
             // 相対時間（X日前）
-            NotificationService.shared.scheduleAnniversaryReminder(
+            anniversaryNotificationService.scheduleAnniversaryReminder(
                 anniversaryId: anniversary.id,
                 title: anniversary.title,
                 targetDate: anniversary.targetDate,
@@ -142,7 +142,7 @@ extension AppDataStore {
             )
         } else if let reminderDate = anniversary.reminderDate {
             // 絶対日時指定
-            NotificationService.shared.scheduleAnniversaryReminderAtDate(
+            anniversaryNotificationService.scheduleAnniversaryReminderAtDate(
                 anniversaryId: anniversary.id,
                 title: anniversary.title,
                 reminderDate: reminderDate

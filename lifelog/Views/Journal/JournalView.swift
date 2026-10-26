@@ -1460,7 +1460,7 @@ struct JournalView: View {
             if lhs.isAllDay != rhs.isAllDay {
                 return lhs.isAllDay && rhs.isAllDay == false
             }
-            return lhs.startDate < rhs.startDate
+            return lhs.displayStartDate(calendar: viewModel.displayCalendar) < rhs.displayStartDate(calendar: viewModel.displayCalendar)
         }
         let sortedTasks = tasks.sorted(by: calendarTaskSort)
 
@@ -1470,8 +1470,8 @@ struct JournalView: View {
                            color: CategoryPalette.color(for: $0.calendarName),
                            timeText: previewTimeLabel(for: $0),
                            kind: .event,
-                           eventStartDate: $0.startDate,
-                           eventEndDate: $0.endDate)
+                           eventStartDate: $0.displayStartDate(calendar: viewModel.displayCalendar),
+                           eventEndDate: $0.displayEndDate(calendar: viewModel.displayCalendar))
         }
         let taskItems: [DayPreviewItem] = sortedTasks.map {
             DayPreviewItem(id: $0.id.uuidString,
@@ -1487,7 +1487,7 @@ struct JournalView: View {
     
     private func isMultiDayEvent(_ event: CalendarEvent) -> Bool {
         let calendar = Calendar.current
-        return CalendarPreviewLayout.isMultiDayEvent(start: event.startDate, end: event.endDate, calendar: calendar)
+        return CalendarPreviewLayout.isMultiDayEvent(event, calendar: calendar)
     }
 
     private func previewLabel(for item: DayPreviewItem) -> String {

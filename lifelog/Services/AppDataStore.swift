@@ -102,9 +102,9 @@ final class AppDataStore: ObservableObject {
     // MARK: - SwiftData Context
     let modelContext: ModelContext
     let shoppingStore: ShoppingStore
-#if DEBUG
-    let shoppingSync: ShoppingSyncService
-#endif
+    let taskNotificationService: NotificationService
+    let calendarNotificationService: NotificationService
+    let anniversaryNotificationService: NotificationService
 
     static let maxLocationVisitTagsPerVisit = 8
     static let maxLocationVisitTagNameLength = 15
@@ -131,18 +131,17 @@ final class AppDataStore: ObservableObject {
 
     // MARK: - Init
 
-    init(container: ModelContainer? = nil, startsBackgroundServices: Bool = true) {
+    init(container: ModelContainer? = nil, startsBackgroundServices: Bool = true,
+         taskNotificationService: NotificationService? = nil,
+         calendarNotificationService: NotificationService? = nil,
+         anniversaryNotificationService: NotificationService? = nil) {
         // Setup SwiftData
         let container = container ?? PersistenceController.shared.container
         self.modelContext = container.mainContext
-#if DEBUG
-        let shoppingStore = ShoppingStore(container: container,
-                                          supportsShoppingSync: startsBackgroundServices && !PersistenceController.isSimulatorDemoMode)
-        self.shoppingStore = shoppingStore
-        self.shoppingSync = ShoppingSyncService(store: shoppingStore)
-#else
+        self.taskNotificationService = taskNotificationService ?? NotificationService.shared
+        self.calendarNotificationService = calendarNotificationService ?? NotificationService.shared
+        self.anniversaryNotificationService = anniversaryNotificationService ?? NotificationService.shared
         self.shoppingStore = ShoppingStore(container: container)
-#endif
 
         // docs/ui-guidelines.md §カレンダー: color-only edits must refresh rows
         // without rewriting events or fetching the external calendar again.

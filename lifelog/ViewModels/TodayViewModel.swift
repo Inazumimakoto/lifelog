@@ -313,8 +313,8 @@ final class TodayViewModel: ObservableObject {
         items.append(contentsOf: events.map {
             JournalViewModel.TimelineItem(sourceId: $0.id,
                                           title: $0.title,
-                                          start: $0.startDate,
-                                          end: $0.endDate,
+                                          start: $0.displayStartDate(),
+                                          end: $0.displayEndDate(),
                                           kind: .event,
                                           detail: $0.calendarName,
                                           eventDetail: $0.detail,

@@ -354,7 +354,7 @@ final class JournalViewModel: ObservableObject {
             // Month preloading and weekly cells share the same deadline index.
             var grouped: [Date: [Task]] = [:]
             for task in store.tasks {
-                guard let endDate = task.endDate ?? task.startDate else { continue }
+                guard let endDate = TaskPresentation.displayDate(for: task, preferring: .deadline, calendar: calendar) else { continue }
                 grouped[calendar.startOfDay(for: endDate), default: []].append(task)
             }
             tasksByDayCache = grouped
@@ -417,11 +417,11 @@ final class JournalViewModel: ObservableObject {
 
         // Find all events that overlap with the given date
         for event in store.events(on: date) {
-            if event.startDate < dayEnd && event.endDate > dayStart {
+            if EventQuerying.overlaps(event, rangeStart: dayStart, rangeEndExclusive: dayEnd, calendar: calendar) {
                 items.append(TimelineItem(sourceId: event.id,
                                           title: event.title,
-                                          start: event.startDate,
-                                          end: event.endDate,
+                                          start: event.displayStartDate(calendar: calendar),
+                                          end: event.displayEndDate(calendar: calendar),
                                           kind: .event,
                                           detail: event.calendarName,
                                           eventDetail: event.detail,
@@ -560,9 +560,10 @@ final class JournalViewModel: ObservableObject {
         var eventsByDay: [Date: [CalendarEvent]] = [:]
         let allEvents = store.calendarEvents + store.externalCalendarEvents
         if gridStart <= gridEnd {
-            for event in allEvents where event.startDate < gridEndNext && event.endDate > gridStart {
-                let eventStartDay = calendar.startOfDay(for: event.startDate)
-                let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: event.endDate) ?? event.endDate
+            for event in EventQuerying.overlapping(allEvents, rangeStart: gridStart, rangeEndExclusive: gridEndNext, calendar: calendar) {
+                let eventStartDay = calendar.startOfDay(for: event.displayStartDate(calendar: calendar))
+                let end = event.displayEndDate(calendar: calendar)
+                let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: end) ?? end
                 let eventEndDay = calendar.startOfDay(for: adjustedEnd)
                 var day = max(eventStartDay, gridStart)
                 let lastDay = min(eventEndDay, gridEnd)

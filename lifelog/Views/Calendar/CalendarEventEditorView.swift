@@ -14,12 +14,14 @@ struct CalendarEventEditorView: View {
     @ObservedObject private var categoryPalette = CategoryPaletteObserver.shared
     @State private var isShowingCategorySelection = false
     @State private var showDeleteConfirmation = false
+    @State private var didFinishEditing = false
 
     var onSave: (CalendarEvent) -> Void
     var onDelete: (() -> Void)?
 
     private let originalEvent: CalendarEvent?
     private let defaultDate: Date
+    private var isReadOnly: Bool { originalEvent?.sourceCalendarIdentifier != nil }
 
     init(defaultDate: Date = Date(),
          event: CalendarEvent? = nil,
@@ -62,7 +64,7 @@ struct CalendarEventEditorView: View {
                             formState.endDate = newValue
                         }
                         if formState.isAllDay {
-                            formState.startDate = Calendar.current.startOfDay(for: newValue)
+                            formState.startDate = formState.calendar.startOfDay(for: newValue)
                         }
                         // 開始前モードの場合のみ、reminderDateを連動更新
                         if formState.useRelativeReminder {
@@ -73,7 +75,7 @@ struct CalendarEventEditorView: View {
                     .onChange(of: formState.endDate) { _, newValue in
                         formState.endDate = max(newValue, formState.startDate)
                         if formState.isAllDay {
-                            formState.endDate = Calendar.current.startOfDay(for: formState.endDate)
+                            formState.endDate = formState.calendar.startOfDay(for: formState.endDate)
                         }
                     }
             }
@@ -104,7 +106,7 @@ struct CalendarEventEditorView: View {
                 }
             }
             
-            if originalEvent != nil && onDelete != nil {
+            if originalEvent != nil && onDelete != nil && !isReadOnly {
                 Section {
                     Button(role: .destructive) {
                         showDeleteConfirmation = true
@@ -118,38 +120,24 @@ struct CalendarEventEditorView: View {
                 }
             }
         }
+        .disabled(isReadOnly)
+        .environment(\.calendar, formState.calendar)
+        .environment(\.timeZone, formState.calendar.timeZone)
         .navigationTitle(originalEvent == nil ? "予定を追加" : "予定を編集")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("保存") {
-                    let calendar = Calendar.current
-                    let normalizedStart = formState.isAllDay ? calendar.startOfDay(for: formState.startDate) : formState.startDate
-                    let normalizedEnd: Date = {
-                        if formState.isAllDay {
-                            let endDay = calendar.startOfDay(for: formState.endDate)
-                            return calendar.date(byAdding: .day, value: 1, to: max(endDay, normalizedStart)) ?? normalizedStart.addingTimeInterval(86_400)
-                        } else {
-                            return max(formState.endDate, normalizedStart.addingTimeInterval(900))
-                        }
-                    }()
-                    let event = CalendarEvent(id: originalEvent?.id ?? UUID(),
-                                              title: formState.title.isEmpty ? "予定" : formState.title,
-                                              detail: detailDraft.text,
-                                              startDate: normalizedStart,
-                                              endDate: normalizedEnd,
-                                              calendarName: formState.category,
-                                              isAllDay: formState.isAllDay,
-                                              sourceCalendarIdentifier: originalEvent?.sourceCalendarIdentifier,
-                                              reminderMinutes: formState.hasReminder && formState.useRelativeReminder ? formState.reminderMinutes : nil,
-                                              reminderDate: formState.hasReminder && !formState.useRelativeReminder ? formState.reminderDate : nil)
+                    let event = formState.makeEvent(detailOverride: detailDraft.text)
                     onSave(event)
+                    didFinishEditing = true
                     formState.clearCachedDraft()
                     dismiss()
                 }
-                .disabled(formState.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                .disabled(isReadOnly || formState.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
             ToolbarItem(placement: .cancellationAction) {
                 Button("キャンセル", role: .cancel) {
+                    didFinishEditing = true
                     formState.clearCachedDraft()
                     dismiss()
                 }
@@ -160,7 +148,7 @@ struct CalendarEventEditorView: View {
         }
         .onChange(of: formState.isAllDay) { _, newValue in
             if newValue {
-                let calendar = Calendar.current
+                let calendar = formState.calendar
                 formState.startDate = calendar.startOfDay(for: formState.startDate)
                 formState.endDate = calendar.startOfDay(for: max(formState.endDate, formState.startDate))
             }
@@ -174,10 +162,16 @@ struct CalendarEventEditorView: View {
         .confirmationDialog("この予定を削除しますか？", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("削除", role: .destructive) {
                 onDelete?()
+                didFinishEditing = true
                 formState.clearCachedDraft()
                 dismiss()
             }
             Button("キャンセル", role: .cancel) { }
+        }
+        .onDisappear {
+            if !didFinishEditing && !isReadOnly {
+                formState.cacheDraft(detailOverride: detailDraft.text)
+            }
         }
     }
 }

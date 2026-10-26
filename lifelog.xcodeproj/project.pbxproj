@@ -74,7 +74,6 @@
 				"Models/ExternalCalendarEventIdentity 2.swift",
 				"Models/HabitSchedule+Presentation 2.swift",
 				"Models/PhotoLocationSelection 2.swift",
-				"Models/ShoppingSyncState 2.swift",
 				"Models/TaskPresentation 2.swift",
 				"Models/TaskPresentationSource 2.swift",
 				"Models/TimelineHourBounds 2.swift",
@@ -91,10 +90,7 @@
 				"Services/LetterPhotoFiles 2.swift",
 				"Services/PhotoIdentityIndex 2.swift",
 				"Services/PhotoImageLoader 2.swift",
-				"Services/ShoppingConnectionService 2.swift",
-				"Services/ShoppingSyncService 2.swift",
 				"ViewModels/HabitRecordIndex 2.swift",
-				"Views/Shopping/ShoppingConnectionView 2.swift",
 			);
 			target = 0E6196E52EC5A3A000A0734C /* lifelog */;
 		};
@@ -110,6 +106,7 @@
 			membershipExceptions = (
 				Models/CalendarDayLink.swift,
 				Models/CalendarWeekStart.swift,
+				Models/DateOnlyProjection.swift,
 				Models/ExternalCalendarEventIdentity.swift,
 				Models/LocationVisitTagPalette.swift,
 				Models/Models.swift,
@@ -119,8 +116,8 @@
 				Models/TaskPresentationSource.swift,
 				Services/AppColorPalette.swift,
 				Services/ColorHex.swift,
-				Services/HabitContributionPalette.swift,
 				Services/EventQuerying.swift,
+				Services/HabitContributionPalette.swift,
 				Services/Persistence.swift,
 			);
 			target = 0EB039702EE55C1200AFE3B0 /* LifelogWidgetsExtension */;
@@ -147,8 +144,6 @@
 				"PerformanceTestStore 2.swift",
 				"PhotoImagePerformanceTests 2.swift",
 				"PhotoLocationSelectionTests 2.swift",
-				"ShoppingSyncMigrationTests 2.swift",
-				"ShoppingSyncServiceTests 2.swift",
 				"TaskDeletionPersistenceTests 2.swift",
 				"TaskPresentationTests 2.swift",
 			);

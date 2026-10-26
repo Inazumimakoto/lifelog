@@ -12,6 +12,7 @@ struct TaskEditorView: View {
     @StateObject private var formState: TaskEditorFormState
     @StateObject private var detailDraft: LongFormTextDraft
     @State private var showDeleteConfirmation = false
+    @State private var didFinishEditing = false
 
     var onSave: (Task) -> Void
     var onDelete: (() -> Void)?
@@ -103,16 +104,9 @@ struct TaskEditorView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("保存") {
-                    let task = Task(id: originalTask?.id ?? UUID(),
-                                    title: formState.title,
-                                    detail: detailDraft.text,
-                                    startDate: formState.isSomeday ? nil : calendar.startOfDay(for: formState.startDate),
-                                    endDate: formState.isSomeday ? nil : calendar.startOfDay(for: formState.endDate),
-                                    priority: formState.priority,
-                                    isCompleted: originalTask?.isCompleted ?? false,
-                                    reminderDate: formState.hasReminder ? formState.reminderDate : nil,
-                                    completedAt: originalTask?.completedAt)
+                    let task = formState.makeTask(detailOverride: detailDraft.text)
                     onSave(task)
+                    didFinishEditing = true
                     formState.clearCachedDraft()
                     dismiss()
                 }
@@ -120,6 +114,7 @@ struct TaskEditorView: View {
             }
             ToolbarItem(placement: .cancellationAction) {
                 Button("キャンセル", role: .cancel) {
+                    didFinishEditing = true
                     formState.clearCachedDraft()
                     dismiss()
                 }
@@ -128,10 +123,16 @@ struct TaskEditorView: View {
         .confirmationDialog("このタスクを削除しますか？", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
             Button("削除", role: .destructive) {
                 onDelete?()
+                didFinishEditing = true
                 formState.clearCachedDraft()
                 dismiss()
             }
             Button("キャンセル", role: .cancel) { }
+        }
+        .onDisappear {
+            if !didFinishEditing {
+                formState.cacheDraft(detailOverride: detailDraft.text)
+            }
         }
         .onChange(of: formState.draft) { _, _ in
             formState.cacheDraft(detailOverride: detailDraft.text)

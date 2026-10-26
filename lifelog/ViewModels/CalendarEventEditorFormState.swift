@@ -11,7 +11,7 @@ import Combine
 /// カレンダーイベントエディターのフォーム状態を管理するクラス
 /// @StateObjectとして使用することで、ビューが再作成されても状態が保持される
 @MainActor
-class CalendarEventEditorFormState: ObservableObject {
+final class CalendarEventEditorFormState: ObservableObject {
     struct Draft: Equatable {
         var title: String
         var detail: String
@@ -40,9 +40,13 @@ class CalendarEventEditorFormState: ObservableObject {
     private var isConfigured = false
     private var isNewEvent = true
     private var categoryReplacementObservation: AnyCancellable?
-
+    private(set) var originalEvent: CalendarEvent?
     init(event: CalendarEvent? = nil, defaultDate: Date = Date()) {
         self.draftKey = Self.makeDraftKey(event: event, defaultDate: defaultDate)
+        startObserving(event: event, defaultDate: defaultDate)
+    }
+
+    private func startObserving(event: CalendarEvent?, defaultDate: Date) {
         CalendarEventEditorDraftCache.startObservingCategoryReplacements()
         configure(event: event, defaultDate: defaultDate)
         categoryReplacementObservation = CategoryPalette.categoryReplacements
@@ -57,6 +61,38 @@ class CalendarEventEditorFormState: ObservableObject {
     // Match AppDataStore's iOS 26.1 isolated-deinit workaround; Combine handles
     // cancellation without requiring actor-bound teardown.
     nonisolated deinit {}
+
+    var calendar: Calendar {
+        var value = Calendar.current
+        if let identifier = originalEvent?.dateOnlyTimeZoneIdentifier, let zone = TimeZone(identifier: identifier) {
+            value.timeZone = zone
+        }
+        return value
+    }
+
+    func makeEvent(detailOverride: String? = nil) -> CalendarEvent {
+        let normalizedStart = isAllDay ? calendar.startOfDay(for: startDate) : startDate
+        let normalizedEnd: Date
+        if isAllDay {
+            let endDay = calendar.startOfDay(for: endDate)
+            let nextDay = calendar.date(byAdding: .day, value: 1, to: max(endDay, normalizedStart))
+                ?? normalizedStart.addingTimeInterval(86_400)
+            // Some zones start a day at 01:00. The exclusive end is the next
+            // day's earliest instant, which may return to midnight.
+            normalizedEnd = calendar.startOfDay(for: nextDay)
+        } else {
+            normalizedEnd = max(endDate, normalizedStart.addingTimeInterval(900))
+        }
+        let relative = hasReminder && useRelativeReminder
+        let absolute = hasReminder && !useRelativeReminder
+        return CalendarEvent(id: originalEvent?.id ?? UUID(), title: title.isEmpty ? String(localized: "予定") : title,
+                             detail: detailOverride ?? detail, startDate: normalizedStart, endDate: normalizedEnd,
+                             calendarName: category, isAllDay: isAllDay,
+                             sourceCalendarIdentifier: originalEvent?.sourceCalendarIdentifier,
+                             reminderMinutes: relative ? reminderMinutes : nil,
+                             reminderDate: absolute ? reminderDate : nil,
+                             dateOnlyTimeZoneIdentifier: isAllDay ? calendar.timeZone.identifier : nil)
+    }
 
     var draft: Draft {
         Draft(title: title,
@@ -75,9 +111,11 @@ class CalendarEventEditorFormState: ObservableObject {
     func configure(event: CalendarEvent?, defaultDate: Date) {
         guard !isConfigured else { return }
         isConfigured = true
+        let event = CalendarEventEditorDraftCache.drafts[draftKey]?.originalEvent ?? event
+        originalEvent = event
         isNewEvent = event == nil
         
-        let calendar = Calendar.current
+        let calendar = self.calendar
         let initialStart = event?.startDate ?? calendar.date(bySettingHour: 9, minute: 0, second: 0, of: defaultDate) ?? defaultDate
         let initialEnd = event?.endDate ?? initialStart.addingTimeInterval(3600)
         
@@ -143,9 +181,18 @@ class CalendarEventEditorFormState: ObservableObject {
     func selectCategory(_ newCategory: String) {
         guard category != newCategory else { return }
         category = newCategory
-        guard isNewEvent, NotificationSettingsManager.shared.isEventCategoryNotificationEnabled else { return }
+        guard isNewEvent else { return }
+        guard NotificationSettingsManager.shared.isEventCategoryNotificationEnabled else { return }
 
-        let setting = NotificationSettingsManager.shared.getOrCreateSetting(for: newCategory)
+        applyCategoryReminderDefaults()
+    }
+
+    private func applyCategoryReminderDefaults() {
+        guard NotificationSettingsManager.shared.isEventCategoryNotificationEnabled else {
+            hasReminder = false
+            return
+        }
+        let setting = NotificationSettingsManager.shared.getOrCreateSetting(for: category)
         hasReminder = setting.enabled
         guard setting.enabled else { return }
         useRelativeReminder = setting.useRelativeTime
@@ -153,7 +200,7 @@ class CalendarEventEditorFormState: ObservableObject {
             reminderMinutes = setting.minutesBefore
             reminderDate = startDate.addingTimeInterval(-Double(setting.minutesBefore * 60))
         } else {
-            reminderDate = Calendar.current.date(bySettingHour: setting.hour,
+            reminderDate = calendar.date(bySettingHour: setting.hour,
                                                  minute: setting.minute,
                                                  second: 0,
                                                  of: startDate) ?? startDate
@@ -165,7 +212,7 @@ class CalendarEventEditorFormState: ObservableObject {
         if let detailOverride {
             draft.detail = detailOverride
         }
-        CalendarEventEditorDraftCache.drafts[draftKey] = draft
+        CalendarEventEditorDraftCache.drafts[draftKey] = .init(draft: draft, originalEvent: originalEvent)
     }
 
     func clearCachedDraft() {
@@ -189,7 +236,7 @@ class CalendarEventEditorFormState: ObservableObject {
     }
 
     private func restoreCachedDraftIfAvailable() {
-        guard let cached = CalendarEventEditorDraftCache.drafts[draftKey] else { return }
+        guard let cached = CalendarEventEditorDraftCache.drafts[draftKey]?.draft else { return }
         title = cached.title
         detail = cached.detail
         category = cached.category
@@ -213,7 +260,11 @@ class CalendarEventEditorFormState: ObservableObject {
 
 @MainActor
 private enum CalendarEventEditorDraftCache {
-    static var drafts: [String: CalendarEventEditorFormState.Draft] = [:]
+    struct Entry {
+        var draft: CalendarEventEditorFormState.Draft
+        var originalEvent: CalendarEvent?
+    }
+    static var drafts: [String: Entry] = [:]
     private static var categoryReplacementObservation: AnyCancellable?
 
     static func startObservingCategoryReplacements() {
@@ -222,8 +273,9 @@ private enum CalendarEventEditorDraftCache {
         // a cached draft never resurrects a renamed or deleted category.
         categoryReplacementObservation = CategoryPalette.categoryReplacements
             .sink { replacement in
-                for key in Array(drafts.keys) where drafts[key]?.category == replacement.oldName {
-                    drafts[key]?.category = replacement.newName
+                for key in Array(drafts.keys) where drafts[key]?.draft.category == replacement.oldName {
+                    drafts[key]?.draft.category = replacement.newName
+                    drafts[key]?.originalEvent?.calendarName = replacement.newName
                 }
             }
     }

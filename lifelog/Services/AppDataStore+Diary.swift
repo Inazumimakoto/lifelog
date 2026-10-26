@@ -23,11 +23,11 @@ extension AppDataStore {
     // MARK: - Diary CRUD
 
     func entry(for date: Date) -> DiaryEntry? {
-        diaryEntries.first { Calendar.current.isDate($0.date, inSameDayAs: date) }
+        diaryEntries.first { Calendar.current.isDate($0.displayDate, inSameDayAs: date) }
     }
 
     func upsert(entry: DiaryEntry, syncSwiftData: Bool = true) {
-        let normalized = normalizeDiaryEntry(entry)
+        var normalized = normalizeDiaryEntry(entry)
         // syncSwiftData == false は編集中の打鍵ごとに呼ばれる軽量パス。
         // かつては UserDefaults へ下書きを書いていたが、読み戻す処理が
         // 存在しない死に書き込みだったため削除した(リマインダー解除のみ残す)。
@@ -40,6 +40,7 @@ extension AppDataStore {
         }
 
         let previous = diaryEntries.first { $0.id == normalized.id }
+        normalized.dateOnlyTimeZoneIdentifier = normalized.dateOnlyTimeZoneIdentifier ?? previous?.dateOnlyTimeZoneIdentifier ?? TimeZone.current.identifier
         // Closing an unchanged editor must not republish the complete journal,
         // rewrite SwiftData JSON or rescan every saved photo for cloud sync.
         guard previous != normalized || modelContext.hasChanges || needsDiaryPhotoSyncRefresh else { return }
@@ -108,7 +109,6 @@ extension AppDataStore {
         let oldName = locationVisitTagDefinitions[index].name
         guard isSameTagName(oldName, newName) == false else { return }
         locationVisitTagDefinitions[index].name = newName
-        persistLocationVisitTags()
 
         let changedEntries = applyVisitTagMutation { tags in
             var didChange = false
@@ -119,6 +119,7 @@ extension AppDataStore {
             return didChange
         }
         syncDiaryEntriesToSwiftData(changedEntries)
+        persistLocationVisitTags(); saveContext()
     }
 
     @discardableResult
@@ -128,8 +129,7 @@ extension AppDataStore {
         }
         let deletedName = locationVisitTagDefinitions[index].name
         locationVisitTagDefinitions.remove(at: index)
-        normalizeLocationVisitTagOrderIfNeeded()
-        persistLocationVisitTags()
+        normalizeLocationVisitTagOrderIfNeeded(persistChanges: false)
 
         var affectedVisitCount = 0
         let changedEntries = applyVisitTagMutation { tags in
@@ -142,6 +142,7 @@ extension AppDataStore {
             return false
         }
         syncDiaryEntriesToSwiftData(changedEntries)
+        persistLocationVisitTags(); saveContext()
         return affectedVisitCount
     }
 
@@ -180,8 +181,6 @@ extension AppDataStore {
 
     private static func normalizedDiaryEntry(_ entry: DiaryEntry) -> DiaryEntry {
         var normalized = entry
-        normalized.mood = normalized.mood ?? .neutral
-        normalized.conditionScore = normalized.conditionScore ?? 3
         for index in normalized.locations.indices {
             normalized.locations[index].visitTags = DiaryVisitTagNormalizer.normalize(normalized.locations[index].visitTags,
                                                                                      limit: maxLocationVisitTagsPerVisit)
@@ -205,7 +204,6 @@ extension AppDataStore {
         for entry in entries {
             syncDiaryEntryToSwiftData(entry)
         }
-        saveContext()
     }
 
     private func applyVisitTagMutation(_ mutate: (inout [String]) -> Bool) -> [DiaryEntry] {
@@ -285,7 +283,7 @@ extension AppDataStore {
         }
     }
 
-    func normalizeLocationVisitTagOrderIfNeeded() {
+    func normalizeLocationVisitTagOrderIfNeeded(persistChanges: Bool = true) {
         let sorted = locationVisitTagDefinitions.sorted { lhs, rhs in
             if lhs.sortOrder != rhs.sortOrder {
                 return lhs.sortOrder < rhs.sortOrder
@@ -302,7 +300,7 @@ extension AppDataStore {
         }
         guard normalized != locationVisitTagDefinitions else { return }
         locationVisitTagDefinitions = normalized
-        persistLocationVisitTags()
+        if persistChanges { persistLocationVisitTags() }
     }
 
     // MARK: - Diary Persisters

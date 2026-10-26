@@ -31,10 +31,10 @@ private enum AnniversaryWidgetStore {
                 AnniversaryWidgetModel(
                     id: $0.id,
                     title: $0.title,
-                    targetDate: $0.targetDate,
+                    targetDate: DateOnlyProjection.project($0.targetDate, sourceTimeZoneIdentifier: $0.dateOnlyTimeZoneIdentifier),
                     type: $0.type,
                     repeatsYearly: $0.repeatsYearly,
-                    startDate: $0.startDate,
+                    startDate: DateOnlyProjection.project($0.startDate, sourceTimeZoneIdentifier: $0.dateOnlyTimeZoneIdentifier),
                     startLabel: $0.startLabel,
                     endLabel: $0.endLabel
                 )
@@ -53,10 +53,10 @@ private enum AnniversaryWidgetStore {
                 AnniversaryWidgetModel(
                     id: $0.id,
                     title: $0.title,
-                    targetDate: $0.targetDate,
+                    targetDate: DateOnlyProjection.project($0.targetDate, sourceTimeZoneIdentifier: $0.dateOnlyTimeZoneIdentifier),
                     type: $0.type,
                     repeatsYearly: $0.repeatsYearly,
-                    startDate: $0.startDate,
+                    startDate: DateOnlyProjection.project($0.startDate, sourceTimeZoneIdentifier: $0.dateOnlyTimeZoneIdentifier),
                     startLabel: $0.startLabel,
                     endLabel: $0.endLabel
                 )

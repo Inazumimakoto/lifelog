@@ -33,7 +33,7 @@ struct PersistenceController {
         Bundle.main.object(forInfoDictionaryKey: "NSExtension") != nil
     }
 
-    private static var isRunningTests: Bool {
+    static var isRunningTests: Bool {
         let environment = ProcessInfo.processInfo.environment
         return environment["XCTestConfigurationFilePath"] != nil ||
             environment["XCTestBundlePath"] != nil ||
@@ -119,8 +119,11 @@ struct PersistenceController {
         defaults.set(identifier, forKey: activeAppGroupDefaultsKey)
     }
 
-    init(inMemory: Bool = false) {
-        let schema = Schema([
+    /// Local app and widgets share exactly the native data schema. Retired sync
+    /// journals were scalar sidecars and are removed by lightweight migration;
+    /// native records and their photo paths remain in the existing store.
+    static var localSchema: Schema {
+        Schema([
             SDTask.self,
             SDDiaryEntry.self,
             SDHabit.self,
@@ -133,10 +136,13 @@ struct PersistenceController {
             SDLetter.self,
             SDSharedLetter.self,
             SDShoppingItem.self,
-            SDShoppingPlace.self,
-            SDShoppingSyncState.self
+            SDShoppingPlace.self
         ])
-        
+    }
+
+    init(inMemory: Bool = false) {
+        let schema = Self.localSchema
+
         if inMemory {
             let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
             do {

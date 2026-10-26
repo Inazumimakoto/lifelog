@@ -19,7 +19,8 @@ extension Task {
             priority: sd.priority,
             isCompleted: sd.isCompleted,
             reminderDate: sd.reminderDate,
-            completedAt: sd.completedAt
+            completedAt: sd.completedAt,
+            dateOnlyTimeZoneIdentifier: sd.dateOnlyTimeZoneIdentifier
         )
     }
 }
@@ -35,7 +36,8 @@ extension SDTask {
             priority: domain.priority,
             isCompleted: domain.isCompleted,
             reminderDate: domain.reminderDate,
-            completedAt: domain.completedAt
+            completedAt: domain.completedAt,
+            dateOnlyTimeZoneIdentifier: domain.dateOnlyTimeZoneIdentifier
         )
     }
     
@@ -48,6 +50,7 @@ extension SDTask {
         self.isCompleted = domain.isCompleted
         self.reminderDate = domain.reminderDate
         self.completedAt = domain.completedAt
+        self.dateOnlyTimeZoneIdentifier = domain.dateOnlyTimeZoneIdentifier
     }
 }
 
@@ -63,6 +66,7 @@ extension DiaryEntry {
             id: sd.id,
             date: sd.date,
             text: sd.text,
+            dateOnlyTimeZoneIdentifier: sd.dateOnlyTimeZoneIdentifier,
             mood: sd.mood,
             conditionScore: sd.conditionScore,
             locations: locations,
@@ -82,6 +86,7 @@ extension SDDiaryEntry {
             id: domain.id,
             date: domain.date,
             text: domain.text,
+            dateOnlyTimeZoneIdentifier: domain.dateOnlyTimeZoneIdentifier,
             mood: domain.mood,
             conditionScore: domain.conditionScore,
             locationsData: DiaryLocationCoding.encode(domain.locations),
@@ -96,6 +101,7 @@ extension SDDiaryEntry {
     
     func update(from domain: DiaryEntry) {
         self.date = domain.date
+        self.dateOnlyTimeZoneIdentifier = domain.dateOnlyTimeZoneIdentifier
         self.text = domain.text
         self.mood = domain.mood
         self.conditionScore = domain.conditionScore
@@ -223,7 +229,8 @@ extension Anniversary {
             endLabel: sd.endLabel,
             reminderDaysBefore: sd.reminderDaysBefore,
             reminderTime: sd.reminderTime,
-            reminderDate: sd.reminderDate
+            reminderDate: sd.reminderDate,
+            dateOnlyTimeZoneIdentifier: sd.dateOnlyTimeZoneIdentifier
         )
     }
 }
@@ -241,7 +248,8 @@ extension SDAnniversary {
             endLabel: domain.endLabel,
             reminderDaysBefore: domain.reminderDaysBefore,
             reminderTime: domain.reminderTime,
-            reminderDate: domain.reminderDate
+            reminderDate: domain.reminderDate,
+            dateOnlyTimeZoneIdentifier: domain.dateOnlyTimeZoneIdentifier
         )
     }
     
@@ -256,6 +264,7 @@ extension SDAnniversary {
         self.reminderDaysBefore = domain.reminderDaysBefore
         self.reminderTime = domain.reminderTime
         self.reminderDate = domain.reminderDate
+        self.dateOnlyTimeZoneIdentifier = domain.dateOnlyTimeZoneIdentifier
     }
 }
 
@@ -331,7 +340,8 @@ extension CalendarEvent {
             isAllDay: sd.isAllDay,
             sourceCalendarIdentifier: sd.sourceCalendarIdentifier,
             reminderMinutes: sd.reminderMinutes,
-            reminderDate: sd.reminderDate
+            reminderDate: sd.reminderDate,
+            dateOnlyTimeZoneIdentifier: sd.dateOnlyTimeZoneIdentifier
         )
     }
 }
@@ -348,7 +358,8 @@ extension SDCalendarEvent {
             isAllDay: domain.isAllDay,
             sourceCalendarIdentifier: domain.sourceCalendarIdentifier,
             reminderMinutes: domain.reminderMinutes,
-            reminderDate: domain.reminderDate
+            reminderDate: domain.reminderDate,
+            dateOnlyTimeZoneIdentifier: domain.dateOnlyTimeZoneIdentifier
         )
     }
     
@@ -362,6 +373,7 @@ extension SDCalendarEvent {
         self.sourceCalendarIdentifier = domain.sourceCalendarIdentifier
         self.reminderMinutes = domain.reminderMinutes
         self.reminderDate = domain.reminderDate
+        self.dateOnlyTimeZoneIdentifier = domain.dateOnlyTimeZoneIdentifier
     }
 }
 

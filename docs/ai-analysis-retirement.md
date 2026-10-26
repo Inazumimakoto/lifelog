@@ -7,7 +7,7 @@
 - 日記のAI採点、期間AI分析、AI分析用データ書き出し、外部AIアプリの選択、開発者PCへの直接分析を撤去する。
 - 通常の日記、健康記録、保存済み本文・写真などの利用を維持する。日記DBにAI結果の保存項目はないため、DB移行は行わない。旧AI使用回数のUserDefaultsだけを起動時に削除する。
 - AI用の設定・文言・Firestoreカウンター参照を整理する。ローカルの `firestore.rules` からAI用統計ルールを外すが、本番へはまだデプロイしていない。
-- 買い物のChatGPT連携、Firebaseを使う手紙、日記写真のiCloud保存は別機能として維持する。
+- Firebaseを使う手紙、日記写真のiCloud保存は別機能として維持する。買い物を含むChatGPT・Cloudflare連携は、その後の方針変更で撤去した（`docs/chatgpt-cloudflare-retirement.md`）。
 
 ## 未実施の運用作業
 

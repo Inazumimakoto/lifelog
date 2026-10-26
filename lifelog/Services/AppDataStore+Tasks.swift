@@ -43,7 +43,7 @@ extension AppDataStore {
         }
 
         for index in offsets.sorted(by: >) where tasks.indices.contains(index) {
-            NotificationService.shared.cancelTaskReminder(taskId: tasks[index].id)
+            taskNotificationService.cancelTaskReminder(taskId: tasks[index].id)
             tasks.remove(at: index)
         }
 
@@ -52,7 +52,7 @@ extension AppDataStore {
 
     func deleteTasks(withIDs ids: [UUID]) {
         for id in ids {
-            NotificationService.shared.cancelTaskReminder(taskId: id)
+            taskNotificationService.cancelTaskReminder(taskId: id)
         }
         tasks.removeAll { ids.contains($0.id) }
 
@@ -82,6 +82,7 @@ extension AppDataStore {
              existing.completedAt = tasks[index].completedAt
              saveContext()
         }
+        scheduleTaskNotification(tasks[index])
         rescheduleTodayOverviewReminderIfNeeded()
     }
 
@@ -89,9 +90,9 @@ extension AppDataStore {
 
     func scheduleTaskNotification(_ task: Task) {
         // キャンセルしてから再スケジュール
-        NotificationService.shared.cancelTaskReminder(taskId: task.id)
-        if let reminderDate = task.reminderDate {
-            NotificationService.shared.scheduleTaskReminder(
+        taskNotificationService.cancelTaskReminder(taskId: task.id)
+        if !task.isCompleted, let reminderDate = task.reminderDate {
+            taskNotificationService.scheduleTaskReminder(
                 taskId: task.id,
                 title: task.title,
                 reminderDate: reminderDate
@@ -101,7 +102,7 @@ extension AppDataStore {
 
     func taskPriorityDefaultReminderDate(for task: Task, setting: PriorityNotificationSetting?) -> Date? {
         guard let setting, setting.enabled else { return nil }
-        let baseDate = task.startDate ?? task.endDate
+        let baseDate = TaskPresentation.displayDate(for: task, preferring: .start)
         guard let baseDate else { return nil }
         return Calendar.current.date(bySettingHour: setting.hour, minute: setting.minute, second: 0, of: baseDate)
     }

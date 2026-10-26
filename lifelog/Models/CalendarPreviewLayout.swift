@@ -35,6 +35,10 @@ enum CalendarPreviewLayout {
         return !calendar.isDate(start, inSameDayAs: adjustedEnd)
     }
 
+    static func isMultiDayEvent(_ event: CalendarEvent, calendar: Calendar) -> Bool {
+        isMultiDayEvent(start: event.displayStartDate(calendar: calendar), end: event.displayEndDate(calendar: calendar), calendar: calendar)
+    }
+
     static func week(dates weekDates: [Date], events: [CalendarEvent],
                      itemLimit: Int, calendar: Calendar) -> Week {
         guard weekDates.count == 7,
@@ -60,10 +64,11 @@ enum CalendarPreviewLayout {
 
         var candidates: [Candidate] = []
         for event in events {
-            guard event.startDate < weekEndExclusive, event.endDate > weekStart else { continue }
+            let start = event.displayStartDate(calendar: calendar), end = event.displayEndDate(calendar: calendar)
+            guard start < weekEndExclusive, end > weekStart else { continue }
 
-            let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: event.endDate) ?? event.endDate
-            let eventStartDay = calendar.startOfDay(for: event.startDate)
+            let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: end) ?? end
+            let eventStartDay = calendar.startOfDay(for: start)
             let rawEventEndDay = calendar.startOfDay(for: adjustedEnd)
             let eventEndDay = max(rawEventEndDay, eventStartDay)
             let visibleStartDay = max(eventStartDay, weekStart)
@@ -102,8 +107,9 @@ enum CalendarPreviewLayout {
             if lhs.event.isAllDay != rhs.event.isAllDay {
                 return lhs.event.isAllDay && rhs.event.isAllDay == false
             }
-            if lhs.event.startDate != rhs.event.startDate {
-                return lhs.event.startDate < rhs.event.startDate
+            let leftStart = lhs.event.displayStartDate(calendar: calendar), rightStart = rhs.event.displayStartDate(calendar: calendar)
+            if leftStart != rightStart {
+                return leftStart < rightStart
             }
             return lhs.event.title < rhs.event.title
         }

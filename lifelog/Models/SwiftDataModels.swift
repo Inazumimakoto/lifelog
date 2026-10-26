@@ -51,19 +51,6 @@ final class SDShoppingPlace {
     }
 }
 
-/// Persist sync cursor, acknowledged versions and pending operations with the shopping rows.
-/// The scalar schema is shared with widgets and Release even while sync UI is a DEBUG prototype.
-@Model
-final class SDShoppingSyncState {
-    @Attribute(.unique) var id: String
-    var payload: Data
-
-    init(id: String = "shopping", payload: Data) {
-        self.id = id
-        self.payload = payload
-    }
-}
-
 // MARK: - SDTask
 @Model
 final class SDTask {
@@ -76,6 +63,7 @@ final class SDTask {
     var isCompleted: Bool
     var reminderDate: Date?
     var completedAt: Date?
+    var dateOnlyTimeZoneIdentifier: String?
 
     init(id: UUID = UUID(),
          title: String,
@@ -85,7 +73,8 @@ final class SDTask {
          priority: TaskPriority = .medium,
          isCompleted: Bool = false,
          reminderDate: Date? = nil,
-         completedAt: Date? = nil) {
+         completedAt: Date? = nil,
+         dateOnlyTimeZoneIdentifier: String? = nil) {
         self.id = id
         self.title = title
         self.detail = detail
@@ -95,6 +84,7 @@ final class SDTask {
         self.isCompleted = isCompleted
         self.reminderDate = reminderDate
         self.completedAt = completedAt
+        self.dateOnlyTimeZoneIdentifier = dateOnlyTimeZoneIdentifier
     }
 }
 
@@ -103,6 +93,7 @@ final class SDTask {
 final class SDDiaryEntry {
     @Attribute(.unique) var id: UUID
     var date: Date
+    var dateOnlyTimeZoneIdentifier: String?
     var text: String
     var mood: MoodLevel?
     var conditionScore: Int?
@@ -117,6 +108,7 @@ final class SDDiaryEntry {
     init(id: UUID = UUID(),
          date: Date,
          text: String,
+         dateOnlyTimeZoneIdentifier: String? = nil,
          mood: MoodLevel? = .neutral,
          conditionScore: Int? = 3,
          locationsData: Data? = nil,
@@ -128,6 +120,7 @@ final class SDDiaryEntry {
          favoritePhotoPath: String? = nil) {
         self.id = id
         self.date = date
+        self.dateOnlyTimeZoneIdentifier = dateOnlyTimeZoneIdentifier
         self.text = text
         self.mood = mood
         self.conditionScore = conditionScore
@@ -223,6 +216,7 @@ final class SDAnniversary {
     var reminderTime: Date?
     var reminderDate: Date?
     var orderIndex: Int
+    var dateOnlyTimeZoneIdentifier: String?
 
     init(id: UUID = UUID(),
          title: String,
@@ -235,7 +229,8 @@ final class SDAnniversary {
          reminderDaysBefore: Int? = nil,
          reminderTime: Date? = nil,
          reminderDate: Date? = nil,
-         orderIndex: Int = 0) {
+         orderIndex: Int = 0,
+         dateOnlyTimeZoneIdentifier: String? = nil) {
         self.id = id
         self.title = title
         self.targetDate = targetDate
@@ -248,6 +243,7 @@ final class SDAnniversary {
         self.reminderTime = reminderTime
         self.reminderDate = reminderDate
         self.orderIndex = orderIndex
+        self.dateOnlyTimeZoneIdentifier = dateOnlyTimeZoneIdentifier
     }
 }
 
@@ -315,6 +311,7 @@ final class SDCalendarEvent {
     var sourceCalendarIdentifier: String?
     var reminderMinutes: Int?
     var reminderDate: Date?
+    var dateOnlyTimeZoneIdentifier: String?
 
     init(id: UUID = UUID(),
          title: String,
@@ -325,7 +322,8 @@ final class SDCalendarEvent {
          isAllDay: Bool = false,
          sourceCalendarIdentifier: String? = nil,
          reminderMinutes: Int? = nil,
-         reminderDate: Date? = nil) {
+         reminderDate: Date? = nil,
+         dateOnlyTimeZoneIdentifier: String? = nil) {
         self.id = id
         self.title = title
         self.detail = detail
@@ -336,6 +334,7 @@ final class SDCalendarEvent {
         self.sourceCalendarIdentifier = sourceCalendarIdentifier
         self.reminderMinutes = reminderMinutes
         self.reminderDate = reminderDate
+        self.dateOnlyTimeZoneIdentifier = dateOnlyTimeZoneIdentifier
     }
 }
 

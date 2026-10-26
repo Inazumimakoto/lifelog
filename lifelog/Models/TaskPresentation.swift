@@ -8,11 +8,13 @@ enum TaskPresentation {
         case deadline
     }
 
-    static func displayDate(for task: some TaskPresentationSource, preferring preference: DatePreference) -> Date? {
+    static func displayDate(for task: some TaskPresentationSource, preferring preference: DatePreference, calendar: Calendar = .current) -> Date? {
+        let date: Date?
         switch preference {
-        case .start: return task.startDate ?? task.endDate
-        case .deadline: return task.endDate ?? task.startDate
+        case .start: date = task.startDate ?? task.endDate
+        case .deadline: date = task.endDate ?? task.startDate
         }
+        return DateOnlyProjection.project(date, sourceTimeZoneIdentifier: task.dateOnlyTimeZoneIdentifier, calendar: calendar)
     }
 
     static func orderedBefore<Source: TaskPresentationSource>(_ lhs: Source, _ rhs: Source, preferring preference: DatePreference) -> Bool {
@@ -26,8 +28,8 @@ enum TaskPresentation {
     }
 
     static func isScheduled(_ task: some TaskPresentationSource, on date: Date, calendar: Calendar = .current) -> Bool {
-        guard let start = task.startDate ?? task.endDate,
-              let end = task.endDate ?? task.startDate else { return false }
+        guard let start = displayDate(for: task, preferring: .start, calendar: calendar),
+              let end = displayDate(for: task, preferring: .deadline, calendar: calendar) else { return false }
         let normalizedStart = calendar.startOfDay(for: start)
         let normalizedEnd = calendar.startOfDay(for: end)
         let target = calendar.startOfDay(for: date)

@@ -371,7 +371,7 @@ struct HabitsCountdownView: View {
                             }
                         } else {
                             // 開始日がない場合は日付のみ
-                            Text(row.anniversary.targetDate.jaYearMonthDayString)
+                            Text(row.anniversary.displayTargetDate.jaYearMonthDayString)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }

@@ -40,20 +40,16 @@ final class DiaryViewModel: ObservableObject {
     private var metadataPersistTask: _Concurrency.Task<Void, Never>?
     /// 画面入力の下書き本文
     private var pendingText: String = ""
+    private var savedEntry: DiaryEntry
+    private var storeObservation: AnyCancellable?
+    nonisolated deinit {}
 
     init(store: AppDataStore, date: Date) {
         self.store = store
         let existingEntry = store.entry(for: date)
-        var normalized = existingEntry ?? DiaryEntry(date: date, text: "")
-        let needsDefaultPersist = (existingEntry != nil && (existingEntry?.mood == nil || existingEntry?.conditionScore == nil))
-        normalized.mood = normalized.mood ?? .neutral
-        normalized.conditionScore = normalized.conditionScore ?? 3
-        self.entry = normalized
-        self.pendingText = normalized.text
-
-        if needsDefaultPersist {
-            store.upsert(entry: normalized)
-        }
+        let normalized = existingEntry ?? DiaryEntry(date: date, text: "")
+        self.entry = normalized; self.savedEntry = normalized; self.pendingText = normalized.text
+        storeObservation = store.$diaryEntries.receive(on: DispatchQueue.main).sink { [weak self] _ in self?.receiveStoreChanges() }
 
         cleanupMissingPhotos()
     }
@@ -64,11 +60,8 @@ final class DiaryViewModel: ObservableObject {
         flushPendingTextSave()
         
         let existingEntry = store.entry(for: date)
-        var normalized = existingEntry ?? DiaryEntry(date: date, text: "")
-        normalized.mood = normalized.mood ?? .neutral
-        normalized.conditionScore = normalized.conditionScore ?? 3
-        self.entry = normalized
-        self.pendingText = normalized.text
+        let normalized = existingEntry ?? DiaryEntry(date: date, text: "")
+        self.entry = normalized; self.savedEntry = normalized; self.pendingText = normalized.text
         cleanupMissingPhotos()
     }
 
@@ -496,20 +489,29 @@ final class DiaryViewModel: ObservableObject {
     func flushPendingTextSave() {
         textPersistTask?.cancel()
         textPersistTask = nil
-        // 現在のエントリを即座に保存
+        metadataPersistTask?.cancel(); metadataPersistTask = nil
         persist()
     }
 
     private func persist() {
-        syncPendingTextIfNeeded()
-        entry.mood = entry.mood ?? .neutral
-        entry.conditionScore = entry.conditionScore ?? 3
-        store.upsert(entry: entry)
-        
-        // 日記の内容がある程度ある場合にポジティブアクションとして記録
-        if !entry.text.isEmpty && entry.text.count > 10 {
-            ReviewRequestManager.shared.registerPositiveAction()
+        var draft = entry; draft.text = pendingText
+        guard draft != savedEntry else {
+            receiveStoreChanges(); return
         }
+        let current = store.diaryEntries.first { $0.id == draft.id } ?? savedEntry
+        let merged = DiaryDraftMerger.merge(draft: draft, baseline: savedEntry, current: current)
+        store.upsert(entry: merged)
+        entry = store.diaryEntries.first { $0.id == merged.id } ?? merged
+        pendingText = entry.text; savedEntry = entry
+        if !entry.text.isEmpty && entry.text.count > 10 { ReviewRequestManager.shared.registerPositiveAction() }
+    }
+    private func receiveStoreChanges() {
+        // Read current state, never an older queued publisher value.
+        guard var latest = store.diaryEntries.first(where: { $0.id == entry.id }) else { return }
+        var draft = entry; draft.text = pendingText
+        guard draft == savedEntry else { return }
+        latest.dateOnlyTimeZoneIdentifier = latest.dateOnlyTimeZoneIdentifier ?? savedEntry.dateOnlyTimeZoneIdentifier
+        entry = latest; savedEntry = latest; pendingText = latest.text
     }
 
     /// 本文の自動保存は SwiftData 同期と published entry 更新をスキップして入力中の IME を保つ。
@@ -517,8 +519,6 @@ final class DiaryViewModel: ObservableObject {
     private func persistTextDraft() {
         var draft = entry
         draft.text = pendingText
-        draft.mood = draft.mood ?? .neutral
-        draft.conditionScore = draft.conditionScore ?? 3
         store.upsert(entry: draft, syncSwiftData: false)
     }
 

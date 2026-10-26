@@ -44,13 +44,27 @@ enum EventQuerying {
     // MARK: - Day-Window Filter
 
     /// [rangeStart, rangeEndExclusive) と重なるイベントだけを残す半開区間フィルタ。
-    /// 終日イベントも startDate/endDate の重なり判定で同様に扱う。
+    /// Source-zone all-day labels are projected into the display calendar;
+    /// timed events retain their original instants.
     static func overlapping(
         _ events: [CalendarEvent],
         rangeStart: Date,
-        rangeEndExclusive: Date
+        rangeEndExclusive: Date,
+        calendar: Calendar = .current
     ) -> [CalendarEvent] {
-        events.filter { $0.startDate < rangeEndExclusive && $0.endDate > rangeStart }
+        events.filter { overlaps($0, rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive, calendar: calendar) }
+    }
+
+    static func overlaps(_ event: CalendarEvent, rangeStart: Date, rangeEndExclusive: Date, calendar: Calendar = .current) -> Bool {
+        event.displayStartDate(calendar: calendar) < rangeEndExclusive && event.displayEndDate(calendar: calendar) > rangeStart
+    }
+
+    /// Stored source midnight can be up to 26 hours from its display midnight.
+    /// Broaden SQL's coarse filter, then apply `overlapping` to the resulting rows.
+    static func storageRange(rangeStart: Date, rangeEndExclusive: Date, calendar: Calendar = .current) -> DateInterval {
+        let start = calendar.date(byAdding: .day, value: -2, to: rangeStart) ?? rangeStart.addingTimeInterval(-172_800)
+        let end = calendar.date(byAdding: .day, value: 2, to: rangeEndExclusive) ?? rangeEndExclusive.addingTimeInterval(172_800)
+        return DateInterval(start: start, end: end)
     }
 
     // MARK: - Sort Policy
@@ -60,8 +74,9 @@ enum EventQuerying {
     /// 同時刻時の順序が非決定的だった。ウィジェット側の決定的な
     /// タイトル・タイブレークへ統一する。
     static func sortByStartThenTitle(_ lhs: CalendarEvent, _ rhs: CalendarEvent) -> Bool {
-        if lhs.startDate != rhs.startDate {
-            return lhs.startDate < rhs.startDate
+        let lhsDate = lhs.displayStartDate(), rhsDate = rhs.displayStartDate()
+        if lhsDate != rhsDate {
+            return lhsDate < rhsDate
         }
         return lhs.title < rhs.title
     }

@@ -10,7 +10,8 @@ import Combine
 
 /// タスクエディターのフォーム状態を管理するクラス
 /// @StateObjectとして使用することで、ビューが再作成されても状態が保持される
-class TaskEditorFormState: ObservableObject {
+@MainActor
+final class TaskEditorFormState: ObservableObject {
     struct Draft: Equatable {
         var title: String
         var detail: String
@@ -31,13 +32,36 @@ class TaskEditorFormState: ObservableObject {
     @Published var reminderDate: Date = Date()
     @Published var isSomeday: Bool = false
     
-    private let calendar = Calendar.current
+    private let calendar: Calendar
     private let draftKey: String
     private var isConfigured = false
-
-    init(task: Task? = nil, defaultDate: Date? = nil) {
+    private(set) var originalTask: Task?
+    init(task: Task? = nil, defaultDate: Date? = nil, calendar: Calendar = .current) {
+        self.calendar = calendar
         self.draftKey = Self.makeDraftKey(task: task, defaultDate: defaultDate)
         configure(task: task, defaultDate: defaultDate)
+    }
+
+    nonisolated deinit {}
+
+    func makeTask(detailOverride: String? = nil) -> Task {
+        let zone = originalTask?.dateOnlyTimeZoneIdentifier ?? calendar.timeZone.identifier
+        let sourceStart = DateOnlyProjection.sourceDate(fromDisplay: startDate, sourceTimeZoneIdentifier: zone, calendar: calendar)
+        let sourceEnd = DateOnlyProjection.sourceDate(fromDisplay: endDate, sourceTimeZoneIdentifier: zone, calendar: calendar)
+        let originalStart = originalTask.flatMap { TaskPresentation.displayDate(for: $0, preferring: .start, calendar: calendar) }
+        let originalEnd = originalTask.flatMap { TaskPresentation.displayDate(for: $0, preferring: .deadline, calendar: calendar) }
+        let keepsMissingStart = originalTask != nil && originalTask?.startDate == nil && originalStart.map { calendar.isDate($0, inSameDayAs: startDate) } == true
+        let keepsMissingEnd = originalTask != nil && originalTask?.endDate == nil && originalEnd.map { calendar.isDate($0, inSameDayAs: endDate) } == true
+        return Task(id: originalTask?.id ?? UUID(),
+             title: title,
+             detail: detailOverride ?? detail,
+             startDate: isSomeday || keepsMissingStart ? nil : sourceStart,
+             endDate: isSomeday || keepsMissingEnd ? nil : sourceEnd,
+             priority: priority,
+             isCompleted: originalTask?.isCompleted ?? false,
+             reminderDate: hasReminder ? reminderDate : nil,
+             completedAt: originalTask?.completedAt,
+             dateOnlyTimeZoneIdentifier: zone)
     }
 
     var draft: Draft {
@@ -55,9 +79,14 @@ class TaskEditorFormState: ObservableObject {
     func configure(task: Task?, defaultDate: Date?) {
         guard !isConfigured else { return }
         isConfigured = true
+        // A reopened cached draft retains the model it originally observed.
+        let task = TaskEditorDraftCache.drafts[draftKey]?.originalTask ?? task
+        originalTask = task
         
-        let base = calendar.startOfDay(for: task?.startDate ?? defaultDate ?? Date())
-        let end = calendar.startOfDay(for: task?.endDate ?? base)
+        let displayStart = task.flatMap { TaskPresentation.displayDate(for: $0, preferring: .start, calendar: calendar) }
+        let displayEnd = task.flatMap { TaskPresentation.displayDate(for: $0, preferring: .deadline, calendar: calendar) }
+        let base = calendar.startOfDay(for: displayStart ?? defaultDate ?? Date())
+        let end = calendar.startOfDay(for: displayEnd ?? base)
         
         title = task?.title ?? ""
         detail = task?.detail ?? ""
@@ -103,7 +132,7 @@ class TaskEditorFormState: ObservableObject {
         if let detailOverride {
             draft.detail = detailOverride
         }
-        TaskEditorDraftCache.drafts[draftKey] = draft
+        TaskEditorDraftCache.drafts[draftKey] = .init(draft: draft, originalTask: originalTask)
     }
 
     func clearCachedDraft() {
@@ -125,7 +154,7 @@ class TaskEditorFormState: ObservableObject {
     }
 
     private func restoreCachedDraftIfAvailable() {
-        guard let cached = TaskEditorDraftCache.drafts[draftKey] else { return }
+        guard let cached = TaskEditorDraftCache.drafts[draftKey]?.draft else { return }
         title = cached.title
         detail = cached.detail
         startDate = cached.startDate
@@ -148,6 +177,11 @@ class TaskEditorFormState: ObservableObject {
     }
 }
 
+@MainActor
 private enum TaskEditorDraftCache {
-    static var drafts: [String: TaskEditorFormState.Draft] = [:]
+    struct Entry {
+        var draft: TaskEditorFormState.Draft
+        let originalTask: Task?
+    }
+    static var drafts: [String: Entry] = [:]
 }

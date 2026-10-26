@@ -189,8 +189,8 @@ struct ScheduleProvider: TimelineProvider {
             ScheduleEventItem(
                 id: $0.id,
                 title: $0.title,
-                startDate: $0.startDate,
-                endDate: $0.endDate,
+                startDate: $0.displayStartDate(),
+                endDate: $0.displayEndDate(),
                 isAllDay: $0.isAllDay,
                 categoryName: $0.calendarName
             )
@@ -201,8 +201,10 @@ struct ScheduleProvider: TimelineProvider {
     private func fetchInternalEvents(from rangeStart: Date, to rangeEnd: Date) -> [CalendarEvent] {
         do {
             let context = PersistenceController.shared.container.mainContext
+            let storageRange = EventQuerying.storageRange(rangeStart: rangeStart, rangeEndExclusive: rangeEnd)
+            let storedStart = storageRange.start, storedEnd = storageRange.end
             let descriptor = FetchDescriptor<SDCalendarEvent>(
-                predicate: #Predicate<SDCalendarEvent> { $0.startDate < rangeEnd && $0.endDate > rangeStart },
+                predicate: #Predicate<SDCalendarEvent> { $0.startDate < storedEnd && $0.endDate > storedStart },
                 sortBy: [SortDescriptor(\.startDate)]
             )
 
@@ -217,9 +219,10 @@ struct ScheduleProvider: TimelineProvider {
                     isAllDay: $0.isAllDay,
                     sourceCalendarIdentifier: $0.sourceCalendarIdentifier,
                     reminderMinutes: $0.reminderMinutes,
-                    reminderDate: $0.reminderDate
+                    reminderDate: $0.reminderDate,
+                    dateOnlyTimeZoneIdentifier: $0.dateOnlyTimeZoneIdentifier
                 )
-            }
+            }.filter { EventQuerying.overlaps($0, rangeStart: rangeStart, rangeEndExclusive: rangeEnd) }
         } catch {
             return []
         }

@@ -28,6 +28,16 @@ struct AnniversaryEditorView: View {
     @State private var startLabel: String
     @State private var endLabel: String
 
+    private var editorCalendar: Calendar {
+        let identifier = editingAnniversary?.dateOnlyTimeZoneIdentifier
+        if let identifier, let zone = TimeZone(identifier: identifier) {
+            var calendar = Calendar(identifier: .gregorian)
+            calendar.timeZone = zone
+            return calendar
+        }
+        return .current
+    }
+
     init(anniversary: Anniversary? = nil,
          onSave: @escaping (Anniversary) -> Void,
          onDelete: (() -> Void)? = nil) {
@@ -42,7 +52,9 @@ struct AnniversaryEditorView: View {
         _hasReminder = State(initialValue: hasReminderValue)
         _useRelativeReminder = State(initialValue: anniversary?.reminderDate == nil)
         _reminderDaysBefore = State(initialValue: anniversary?.reminderDaysBefore ?? 1)
-        let defaultTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
+        var sourceCalendar = Calendar(identifier: .gregorian)
+        sourceCalendar.timeZone = TimeZone(identifier: anniversary?.dateOnlyTimeZoneIdentifier ?? "") ?? .current
+        let defaultTime = sourceCalendar.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
         _reminderTime = State(initialValue: anniversary?.reminderTime ?? defaultTime)
         // 日時指定の初期値: 次回の記念日 - reminderDaysBefore の reminderTime
         let originalTargetDate = anniversary?.targetDate ?? Date()
@@ -53,8 +65,10 @@ struct AnniversaryEditorView: View {
             
             // 次回の記念日を計算（過去なら来年に進める）
             var nextTargetDate = originalTargetDate
-            while nextTargetDate < today {
-                nextTargetDate = calendar.date(byAdding: .year, value: 1, to: nextTargetDate) ?? nextTargetDate
+            if anniversary?.repeatsYearly == true, nextTargetDate < today {
+                nextTargetDate = calendar.nextDate(after: today,
+                    matching: calendar.dateComponents([.month, .day, .hour, .minute], from: originalTargetDate),
+                    matchingPolicy: .nextTimePreservingSmallerComponents) ?? originalTargetDate
             }
             
             guard let reminderDay = calendar.date(byAdding: .day, value: -defaultDays, to: nextTargetDate) else { return nextTargetDate }
@@ -129,33 +143,11 @@ struct AnniversaryEditorView: View {
                             Text("1週間前").tag(7)
                         }
                         .onChange(of: reminderDaysBefore) { _, newValue in
-                            // 何日前変更時も日時指定を更新（次回の記念日を基準）
-                            let calendar = Calendar.current
-                            let today = Date()
-                            var nextTargetDate = date
-                            while nextTargetDate < today {
-                                nextTargetDate = calendar.date(byAdding: .year, value: 1, to: nextTargetDate) ?? nextTargetDate
-                            }
-                            if let reminderDay = calendar.date(byAdding: .day, value: -newValue, to: nextTargetDate) {
-                                let hour = calendar.component(.hour, from: reminderTime)
-                                let minute = calendar.component(.minute, from: reminderTime)
-                                reminderDate = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: reminderDay) ?? reminderDay
-                            }
+                            updateAbsoluteReminderPreview(daysBefore: newValue, time: reminderTime)
                         }
                         DatePicker("通知時刻", selection: $reminderTime, displayedComponents: .hourAndMinute)
                             .onChange(of: reminderTime) { _, newValue in
-                                // 通知時刻変更時も日時指定を更新（次回の記念日を基準）
-                                let calendar = Calendar.current
-                                let today = Date()
-                                var nextTargetDate = date
-                                while nextTargetDate < today {
-                                    nextTargetDate = calendar.date(byAdding: .year, value: 1, to: nextTargetDate) ?? nextTargetDate
-                                }
-                                if let reminderDay = calendar.date(byAdding: .day, value: -reminderDaysBefore, to: nextTargetDate) {
-                                    let hour = calendar.component(.hour, from: newValue)
-                                    let minute = calendar.component(.minute, from: newValue)
-                                    reminderDate = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: reminderDay) ?? reminderDay
-                                }
+                                updateAbsoluteReminderPreview(daysBefore: reminderDaysBefore, time: newValue)
                             }
                     } else {
                         DatePicker("通知日時", selection: $reminderDate, displayedComponents: [.date, .hourAndMinute])
@@ -177,6 +169,8 @@ struct AnniversaryEditorView: View {
                 }
             }
         }
+        .environment(\.calendar, editorCalendar)
+        .environment(\.timeZone, editorCalendar.timeZone)
         .navigationTitle(editingAnniversary == nil ? "記念日を追加" : "記念日を編集")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
@@ -192,7 +186,8 @@ struct AnniversaryEditorView: View {
                         endLabel: hasStartDate && !endLabel.isEmpty ? endLabel : nil,
                         reminderDaysBefore: hasReminder && useRelativeReminder ? reminderDaysBefore : nil,
                         reminderTime: hasReminder && useRelativeReminder ? reminderTime : nil,
-                        reminderDate: hasReminder && !useRelativeReminder ? reminderDate : nil
+                        reminderDate: hasReminder && !useRelativeReminder ? reminderDate : nil,
+                        dateOnlyTimeZoneIdentifier: editorCalendar.timeZone.identifier
                     )
                     onSave(item)
                     HapticManager.medium()
@@ -211,35 +206,36 @@ struct AnniversaryEditorView: View {
             }
             Button("キャンセル", role: .cancel) { }
         }
-        .onChange(of: date) { _, newValue in
-            // 日時指定モードの場合、reminderDateも連動更新
+        .onChange(of: date) { _, _ in
             if !useRelativeReminder {
-                let calendar = Calendar.current
-                let today = Date()
-                
-                // 次回の記念日を計算
-                var nextTargetDate = newValue
-                while nextTargetDate < today {
-                    nextTargetDate = calendar.date(byAdding: .year, value: 1, to: nextTargetDate) ?? nextTargetDate
-                }
-                
-                if let reminderDay = calendar.date(byAdding: .day, value: -reminderDaysBefore, to: nextTargetDate) {
-                    let hour = calendar.component(.hour, from: reminderTime)
-                    let minute = calendar.component(.minute, from: reminderTime)
-                    reminderDate = calendar.date(bySettingHour: hour, minute: minute, second: 0, of: reminderDay) ?? reminderDay
-                }
+                updateAbsoluteReminderPreview(daysBefore: reminderDaysBefore, time: reminderTime)
             }
         }
     }
     
     @ViewBuilder
     private var datePicker: some View {
-        if repeatsYearly {
+        // Existing records may legitimately have a past countdown or future
+        // elapsed date. Opening their editor must not clamp the saved day.
+        if editingAnniversary != nil || repeatsYearly {
             DatePicker("日付", selection: $date, displayedComponents: .date)
         } else if type == .since {
             DatePicker("日付", selection: $date, in: ...Date(), displayedComponents: .date)
         } else {
             DatePicker("日付", selection: $date, in: Date()..., displayedComponents: .date)
         }
+    }
+
+    private func updateAbsoluteReminderPreview(daysBefore: Int, time: Date) {
+        let calendar = editorCalendar
+        var nextTarget = date
+        if repeatsYearly && nextTarget < Date() {
+            nextTarget = calendar.nextDate(after: Date(),
+                matching: calendar.dateComponents([.month, .day, .hour, .minute], from: date),
+                matchingPolicy: .nextTimePreservingSmallerComponents) ?? date
+        }
+        guard let day = calendar.date(byAdding: .day, value: -daysBefore, to: nextTarget) else { return }
+        reminderDate = calendar.date(bySettingHour: calendar.component(.hour, from: time),
+                                     minute: calendar.component(.minute, from: time), second: 0, of: day) ?? day
     }
 }

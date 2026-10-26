@@ -59,7 +59,7 @@ struct DiaryEditorView: View {
                             .font(.body.weight(.semibold))
                     }
                     
-                    Text(viewModel.entry.date.jaMonthDayWeekdayString)
+                    Text(viewModel.entry.displayDate.jaMonthDayWeekdayString)
                         .font(.headline)
                     
                     Button {
@@ -68,7 +68,7 @@ struct DiaryEditorView: View {
                         Image(systemName: "chevron.right")
                             .font(.body.weight(.semibold))
                     }
-                    .disabled(Calendar.current.isDateInToday(viewModel.entry.date))
+                    .disabled(Calendar.current.isDateInToday(viewModel.entry.displayDate))
                 }
             }
             ToolbarItem(placement: .confirmationAction) {
@@ -91,7 +91,7 @@ struct DiaryEditorView: View {
                             navigateDay(offset: -1)
                         } else {
                             // 左スワイプ → 翌日
-                            if !Calendar.current.isDateInToday(viewModel.entry.date) {
+                            if !Calendar.current.isDateInToday(viewModel.entry.displayDate) {
                                 navigateDay(offset: 1)
                             }
                         }
@@ -195,7 +195,7 @@ struct DiaryEditorView: View {
     }
 
     private func navigateDay(offset: Int) {
-        guard let newDate = Calendar.current.date(byAdding: .day, value: offset, to: viewModel.entry.date) else { return }
+        guard let newDate = Calendar.current.date(byAdding: .day, value: offset, to: viewModel.entry.displayDate) else { return }
         // 未来の日付には移動しない
         if newDate > Date() { return }
         HapticManager.light()
@@ -223,7 +223,7 @@ struct DiaryEditorView: View {
         let allHashes = MoodLevel.allCases.flatMap { mood in
             manager.tags(for: mood.rawValue).map(\.hashTag)
         }
-        return Set(allHashes.filter { text.contains($0) })
+        return Set(allHashes.filter { DiaryEmotionHashtag.contains($0, in: text) })
     }
 
     private var moodBinding: Binding<MoodLevel> {
@@ -287,7 +287,7 @@ struct DiaryEditorView: View {
                     // タグボタン一覧
                     FlowLayout(spacing: 8) {
                         ForEach(availableTags) { tag in
-                            let isSelected = selectedEmotionTagHashes.contains(tag.hashTag) || textDraft.text.contains(tag.hashTag)
+                            let isSelected = selectedEmotionTagHashes.contains(tag.hashTag) || DiaryEmotionHashtag.contains(tag.hashTag, in: textDraft.text)
                             Button {
                                 toggleTag(tag)
                             } label: {
@@ -329,19 +329,8 @@ struct DiaryEditorView: View {
     
     private func toggleTag(_ tag: EmotionTag) {
         HapticManager.soft()
-        var text = textDraft.text
-        if text.contains(tag.hashTag) {
-            // タグを削除
-            text = text.replacingOccurrences(of: " \(tag.hashTag)", with: "")
-            text = text.replacingOccurrences(of: tag.hashTag, with: "")
-        } else {
-            // タグを追加
-            if !text.isEmpty && !text.hasSuffix(" ") && !text.hasSuffix("\n") {
-                text += " "
-            }
-            text += tag.hashTag
-        }
-        replaceEditorText(text.trimmingCharacters(in: .whitespaces), syncViewModel: true)
+        let text = DiaryEmotionHashtag.toggling(tag.hashTag, in: textDraft.text)
+        replaceEditorText(text, syncViewModel: true)
     }
 
     private var conditionSection: some View {

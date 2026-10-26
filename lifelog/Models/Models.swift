@@ -220,6 +220,8 @@ struct Task: Identifiable, Codable, Hashable {
     var isCompleted: Bool
     var reminderDate: Date?
     var completedAt: Date?
+    /// Optional for legacy records. Dates are civil days in this source zone.
+    var dateOnlyTimeZoneIdentifier: String?
 
     init(id: UUID = UUID(),
          title: String,
@@ -229,7 +231,8 @@ struct Task: Identifiable, Codable, Hashable {
          priority: TaskPriority = .medium,
          isCompleted: Bool = false,
          reminderDate: Date? = nil,
-         completedAt: Date? = nil) {
+         completedAt: Date? = nil,
+         dateOnlyTimeZoneIdentifier: String? = nil) {
         self.id = id
         self.title = title
         self.detail = detail
@@ -239,6 +242,7 @@ struct Task: Identifiable, Codable, Hashable {
         self.isCompleted = isCompleted
         self.reminderDate = reminderDate
         self.completedAt = completedAt
+        self.dateOnlyTimeZoneIdentifier = dateOnlyTimeZoneIdentifier
     }
 }
 
@@ -352,6 +356,7 @@ struct LocationVisitTagDefinition: Identifiable, Codable, Hashable {
 struct DiaryEntry: Identifiable, Codable, Hashable {
     let id: UUID
     var date: Date
+    var dateOnlyTimeZoneIdentifier: String?
     var text: String
     var mood: MoodLevel?
     var conditionScore: Int?
@@ -367,6 +372,7 @@ struct DiaryEntry: Identifiable, Codable, Hashable {
     init(id: UUID = UUID(),
          date: Date,
          text: String,
+         dateOnlyTimeZoneIdentifier: String? = nil,
          mood: MoodLevel? = .neutral,
          conditionScore: Int? = 3,
          locations: [DiaryLocation] = [],
@@ -378,6 +384,7 @@ struct DiaryEntry: Identifiable, Codable, Hashable {
          favoritePhotoPath: String? = nil) {
         self.id = id
         self.date = date
+        self.dateOnlyTimeZoneIdentifier = dateOnlyTimeZoneIdentifier
         self.text = text
         self.mood = mood
         self.conditionScore = conditionScore
@@ -400,6 +407,7 @@ struct DiaryEntry: Identifiable, Codable, Hashable {
         self.locationPhotoPaths = locationPhotoPaths
         self.favoritePhotoPath = favoritePhotoPath
     }
+    var displayDate: Date { DateOnlyProjection.project(date, sourceTimeZoneIdentifier: dateOnlyTimeZoneIdentifier) }
 }
 
 struct Habit: Identifiable, Codable, Hashable {
@@ -477,6 +485,7 @@ struct Anniversary: Identifiable, Codable, Hashable {
     var reminderDaysBefore: Int?
     var reminderTime: Date?
     var reminderDate: Date?
+    var dateOnlyTimeZoneIdentifier: String?
 
     init(id: UUID = UUID(),
          title: String,
@@ -488,7 +497,8 @@ struct Anniversary: Identifiable, Codable, Hashable {
          endLabel: String? = nil,
          reminderDaysBefore: Int? = nil,
          reminderTime: Date? = nil,
-         reminderDate: Date? = nil) {
+         reminderDate: Date? = nil,
+         dateOnlyTimeZoneIdentifier: String? = nil) {
         self.id = id
         self.title = title
         self.targetDate = targetDate
@@ -500,13 +510,17 @@ struct Anniversary: Identifiable, Codable, Hashable {
         self.reminderDaysBefore = reminderDaysBefore
         self.reminderTime = reminderTime
         self.reminderDate = reminderDate
+        self.dateOnlyTimeZoneIdentifier = dateOnlyTimeZoneIdentifier
     }
 
-    func daysRelative(to date: Date) -> Int {
-        let calendar = Calendar.current
+    var displayTargetDate: Date { DateOnlyProjection.project(targetDate, sourceTimeZoneIdentifier: dateOnlyTimeZoneIdentifier) }
+    var displayStartDate: Date? { DateOnlyProjection.project(startDate, sourceTimeZoneIdentifier: dateOnlyTimeZoneIdentifier) }
+
+    func daysRelative(to date: Date, calendar: Calendar = .current) -> Int {
+        let target = DateOnlyProjection.project(targetDate, sourceTimeZoneIdentifier: dateOnlyTimeZoneIdentifier, calendar: calendar)
         let reference = repeatsYearly
-            ? calendar.nextDate(after: date, matching: calendar.dateComponents([.month, .day], from: targetDate), matchingPolicy: .nextTimePreservingSmallerComponents) ?? targetDate
-            : targetDate
+            ? calendar.nextDate(after: date, matching: calendar.dateComponents([.month, .day], from: target), matchingPolicy: .nextTimePreservingSmallerComponents) ?? target
+            : target
         let startOfToday = calendar.startOfDay(for: date)
         let startOfTarget = calendar.startOfDay(for: reference)
         guard let days = calendar.dateComponents([.day], from: startOfToday, to: startOfTarget).day else {
@@ -516,11 +530,12 @@ struct Anniversary: Identifiable, Codable, Hashable {
     }
     
     /// 開始日からの進捗（0.0〜1.0）、開始日が未設定の場合はnil
-    func progress(on date: Date) -> Double? {
-        guard let start = startDate else { return nil }
-        let calendar = Calendar.current
+    func progress(on date: Date, calendar: Calendar = .current) -> Double? {
+        guard let rawStart = startDate else { return nil }
+        let start = DateOnlyProjection.project(rawStart, sourceTimeZoneIdentifier: dateOnlyTimeZoneIdentifier, calendar: calendar)
+        let target = DateOnlyProjection.project(targetDate, sourceTimeZoneIdentifier: dateOnlyTimeZoneIdentifier, calendar: calendar)
         let startDay = calendar.startOfDay(for: start)
-        let targetDay = calendar.startOfDay(for: targetDate)
+        let targetDay = calendar.startOfDay(for: target)
         let today = calendar.startOfDay(for: date)
         
         let totalDays = calendar.dateComponents([.day], from: startDay, to: targetDay).day ?? 0
@@ -533,23 +548,23 @@ struct Anniversary: Identifiable, Codable, Hashable {
     
     /// 全期間の日数
     var totalDays: Int? {
-        guard let start = startDate else { return nil }
+        guard let start = displayStartDate else { return nil }
         let calendar = Calendar.current
-        return calendar.dateComponents([.day], from: calendar.startOfDay(for: start), to: calendar.startOfDay(for: targetDate)).day
+        return calendar.dateComponents([.day], from: calendar.startOfDay(for: start), to: calendar.startOfDay(for: displayTargetDate)).day
     }
     
     /// 開始日からの経過日数
-    func elapsedDays(on date: Date) -> Int? {
-        guard let start = startDate else { return nil }
-        let calendar = Calendar.current
+    func elapsedDays(on date: Date, calendar: Calendar = .current) -> Int? {
+        guard let rawStart = startDate else { return nil }
+        let start = DateOnlyProjection.project(rawStart, sourceTimeZoneIdentifier: dateOnlyTimeZoneIdentifier, calendar: calendar)
         return calendar.dateComponents([.day], from: calendar.startOfDay(for: start), to: calendar.startOfDay(for: date)).day
     }
     
     /// 終了日までの残り日数
-    func remainingDays(on date: Date) -> Int? {
+    func remainingDays(on date: Date, calendar: Calendar = .current) -> Int? {
         guard startDate != nil else { return nil }
-        let calendar = Calendar.current
-        return calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: targetDate)).day
+        let target = DateOnlyProjection.project(targetDate, sourceTimeZoneIdentifier: dateOnlyTimeZoneIdentifier, calendar: calendar)
+        return calendar.dateComponents([.day], from: calendar.startOfDay(for: date), to: calendar.startOfDay(for: target)).day
     }
 }
 
@@ -587,6 +602,8 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
     var sourceCalendarIdentifier: String?
     var reminderMinutes: Int?
     var reminderDate: Date?
+    /// All-day day labels retain this zone; timed events always remain instants.
+    var dateOnlyTimeZoneIdentifier: String?
 
     init(id: UUID = UUID(),
          title: String,
@@ -597,7 +614,8 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
          isAllDay: Bool = false,
          sourceCalendarIdentifier: String? = nil,
          reminderMinutes: Int? = nil,
-         reminderDate: Date? = nil) {
+         reminderDate: Date? = nil,
+         dateOnlyTimeZoneIdentifier: String? = nil) {
         self.id = id
         self.title = title
         self.detail = detail
@@ -608,6 +626,7 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
         self.sourceCalendarIdentifier = sourceCalendarIdentifier
         self.reminderMinutes = reminderMinutes
         self.reminderDate = reminderDate
+        self.dateOnlyTimeZoneIdentifier = dateOnlyTimeZoneIdentifier
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -621,6 +640,7 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
         case sourceCalendarIdentifier
         case reminderMinutes
         case reminderDate
+        case dateOnlyTimeZoneIdentifier
     }
 
     init(from decoder: Decoder) throws {
@@ -635,7 +655,8 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
             isAllDay: try container.decodeIfPresent(Bool.self, forKey: .isAllDay) ?? false,
             sourceCalendarIdentifier: try container.decodeIfPresent(String.self, forKey: .sourceCalendarIdentifier),
             reminderMinutes: try container.decodeIfPresent(Int.self, forKey: .reminderMinutes),
-            reminderDate: try container.decodeIfPresent(Date.self, forKey: .reminderDate)
+            reminderDate: try container.decodeIfPresent(Date.self, forKey: .reminderDate),
+            dateOnlyTimeZoneIdentifier: try container.decodeIfPresent(String.self, forKey: .dateOnlyTimeZoneIdentifier)
         )
     }
 
@@ -651,6 +672,15 @@ struct CalendarEvent: Identifiable, Hashable, Codable {
         try container.encodeIfPresent(sourceCalendarIdentifier, forKey: .sourceCalendarIdentifier)
         try container.encodeIfPresent(reminderMinutes, forKey: .reminderMinutes)
         try container.encodeIfPresent(reminderDate, forKey: .reminderDate)
+        try container.encodeIfPresent(dateOnlyTimeZoneIdentifier, forKey: .dateOnlyTimeZoneIdentifier)
+    }
+
+    func displayStartDate(calendar: Calendar = .current) -> Date {
+        isAllDay ? DateOnlyProjection.project(startDate, sourceTimeZoneIdentifier: dateOnlyTimeZoneIdentifier, calendar: calendar) : startDate
+    }
+
+    func displayEndDate(calendar: Calendar = .current) -> Date {
+        isAllDay ? DateOnlyProjection.project(endDate, sourceTimeZoneIdentifier: dateOnlyTimeZoneIdentifier, calendar: calendar) : endDate
     }
 }
 

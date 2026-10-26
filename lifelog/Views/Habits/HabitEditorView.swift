@@ -163,11 +163,9 @@ struct HabitEditorView: View {
             ToolbarItem(placement: .confirmationAction) {
                 Button("保存") {
                     let schedule = scheduleOption.schedule(with: customDays)
-                    let habitToSave = Habit(id: habit?.id ?? UUID(),
-                                            title: title,
-                                            iconName: iconName,
-                                            colorHex: colorHex,
-                                            schedule: schedule)
+                    let habitToSave = habit?.applyingEditorValues(title: title, iconName: iconName,
+                                                                  colorHex: colorHex, schedule: schedule)
+                        ?? Habit(title: title, iconName: iconName, colorHex: colorHex, schedule: schedule)
                     onSave(habitToSave)
                     dismiss()
                 }
@@ -221,7 +219,7 @@ private enum HabitScheduleOption: Int, CaseIterable, Identifiable {
         switch self {
         case .daily: return .daily
         case .weekdays: return .weekdays
-        case .custom: return .custom(days: Array(days))
+        case .custom: return .custom(days: days.sorted { $0.rawValue < $1.rawValue })
         }
     }
 }

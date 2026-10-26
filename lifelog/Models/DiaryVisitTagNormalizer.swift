@@ -5,7 +5,7 @@ enum DiaryVisitTagNormalizer {
     static func key(for rawName: String) -> String {
         rawName
             .trimmingCharacters(in: .whitespacesAndNewlines)
-            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "en_US_POSIX"))
     }
 
     static func normalize(_ tags: [String], limit: Int = 8) -> [String] {

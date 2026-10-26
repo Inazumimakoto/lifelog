@@ -140,12 +140,13 @@ struct EventsView: View {
     private func eventTimeLabel(_ event: CalendarEvent) -> String {
         if event.isAllDay {
             let calendar = Calendar.current
-            let startDay = calendar.startOfDay(for: event.startDate)
-            let endDay = calendar.startOfDay(for: calendar.date(byAdding: .second, value: -1, to: event.endDate) ?? event.endDate)
+            let startDay = calendar.startOfDay(for: event.displayStartDate(calendar: calendar))
+            let end = event.displayEndDate(calendar: calendar)
+            let endDay = calendar.startOfDay(for: calendar.date(byAdding: .second, value: -1, to: end) ?? end)
             if startDay == endDay {
                 return String(localized: "終日")
             } else {
-                return String(localized: "終日 (\(event.startDate.jaMonthDayString) - \(endDay.jaMonthDayString))")
+                return String(localized: "終日 (\(startDay.jaMonthDayString) - \(endDay.jaMonthDayString))")
             }
         }
         let formatter = DateFormatter()

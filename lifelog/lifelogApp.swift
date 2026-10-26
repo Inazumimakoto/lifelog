@@ -23,18 +23,13 @@ struct lifelogApp: App {
     private var store: AppDataStore { storeOwner.store }
     @ObservedObject private var deepLinkManager = DeepLinkManager.shared
     @ObservedObject private var monetizationService = MonetizationService.shared
-#if DEBUG
-    @StateObject private var shoppingConnection = ShoppingConnectionService.shared
-    @State private var shoppingConnectionSheet: ShoppingConnectionSheet?
-
-    private struct ShoppingConnectionSheet: Identifiable {
-        let id = UUID()
-    }
-#endif
     
     init() {
         // Remove the retired AI analysis quota; see docs/ai-analysis-retirement.md.
         UserDefaults.standard.removeObject(forKey: "devpc_llm_usage")
+        if !PersistenceController.isRunningTests {
+            RetiredIntegrationCredentials.removeIfNeeded()
+        }
         CategoryPalette.initializeIfNeeded()
     }
 
@@ -62,9 +57,6 @@ struct lifelogApp: App {
                         _Concurrency.Task {
                             await monetizationService.refreshStatus()
                         }
-#if DEBUG
-                        store.shoppingSync.resume()
-#endif
                     }
                 
                 if !appLockService.isUnlocked && appLockService.isAppLockEnabled {
@@ -87,48 +79,18 @@ struct lifelogApp: App {
                 if scenePhase == .active && appLockService.isAppLockEnabled && !appLockService.isUnlocked {
                     appLockService.authenticate()
                 }
-#if DEBUG
-                presentShoppingConnectionIfAllowed()
-#endif
             }
-#if DEBUG
-            .sheet(item: $shoppingConnectionSheet, onDismiss: {
-                shoppingConnection.dismissConnection()
-                presentShoppingConnectionIfAllowed()
-            }) { _ in
-                ZStack {
-                    NavigationStack {
-                        ShoppingConnectionView(service: shoppingConnection, sync: store.shoppingSync)
-                    }
-                    .opacity(isShoppingConnectionLocked ? 0 : 1)
-                    .allowsHitTesting(!isShoppingConnectionLocked)
-                    .accessibilityHidden(isShoppingConnectionLocked)
-                    if isShoppingConnectionLocked {
-                        LockView()
-                            .zIndex(999)
-                    }
-                }
-            }
-            .onChange(of: shoppingConnection.presentationRequested) { _, _ in
-                presentShoppingConnectionIfAllowed()
-            }
-            .onChange(of: appLockService.isUnlocked) { _, _ in
-                presentShoppingConnectionIfAllowed()
-                if appLockService.isUnlocked { store.shoppingSync.resume() }
-            }
-#endif
             .onChange(of: scenePhase) { newPhase in
                 if newPhase == .inactive || newPhase == .background {
                     appLockService.lock()
                 } else if newPhase == .active {
+                    if !PersistenceController.isRunningTests {
+                        RetiredIntegrationCredentials.removeIfNeeded()
+                    }
                     // アプリがアクティブになった時にロックが有効なら認証を試みる
                     if hasFinishedStartup && appLockService.isAppLockEnabled && !appLockService.isUnlocked {
                         appLockService.authenticate()
                     }
-#if DEBUG
-                    presentShoppingConnectionIfAllowed()
-                    store.shoppingSync.resume()
-#endif
 
                     syncMemoPrivacySettingsToSharedDefaults()
                     store.resumeDiaryPhotoSync()
@@ -147,13 +109,6 @@ struct lifelogApp: App {
             }
             // Universal Links (招待リンク) のハンドリング
             .onOpenURL { url in
-#if DEBUG
-                if url.host == "lifelify-connect-dev.inazumimakoto.workers.dev" {
-                    _ = shoppingConnection.handleApprovalURL(url)
-                    presentShoppingConnectionIfAllowed()
-                    return
-                }
-#endif
                 if deepLinkManager.handleWidgetURL(url) {
                     return
                 }
@@ -161,18 +116,6 @@ struct lifelogApp: App {
             }
         }
     }
-
-#if DEBUG
-    private var isShoppingConnectionLocked: Bool {
-        appLockService.isAppLockEnabled && !appLockService.isUnlocked
-    }
-
-    private func presentShoppingConnectionIfAllowed() {
-        guard shoppingConnection.presentationRequested, shoppingConnectionSheet == nil,
-              hasFinishedStartup, scenePhase == .active, !isShoppingConnectionLocked else { return }
-        shoppingConnectionSheet = ShoppingConnectionSheet()
-    }
-#endif
 
     private func syncMemoPrivacySettingsToSharedDefaults() {
         let shared = UserDefaults(suiteName: PersistenceController.appGroupIdentifier) ?? UserDefaults.standard

@@ -70,21 +70,21 @@ final class EventsViewModel: ObservableObject {
         case .today:
             return allEvents
                 .filter { event in
-                    event.startDate < todayEnd && event.endDate > todayStart
+                    EventQuerying.overlaps(event, rangeStart: todayStart, rangeEndExclusive: todayEnd, calendar: calendar)
                 }
                 .sorted(by: sortEvents)
         case .upcoming:
             return allEvents
                 .filter { event in
-                    event.startDate >= todayEnd
+                    event.displayStartDate(calendar: calendar) >= todayEnd
                 }
                 .sorted(by: sortEvents)
         case .past:
             return allEvents
                 .filter { event in
-                    event.endDate <= todayStart
+                    event.displayEndDate(calendar: calendar) <= todayStart
                 }
-                .sorted { $0.startDate > $1.startDate } // Newest first for past
+                .sorted { $0.displayStartDate(calendar: calendar) > $1.displayStartDate(calendar: calendar) } // Newest first for past
         }
     }
 
@@ -105,8 +105,8 @@ final class EventsViewModel: ObservableObject {
     }
 
     private func sortEvents(_ lhs: CalendarEvent, _ rhs: CalendarEvent) -> Bool {
-        if lhs.startDate != rhs.startDate {
-            return lhs.startDate < rhs.startDate
+        if lhs.displayStartDate() != rhs.displayStartDate() {
+            return lhs.displayStartDate() < rhs.displayStartDate()
         }
         // 同じ開始時間なら終日予定を先に
         if lhs.isAllDay != rhs.isAllDay {

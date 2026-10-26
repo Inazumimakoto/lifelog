@@ -49,7 +49,8 @@ class MigrationManager {
                         priority: item.priority,
                         isCompleted: item.isCompleted,
                         reminderDate: item.reminderDate,
-                        completedAt: item.completedAt
+                        completedAt: item.completedAt,
+                        dateOnlyTimeZoneIdentifier: item.dateOnlyTimeZoneIdentifier
                     )
                     modelContext.insert(newItem)
                 }
@@ -150,7 +151,8 @@ class MigrationManager {
                         isAllDay: item.isAllDay,
                         sourceCalendarIdentifier: item.sourceCalendarIdentifier,
                         reminderMinutes: item.reminderMinutes,
-                        reminderDate: item.reminderDate
+                        reminderDate: item.reminderDate,
+                        dateOnlyTimeZoneIdentifier: item.dateOnlyTimeZoneIdentifier
                     )
                     modelContext.insert(newItem)
                 }

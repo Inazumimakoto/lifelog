@@ -408,11 +408,12 @@ struct CalendarDetailPanel: View {
     private func eventTimeLabel(for event: CalendarEvent) -> String {
         if event.isAllDay {
             let calendar = Calendar.current
-            let endDay = calendar.date(byAdding: .second, value: -1, to: event.endDate) ?? event.endDate
-            if calendar.isDate(event.startDate, inSameDayAs: endDay) {
+            let start = event.displayStartDate(calendar: calendar), end = event.displayEndDate(calendar: calendar)
+            let endDay = calendar.date(byAdding: .second, value: -1, to: end) ?? end
+            if calendar.isDate(start, inSameDayAs: endDay) {
                 return String(localized: "終日")
             }
-            return String(localized: "終日 \(event.startDate.jaMonthDayString) - \(endDay.jaMonthDayString)")
+            return String(localized: "終日 \(start.jaMonthDayString) - \(endDay.jaMonthDayString)")
         }
         return "\(event.startDate.formattedTime()) - \(event.endDate.formattedTime())"
     }

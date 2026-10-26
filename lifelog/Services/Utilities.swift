@@ -216,7 +216,11 @@ enum ReminderDisplay {
             return event.startDate.addingTimeInterval(-Double(setting.minutesBefore * 60))
         }
 
-        return Calendar.current.date(
+        var calendar = Calendar.current
+        if event.isAllDay, let identifier = event.dateOnlyTimeZoneIdentifier, let zone = TimeZone(identifier: identifier) {
+            calendar.timeZone = zone
+        }
+        return calendar.date(
             bySettingHour: setting.hour,
             minute: setting.minute,
             second: 0,
@@ -231,7 +235,7 @@ enum ReminderDisplay {
 
     static func taskReminderLabel(for task: Task) -> String? {
         guard let reminderDate = task.reminderDate else { return nil }
-        let referenceDate = task.startDate ?? task.endDate ?? reminderDate
+        let referenceDate = TaskPresentation.displayDate(for: task, preferring: .start) ?? reminderDate
         return reminderTimeLabel(for: reminderDate, referenceDate: referenceDate)
     }
 

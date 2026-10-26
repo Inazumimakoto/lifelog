@@ -90,7 +90,7 @@ extension AppDataStore {
             AppLogger.data.error("Calendar event deletion fetch failed: \(error)")
         }
         guard changed else { return }
-        NotificationService.shared.cancelEventReminder(eventId: eventID)
+        calendarNotificationService.cancelEventReminder(eventId: eventID)
         rescheduleTodayOverviewReminderIfNeeded()
     }
 
@@ -416,7 +416,7 @@ extension AppDataStore {
     }
 
     func explicitReminderStrategy(for event: CalendarEvent) -> EventReminderStrategy? {
-        if let minutes = event.reminderMinutes, minutes > 0 {
+        if let minutes = event.reminderMinutes, minutes >= 0 {
             return .relative(minutesBefore: minutes)
         }
         if let reminderDate = event.reminderDate {
@@ -431,7 +431,11 @@ extension AppDataStore {
             return .relative(minutesBefore: setting.minutesBefore)
         }
 
-        let reminderDate = Calendar.current.date(
+        var calendar = Calendar.current
+        if event.isAllDay, let identifier = event.dateOnlyTimeZoneIdentifier, let zone = TimeZone(identifier: identifier) {
+            calendar.timeZone = zone
+        }
+        let reminderDate = calendar.date(
             bySettingHour: setting.hour,
             minute: setting.minute,
             second: 0,
@@ -560,20 +564,24 @@ extension AppDataStore {
 
     private func scheduleEventNotification(_ event: CalendarEvent, strategy: EventReminderStrategy?) {
         // キャンセルしてから再スケジュール
-        NotificationService.shared.cancelEventReminder(eventId: event.id)
+        calendarNotificationService.cancelEventReminder(eventId: event.id)
 
         guard let strategy else { return }
 
         switch strategy {
         case .relative(let minutesBefore):
-            NotificationService.shared.scheduleEventReminder(
+            if minutesBefore == 0 {
+                calendarNotificationService.scheduleEventReminderAtDate(eventId: event.id, title: event.title, reminderDate: event.startDate)
+                return
+            }
+            calendarNotificationService.scheduleEventReminder(
                 eventId: event.id,
                 title: event.title,
                 startDate: event.startDate,
                 minutesBefore: minutesBefore
             )
         case .absolute(let reminderDate):
-            NotificationService.shared.scheduleEventReminderAtDate(
+            calendarNotificationService.scheduleEventReminderAtDate(
                 eventId: event.id,
                 title: event.title,
                 reminderDate: reminderDate

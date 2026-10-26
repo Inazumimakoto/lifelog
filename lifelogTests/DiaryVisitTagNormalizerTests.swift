@@ -25,7 +25,7 @@ final class DiaryVisitTagNormalizerTests: XCTestCase {
         let normalized = AppDataStore.normalizeDiaryEntries([entry])[0]
         XCTAssertEqual(normalized.text, entry.text)
         XCTAssertEqual(normalized.locations[0].visitTags, DiaryVisitTagNormalizer.normalize(location.visitTags))
-        XCTAssertEqual(normalized.mood, .neutral)
-        XCTAssertEqual(normalized.conditionScore, 3)
+        XCTAssertNil(normalized.mood)
+        XCTAssertNil(normalized.conditionScore)
     }
 }

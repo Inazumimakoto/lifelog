@@ -51,7 +51,6 @@ final class SimulatorDemoSeedingTests: XCTestCase {
             XCTAssertTrue(store.letters.allSatisfy { $0.status == .draft })
             XCTAssertEqual(Set(store.shoppingStore.items), Set(expected.shoppingItems))
             XCTAssertEqual(Set(store.shoppingStore.places), Set(expected.shoppingPlaces))
-            XCTAssertNil(store.shoppingStore.syncState)
             let firstDiaries = Set(store.diaryEntries)
             XCTAssertEqual(firstDiaries.count, 6)
             XCTAssertEqual(Set(store.diaryEntries.flatMap(\.locations).map(\.id)).count, 1_000)
@@ -177,7 +176,6 @@ final class SimulatorDemoSeedingTests: XCTestCase {
             XCTAssertTrue(store.shoppingStore.places.contains(place))
             XCTAssertTrue(store.diaryEntries.contains(diary))
             XCTAssertEqual(store.diaryEntries.count, 7)
-            XCTAssertNil(store.shoppingStore.syncState)
         }
     }
 
@@ -204,8 +202,7 @@ final class SimulatorDemoSeedingTests: XCTestCase {
         let schema = Schema([
             SDTask.self, SDDiaryEntry.self, SDHabit.self, SDHabitRecord.self, SDAnniversary.self,
             SDHealthSummary.self, SDCalendarEvent.self, SDMemoPad.self, SDAppState.self,
-            SDLetter.self, SDSharedLetter.self, SDShoppingItem.self, SDShoppingPlace.self,
-            SDShoppingSyncState.self
+            SDLetter.self, SDSharedLetter.self, SDShoppingItem.self, SDShoppingPlace.self
         ])
         let configuration = ModelConfiguration(schema: schema, url: url, cloudKitDatabase: .none)
         return try ModelContainer(for: schema, configurations: [configuration])

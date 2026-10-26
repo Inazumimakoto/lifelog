@@ -19,6 +19,7 @@ final class MemoPadViewModel: ObservableObject {
     private var pendingText: String
     private var textPersistTask: _Concurrency.Task<Void, Never>?
     private static let textDebounceInterval: TimeInterval = 0.8
+    nonisolated deinit {}
 
     init(store: AppDataStore) {
         self.store = store
@@ -42,7 +43,16 @@ final class MemoPadViewModel: ObservableObject {
     func flushPendingSave() {
         textPersistTask?.cancel()
         textPersistTask = nil
-        persistText(syncSwiftData: true)
+        if pendingText != memoText {
+            persistText(syncSwiftData: true)
+        } else {
+            // A store update may precede its queued publisher delivery. Closing an
+            // untouched editor adopts that value without creating a local write.
+            let latest = store.memoPad
+            pendingText = latest.text
+            memoText = latest.text
+            lastUpdatedAt = latest.lastUpdatedAt
+        }
     }
 
     private func debouncedPersistText() {
@@ -70,6 +80,10 @@ final class MemoPadViewModel: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] memo in
                 guard let self = self else { return }
+                // receive(on:) can deliver an older value after a later confirmed save.
+                guard memo == self.store.memoPad else { return }
+                // A store update must not replace text the user has not committed yet.
+                guard self.pendingText == self.memoText else { return }
                 if memo.text != self.pendingText {
                     self.pendingText = memo.text
                     self.memoText = memo.text
