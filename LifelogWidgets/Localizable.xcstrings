@@ -1,150 +1,6 @@
 {
   "sourceLanguage" : "ja",
   "strings" : {
-    "+期限切れ%lld件" : {
-      "comment" : "Number of overdue tasks omitted from the visible widget rows.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "+期限切れ%lld件"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "+%lld overdue"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "+기한 지난 작업 %lld개"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "+逾期%lld项"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "+逾期%lld項"
-          }
-        }
-      }
-    },
-    "タスク" : {
-      "comment" : "Accessibility label for the unfinished task count in the lock screen widget.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "タスク"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Tasks"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "작업"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "任务"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "任務"
-          }
-        }
-      }
-    },
-    "今日の予定と、期限切れを含む未完了タスクを表示。中サイズでは月間カレンダーも確認できます。" : {
-      "comment" : "Schedule widget description, including overdue task availability.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "今日の予定と、期限切れを含む未完了タスクを表示。中サイズでは月間カレンダーも確認できます。"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "See today’s events and unfinished tasks, including overdue tasks. The medium widget also shows a month calendar."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "오늘의 일정과 기한이 지난 작업을 포함한 미완료 작업을 표시합니다. 중간 크기에서는 월간 캘린더도 볼 수 있습니다."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "显示今天的日程和包含逾期任务在内的未完成任务。中号小组件还可显示月历。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "顯示今天的行程和包含逾期任務在內的未完成任務。中型小工具還可顯示月曆。"
-          }
-        }
-      }
-    },
-    "期限切れ" : {
-      "comment" : "Marks an unfinished task whose original deadline has passed.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "期限切れ"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Overdue"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "기한 지남"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已逾期"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已逾期"
-          }
-        }
-      }
-    },
     "%@" : {
       "localizations" : {
         "en" : {
@@ -448,6 +304,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "+預定%lld項目"
+          }
+        }
+      }
+    },
+    "+期限切れ%lld件" : {
+      "comment" : "Number of overdue tasks omitted from the visible widget rows.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+期限切れ%lld件"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+%lld overdue"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+기한 지난 작업 %lld개"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+逾期%lld项"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+逾期%lld項"
           }
         }
       }
@@ -766,6 +658,42 @@
         }
       }
     },
+    "タスク" : {
+      "comment" : "Accessibility label for the unfinished task count in the lock screen widget.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タスク"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tasks"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "작업"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "任务"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "任務"
+          }
+        }
+      }
+    },
     "タップ後に認証して開く" : {
       "comment" : "Literal from LifelogWidgets/MemoWidget.swift",
       "localizations" : {
@@ -802,6 +730,7 @@
       }
     },
     "チームMTG" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1320,6 +1249,42 @@
         }
       }
     },
+    "今日の予定と、期限切れを含む未完了タスクを表示。中サイズでは月間カレンダーも確認できます。" : {
+      "comment" : "Schedule widget description, including overdue task availability.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日の予定と、期限切れを含む未完了タスクを表示。中サイズでは月間カレンダーも確認できます。"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "See today’s events and unfinished tasks, including overdue tasks. The medium widget also shows a month calendar."
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "오늘의 일정과 기한이 지난 작업을 포함한 미완료 작업을 표시합니다. 중간 크기에서는 월간 캘린더도 볼 수 있습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示今天的日程和包含逾期任务在内的未完成任务。中号小组件还可显示月历。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顯示今天的行程和包含逾期任務在內的未完成任務。中型小工具還可顯示月曆。"
+          }
+        }
+      }
+    },
     "今日の予定とタスク" : {
       "comment" : "Literal from LifelogWidgets/ScheduleWidget.swift",
       "localizations" : {
@@ -1701,6 +1666,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "月"
+          }
+        }
+      }
+    },
+    "期限切れ" : {
+      "comment" : "Marks an unfinished task whose original deadline has passed.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "期限切れ"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overdue"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기한 지남"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已逾期"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已逾期"
           }
         }
       }

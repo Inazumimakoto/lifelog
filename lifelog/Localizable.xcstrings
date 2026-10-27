@@ -1,6 +1,117 @@
 {
   "sourceLanguage" : "ja",
   "strings" : {
+    "" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ""
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ""
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ""
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ""
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : ""
+          }
+        }
+      }
+    },
+    " " : {
+
+    },
+    "            1. GitHubにログイン\n            2. Settings → Developer settings → Personal access tokens → Tokens (classic)\n            3. Generate new token (classic)\n            4. Expiration: 任意\n            5. Scope: read:user にチェック\n            6. 生成されたトークンをコピー\n            7. このアプリに貼り付け\n            " : {
+      "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. Log in to GitHub\n            2. Settings → Developer settings → Personal access tokens → Tokens (classic)\n            3. Generate new token (classic)\n            4.Expiration: Optional\n            5. Check Scope: read:user\n            6. Copy the generated token\n            7. Paste into this app"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "            1. GitHubにログイン\n            2. Settings → Developer settings → Personal access tokens → Tokens (classic)\n            3. Generate new token (classic)\n            4. Expiration: 任意\n            5. Scope: read:user にチェック\n            6. 生成されたトークンをコピー\n            7. このアプリに貼り付け\n            "
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1. GitHub에 로그인\n            2. Settings → Developer settings → Personal access tokens → Tokens (classic)\n            3. Generate new token (classic)\n            4. Expiration: 선택\n            5. Scope: read:user 확인\n            6. 생성된 토큰 복사\n            7. 이 앱에 붙여넣기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1.登录GitHub\n            2. 设置 → 开发者设置 → 个人访问令牌 → 令牌（经典）\n            3.生成新的token（经典）\n            4.有效期：可选\n            5.检查范围：read:user\n            6.复制生成的token\n            7. 粘贴到此应用程序中"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1.登入GitHub\n            2. 設定 → 開發者設定 → 個人存取權令牌 → 令牌（經典）\n            3.生成新的token（經典）\n            4.有效期限：可選\n            5.檢查範圍：read:user\n            6.複製生成的token\n            7. 貼上到此應用程式中"
+          }
+        }
+      }
+    },
+    "—" : {
+
+    },
+    "\"%@\" を削除しますか？" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Do you want to remove \"%@\"?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "\"%@\" を削除しますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "\"%@\"를 삭제하시겠습니까?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "您想删除“%@”吗？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "您想刪除“%@”嗎？"
+          }
+        }
+      }
+    },
     "タスクを編集" : {
       "comment" : "Accessibility label for a task row’s edit button.",
       "extractionState" : "manual",
@@ -181,1001 +292,6 @@
         }
       }
     },
-    "保存時に変更する範囲を選べます。" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保存時に変更する範囲を選べます。"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose which events to change when saving."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "저장할 때 변경할 범위를 선택할 수 있습니다."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保存时可选择更改范围。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "儲存時可選擇變更範圍。"
-          }
-        }
-      }
-    },
-    "変更する予定を選択" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "変更する予定を選択"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose events to change"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "변경할 일정 선택"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "选择要更改的日程"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "選擇要變更的行程"
-          }
-        }
-      }
-    },
-    "変更内容を確認" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "変更内容を確認"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Review changes"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "변경 내용 확인"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "确认更改内容"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "確認變更內容"
-          }
-        }
-      }
-    },
-    "変更を保存" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "変更を保存"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Save changes"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "변경 사항 저장"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "保存更改"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "儲存變更"
-          }
-        }
-      }
-    },
-    "予定を保存できませんでした" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "予定を保存できませんでした"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Couldn’t save the event"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "일정을 저장하지 못했습니다"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法保存日程"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法儲存行程"
-          }
-        }
-      }
-    },
-    "この回だけ変更" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "この回だけ変更"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Change this occurrence"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "이번 일정만 변경"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "仅更改本次"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "僅更改這次"
-          }
-        }
-      }
-    },
-    "これ以降の予定を変更" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "これ以降の予定を変更"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Change this and future events"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "이번 및 이후 일정 변경"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改本次及之后的日程"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "變更這次及之後的行程"
-          }
-        }
-      }
-    },
-    "繰り返し予定をすべて変更" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "繰り返し予定をすべて変更"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Change the entire series"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "전체 반복 일정 변경"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改整个重复日程"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "變更整個重複行程"
-          }
-        }
-      }
-    },
-    "変更範囲は、振替前の開催日を基準にします。" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "変更範囲は、振替前の開催日を基準にします。"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The change scope is based on the original date before rescheduling."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "변경 범위는 일정을 옮기기 전의 원래 날짜를 기준으로 합니다."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改范围以调整前的原定日期为准。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "變更範圍以調整前的原定日期為準。"
-          }
-        }
-      }
-    },
-    "繰り返し予定全体を、この1件の予定に置き換えます。" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "繰り返し予定全体を、この1件の予定に置き換えます。"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The entire series will be replaced with this single event."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "반복 일정 전체를 이 한 건의 일정으로 바꿉니다."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "整个重复日程将替换为这一个单次日程。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "整個重複行程將替換為這一個單次行程。"
-          }
-        }
-      }
-    },
-    "繰り返しの設定は、この回以降または予定全体に適用します。" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "繰り返しの設定は、この回以降または予定全体に適用します。"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Repeat settings apply to this and future events, or to the entire series."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "반복 설정은 이번 및 이후 일정이나 전체 일정에 적용됩니다."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重复设置将应用于本次及之后的日程，或整个重复日程。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重複設定將套用至這次及之後的行程，或整個重複行程。"
-          }
-        }
-      }
-    },
-    "繰り返しの変更により、次の休み・変更は新しい予定に引き継げません。" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "繰り返しの変更により、次の休み・変更は新しい予定に引き継げません。"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "These skipped or changed occurrences can’t be carried over to the new repeat schedule."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "반복 설정이 바뀌어 다음 건너뛰기·변경 사항을 새 일정에 이어서 적용할 수 없습니다."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重复规则更改后，以下跳过或更改的日程无法沿用。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "重複規則變更後，以下略過或變更的行程無法沿用。"
-          }
-        }
-      }
-    },
-    "影響を受ける休み・変更" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "影響を受ける休み・変更"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Affected skipped or changed occurrences"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "영향을 받는 건너뛰기·변경 사항"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "受影响的跳过或更改记录"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "受影響的略過或變更紀錄"
-          }
-        }
-      }
-    },
-    "変更した予定を単発の予定として残す" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "変更した予定を単発の予定として残す"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Keep changed occurrences as separate events"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "변경한 일정을 단일 일정으로 유지"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "将已更改的日程保留为单次日程"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "將已變更的行程保留為單次行程"
-          }
-        }
-      }
-    },
-    "休みの設定は削除されます。残す設定をオフにすると、変更した予定も削除されます。" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "休みの設定は削除されます。残す設定をオフにすると、変更した予定も削除されます。"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Skip settings will be removed. Turning off this option also deletes the changed events."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "건너뛰기 설정은 삭제됩니다. 유지 설정을 끄면 변경한 일정도 삭제됩니다."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "跳过设置将被删除。关闭保留选项也会删除已更改的日程。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "略過設定將被刪除。關閉保留選項也會刪除已變更的行程。"
-          }
-        }
-      }
-    },
-    "これらの休みの設定は削除されます。" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "これらの休みの設定は削除されます。"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "These skip settings will be removed."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "이 건너뛰기 설정은 삭제됩니다."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "这些跳过设置将被删除。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "這些略過設定將被刪除。"
-          }
-        }
-      }
-    },
-    "画面を開き直して、もう一度お試しください。" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "画面を開き直して、もう一度お試しください。"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Close and reopen the editor, then try again."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "화면을 다시 연 후 다시 시도해 주세요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请重新打开编辑页面后再试。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請重新開啟編輯頁面後再試。"
-          }
-        }
-      }
-    },
-    "外部カレンダーの予定は編集できません。" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "外部カレンダーの予定は編集できません。"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Events from external calendars can’t be edited."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "외부 캘린더의 일정은 편집할 수 없습니다."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法编辑外部日历的日程。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法編輯外部行事曆的行程。"
-          }
-        }
-      }
-    },
-    "この予定は見つかりません。画面を開き直してください。" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "この予定は見つかりません。画面を開き直してください。"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This event couldn’t be found. Close and reopen the editor."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "이 일정을 찾을 수 없습니다. 화면을 다시 열어 주세요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "找不到此日程。请重新打开编辑页面。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "找不到此行程。請重新開啟編輯頁面。"
-          }
-        }
-      }
-    },
-    "この予定には選んだ変更範囲を適用できません。変更範囲を選び直してください。" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "この予定には選んだ変更範囲を適用できません。変更範囲を選び直してください。"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The selected scope can’t be applied to this event. Choose another scope."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "선택한 변경 범위를 이 일정에 적용할 수 없습니다. 변경 범위를 다시 선택해 주세요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无法将所选更改范围应用于此日程。请重新选择更改范围。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無法將所選變更範圍套用至此行程。請重新選擇變更範圍。"
-          }
-        }
-      }
-    },
-    "繰り返しの設定を変更するときは、「これ以降」または「すべて」を選んでください。" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "繰り返しの設定を変更するときは、「これ以降」または「すべて」を選んでください。"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "To change repeat settings, choose this and future events or the entire series."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "반복 설정을 변경하려면 ‘이번 및 이후’ 또는 ‘전체’를 선택해 주세요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "更改重复设置时，请选择“本次及之后”或“全部”。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "變更重複設定時，請選擇「這次及之後」或「全部」。"
-          }
-        }
-      }
-    },
-    "開始・終了日時と繰り返しの終了日を確認してください。" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "開始・終了日時と繰り返しの終了日を確認してください。"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Check the start and end times and the repeat end date."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "시작·종료 날짜와 시간, 반복 종료일을 확인해 주세요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "请检查开始及结束时间和重复截止日期。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "請檢查開始及結束時間和重複截止日期。"
-          }
-        }
-      }
-    },
-    "予定が変更されました。編集内容を確認してから画面を開き直してください。" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "予定が変更されました。編集内容を確認してから画面を開き直してください。"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This event has changed. Review your edits, then close and reopen the editor."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "일정이 변경되었습니다. 편집 내용을 확인한 후 화면을 다시 열어 주세요."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此日程已更改。请确认编辑内容后重新打开编辑页面。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "此行程已變更。請確認編輯內容後重新開啟編輯頁面。"
-          }
-        }
-      }
-    },
-    "「これ以降」は過去の予定と選んだ回を残し、それ以降の繰り返しを終了します。「すべて」は繰り返し全体を1件の予定に置き換えます。" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "「これ以降」は過去の予定と選んだ回を残し、それ以降の繰り返しを終了します。「すべて」は繰り返し全体を1件の予定に置き換えます。"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "“This and future” keeps past events and the selected occurrence, then ends later repeats. “Entire series” replaces the whole series with one event."
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "‘이번 및 이후’는 과거 일정과 선택한 일정을 남기고 그 이후의 반복을 종료합니다. ‘전체’는 반복 일정 전체를 한 건의 일정으로 바꿉니다."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "“本次及之后”会保留过去的日程和所选这一次日程，并结束之后的重复。“全部”会将整个重复日程替换为单次日程。"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "「這次及之後」會保留過去的行程與所選的這一次行程，並結束之後的重複。「全部」會將整個重複行程替換為單次行程。"
-          }
-        }
-      }
-    },
-    "終了済み" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "終了済み"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ended"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "종료됨"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已结束"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已結束"
-          }
-        }
-      }
-    },
-    "終了日なし" : {
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "終了日なし"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "No end date"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "종료일 없음"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "无结束日期"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "無結束日期"
-          }
-        }
-      }
-    },
-    "" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : ""
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : ""
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : ""
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : ""
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : ""
-          }
-        }
-      }
-    },
-    " " : {
-
-    },
-    "            1. GitHubにログイン\n            2. Settings → Developer settings → Personal access tokens → Tokens (classic)\n            3. Generate new token (classic)\n            4. Expiration: 任意\n            5. Scope: read:user にチェック\n            6. 生成されたトークンをコピー\n            7. このアプリに貼り付け\n            " : {
-      "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1. Log in to GitHub\n            2. Settings → Developer settings → Personal access tokens → Tokens (classic)\n            3. Generate new token (classic)\n            4.Expiration: Optional\n            5. Check Scope: read:user\n            6. Copy the generated token\n            7. Paste into this app"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "            1. GitHubにログイン\n            2. Settings → Developer settings → Personal access tokens → Tokens (classic)\n            3. Generate new token (classic)\n            4. Expiration: 任意\n            5. Scope: read:user にチェック\n            6. 生成されたトークンをコピー\n            7. このアプリに貼り付け\n            "
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1. GitHub에 로그인\n            2. Settings → Developer settings → Personal access tokens → Tokens (classic)\n            3. Generate new token (classic)\n            4. Expiration: 선택\n            5. Scope: read:user 확인\n            6. 생성된 토큰 복사\n            7. 이 앱에 붙여넣기"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1.登录GitHub\n            2. 设置 → 开发者设置 → 个人访问令牌 → 令牌（经典）\n            3.生成新的token（经典）\n            4.有效期：可选\n            5.检查范围：read:user\n            6.复制生成的token\n            7. 粘贴到此应用程序中"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "1.登入GitHub\n            2. 設定 → 開發者設定 → 個人存取權令牌 → 令牌（經典）\n            3.生成新的token（經典）\n            4.有效期限：可選\n            5.檢查範圍：read:user\n            6.複製生成的token\n            7. 貼上到此應用程式中"
-          }
-        }
-      }
-    },
-    "—" : {
-
-    },
-    "\"%@\" を削除しますか？" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Do you want to remove \"%@\"?"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "\"%@\" を削除しますか？"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "\"%@\"를 삭제하시겠습니까?"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "您想删除“%@”吗？"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "您想刪除“%@”嗎？"
-          }
-        }
-      }
-    },
     "（内容なし）" : {
       "comment" : "Literal from lifelog/Views/Letter/LetterListView.swift",
       "extractionState" : "stale",
@@ -1346,6 +462,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "「某天」任務不會顯示在您的行事曆或首頁上，只能在任務清單中查看。"
+          }
+        }
+      }
+    },
+    "「これ以降」は過去の予定と選んだ回を残し、それ以降の繰り返しを終了します。「すべて」は繰り返し全体を1件の予定に置き換えます。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“This and future” keeps past events and the selected occurrence, then ends later repeats. “Entire series” replaces the whole series with one event."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「これ以降」は過去の予定と選んだ回を残し、それ以降の繰り返しを終了します。「すべて」は繰り返し全体を1件の予定に置き換えます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "‘이번 및 이후’는 과거 일정과 선택한 일정을 남기고 그 이후의 반복을 종료합니다. ‘전체’는 반복 일정 전체를 한 건의 일정으로 바꿉니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "“本次及之后”会保留过去的日程和所选这一次日程，并结束之后的重复。“全部”会将整个重复日程替换为单次日程。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「這次及之後」會保留過去的行程與所選的這一次行程，並結束之後的重複。「全部」會將整個重複行程替換為單次行程。"
           }
         }
       }
@@ -4807,6 +3957,7 @@
     },
     "🛠 デバッグ" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7753,6 +6904,7 @@
     },
     "Debugビルド専用。日本にいても海外/課金状態のUIを即テストできます。" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -13644,6 +12796,74 @@
         }
       }
     },
+    "この予定には選んだ変更範囲を適用できません。変更範囲を選び直してください。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The selected scope can’t be applied to this event. Choose another scope."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この予定には選んだ変更範囲を適用できません。変更範囲を選び直してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "선택한 변경 범위를 이 일정에 적용할 수 없습니다. 변경 범위를 다시 선택해 주세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法将所选更改范围应用于此日程。请重新选择更改范围。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法將所選變更範圍套用至此行程。請重新選擇變更範圍。"
+          }
+        }
+      }
+    },
+    "この予定は見つかりません。画面を開き直してください。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This event couldn’t be found. Close and reopen the editor."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この予定は見つかりません。画面を開き直してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 일정을 찾을 수 없습니다. 화면을 다시 열어 주세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "找不到此日程。请重新打开编辑页面。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "找不到此行程。請重新開啟編輯頁面。"
+          }
+        }
+      }
+    },
     "この予定を削除しますか？" : {
       "comment" : "Literal from lifelog/Views/Calendar/CalendarEventEditorView.swift",
       "localizations" : {
@@ -13850,6 +13070,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "僅刪除此筆行程"
+          }
+        }
+      }
+    },
+    "この回だけ変更" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change this occurrence"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この回だけ変更"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이번 일정만 변경"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "仅更改本次"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "僅更改這次"
           }
         }
       }
@@ -14593,6 +13847,40 @@
         }
       }
     },
+    "これらの休みの設定は削除されます。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "These skip settings will be removed."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "これらの休みの設定は削除されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 건너뛰기 설정은 삭제됩니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这些跳过设置将被删除。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這些略過設定將被刪除。"
+          }
+        }
+      }
+    },
     "これ以降の予定を削除" : {
       "localizations" : {
         "en" : {
@@ -14623,6 +13911,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "刪除此筆及之後的行程"
+          }
+        }
+      }
+    },
+    "これ以降の予定を変更" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change this and future events"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "これ以降の予定を変更"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이번 및 이후 일정 변경"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改本次及之后的日程"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "變更這次及之後的行程"
           }
         }
       }
@@ -17875,6 +17197,7 @@
     },
     "テストデータをクリア" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -17910,6 +17233,7 @@
     },
     "テスト友達リクエストを追加" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -17945,6 +17269,7 @@
     },
     "テスト友達を追加" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -18647,6 +17972,7 @@
     },
     "プレミアム強制ON" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -21118,6 +20444,7 @@
     },
     "リリース時は非表示" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -21649,6 +20976,7 @@
     },
     "ロック画面カレンダー告知を未読に戻す" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -21684,6 +21012,7 @@
     },
     "ロック画面カレンダー告知を表示" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -22951,6 +22280,40 @@
         }
       }
     },
+    "予定が変更されました。編集内容を確認してから画面を開き直してください。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This event has changed. Review your edits, then close and reopen the editor."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "予定が変更されました。編集内容を確認してから画面を開き直してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일정이 변경되었습니다. 편집 내용을 확인한 후 화면을 다시 열어 주세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此日程已更改。请确认编辑内容后重新打开编辑页面。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此行程已變更。請確認編輯內容後重新開啟編輯頁面。"
+          }
+        }
+      }
+    },
     "予定されたタスクはありません" : {
       "comment" : "Literal from lifelog/Views/Today/TodayTimelineView.swift",
       "localizations" : {
@@ -23404,6 +22767,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "待辦事項清單"
+          }
+        }
+      }
+    },
+    "予定を保存できませんでした" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t save the event"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "予定を保存できませんでした"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일정을 저장하지 못했습니다"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法保存日程"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法儲存行程"
           }
         }
       }
@@ -24747,6 +24144,40 @@
         }
       }
     },
+    "休みの設定は削除されます。残す設定をオフにすると、変更した予定も削除されます。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skip settings will be removed. Turning off this option also deletes the changed events."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "休みの設定は削除されます。残す設定をオフにすると、変更した予定も削除されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "건너뛰기 설정은 삭제됩니다. 유지 설정을 끄면 변경한 일정도 삭제됩니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跳过设置将被删除。关闭保留选项也会删除已更改的日程。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "略過設定將被刪除。關閉保留選項也會刪除已變更的行程。"
+          }
+        }
+      }
+    },
     "休暇" : {
       "comment" : "Literal from lifelog/Services/AppDataStore+Calendar.swift",
       "extractionState" : "stale",
@@ -25342,6 +24773,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "無法儲存"
+          }
+        }
+      }
+    },
+    "保存時に変更する範囲を選べます。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose which events to change when saving."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存時に変更する範囲を選べます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "저장할 때 변경할 범위를 선택할 수 있습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存时可选择更改范围。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "儲存時可選擇變更範圍。"
           }
         }
       }
@@ -29988,6 +29453,176 @@
         }
       }
     },
+    "変更した予定を単発の予定として残す" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keep changed occurrences as separate events"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "変更した予定を単発の予定として残す"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경한 일정을 단일 일정으로 유지"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将已更改的日程保留为单次日程"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "將已變更的行程保留為單次行程"
+          }
+        }
+      }
+    },
+    "変更する予定を選択" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose events to change"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "変更する予定を選択"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경할 일정 선택"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选择要更改的日程"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "選擇要變更的行程"
+          }
+        }
+      }
+    },
+    "変更を保存" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save changes"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "変更を保存"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경 사항 저장"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存更改"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "儲存變更"
+          }
+        }
+      }
+    },
+    "変更内容を確認" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Review changes"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "変更内容を確認"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경 내용 확인"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "确认更改内容"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認變更內容"
+          }
+        }
+      }
+    },
+    "変更範囲は、振替前の開催日を基準にします。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The change scope is based on the original date before rescheduling."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "変更範囲は、振替前の開催日を基準にします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "변경 범위는 일정을 옮기기 전의 원래 날짜를 기준으로 합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改范围以调整前的原定日期为准。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "變更範圍以調整前的原定日期為準。"
+          }
+        }
+      }
+    },
     "外部" : {
       "comment" : "Literal from lifelog/Views/Journal/CalendarDetailPanel.swift",
       "localizations" : {
@@ -30019,6 +29654,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "外部"
+          }
+        }
+      }
+    },
+    "外部カレンダーの予定は編集できません。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Events from external calendars can’t be edited."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "外部カレンダーの予定は編集できません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "외부 캘린더의 일정은 편집할 수 없습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法编辑外部日历的日程。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法編輯外部行事曆的行程。"
           }
         }
       }
@@ -31790,6 +31459,40 @@
         }
       }
     },
+    "影響を受ける休み・変更" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Affected skipped or changed occurrences"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "影響を受ける休み・変更"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "영향을 받는 건너뛰기·변경 사항"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "受影响的跳过或更改记录"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "受影響的略過或變更紀錄"
+          }
+        }
+      }
+    },
     "復元できる購入が見つかりませんでした。" : {
       "comment" : "Literal from lifelog/Services/MonetizationService.swift",
       "localizations" : {
@@ -33134,6 +32837,7 @@
     },
     "招待リンク受信をテスト" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -34298,6 +34002,7 @@
     },
     "日本 (JP)" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -38953,6 +38658,40 @@
         }
       }
     },
+    "画面を開き直して、もう一度お試しください。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Close and reopen the editor, then try again."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画面を開き直して、もう一度お試しください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "화면을 다시 연 후 다시 시도해 주세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请重新打开编辑页面后再试。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請重新開啟編輯頁面後再試。"
+          }
+        }
+      }
+    },
     "疲れた" : {
       "comment" : "Literal from lifelog/Models/EmotionTag.swift",
       "localizations" : {
@@ -40053,6 +39792,7 @@
     },
     "米国 (US)" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -40227,6 +39967,40 @@
         }
       }
     },
+    "終了日なし" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No end date"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "終了日なし"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "종료일 없음"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无结束日期"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無結束日期"
+          }
+        }
+      }
+    },
     "終了日を設定" : {
       "comment" : "Recurring calendar event editor, series management, or bounded occurrence list.",
       "extractionState" : "manual",
@@ -40294,6 +40068,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "結束時間"
+          }
+        }
+      }
+    },
+    "終了済み" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ended"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "終了済み"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "종료됨"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已结束"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已結束"
           }
         }
       }
@@ -40694,6 +40502,40 @@
         }
       }
     },
+    "繰り返しの変更により、次の休み・変更は新しい予定に引き継げません。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "These skipped or changed occurrences can’t be carried over to the new repeat schedule."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繰り返しの変更により、次の休み・変更は新しい予定に引き継げません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "반복 설정이 바뀌어 다음 건너뛰기·변경 사항을 새 일정에 이어서 적용할 수 없습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重复规则更改后，以下跳过或更改的日程无法沿用。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重複規則變更後，以下略過或變更的行程無法沿用。"
+          }
+        }
+      }
+    },
     "繰り返しの終了日" : {
       "comment" : "Recurring calendar event editor, series management, or bounded occurrence list.",
       "extractionState" : "manual",
@@ -40726,6 +40568,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "重複截止日期"
+          }
+        }
+      }
+    },
+    "繰り返しの設定は、この回以降または予定全体に適用します。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repeat settings apply to this and future events, or to the entire series."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繰り返しの設定は、この回以降または予定全体に適用します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "반복 설정은 이번 및 이후 일정이나 전체 일정에 적용됩니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重复设置将应用于本次及之后的日程，或整个重复日程。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重複設定將套用至這次及之後的行程，或整個重複行程。"
+          }
+        }
+      }
+    },
+    "繰り返しの設定を変更するときは、「これ以降」または「すべて」を選んでください。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "To change repeat settings, choose this and future events or the entire series."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繰り返しの設定を変更するときは、「これ以降」または「すべて」を選んでください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "반복 설정을 변경하려면 ‘이번 및 이후’ 또는 ‘전체’를 선택해 주세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改重复设置时，请选择“本次及之后”或“全部”。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "變更重複設定時，請選擇「這次及之後」或「全部」。"
           }
         }
       }
@@ -40874,6 +40784,40 @@
         }
       }
     },
+    "繰り返し予定をすべて変更" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Change the entire series"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繰り返し予定をすべて変更"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "전체 반복 일정 변경"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "更改整个重复日程"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "變更整個重複行程"
+          }
+        }
+      }
+    },
     "繰り返し予定を管理" : {
       "comment" : "Recurring calendar event editor, series management, or bounded occurrence list.",
       "extractionState" : "manual",
@@ -40906,6 +40850,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "管理重複行程"
+          }
+        }
+      }
+    },
+    "繰り返し予定全体を、この1件の予定に置き換えます。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The entire series will be replaced with this single event."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "繰り返し予定全体を、この1件の予定に置き換えます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "반복 일정 전체를 이 한 건의 일정으로 바꿉니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整个重复日程将替换为这一个单次日程。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "整個重複行程將替換為這一個單次行程。"
           }
         }
       }
@@ -42007,6 +41985,7 @@
     },
     "自分自身にテスト手紙を送る" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -42078,6 +42057,7 @@
     },
     "自動" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -42360,6 +42340,7 @@
     },
     "英国 (GB)" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -44508,6 +44489,7 @@
     },
     "課金テスト国" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -48101,6 +48083,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "開始"
+          }
+        }
+      }
+    },
+    "開始・終了日時と繰り返しの終了日を確認してください。" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check the start and end times and the repeat end date."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "開始・終了日時と繰り返しの終了日を確認してください。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시작·종료 날짜와 시간, 반복 종료일을 확인해 주세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请检查开始及结束时间和重复截止日期。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "請檢查開始及結束時間和重複截止日期。"
           }
         }
       }
