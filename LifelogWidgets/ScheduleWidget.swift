@@ -72,6 +72,16 @@ struct ScheduleTaskItem: Identifiable {
     let id: UUID
     let title: String
     let priority: TaskPriority
+    let dueDate: Date?
+    let isOverdue: Bool
+
+    init(id: UUID, title: String, priority: TaskPriority, dueDate: Date? = nil, isOverdue: Bool = false) {
+        self.id = id
+        self.title = title
+        self.priority = priority
+        self.dueDate = dueDate
+        self.isOverdue = isOverdue
+    }
 }
 
 struct ScheduleEntry: TimelineEntry {
@@ -236,24 +246,19 @@ struct ScheduleProvider: TimelineProvider {
             )
             let uncompleted = try context.fetch(descriptor)
             let filtered = uncompleted
-                .filter { isTask($0, scheduledOn: date) }
-                .sorted(by: sortTasks)
+                .filter { TaskPresentation.isPending($0, on: date) }
+                .sorted { TaskPresentation.orderedForToday($0, $1, on: date) }
 
             return filtered.map {
-                ScheduleTaskItem(id: $0.id, title: $0.title, priority: $0.priority)
+                ScheduleTaskItem(id: $0.id, title: $0.title, priority: $0.priority,
+                                 dueDate: TaskPresentation.displayDate(for: $0, preferring: .deadline),
+                                 isOverdue: TaskPresentation.isOverdue($0, on: date))
             }
         } catch {
             return []
         }
     }
 
-    private func isTask(_ task: SDTask, scheduledOn date: Date) -> Bool {
-        TaskPresentation.isScheduled(task, on: date)
-    }
-
-    private func sortTasks(_ lhs: SDTask, _ rhs: SDTask) -> Bool {
-        TaskPresentation.orderedBefore(lhs, rhs, preferring: .start)
-    }
 }
 
 private enum ScheduleWidgetFormatter {
@@ -372,7 +377,7 @@ struct ScheduleWidgetEntryView: View {
         let full = allocatedCounts(maxRows: maxVisibleRows)
         let hiddenWhenFull = max(0, entry.events.count - full.events) + max(0, entry.tasks.count - full.tasks)
 
-        if hiddenWhenFull > 0, family != .systemLarge {
+        if hiddenWhenFull > 0, family != .systemLarge, maxVisibleRows > 1 {
             return allocatedCounts(maxRows: max(0, maxVisibleRows - 1))
         }
         return full
@@ -383,7 +388,13 @@ struct ScheduleWidgetEntryView: View {
     }
 
     private var visibleTasks: [ScheduleTaskItem] {
-        Array(entry.tasks.prefix(visibleCounts.tasks))
+        var tasks = Array(entry.tasks.prefix(visibleCounts.tasks))
+        // Keep an overdue task visible when today's tasks fill the allotted rows.
+        if tasks.count > 1, !tasks.contains(where: \.isOverdue),
+           let overdue = entry.tasks.first(where: \.isOverdue) {
+            tasks[tasks.count - 1] = overdue
+        }
+        return tasks
     }
 
     private var hiddenEventCount: Int {
@@ -394,13 +405,21 @@ struct ScheduleWidgetEntryView: View {
         max(0, entry.tasks.count - visibleTasks.count)
     }
 
+    private var hiddenOverdueTaskCount: Int {
+        max(0, entry.tasks.filter(\.isOverdue).count - visibleTasks.filter(\.isOverdue).count)
+    }
+
     private var overflowSummaryText: String? {
         var parts: [String] = []
+        if hiddenOverdueTaskCount > 0 {
+            parts.append(String(localized: "+期限切れ\(hiddenOverdueTaskCount)件"))
+        }
         if hiddenEventCount > 0 {
             parts.append(String(localized: "+予定\(hiddenEventCount)件"))
         }
-        if hiddenTaskCount > 0 {
-            parts.append(String(localized: "+タスク\(hiddenTaskCount)件"))
+        let hiddenScheduledTaskCount = hiddenTaskCount - hiddenOverdueTaskCount
+        if hiddenScheduledTaskCount > 0 {
+            parts.append(String(localized: "+タスク\(hiddenScheduledTaskCount)件"))
         }
         guard parts.isEmpty == false else { return nil }
         return parts.joined(separator: " ")
@@ -415,6 +434,18 @@ struct ScheduleWidgetEntryView: View {
             PremiumWidgetLockView()
         } else if family == .accessoryInline {
             inlineLockScreenText
+                .accessibilityValue(inlineTaskAccessibilityValue)
+        } else if family == .systemSmall, rowLimit == nil {
+            // Overdue rows include their original deadline, so fit the row count to height.
+            ViewThatFits(in: .vertical) {
+                ForEach([5, 4, 3, 2, 1], id: \.self) { limit in
+                    ScheduleWidgetEntryView(entry: entry, rowLimit: limit)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.vertical, 7)
+            .padding(.horizontal, 8)
         } else if family == .systemMedium, rowLimit == nil {
             // docs/ui-guidelines.md: 予定ウィジェット（中サイズ）
             HStack(alignment: .top, spacing: 10) {
@@ -484,6 +515,11 @@ struct ScheduleWidgetEntryView: View {
         return "□\(compactCount) "
     }
 
+    private var inlineTaskAccessibilityValue: String {
+        let overdueCount = entry.tasks.filter(\.isOverdue).count
+        return "\(String(localized: "タスク")) \(entry.tasks.count), \(String(localized: "期限切れ")) \(overdueCount)"
+    }
+
     private func inlineDayPrefix(for eventDate: Date) -> String {
         let calendar = Calendar.current
         if calendar.isDate(eventDate, inSameDayAs: entry.date) {
@@ -551,16 +587,32 @@ struct ScheduleWidgetEntryView: View {
     }
 
     private func taskRow(_ task: ScheduleTaskItem) -> some View {
-        HStack(spacing: 7) {
+        HStack(alignment: .top, spacing: 7) {
             Image(systemName: "circle")
                 .font(.system(size: 10, weight: .regular))
                 .foregroundStyle(priorityColor(for: task.priority))
-            Text(task.title)
-                .font(.system(size: family == .systemSmall ? 12 : (family == .systemMedium ? 12 : 13), weight: .semibold, design: .rounded))
-                .lineLimit(1)
+                .padding(.top, 2)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(task.title)
+                    .font(.system(size: family == .systemSmall ? 12 : (family == .systemMedium ? 12 : 13), weight: .semibold, design: .rounded))
+                    .lineLimit(1)
+                if task.isOverdue {
+                    HStack(spacing: 4) {
+                        Text("期限切れ")
+                        if let dueDate = task.dueDate {
+                            Text(dueDate.formatted(date: .abbreviated, time: .omitted))
+                        }
+                    }
+                    .font(.system(size: family == .systemLarge ? 11 : 10, weight: .regular, design: .rounded))
+                    .foregroundStyle(.orange)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                }
+            }
             Spacer(minLength: 0)
         }
         .padding(.vertical, family == .systemSmall ? 1 : 2)
+        .accessibilityElement(children: .combine)
     }
 
     private var rowDivider: some View {
@@ -624,7 +676,7 @@ struct ScheduleWidget: Widget {
             }
         }
         .configurationDisplayName("今日の予定とタスク")
-        .description("今日の予定と未完了タスクを表示。中サイズでは月間カレンダーも確認できます。")
+        .description("今日の予定と、期限切れを含む未完了タスクを表示。中サイズでは月間カレンダーも確認できます。")
         .supportedFamilies([.systemSmall, .systemMedium, .systemLarge, .accessoryInline])
         .contentMarginsDisabled()
     }

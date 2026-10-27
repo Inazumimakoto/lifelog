@@ -10,11 +10,14 @@ import UIKit
 
 struct TaskRowView: View {
     let task: Task
+    private let showsDateSummary: Bool
     var onToggle: (() -> Void)?
 
     init(task: Task,
+         showsDateSummary: Bool = true,
          onToggle: (() -> Void)? = nil) {
         self.task = task
+        self.showsDateSummary = showsDateSummary
         self.onToggle = onToggle
     }
 
@@ -78,9 +81,9 @@ struct TaskRowView: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    if let start = task.startDate {
+                    if showsDateSummary, let start = task.startDate {
                         dateSummary(start: start, end: task.endDate)
-                    } else if let end = task.endDate {
+                    } else if showsDateSummary, let end = task.endDate {
                         dateSummary(start: end, end: end)
                     }
                 }

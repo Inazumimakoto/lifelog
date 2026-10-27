@@ -9,6 +9,7 @@ import Foundation
 import Combine
 import SwiftUI
 import EventKit
+import UIKit
 
 @MainActor
 final class TodayViewModel: ObservableObject {
@@ -34,6 +35,7 @@ final class TodayViewModel: ObservableObject {
     @Published var date: Date
     @Published private(set) var events: [CalendarEvent] = []
     @Published private(set) var tasksDueToday: [Task] = []
+    @Published private(set) var overdueTasks: [Task] = []
     @Published private(set) var completedTasksToday: [Task] = []
     @Published private(set) var habitStatuses: [DailyHabitStatus] = []
     @Published private(set) var healthSummary: HealthSummary?
@@ -44,6 +46,7 @@ final class TodayViewModel: ObservableObject {
 
     private let store: AppDataStore
     private let calendarService: CalendarEventService
+    private let followsCurrentDate: Bool
     private var cancellables = Set<AnyCancellable>()
     private var pendingAnimation: Animation?
     private struct RefreshScope: OptionSet {
@@ -59,13 +62,15 @@ final class TodayViewModel: ObservableObject {
     private var pendingRefresh: RefreshScope = []
     private var refreshIsScheduled = false
     private var calendarAtLastHabitRefresh = Calendar.current
+    private var calendarAtLastDateRefresh = Calendar.current
 
     // Match AppDataStore's workaround for isolated teardown on iOS 26.1.
     nonisolated deinit {}
 
-    init(store: AppDataStore, date: Date = Date(), calendarService: CalendarEventService? = nil) {
+    init(store: AppDataStore, date: Date? = nil, calendarService: CalendarEventService? = nil) {
         self.store = store
-        self.date = date
+        self.date = date ?? Date()
+        self.followsCurrentDate = date == nil
         self.calendarService = calendarService ?? CalendarEventService()
         bind()
         refreshAll(scope: .all)
@@ -100,6 +105,16 @@ final class TodayViewModel: ObservableObject {
         CategoryPalette.changes
             .sink { [weak self] in self?.objectWillChange.send() }
             .store(in: &cancellables)
+        if followsCurrentDate {
+            // Keep Home's task groups current across midnight and clock/zone changes.
+            NotificationCenter.default.publisher(for: .NSCalendarDayChanged)
+                .merge(with: NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification),
+                       NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification),
+                       NotificationCenter.default.publisher(for: .NSSystemTimeZoneDidChange))
+                .receive(on: DispatchQueue.main)
+                .sink { [weak self] _ in self?.refreshCurrentDate() }
+                .store(in: &cancellables)
+        }
     }
 
     private func observe<P: Publisher>(_ publisher: P, refreshing scope: RefreshScope)
@@ -141,6 +156,9 @@ final class TodayViewModel: ObservableObject {
                 let pending = self.store.tasks
                     .filter { !$0.isCompleted && TaskPresentation.isScheduled($0, on: self.date) }
                     .sorted(by: self.sortTasks)
+                let overdue = self.store.tasks
+                    .filter { TaskPresentation.isOverdue($0, on: self.date) }
+                    .sorted { TaskPresentation.orderedBefore($0, $1, preferring: .deadline) }
                 // Completion date falls back to the deadline for legacy tasks.
                 let today = Calendar.current.startOfDay(for: self.date)
                 let completed = self.store.tasks.filter { task in
@@ -152,6 +170,8 @@ final class TodayViewModel: ObservableObject {
                     self.tasksDueToday = pending
                     timelineChanged = true
                 }
+                // Overdue tasks belong in the card, not at past times on today's timeline.
+                if self.overdueTasks != overdue { self.overdueTasks = overdue }
                 if self.completedTasksToday != completed {
                     self.completedTasksToday = completed
                     timelineChanged = true
@@ -224,6 +244,17 @@ final class TodayViewModel: ObservableObject {
     }
 
     // MARK: - Actions
+
+    func refreshCurrentDate(now: Date = Date()) {
+        let calendar = Calendar.current
+        guard !calendar.isDate(date, inSameDayAs: now) || calendarAtLastDateRefresh != calendar else { return }
+        calendarAtLastDateRefresh = calendar
+        if date != now {
+            date = now
+        } else {
+            scheduleRefresh(for: .all)
+        }
+    }
 
     func toggleTask(_ task: Task) {
         pendingAnimation = .spring(response: 0.35, dampingFraction: 0.8)

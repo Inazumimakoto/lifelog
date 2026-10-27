@@ -24,6 +24,7 @@ struct TodayView: View {
     @State private var showTaskManager = false
     @State private var showEventManager = false
     @State private var showTaskEditor = false
+    @State private var showsAllOverdueTasks = false
     @State private var showDiaryEditor = false
     @State private var showEventEditor = false
     @State private var showMemoEditor = false
@@ -84,6 +85,7 @@ struct TodayView: View {
                 await loadSharedLetters()
             }
             .onAppear {
+                viewModel.refreshCurrentDate()
                 // タブ切り替え時に共有手紙を再読み込み（他画面で開封された可能性）
                 _Concurrency.Task {
                     await loadSharedLetters()
@@ -94,6 +96,7 @@ struct TodayView: View {
             }
             .onChange(of: scenePhase, initial: false) { oldPhase, newPhase in
                 if oldPhase != .active && newPhase == .active {
+                    viewModel.refreshCurrentDate()
                     calendarSyncTrigger += 1
                     // 他の画面で開封された可能性があるので再読み込み
                     _Concurrency.Task {
@@ -433,58 +436,59 @@ struct TodayView: View {
     }
 
     private var tasksSection: some View {
-        SectionCard(title: "今日のタスク",
+        // docs/ui-guidelines.md §Today: keep today's work ahead of overdue tasks.
+        SectionCard(title: "タスク",
                     actionTitle: "タスクを追加",
                     action: { showTaskEditor = true }) {
-            VStack(spacing: 12) {
-                if viewModel.tasksDueToday.isEmpty {
-                    Text("今日のタスクはありません")
-                        .font(.subheadline)
+            VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("今日のタスク")
+                        .font(.caption.weight(.semibold))
                         .foregroundStyle(.secondary)
-                } else {
-                    ForEach(viewModel.tasksDueToday) { task in
-                        HStack {
-                            TaskRowView(task: task, onToggle: {
-                                viewModel.toggleTask(task)
-                            })
-                            Spacer()
+
+                    if viewModel.tasksDueToday.isEmpty {
+                        Text("今日のタスクはありません")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        taskRows(viewModel.tasksDueToday)
+                    }
+                }
+
+                if !viewModel.overdueTasks.isEmpty {
+                    Divider()
+                    VStack(alignment: .leading, spacing: 8) {
+                        Label("期限切れ（\(viewModel.overdueTasks.count)件）", systemImage: "clock.badge.exclamationmark")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.orange)
+
+                        taskRows(visibleOverdueTasks, showsDeadline: true)
+
+                        if viewModel.overdueTasks.count > 3 {
                             Button {
-                                editingTask = task
+                                withAnimation(.easeInOut(duration: 0.2)) {
+                                    showsAllOverdueTasks.toggle()
+                                }
                             } label: {
-                                Image(systemName: "square.and.pencil")
-                                    .foregroundStyle(.secondary)
+                                if showsAllOverdueTasks {
+                                    Text("折りたたむ")
+                                } else {
+                                    Text("残り\(viewModel.overdueTasks.count - 3)件を表示")
+                                }
                             }
-                            .buttonStyle(.plain)
-                        }
-                        if task.id != viewModel.tasksDueToday.last?.id {
-                            Divider()
+                            .font(.caption.weight(.semibold))
+                            .padding(.vertical, 8)
                         }
                     }
                 }
-                if viewModel.completedTasksToday.isEmpty == false {
+
+                if !viewModel.completedTasksToday.isEmpty {
                     Divider()
                     VStack(alignment: .leading, spacing: 8) {
                         Text("完了済み")
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
-                        ForEach(viewModel.completedTasksToday) { task in
-                            HStack {
-                                TaskRowView(task: task, onToggle: {
-                                    viewModel.toggleTask(task)
-                                })
-                                Spacer()
-                                Button {
-                                    editingTask = task
-                                } label: {
-                                    Image(systemName: "square.and.pencil")
-                                        .foregroundStyle(.secondary)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                            if task.id != viewModel.completedTasksToday.last?.id {
-                                Divider()
-                            }
-                        }
+                        taskRows(viewModel.completedTasksToday)
                     }
                 }
                 Divider()
@@ -497,6 +501,50 @@ struct TodayView: View {
                     }
                     Spacer()
                 }
+            }
+        }
+        .onChange(of: viewModel.date.startOfDay) { _, _ in
+            showsAllOverdueTasks = false
+        }
+        .onChange(of: viewModel.overdueTasks.isEmpty) { _, isEmpty in
+            if isEmpty { showsAllOverdueTasks = false }
+        }
+    }
+
+    private var visibleOverdueTasks: [Task] {
+        showsAllOverdueTasks ? viewModel.overdueTasks : Array(viewModel.overdueTasks.prefix(3))
+    }
+
+    private func taskRows(_ tasks: [Task], showsDeadline: Bool = false) -> some View {
+        ForEach(tasks) { task in
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    TaskRowView(task: task, showsDateSummary: !showsDeadline, onToggle: {
+                        viewModel.toggleTask(task)
+                    })
+                    if showsDeadline,
+                       let deadline = TaskPresentation.displayDate(for: task, preferring: .deadline) {
+                        Text("期限：\(deadline.formatted(.dateTime.year().month().day()))")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .padding(.leading, 32)
+                    }
+                }
+                Spacer(minLength: 0)
+                Button {
+                    editingTask = task
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                        .foregroundStyle(.secondary)
+                        .frame(minWidth: 44, minHeight: 44)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("タスクを編集")
+                .accessibilityValue(task.title)
+            }
+            if task.id != tasks.last?.id {
+                Divider()
             }
         }
     }

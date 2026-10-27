@@ -4,6 +4,80 @@ import XCTest
 
 @MainActor
 final class TodayViewModelTests: XCTestCase {
+    func testPendingTasks_separatesOverdueFromTodayAndKeepsPastTasksOffTimeline() {
+        let store = PerformanceTestStore.make()
+        let today = date(2030, 3, 13)
+        let overdue = Task(title: "Overdue", endDate: shifted(today, by: -1))
+        let dueToday = Task(title: "Due today", endDate: today)
+        let ongoing = Task(title: "Ongoing", startDate: shifted(today, by: -2), endDate: shifted(today, by: 1))
+        let completed = Task(title: "Already done", endDate: shifted(today, by: -1), isCompleted: true,
+                             completedAt: shifted(today, by: -1))
+        store.tasks = [overdue, dueToday, ongoing, completed,
+                       Task(title: "Future", startDate: shifted(today, by: 1)), Task(title: "Someday")]
+
+        let viewModel = TodayViewModel(store: store, date: today)
+
+        XCTAssertEqual(viewModel.overdueTasks.map(\.id), [overdue.id])
+        XCTAssertEqual(viewModel.tasksDueToday.map(\.id), [ongoing.id, dueToday.id])
+        XCTAssertTrue(viewModel.completedTasksToday.isEmpty)
+        XCTAssertEqual(Set(viewModel.timelineItems.compactMap(\.sourceId)), Set([dueToday.id, ongoing.id]))
+    }
+
+    func testCurrentDateRefresh_afterMidnightMovesExpiredTasksIntoOverdueGroup() async {
+        let store = PerformanceTestStore.make()
+        let today = date(2030, 3, 13)
+        let tomorrow = shifted(today, by: 1)
+        let expiring = Task(title: "Expires today", endDate: today)
+        let ongoing = Task(title: "Still ongoing", startDate: today, endDate: tomorrow)
+        let nextDay = Task(title: "Tomorrow", endDate: tomorrow)
+        store.tasks = [expiring, ongoing, nextDay]
+        let viewModel = TodayViewModel(store: store, date: today.addingTimeInterval(23 * 3_600))
+        let updated = expectation(description: "Midnight classification refreshed")
+        let subscription = viewModel.$overdueTasks.dropFirst().sink { tasks in
+            if tasks.map(\.id) == [expiring.id] { updated.fulfill() }
+        }
+
+        viewModel.refreshCurrentDate(now: tomorrow.addingTimeInterval(60))
+        await fulfillment(of: [updated], timeout: 2)
+
+        XCTAssertEqual(viewModel.overdueTasks.map(\.id), [expiring.id])
+        XCTAssertEqual(viewModel.tasksDueToday.map(\.id), [ongoing.id, nextDay.id])
+        XCTAssertFalse(viewModel.timelineItems.contains { $0.sourceId == expiring.id })
+        XCTAssertTrue(Calendar.current.isDate(viewModel.date, inSameDayAs: tomorrow))
+        withExtendedLifetime(subscription) {}
+    }
+
+    func testOverdueTaskCompletionAndDateChange_removeTasksFromOverdueGroup() async {
+        let store = PerformanceTestStore.make()
+        let today = Calendar.current.startOfDay(for: Date())
+        let completed = Task(title: "Finish", endDate: shifted(today, by: -1))
+        var rescheduled = Task(title: "Reschedule", endDate: shifted(today, by: -2))
+        store.tasks = [completed, rescheduled]
+        let viewModel = TodayViewModel(store: store, date: today)
+        let completionUpdated = expectation(description: "Completed task removed from overdue")
+        let completionSubscription = viewModel.$overdueTasks.dropFirst().sink { tasks in
+            if tasks.map(\.id) == [rescheduled.id] { completionUpdated.fulfill() }
+        }
+
+        viewModel.toggleTask(completed)
+        await fulfillment(of: [completionUpdated], timeout: 2)
+        completionSubscription.cancel()
+        XCTAssertEqual(viewModel.completedTasksToday.map(\.id), [completed.id])
+
+        let rescheduleUpdated = expectation(description: "New date removes overdue state")
+        let rescheduleSubscription = viewModel.$overdueTasks.dropFirst().sink { tasks in
+            if tasks.isEmpty { rescheduleUpdated.fulfill() }
+        }
+        rescheduled.startDate = today
+        rescheduled.endDate = today
+        store.updateTask(rescheduled)
+        await fulfillment(of: [rescheduleUpdated], timeout: 2)
+
+        XCTAssertTrue(viewModel.overdueTasks.isEmpty)
+        XCTAssertEqual(viewModel.tasksDueToday.map(\.id), [rescheduled.id])
+        withExtendedLifetime(rescheduleSubscription) {}
+    }
+
     func testTimezoneChange_completionReevaluatesScheduledRows() {
         let previousTimeZone = NSTimeZone.default
         defer { NSTimeZone.default = previousTimeZone }

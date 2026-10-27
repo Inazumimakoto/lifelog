@@ -5,6 +5,7 @@
 
 import Foundation
 import SwiftData
+import WidgetKit
 
 extension AppDataStore {
 
@@ -18,6 +19,7 @@ extension AppDataStore {
         saveContext()
 
         scheduleTaskNotification(task)
+        WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
         rescheduleTodayOverviewReminderIfNeeded()
     }
 
@@ -33,6 +35,7 @@ extension AppDataStore {
         }
 
         scheduleTaskNotification(task)
+        WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
         rescheduleTodayOverviewReminderIfNeeded()
     }
 
@@ -67,6 +70,7 @@ extension AppDataStore {
             }
         }
         saveContext()
+        WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
         rescheduleTodayOverviewReminderIfNeeded()
     }
 
@@ -83,6 +87,7 @@ extension AppDataStore {
              saveContext()
         }
         scheduleTaskNotification(tasks[index])
+        WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
         rescheduleTodayOverviewReminderIfNeeded()
     }
 

@@ -6,6 +6,7 @@ protocol TaskPresentationSource {
     var priority: TaskPriority { get }
     var startDate: Date? { get }
     var endDate: Date? { get }
+    var isCompleted: Bool { get }
     var dateOnlyTimeZoneIdentifier: String? { get }
 }
 

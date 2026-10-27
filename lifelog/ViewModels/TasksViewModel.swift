@@ -72,11 +72,7 @@ final class TasksViewModel: ObservableObject {
             }
             .sorted(by: sortTasks)
         case .overdue:
-            return tasks.filter { task in
-                guard !task.isCompleted else { return false }
-                guard let displayDate = displayDate(for: task) else { return false }
-                return calendar.startOfDay(for: displayDate) < todayStart
-            }
+            return tasks.filter { TaskPresentation.isOverdue($0, on: todayStart, calendar: calendar) }
             .sorted(by: sortTasks)
         case .someday:
             // startDateとendDateが両方nilのタスク

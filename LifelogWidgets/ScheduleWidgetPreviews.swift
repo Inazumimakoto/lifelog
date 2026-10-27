@@ -3,7 +3,8 @@ import WidgetKit
 
 #if DEBUG
 enum ScheduleWidgetPreviewData {
-    static func entry(month: Int = 9, day: Int = 6, empty: Bool = false) -> ScheduleEntry {
+    static func entry(month: Int = 9, day: Int = 6, empty: Bool = false,
+                      includeOverdue: Bool = false, overdueOnly: Bool = false) -> ScheduleEntry {
         var calendar = Calendar(identifier: .gregorian)
         calendar.locale = Locale(identifier: "ja_JP")
         calendar.timeZone = TimeZone(identifier: "Asia/Tokyo")!
@@ -20,14 +21,23 @@ enum ScheduleWidgetPreviewData {
             let start = calendar.date(byAdding: .day, value: offset, to: meeting.startDate)!
             return DateInterval(start: start, duration: 3600)
         }
+        let todayTasks: [ScheduleTaskItem] = empty || overdueOnly ? [] : [
+            ScheduleTaskItem(id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!, title: String(localized: "週次レポート提出"), priority: .high),
+            ScheduleTaskItem(id: UUID(uuidString: "00000000-0000-0000-0000-000000000003")!, title: String(localized: "買い物メモ整理"), priority: .medium)
+        ]
+        let overdueTasks: [ScheduleTaskItem] = !empty && (includeOverdue || overdueOnly) ? [
+            ScheduleTaskItem(id: UUID(uuidString: "00000000-0000-0000-0000-000000000004")!,
+                             title: String(localized: "週次レポート提出"), priority: .high,
+                             dueDate: calendar.date(byAdding: .day, value: -1, to: date), isOverdue: true),
+            ScheduleTaskItem(id: UUID(uuidString: "00000000-0000-0000-0000-000000000005")!,
+                             title: String(localized: "買い物メモ整理"), priority: .medium,
+                             dueDate: calendar.date(byAdding: .day, value: -5, to: date), isOverdue: true)
+        ] : []
         return ScheduleEntry(
             date: date,
-            events: empty ? [] : [meeting],
-            tasks: empty ? [] : [
-                ScheduleTaskItem(id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!, title: String(localized: "週次レポート提出"), priority: .high),
-                ScheduleTaskItem(id: UUID(uuidString: "00000000-0000-0000-0000-000000000003")!, title: String(localized: "買い物メモ整理"), priority: .medium)
-            ],
-            nextInlineEvent: empty ? nil : meeting,
+            events: empty || overdueOnly ? [] : [meeting],
+            tasks: todayTasks + overdueTasks,
+            nextInlineEvent: empty || overdueOnly ? nil : meeting,
             isPremiumUnlocked: true,
             month: ScheduleMonth(containing: date, eventIntervals: intervals, calendar: calendar)
         )
@@ -50,5 +60,29 @@ enum ScheduleWidgetPreviewData {
     ScheduleWidget()
 } timeline: {
     ScheduleWidgetPreviewData.entry(empty: true)
+}
+
+#Preview("Small · overdue", as: .systemSmall) {
+    ScheduleWidget()
+} timeline: {
+    ScheduleWidgetPreviewData.entry(includeOverdue: true)
+}
+
+#Preview("Medium · overdue", as: .systemMedium) {
+    ScheduleWidget()
+} timeline: {
+    ScheduleWidgetPreviewData.entry(includeOverdue: true)
+}
+
+#Preview("Large · overdue only", as: .systemLarge) {
+    ScheduleWidget()
+} timeline: {
+    ScheduleWidgetPreviewData.entry(overdueOnly: true)
+}
+
+#Preview("Lock Screen · overdue", as: .accessoryInline) {
+    ScheduleWidget()
+} timeline: {
+    ScheduleWidgetPreviewData.entry(overdueOnly: true)
 }
 #endif
