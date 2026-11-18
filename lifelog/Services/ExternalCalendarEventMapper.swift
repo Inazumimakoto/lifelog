@@ -5,8 +5,12 @@ import EventKit
 struct ExternalCalendarEventMapper {
     private let linksByIdentifier: [String: CalendarCategoryLink]
 
-    init(links: [CalendarCategoryLink]) {
-        linksByIdentifier = Dictionary(uniqueKeysWithValues: links.map { ($0.calendarIdentifier, $0) })
+    init(links: [CalendarCategoryLink], unavailableLinks: [CalendarCategoryLink] = []) {
+        // The event-query store may still see a calendar missing from the
+        // link-query store's transient snapshot. Keep its saved choice (and
+        // hidden setting), with current links taking priority over the archive.
+        linksByIdentifier = Dictionary((links + unavailableLinks).map { ($0.calendarIdentifier, $0) },
+                                       uniquingKeysWith: { current, _ in current })
     }
 
     func categoryName(for calendarIdentifier: String) -> String? {

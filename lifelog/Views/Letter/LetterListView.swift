@@ -97,6 +97,7 @@ struct LetterListView: View {
                 }
             }
         }
+        .appThemeBackground()
         .navigationTitle("未来への手紙")
         .sheet(isPresented: $showPaywall) {
             PremiumPaywallView()

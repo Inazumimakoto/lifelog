@@ -77,7 +77,6 @@ struct PremiumPaywallView: View {
             premiumFeatureRow(String(localized: "ロック画面カレンダーを解放"))
             premiumFeatureRow(String(localized: "ホーム画面 / ロック画面ウィジェットを解放"))
             premiumFeatureRow(String(localized: "習慣とカウントダウンの登録上限を解除"))
-            premiumFeatureRow(String(localized: "日記写真の上限を3枚から10枚に拡張"))
             premiumFeatureRow(String(localized: "日記の場所保存を解放"))
         }
     }

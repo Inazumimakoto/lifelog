@@ -38,6 +38,29 @@ nonisolated protocol PhotoCloudBackend: Sendable {
     func containsPhoto(path: String) async throws -> Bool
     func delete(path: String) async throws
     func fetch(path: String, thumbnail: Bool) async throws -> Data
+    func fetchFile(path: String) async throws -> URL
+}
+
+extension PhotoCloudBackend {
+    /// Small test backends can keep their Data fixture. The CloudKit backend
+    /// overrides this to copy CKAsset's file without loading a movie into RAM.
+    func fetchFile(path: String) async throws -> URL {
+        let data = try await fetch(path: path, thumbnail: false)
+        return try await _Concurrency.Task.detached(priority: .userInitiated) {
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent("DiaryPhotoDownloads", isDirectory: true)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let url = directory.appendingPathComponent(UUID().uuidString)
+                .appendingPathExtension((path as NSString).pathExtension)
+            do {
+                try data.write(to: url, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
+                return url
+            } catch {
+                try? FileManager.default.removeItem(at: url)
+                throw error
+            }
+        }.value
+    }
 }
 
 nonisolated final class CloudKitPhotoBackend: PhotoCloudBackend, @unchecked Sendable {
@@ -113,6 +136,34 @@ nonisolated final class CloudKitPhotoBackend: PhotoCloudBackend, @unchecked Send
         }.value
     }
 
+    func fetchFile(path: String) async throws -> URL {
+        let id = recordID(path)
+        let records = try await database.records(for: [id], desiredKeys: ["photo"])
+        guard let result = records[id] else { throw PhotoCloudSyncError.missingCloudPhoto }
+        let record: CKRecord
+        do { record = try result.get() }
+        catch let error as CKError where error.code == .unknownItem { throw PhotoCloudSyncError.missingCloudPhoto }
+        guard let asset = record["photo"] as? CKAsset, let source = asset.fileURL else {
+            throw PhotoCloudSyncError.invalidCloudPhoto
+        }
+        return try await _Concurrency.Task.detached(priority: .userInitiated) {
+            let directory = FileManager.default.temporaryDirectory
+                .appendingPathComponent("DiaryPhotoDownloads", isDirectory: true)
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            let destination = directory.appendingPathComponent(UUID().uuidString)
+                .appendingPathExtension((path as NSString).pathExtension)
+            do {
+                try FileManager.default.copyItem(at: source, to: destination)
+                try FileManager.default.setAttributes(
+                    [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: destination.path)
+                return destination
+            } catch {
+                try? FileManager.default.removeItem(at: destination)
+                throw error
+            }
+        }.value
+    }
+
     private func recordID(_ path: String) -> CKRecord.ID {
         CKRecord.ID(recordName: "diary-photo-" + path)
     }
@@ -126,6 +177,7 @@ nonisolated struct PhotoSyncFiles: Sendable {
     var ensureThumbnail: @Sendable (String) throws -> Void
     var removeFullImage: @Sendable (String) throws -> Void
     var storeFullImage: @Sendable (Data, String) throws -> Void
+    var storeFullImageFile: (@Sendable (URL, String) throws -> Void)? = nil
 
     static let live = PhotoSyncFiles(
         fullImageURL: { PhotoStorage.localFileURL(for: $0) },
@@ -133,7 +185,8 @@ nonisolated struct PhotoSyncFiles: Sendable {
         fullImageExists: { PhotoStorage.fileExists(for: $0) },
         ensureThumbnail: { try PhotoStorage.ensureThumbnail(at: $0) },
         removeFullImage: { try PhotoStorage.removeLocalFullImage(at: $0) },
-        storeFullImage: { try PhotoStorage.storeDownloadedData($0, at: $1) }
+        storeFullImage: { try PhotoStorage.storeDownloadedData($0, at: $1) },
+        storeFullImageFile: { try PhotoStorage.storeDownloadedFile($0, at: $1) }
     )
 }
 
@@ -232,6 +285,45 @@ final class PhotoCloudSyncService: ObservableObject {
 
     func fetchThumbnailData(at path: String) async throws -> Data {
         try await fetchData(at: path, thumbnail: true)
+    }
+
+    func fetchVideoFile(at path: String) async throws -> URL {
+        guard allowsCloud else { throw PhotoCloudSyncError.accountUnavailable }
+        guard manifest.isCloudBacked(path: path), !manifest.isDeleted(path: path) else {
+            throw PhotoCloudSyncError.missingCloudPhoto
+        }
+        let account = try await checkedAccount()
+        let downloaded = try await backend.fetchFile(path: path)
+        defer { try? FileManager.default.removeItem(at: downloaded) }
+        try await verifyAccount(account)
+        guard !manifest.isDeleted(path: path), paths.contains(path) else { throw PhotoCloudSyncError.missingCloudPhoto }
+        try _Concurrency.Task.checkCancellation()
+        if mode == .keepAllLocal {
+            try await performFileOperation(path: path, account: account) { files in
+                if let storeFile = files.storeFullImageFile {
+                    try storeFile(downloaded, path)
+                } else {
+                    try files.storeFullImage(Data(contentsOf: downloaded, options: .mappedIfSafe), path)
+                }
+            }
+            try await verifyAccount(account)
+            guard !manifest.isDeleted(path: path), paths.contains(path) else { throw PhotoCloudSyncError.missingCloudPhoto }
+            if mode == .optimizeStorage {
+                try await performFileOperation(path: path, account: account) { files in try files.removeFullImage(path) }
+            }
+        }
+        let playbackURL = try await _Concurrency.Task.detached(priority: .userInitiated) {
+            try PhotoStorage.makeVideoPlaybackCopy(from: downloaded, path: path)
+        }.value
+        do {
+            try await verifyAccount(account)
+            try _Concurrency.Task.checkCancellation()
+            guard !manifest.isDeleted(path: path), paths.contains(path) else { throw PhotoCloudSyncError.missingCloudPhoto }
+            return playbackURL
+        } catch {
+            PhotoStorage.releaseVideoURL(playbackURL)
+            throw error
+        }
     }
 
     /// Used by deterministic state-transition tests and callers awaiting a manual run.
@@ -362,7 +454,12 @@ final class PhotoCloudSyncService: ObservableObject {
             }
         case .keepAllLocal:
             if !files.fullImageExists(path) {
-                _ = try await fetchPhotoData(at: path)
+                if PhotoStorage.isVideo(at: path) {
+                    let url = try await fetchVideoFile(at: path)
+                    PhotoStorage.releaseVideoURL(url)
+                } else {
+                    _ = try await fetchPhotoData(at: path)
+                }
             }
         }
     }

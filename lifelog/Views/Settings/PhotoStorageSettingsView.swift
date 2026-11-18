@@ -56,6 +56,7 @@ struct PhotoStorageSettingsView: View {
             .font(.footnote)
             .foregroundStyle(.secondary)
         }
+        .appThemeBackground()
         .navigationTitle("photoStorage.title")
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {

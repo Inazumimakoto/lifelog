@@ -466,6 +466,7 @@ struct ContentView: View {
         NavigationStack {
             ScrollViewReader { proxy in
                 content()
+                    .appThemeBackground()
                     .id("scroll-view-\(tag)")
                     .onChange(of: selection) { _, newSelection in
                         if newSelection == lastSelection {

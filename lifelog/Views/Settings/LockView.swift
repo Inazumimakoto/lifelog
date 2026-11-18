@@ -8,11 +8,12 @@
 import SwiftUI
 
 struct LockView: View {
+    @Environment(\.appTheme) private var theme
     @ObservedObject var appLockService = AppLockService.shared
     
     var body: some View {
         ZStack {
-            Color(uiColor: .systemBackground)
+            (theme?.background ?? Color(uiColor: .systemBackground))
                 .ignoresSafeArea()
             
             VStack(spacing: 20) {
@@ -31,7 +32,7 @@ struct LockView: View {
                         .padding(.horizontal, 30)
                         .padding(.vertical, 12)
                         .background(Color.accentColor)
-                        .foregroundColor(.white)
+                        .foregroundStyle(theme?.onAccent ?? .white)
                         .cornerRadius(25)
                 }
                 .padding(.top, 20)

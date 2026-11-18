@@ -1,3 +1,4 @@
+import SwiftUI
 import UIKit
 import XCTest
 @testable import lifelify
@@ -5,6 +6,180 @@ import XCTest
 @MainActor
 final class WallpaperCalendarPhotoBackgroundTests: XCTestCase {
     private let canvasSize = CGSize(width: 160, height: 320)
+
+    func testPhotoEventTitles_preserveGlyphsInPreviewAndJPEG() throws {
+        let size = CGSize(width: 390, height: 600)
+        let scale: CGFloat = 3
+        // Exercise both an invisible multi-day fill on a bright photo and the default
+        // category opacity on a darker photo, at the normal lock-screen text size.
+        for (background, opacity) in [(UIColor.white, 0.0), (UIColor.darkGray, 0.30)] {
+            let photo = makeImage(size: size) { rect in
+                background.setFill()
+                UIRectFill(rect)
+            }
+            let style = WallpaperCalendarGridStyle(preferences: CalendarDisplayPreferences(fontSize: 11, opacity: opacity))
+            let snapshot = eventSnapshot(style: style, category: .red, continuesBeforeWeek: opacity == 0)
+            let (previewImage, jpeg) = try eventImages(snapshot: snapshot, photo: photo, size: size, scale: scale)
+            let rowTop = size.height * 0.36 + 24 + 4 + style.rowOffset(0)
+            let margin = size.width * 0.07
+            let cellWidth = (size.width - margin * 2 - 6 * 4) / 7
+            for (name, image) in [("Preview", previewImage), ("JPEG", jpeg)] {
+                let rowRect = CGRect(x: 0, y: floor(rowTop * scale), width: size.width * scale,
+                                     height: ceil(style.rowHeight * scale))
+                let strip = try XCTUnwrap(image.cgImage?.cropping(to: rowRect))
+                attach(UIImage(cgImage: strip), name: "\(name)-event-row-\(Int(opacity * 100))")
+                let pixels = try PixelBuffer(UIImage(cgImage: strip))
+                let backdrop = pixels.color(x: 2, y: 2)
+                if opacity == 0 {
+                    // Near the end of the two-column bar the bright photo should show through.
+                    XCTAssertGreaterThan(backdrop.red, 0.7)
+                    assertColor(pixels.color(x: Int((margin + cellWidth * 1.8) * scale), y: 5), equals: backdrop)
+                }
+                for (column, title, width) in [(0, "予定B8", cellWidth * 2 + 4), (3, "会議", cellWidth)] {
+                    let left = Int((margin + CGFloat(column) * (cellWidth + 4)) * scale)
+                    let right = left + Int(width * scale)
+                    let reference = makeImage(size: CGSize(width: width, height: style.rowHeight), scale: scale) { rect in
+                        UIColor.black.setFill()
+                        UIRectFill(rect)
+                        (title as NSString).draw(at: .zero, withAttributes: [.font: style.font, .foregroundColor: UIColor.white])
+                    }
+                    let unstyled = try PixelBuffer(reference)
+                    var referenceFace = 0
+                    for y in 0..<unstyled.height {
+                        for x in 0..<unstyled.width where unstyled.color(x: x, y: y).green > 0.90 { referenceFace += 1 }
+                    }
+                    var face = 0
+                    var darkEdge = 0
+                    var darkest = 1.0
+                    for y in 0..<pixels.height {
+                        for x in left..<right {
+                            let green = pixels.color(x: x, y: y).green
+                            if green > 0.90 { face += 1 }
+                            if green < 0.25 { darkEdge += 1 }
+                            darkest = min(darkest, green)
+                        }
+                    }
+                    let context = "\(name), \(title), category opacity \(opacity)"
+                    XCTAssertGreaterThan(referenceFace, 30, context)
+                    // Compare the face of each glyph to the actual undecorated font.
+                    // A thick black stroke can make a row darker while erasing its characters.
+                    XCTAssertGreaterThan(Double(face), Double(referenceFace) * 0.55, context)
+                    XCTAssertLessThan(Double(face), Double(referenceFace) * 1.6, context)
+                    if opacity == 0 {
+                        XCTAssertLessThan(darkest, backdrop.green - 0.08, "\(context) needs an edge visible on a bright photo")
+                        XCTAssertLessThan(darkEdge, referenceFace, "\(context) shadow should not outweigh the glyphs")
+                    }
+                }
+            }
+        }
+    }
+
+    func testCategoryFill_matchesSelectedOpacityInPreviewAndJPEG() throws {
+        let size = CGSize(width: 390, height: 600)
+        let scale: CGFloat = 3
+        let photo = makeImage(size: size) { rect in
+            UIColor.darkGray.setFill()
+            UIRectFill(rect)
+        }
+        let category = Color(.sRGB, red: 1, green: 0, blue: 0)
+        let percentages = [0, 30, 50, 60, 62, 100]
+        let margin = size.width * 0.07
+        let cellWidth = (size.width - 2 * margin - 6 * 4) / 7
+        // Solid interiors between the label and the trailing corner. No text, shadow, or antialiasing.
+        let positions = [("single", margin + 3 * (cellWidth + 4) + cellWidth - 8),
+                         ("multi-day", margin + cellWidth * 1.7)]
+        var report: [String] = []
+        for (background, image) in [("photo", Optional(photo)), ("solid", nil)] {
+            var samples: [String: [Double]] = [:]
+            for percent in percentages {
+                let style = WallpaperCalendarGridStyle(preferences: .init(fontSize: 11, opacity: Double(percent) / 100))
+                let snapshot = eventSnapshot(style: style, category: category)
+                let (preview, jpeg) = try eventImages(snapshot: snapshot, photo: image, size: size, scale: scale)
+                let rowTop = size.height * 0.36 + 24 + 4 + style.rowOffset(0)
+                let centerY = Int((rowTop + style.rowHeight / 2) * scale)
+                for (output, frame) in [("Preview", preview), ("JPEG", jpeg)] {
+                    let pixels = try PixelBuffer(frame)
+                    for (kind, pointX) in positions {
+                        let x = Int(pointX * scale)
+                        let sample = pixels.color(x: x, y: centerY)
+                        if percent == 0 {
+                            assertColor(sample, equals: pixels.color(x: 2, y: centerY))
+                        } else if percent == 100 {
+                            assertColor(sample, equals: .red)
+                        }
+                        samples["\(output) \(kind)", default: []].append(sample.red)
+                    }
+                    if background == "photo" && output == "JPEG" && [30, 62].contains(percent) {
+                        let rect = CGRect(x: margin * scale - 5, y: floor(rowTop * scale - 5),
+                                          width: (4 * cellWidth + 12) * scale + 10, height: ceil(style.rowHeight * scale) + 10)
+                        let strip = try XCTUnwrap(frame.cgImage?.cropping(to: rect))
+                        attach(UIImage(cgImage: strip), name: "Photo-JPEG-category-fill-\(percent)")
+                    }
+                }
+            }
+            for (label, values) in samples.sorted(by: { $0.key < $1.key }) {
+                let clear = try XCTUnwrap(values.first)
+                let filled = try XCTUnwrap(values.last)
+                XCTAssertGreaterThan(filled - clear, 0.50, "The red test bar must contrast with its background")
+                for (percent, red) in zip(percentages, values) {
+                    let effectivePercent = 100 * (red - clear) / (filled - clear)
+                    XCTAssertEqual(effectivePercent, Double(percent), accuracy: 2, "\(background) \(label) at \(percent)%")
+                    report.append(String(format: "%@ %@ | %d%% -> %.2f%%", background, label, percent, effectivePercent))
+                }
+            }
+        }
+        let measurement = XCTAttachment(string: report.joined(separator: "\n"))
+        measurement.name = "Measured category fill percentages"
+        measurement.lifetime = .keepAlways
+        add(measurement)
+    }
+
+    func testDisplayChanges_updatePreviewAndInvalidateCachedWallpaper() throws {
+        let suite = "WallpaperDisplayTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(suite, isDirectory: true)
+        let fileManager = IsolatedFileManager(rootURL: directory)
+        defer {
+            defaults.removePersistentDomain(forName: suite)
+            try? fileManager.removeItem(at: directory)
+        }
+        let store = WallpaperCalendarSettingsStore(defaults: defaults, fileManager: fileManager)
+        let renderer = WallpaperCalendarRenderer(settingsStore: store,
+                                                 dataProvider: WallpaperCalendarDataProvider(displayDefaults: defaults),
+                                                 fileManager: fileManager)
+        let now = Date(timeIntervalSince1970: 946_684_800)
+        func renderAndReadFingerprint() throws -> String {
+            _ = try renderer.render(now: now, screenSize: canvasSize, scale: 1)
+            return try XCTUnwrap(store.load().lastGeneratedFingerprint)
+        }
+        func previewStyle() -> WallpaperCalendarGridStyle {
+            renderer.makePreviewSnapshot(settings: store.load(), now: now).gridStyle
+        }
+
+        let original = try renderAndReadFingerprint()
+        XCTAssertEqual(previewStyle().font.pointSize, CalendarDisplayPreferences.defaultFontSize)
+        XCTAssertEqual(previewStyle().preferences.opacity, CalendarDisplayPreferences.defaultOpacity)
+        XCTAssertEqual(previewStyle().itemLimit, 4)
+
+        defaults.set(0.0, forKey: CalendarDisplayPreferences.opacityKey)
+        let transparent = try renderAndReadFingerprint()
+        XCTAssertNotEqual(transparent, original)
+        XCTAssertEqual(previewStyle().preferences.opacity, 0)
+
+        defaults.set(16.0, forKey: CalendarDisplayPreferences.fontSizeKey)
+        let enlarged = try renderAndReadFingerprint()
+        XCTAssertNotEqual(enlarged, transparent)
+        let large = previewStyle()
+        XCTAssertEqual(large.font.pointSize, 16)
+        XCTAssertLessThan(large.itemLimit, 4)
+        XCTAssertGreaterThanOrEqual(large.rowHeight, large.font.lineHeight)
+        XCTAssertLessThanOrEqual(large.rowOffset(large.itemLimit - 1) + large.rowHeight, 88)
+        XCTAssertEqual(try renderAndReadFingerprint(), enlarged)
+
+        defaults.removeObject(forKey: CalendarDisplayPreferences.fontSizeKey)
+        defaults.removeObject(forKey: CalendarDisplayPreferences.opacityKey)
+        XCTAssertEqual(try renderAndReadFingerprint(), original)
+    }
 
     func testZoomedOutLandscapePhoto_extendsEdgesWithoutRepeatingCenterSubject() throws {
         let source = landscapePhoto()
@@ -227,6 +402,54 @@ final class WallpaperCalendarPhotoBackgroundTests: XCTestCase {
         }
     }
 
+    private func eventSnapshot(style: WallpaperCalendarGridStyle, category: Color,
+                               continuesBeforeWeek: Bool = false) -> WallpaperCalendarSnapshot {
+        let date = Date(timeIntervalSince1970: 946_684_800)
+        let item = WallpaperCalendarItem(id: "single", sourceID: UUID(), title: "会議", categoryName: "Work",
+                                         color: category, kind: .event, startDate: date, endDate: nil,
+                                         isAllDay: false, priority: nil)
+
+        let segment = CalendarWeekMultiDaySegment(id: "span", eventID: UUID(), title: "予定B8",
+                                                   categoryName: "Work", color: category, lane: 0,
+                                                   startColumn: 0, endColumn: 1, continuesBeforeWeek: continuesBeforeWeek,
+                                                   continuesAfterWeek: false)
+        let days = (0..<7).map { index in
+            let row: WallpaperCalendarCellRowContent = index == 3 ? .item(item) : (index < 2 ? .multiDayPlaceholder : .empty)
+            return WallpaperCalendarDay(date: date.addingTimeInterval(Double(index) * 86_400),
+                                        previews: index == 3 ? [item] : [], rowContents: [row])
+        }
+        let week = WallpaperCalendarWeek(id: date, days: days,
+                                         multiDayLayout: CalendarWeekMultiDayLayout(visibleLaneCount: 1, dayStates: [],
+                                                                                  segments: [segment]))
+        return WallpaperCalendarSnapshot(
+            generatedAt: date, rangeStart: date, rangeEndExclusive: date, weekdaySymbols: [],
+            gridStyle: style, weeks: [week],
+            fingerprintPayload: WallpaperCalendarFingerprintPayload(rangeStart: 0, rangeEndExclusive: 0,
+                                                                     firstWeekday: 1, events: [], tasks: [])
+        )
+    }
+
+    private func eventImages(snapshot: WallpaperCalendarSnapshot, photo: UIImage?, size: CGSize,
+                             scale: CGFloat) throws -> (preview: UIImage, jpeg: UIImage) {
+        let dark = WallpaperCalendarRenderer().resolveDarkAppearance(settings: .default, hasBackgroundImage: photo != nil)
+        let image = WallpaperCalendarRenderer().renderImage(snapshot: snapshot, settings: .default, backgroundImage: photo,
+                                                           isDarkAppearance: dark, size: size, scale: scale)
+        let jpeg = try XCTUnwrap(UIImage(data: XCTUnwrap(image.jpegData(compressionQuality: 0.94)), scale: scale))
+        let preview = WallpaperCalendarRenderView(snapshot: snapshot, settings: .default, backgroundImage: photo,
+                                                  isDarkAppearance: dark).ignoresSafeArea()
+        let controller = UIHostingController(rootView: preview)
+        controller.safeAreaRegions = []
+        let window = UIWindow(frame: CGRect(origin: .zero, size: size))
+        window.rootViewController = controller
+        window.isHidden = false
+        defer { removeHostedPhotoView(window) }
+        window.layoutIfNeeded()
+        let previewImage = makeImage(size: size, scale: scale) { rect in
+            controller.view.drawHierarchy(in: rect, afterScreenUpdates: true)
+        }
+        return (previewImage, jpeg)
+    }
+
     private func landscapePhoto() -> UIImage {
         makeImage(size: CGSize(width: 160, height: 80)) { rect in
             UIColor.green.setFill()
@@ -421,7 +644,7 @@ final class WallpaperCalendarPhotoBackgroundTests: XCTestCase {
         }
     }
 
-    private final class IsolatedFileManager: FileManager, @unchecked Sendable {
+    final class IsolatedFileManager: FileManager, @unchecked Sendable {
         private let rootURL: URL
 
         init(rootURL: URL) {

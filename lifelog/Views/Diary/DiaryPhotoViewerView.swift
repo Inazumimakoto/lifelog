@@ -82,16 +82,19 @@ struct DiaryPhotoViewerView: View {
         }
         .onChange(of: currentIndex) { _, newValue in
             isCurrentPhotoZoomed = false
+            chromeVisible = true
             onIndexChanged?(newValue)
         }
         .onAppear {
             onIndexChanged?(currentIndex)
         }
-        .alert("この写真を削除しますか？", isPresented: $showDeleteAlert) {
+        .alert("diaryMedia.delete.confirm", isPresented: $showDeleteAlert) {
             Button("削除", role: .destructive) {
                 deleteCurrentPhoto()
             }
             Button("キャンセル", role: .cancel) { }
+        } message: {
+            Text("diaryMedia.delete.message")
         }
     }
 

@@ -5,8 +5,6 @@ nonisolated struct MonetizationPolicy: Equatable, Sendable {
     static let isBillingTemporarilyDisabled = true
     static let freeHabitLimit = 3
     static let freeCountdownLimit = 1
-    static let freeDiaryPhotoLimit = 3
-    static let premiumDiaryPhotoLimit = 10
 
     let isPremiumUnlocked: Bool
 
@@ -18,7 +16,7 @@ nonisolated struct MonetizationPolicy: Equatable, Sendable {
     var activeHabitLimit: Int? { isPremiumUnlocked ? nil : Self.freeHabitLimit }
     // The existing native "countdown" screen counts all anniversary rows, including "since".
     var anniversaryLimit: Int? { isPremiumUnlocked ? nil : Self.freeCountdownLimit }
-    var diaryPhotoLimit: Int { isPremiumUnlocked ? Self.premiumDiaryPhotoLimit : Self.freeDiaryPhotoLimit }
+    var diaryPhotoLimit: Int? { nil }
 
     func canAddHabit(activeHabitCount: Int) -> Bool {
         activeHabitLimit.map { activeHabitCount < $0 } ?? true

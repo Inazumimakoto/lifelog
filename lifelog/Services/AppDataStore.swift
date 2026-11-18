@@ -66,6 +66,7 @@ final class AppDataStore: ObservableObject {
     var externalReminderRescheduleGeneration: UInt = 0
     var nextExternalReminderRefreshDate: Date?
     private(set) var hasExistingUserFootprintForInitialPermissions = false
+    private(set) var hasLoadedAppState = false
     private var healthLoadTask: _Concurrency.Task<Bool, Never>?
     private var healthAuthorizationTask: _Concurrency.Task<Bool, Never>?
     private var needsHealthPersistence = false
@@ -113,6 +114,9 @@ final class AppDataStore: ObservableObject {
     let taskNotificationService: NotificationService
     let calendarNotificationService: NotificationService
     let anniversaryNotificationService: NotificationService
+    let dailyNotificationService: NotificationService
+    private(set) var areNotificationUpdatesEnabled = true
+    private var hasRefreshedStartupNotifications = false
 
     static let maxLocationVisitTagsPerVisit = 8
     static let maxLocationVisitTagNameLength = 15
@@ -142,13 +146,17 @@ final class AppDataStore: ObservableObject {
     init(container: ModelContainer? = nil, startsBackgroundServices: Bool = true,
          taskNotificationService: NotificationService? = nil,
          calendarNotificationService: NotificationService? = nil,
-         anniversaryNotificationService: NotificationService? = nil) {
+         anniversaryNotificationService: NotificationService? = nil,
+         dailyNotificationService: NotificationService? = nil,
+         defersNotificationUpdatesUntilStartup: Bool = false) {
         // Setup SwiftData
         let container = container ?? PersistenceController.shared.container
         self.modelContext = container.mainContext
         self.taskNotificationService = taskNotificationService ?? NotificationService.shared
         self.calendarNotificationService = calendarNotificationService ?? NotificationService.shared
         self.anniversaryNotificationService = anniversaryNotificationService ?? NotificationService.shared
+        self.dailyNotificationService = dailyNotificationService ?? NotificationService.shared
+        self.areNotificationUpdatesEnabled = !defersNotificationUpdatesUntilStartup
         self.shoppingStore = ShoppingStore(container: container)
 
         // docs/ui-guidelines.md §カレンダー: color-only edits must refresh rows
@@ -164,6 +172,10 @@ final class AppDataStore: ObservableObject {
         // 2. Load Data from SwiftData
         // We load into the existing @Published properties to maintain View compatibility
         // Note: We use helper methods to fetch and map SD models to structs
+
+        // Calendar selections must load independently of unrelated domain reads.
+        // A failed diary/task fetch must not let startup sync overwrite them.
+        loadAppState()
 
         do {
             // Tasks
@@ -214,14 +226,6 @@ final class AppDataStore: ObservableObject {
                 self.memoPad = MemoPad()
             }
 
-            // AppState
-            let sdStates = try modelContext.fetch(FetchDescriptor<SDAppState>())
-            if let first = sdStates.first {
-                self.appState = AppState(sd: first)
-            } else {
-                self.appState = AppState()
-            }
-
         } catch {
             AppLogger.data.error("Failed to fetch initial data from SwiftData: \(error)")
         }
@@ -247,9 +251,6 @@ final class AppDataStore: ObservableObject {
         UserDefaults.standard.set(true, forKey: InitialPermissionsState.featureSeenKey)
         seedDefaultLocationVisitTagsIfNeeded()
 
-        reapplyEventCategoryNotificationSettings()
-        rescheduleTodayOverviewReminderIfNeeded()
-
         #if DEBUG && targetEnvironment(simulator)
         if PersistenceController.isSimulatorDemoMode {
             seedSimulatorDemoDataIfNeeded()
@@ -269,6 +270,43 @@ final class AppDataStore: ObservableObject {
         }
     }
 
+    /// A failed read is unknown state, not an empty installation. Preserve the
+    /// current snapshot and block calendar reconciliation/writes until retry.
+    /// The fetch hook exercises failures without touching the user's store.
+    @discardableResult
+    func loadAppState(fetch: (() throws -> [SDAppState])? = nil) -> Bool {
+        do {
+            let states: [SDAppState]
+            if let fetch {
+                states = try fetch()
+            } else {
+                states = try modelContext.fetch(FetchDescriptor<SDAppState>())
+            }
+            appState = states.first.map { AppState(sd: $0) } ?? AppState()
+            hasLoadedAppState = true
+            return true
+        } catch {
+            hasLoadedAppState = false
+            AppLogger.data.error("Failed to fetch app state from SwiftData: \(error)")
+            return false
+        }
+    }
+
+    /// The live scene opens this gate after the home/lock transition finishes.
+    /// Calendar fetches may finish under the logo; use their latest snapshots here.
+    /// See docs/ui-guidelines.md §起動時の表示.
+    func refreshNotificationsAfterStartup(referenceDate: Date = Date()) {
+        areNotificationUpdatesEnabled = true
+        if hasRefreshedStartupNotifications {
+            refreshCalendarRemindersIfNeeded(referenceDate: referenceDate)
+        } else {
+            hasRefreshedStartupNotifications = true
+            reapplyEventCategoryNotificationSettings(referenceDate: referenceDate)
+        }
+        rescheduleDiaryReminderIfNeeded(referenceDate: referenceDate)
+        rescheduleTodayOverviewReminderIfNeeded(referenceDate: referenceDate)
+    }
+
     private var hasUserContentForInitialPermissions: Bool {
         !tasks.isEmpty ||
         !shoppingStore.items.isEmpty ||
@@ -286,6 +324,7 @@ final class AppDataStore: ObservableObject {
         memoPad.lastUpdatedAt != nil ||
         appState.lastCalendarSyncDate != nil ||
         appState.calendarCategoryLinks.isEmpty == false ||
+        appState.unavailableCalendarCategoryLinks.isEmpty == false ||
         appState.diaryReminderEnabled
     }
 

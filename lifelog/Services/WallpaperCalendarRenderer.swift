@@ -26,17 +26,15 @@ enum WallpaperCalendarRendererError: LocalizedError {
 
 @MainActor
 final class WallpaperCalendarRenderer {
-    private static let renderVersion = 9
+    private static let renderVersion = 11
 
     private let settingsStore: WallpaperCalendarSettingsStore
     private let dataProvider: WallpaperCalendarDataProvider
     private let fileManager: FileManager
     private let gridSpacing: CGFloat = 4
-    private let cellTopPadding: CGFloat = 4
-    private let cellHeight: CGFloat = 88
-    private let dateRowHeight: CGFloat = 18
-    private let previewRowHeight: CGFloat = 14
-    private let cellRowSpacing: CGFloat = 2
+    private let cellTopPadding = WallpaperCalendarGridStyle.topPadding
+    private let cellHeight = WallpaperCalendarGridStyle.cellHeight
+    private let dateRowHeight = WallpaperCalendarGridStyle.dateHeight
     private let cellCornerRadius: CGFloat = 10
     private let previewRowCornerRadius: CGFloat = 4
 
@@ -110,12 +108,12 @@ final class WallpaperCalendarRenderer {
         hasBackgroundImage || WallpaperCalendarBackgroundPalette.isDark(settings.backgroundColorToken)
     }
 
-    private func renderImage(snapshot: WallpaperCalendarSnapshot,
-                             settings: WallpaperCalendarSettings,
-                             backgroundImage: UIImage?,
-                             isDarkAppearance: Bool,
-                             size: CGSize,
-                             scale: CGFloat) -> UIImage {
+    func renderImage(snapshot: WallpaperCalendarSnapshot,
+                     settings: WallpaperCalendarSettings,
+                     backgroundImage: UIImage?,
+                     isDarkAppearance: Bool,
+                     size: CGSize,
+                     scale: CGFloat) -> UIImage {
         let format = UIGraphicsImageRendererFormat()
         format.scale = scale
         format.opaque = true
@@ -169,10 +167,10 @@ final class WallpaperCalendarRenderer {
         let secondaryColor = isDarkAppearance
             ? UIColor.white.withAlphaComponent(0.78)
             : UIColor.black.withAlphaComponent(0.62)
-        let textShadow = makeTextShadow(isEnabled: isDarkAppearance)
+        let textShadow = isDarkAppearance ? WallpaperCalendarGridStyle.textShadow(color: .black.withAlphaComponent(0.50)) : nil
         let cellWidth = calendarGridCellWidth(for: layout.width)
         let gridTop = layout.y + layout.weekdayHeaderHeight + gridSpacing
-        let chipAlpha: CGFloat = hasBackgroundImage ? 0.62 : 0.30
+        let gridStyle = snapshot.gridStyle
 
         drawWeekdayHeader(snapshot.weekdaySymbols,
                           layout: layout,
@@ -190,7 +188,8 @@ final class WallpaperCalendarRenderer {
                             settings: settings,
                             primaryColor: primaryColor,
                             secondaryColor: secondaryColor,
-                            chipAlpha: chipAlpha,
+                            gridStyle: gridStyle,
+                            hasPhoto: hasBackgroundImage,
                             textShadow: textShadow)
             }
         }
@@ -199,18 +198,19 @@ final class WallpaperCalendarRenderer {
             for segment in week.multiDayLayout.segments {
                 let spanLength = segment.endColumn - segment.startColumn + 1
                 let x = layout.x + CGFloat(segment.startColumn) * (cellWidth + gridSpacing)
-                let y = gridTop + CGFloat(weekIndex) * (cellHeight + gridSpacing) + multiDayOverlayRowY(lane: segment.lane)
+                let y = gridTop + CGFloat(weekIndex) * (cellHeight + gridSpacing) + gridStyle.rowOffset(segment.lane)
                 let width = CGFloat(spanLength) * cellWidth + CGFloat(max(0, spanLength - 1)) * gridSpacing
-                let rect = CGRect(x: x, y: y, width: max(0, width), height: previewRowHeight)
-                let title = segment.continuesBeforeWeek ? " " : segment.displayTitle(privacyMode: settings.privacyMode)
-                drawPreviewBar(title: title,
+                let rect = CGRect(x: x, y: y, width: max(0, width), height: gridStyle.rowHeight)
+                let title = gridStyle.title(for: segment, privacyMode: settings.privacyMode)
+                let isToday = WallpaperCalendarDataProvider.calendar.isDateInToday(week.days[segment.startColumn].date)
+                let label = gridStyle.attributedTitle(title, category: segment.color, settings: settings,
+                                                      hasPhoto: hasBackgroundImage, isToday: isToday)
+                drawPreviewBar(title: label,
                                color: UIColor(segment.color),
                                rect: rect,
                                leadingRadius: segment.continuesBeforeWeek ? 0 : previewRowCornerRadius,
                                trailingRadius: segment.continuesAfterWeek ? 0 : previewRowCornerRadius,
-                               textColor: primaryColor,
-                               alpha: chipAlpha,
-                               textShadow: textShadow)
+                               gridStyle: gridStyle)
             }
         }
 
@@ -239,11 +239,13 @@ final class WallpaperCalendarRenderer {
                              settings: WallpaperCalendarSettings,
                              primaryColor: UIColor,
                              secondaryColor: UIColor,
-                             chipAlpha: CGFloat,
+                             gridStyle: WallpaperCalendarGridStyle,
+                             hasPhoto: Bool,
                              textShadow: NSShadow?) {
         let calendar = WallpaperCalendarDataProvider.calendar
-        if calendar.isDateInToday(day.date) {
-            UIColor.systemBlue.withAlphaComponent(0.28).setFill()
+        let isToday = calendar.isDateInToday(day.date)
+        if isToday {
+            UIColor(WallpaperCalendarGridStyle.todayColor).withAlphaComponent(WallpaperCalendarGridStyle.todayOpacity).setFill()
             UIBezierPath(roundedRect: rect, cornerRadius: cellCornerRadius).fill()
         }
 
@@ -263,49 +265,45 @@ final class WallpaperCalendarRenderer {
                  shadow: textShadow)
 
         for (rowIndex, rowContent) in day.rowContents.enumerated() {
-            let rowY = rect.minY + cellTopPadding + dateRowHeight + cellRowSpacing +
-                CGFloat(rowIndex) * (previewRowHeight + cellRowSpacing)
-            let rowRect = CGRect(x: rect.minX, y: rowY, width: rect.width, height: previewRowHeight)
+            let rowY = rect.minY + gridStyle.rowOffset(rowIndex)
+            let rowRect = CGRect(x: rect.minX, y: rowY, width: rect.width, height: gridStyle.rowHeight)
             switch rowContent {
             case .multiDayPlaceholder, .empty:
                 break
             case .overflow(let count):
                 drawText("+\(count)",
                          in: rowRect.insetBy(dx: 4, dy: 0),
-                         font: UIFont.systemFont(ofSize: 9),
+                         font: UIFont.systemFont(ofSize: gridStyle.preferences.fontSize),
                          color: secondaryColor,
                          alignment: .left,
                          shadow: textShadow)
             case .item(let item):
-                drawPreviewBar(title: item.displayTitle(privacyMode: settings.privacyMode),
+                let label = gridStyle.attributedTitle(item.displayTitle(privacyMode: settings.privacyMode),
+                                                      category: item.color, settings: settings, hasPhoto: hasPhoto, isToday: isToday)
+                drawPreviewBar(title: label,
                                color: UIColor(item.color),
                                rect: rowRect,
                                leadingRadius: previewRowCornerRadius,
                                trailingRadius: previewRowCornerRadius,
-                               textColor: primaryColor,
-                               alpha: chipAlpha,
-                               textShadow: textShadow)
+                               gridStyle: gridStyle)
             }
         }
     }
 
-    private func drawPreviewBar(title: String,
+    private func drawPreviewBar(title: NSAttributedString,
                                 color: UIColor,
                                 rect: CGRect,
                                 leadingRadius: CGFloat,
                                 trailingRadius: CGFloat,
-                                textColor: UIColor,
-                                alpha: CGFloat,
-                                textShadow: NSShadow?) {
+                                gridStyle: WallpaperCalendarGridStyle) {
         guard rect.width > 0, rect.height > 0 else { return }
-        color.withAlphaComponent(alpha).setFill()
+        color.withAlphaComponent(color.cgColor.alpha * CGFloat(gridStyle.preferences.opacity)).setFill()
         previewBarPath(rect: rect, leadingRadius: leadingRadius, trailingRadius: trailingRadius).fill()
-        drawText(title,
-                 in: rect.insetBy(dx: 3, dy: 1.5),
-                 font: previewFont,
-                 color: textColor,
-                 alignment: .left,
-                 shadow: textShadow)
+        let context = UIGraphicsGetCurrentContext()
+        context?.saveGState()
+        context?.clip(to: rect)
+        title.draw(at: CGPoint(x: rect.minX + 3, y: rect.midY - title.size().height / 2))
+        context?.restoreGState()
     }
 
     private func drawText(_ text: String,
@@ -337,15 +335,6 @@ final class WallpaperCalendarRenderer {
         currentContext?.restoreGState()
     }
 
-    private func makeTextShadow(isEnabled: Bool) -> NSShadow? {
-        guard isEnabled else { return nil }
-        let shadow = NSShadow()
-        shadow.shadowColor = UIColor.black.withAlphaComponent(0.50)
-        shadow.shadowBlurRadius = 1.2
-        shadow.shadowOffset = CGSize(width: 0, height: 1)
-        return shadow
-    }
-
     private func layoutMetrics(in size: CGSize, settings: WallpaperCalendarSettings) -> WallpaperCalendarDrawingLayout {
         let horizontalPadding = max(26, size.width * 0.07)
         let width = max(0, size.width - horizontalPadding * 2)
@@ -368,13 +357,6 @@ final class WallpaperCalendarRenderer {
         return (totalWidth - totalSpacing) / 7
     }
 
-    private func multiDayOverlayRowY(lane: Int) -> CGFloat {
-        cellTopPadding +
-        dateRowHeight +
-        cellRowSpacing +
-        CGFloat(lane) * (previewRowHeight + cellRowSpacing)
-    }
-
     private func previewBarPath(rect: CGRect,
                                 leadingRadius: CGFloat,
                                 trailingRadius: CGFloat) -> UIBezierPath {
@@ -393,16 +375,6 @@ final class WallpaperCalendarRenderer {
             byRoundingCorners: corners,
             cornerRadii: CGSize(width: max(leadingRadius, trailingRadius), height: max(leadingRadius, trailingRadius))
         )
-    }
-
-    private var previewFont: UIFont {
-        let baseFont = UIFont.systemFont(ofSize: 9, weight: .medium)
-        let descriptor = baseFont.fontDescriptor
-        let traits = (descriptor.object(forKey: .traits) as? [UIFontDescriptor.TraitKey: Any]) ?? [:]
-        var condensedTraits = traits
-        condensedTraits[.width] = -0.2
-        let condensedDescriptor = descriptor.addingAttributes([.traits: condensedTraits])
-        return UIFont(descriptor: condensedDescriptor, size: 9)
     }
 
     private func makeFingerprint(settings: WallpaperCalendarSettings,
@@ -425,13 +397,17 @@ final class WallpaperCalendarRenderer {
             backgroundColorToken: settings.backgroundColorToken,
             backgroundAdjustment: settings.backgroundAdjustment,
             isDarkAppearance: isDarkAppearance,
+            eventFontSize: snapshot.gridStyle.preferences.fontSize,
+            categoryFillOpacity: snapshot.gridStyle.preferences.opacity,
             screenWidth: Double(screenSize.width),
             screenHeight: Double(screenSize.height),
             scale: Double(scale),
             background: backgroundMetadata,
             calendar: snapshot.fingerprintPayload
         )
-        let data = try JSONEncoder().encode(payload)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = .sortedKeys
+        let data = try encoder.encode(payload)
         let digest = SHA256.hash(data: data)
         return digest.map { String(format: "%02x", $0) }.joined()
     }
@@ -452,6 +428,8 @@ private struct RenderFingerprintPayload: Codable {
     let backgroundColorToken: String
     let backgroundAdjustment: WallpaperCalendarBackgroundAdjustment
     let isDarkAppearance: Bool
+    let eventFontSize: CGFloat
+    let categoryFillOpacity: Double
     let screenWidth: Double
     let screenHeight: Double
     let scale: Double

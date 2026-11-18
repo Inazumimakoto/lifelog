@@ -61,6 +61,7 @@ struct ReviewMapPlaceDetailSheet: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .appThemeBackground()
     }
 }
 
@@ -94,13 +95,13 @@ struct ReviewMapVisitRow: View {
                 }
             }
             if visit.photoPaths.isEmpty {
-                Text("写真なし")
+                Text("diaryMedia.empty")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(Array(visit.photoPaths.enumerated()), id: \.offset) { index, path in
+                    LazyHStack(spacing: 8) {
+                        ForEach(Array(visit.photoPaths.enumerated()), id: \.element) { index, path in
                             Button {
                                 photoViewerIndex = index
                                 showPhotoViewer = true
@@ -188,6 +189,7 @@ struct ReviewMapPhotoViewer: View {
         }
         .onChange(of: currentIndex) { _, _ in
             isCurrentPhotoZoomed = false
+            chromeVisible = true
         }
     }
 
@@ -586,6 +588,7 @@ struct ReviewMapTagFilterSheet: View {
                     }
                 }
             }
+            .appThemeBackground()
             .navigationTitle("地図タグ絞り込み")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

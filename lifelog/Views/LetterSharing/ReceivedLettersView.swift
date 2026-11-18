@@ -29,6 +29,7 @@ struct ReceivedLettersView: View {
                 letterListView
             }
         }
+        .appThemeBackground()
         .navigationTitle("受信した手紙")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -538,6 +539,7 @@ struct SharedLetterContentView: View {
             }
             .padding()
         }
+        .appThemeBackground()
         .navigationTitle("手紙を読む")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -696,7 +698,7 @@ struct ReportSheetView: View {
                                 Spacer()
                                 if selectedReason == reason {
                                     Image(systemName: "checkmark")
-                                        .foregroundColor(.blue)
+                                        .foregroundColor(.accentColor)
                                 }
                             }
                         }
@@ -722,6 +724,7 @@ struct ReportSheetView: View {
                     Text("詳細")
                 }
             }
+            .appThemeBackground()
             .navigationTitle("通報")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

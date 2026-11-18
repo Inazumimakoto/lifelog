@@ -10,6 +10,7 @@ import CoreLocation
 import Combine
 import PhotosUI
 import SwiftUI
+import UniformTypeIdentifiers
 
 @MainActor
 final class DiaryViewModel: ObservableObject {
@@ -24,12 +25,6 @@ final class DiaryViewModel: ObservableObject {
     @Published private(set) var entry: DiaryEntry
 
     private(set) var store: AppDataStore
-    private let monetization = MonetizationService.shared
-
-    var diaryPhotoLimit: Int {
-        monetization.diaryPhotoLimit
-    }
-
     var textDraft: String {
         pendingText
     }
@@ -189,68 +184,124 @@ final class DiaryViewModel: ObservableObject {
         persist()
     }
 
-    func updateLocationLinks(forPhoto path: String, selectedLocationIDs: [UUID]) {
+    func updateLocationLinks(
+        forPhoto path: String,
+        selectedLocationIDs: [UUID],
+        resolveLegacyIdentities: @MainActor ([String]) async -> [String: String] = {
+            await PhotoStorage.identityMap(for: $0)
+        }
+    ) async {
+        guard entry.photoPaths.contains(path) else { return }
+        let targetID = entry.id
+        let isVideo = PhotoStorage.isVideo(at: path)
+        let paths = Array(Set(entry.locations.flatMap(\.photoPaths)).union([path]))
+            .filter { PhotoStorage.isVideo(at: $0) == isVideo }
+        let identifiers = PhotoStorage.assetIdentifierMap(for: paths)
+        let identityByPath: [String: String]
+        if identifiers[path] != nil {
+            // Known Photos identities never need to read a movie's bytes.
+            identityByPath = identifiers.mapValues { "asset:" + $0 }
+        } else {
+            identityByPath = await resolveLegacyIdentities(paths.filter { identifiers[$0] == nil })
+        }
+        guard !_Concurrency.Task.isCancelled else { return }
+        var target: DiaryEntry
+        if entry.id == targetID {
+            // Include concurrent store removals even while this editor has a
+            // pending text/media draft and therefore defers store publication.
+            let current = store.diaryEntries.first { $0.id == targetID } ?? savedEntry
+            target = DiaryDraftMerger.merge(draft: entry, baseline: savedEntry, current: current)
+        } else if let stored = store.diaryEntries.first(where: { $0.id == targetID }) {
+            target = stored
+        } else {
+            return
+        }
+        guard target.photoPaths.contains(path) else {
+            if entry.id == targetID { entry = target }
+            return
+        }
         let targetIDs = Set(selectedLocationIDs)
-        let identityByPath = PhotoStorage.makeIdentityMap(for: Array(Set(entry.locations.flatMap(\.photoPaths)).union([path])))
         let selectedIdentity = identityByPath[path]
         var didChange = false
-        for index in entry.locations.indices {
-            let locationID = entry.locations[index].id
-            let contains = entry.locations[index].photoPaths.contains(path)
-            let hasEquivalent = selectedIdentity != nil && entry.locations[index].photoPaths.contains {
+        for index in target.locations.indices {
+            let locationID = target.locations[index].id
+            let contains = target.locations[index].photoPaths.contains(path)
+            let hasEquivalent = selectedIdentity != nil && target.locations[index].photoPaths.contains {
                 identityByPath[$0] == selectedIdentity
             }
             if targetIDs.contains(locationID) {
-                if contains == false && hasEquivalent == false {
-                    entry.locations[index].photoPaths.append(path)
+                if !contains && !hasEquivalent {
+                    target.locations[index].photoPaths.append(path)
                     didChange = true
                 }
-            } else if contains {
-                entry.locations[index].photoPaths.removeAll { $0 == path }
+            } else if contains || hasEquivalent {
+                target.locations[index].photoPaths.removeAll {
+                    $0 == path || (selectedIdentity != nil && identityByPath[$0] == selectedIdentity)
+                }
                 didChange = true
             }
         }
-        if didChange {
-            for index in entry.locations.indices {
-                entry.locations[index].photoPaths = orderedPhotoPaths(from: Set(entry.locations[index].photoPaths))
-            }
+        guard didChange else { return }
+        let orderedPaths = DiaryMediaCollection.allPaths(in: target)
+        for index in target.locations.indices {
+            let selected = Set(target.locations[index].photoPaths)
+            target.locations[index].photoPaths = orderedPaths.filter { selected.contains($0) }
         }
-        if didChange {
+        if entry.id == targetID {
+            entry = target
             persist()
+        } else {
+            store.upsert(entry: target)
         }
     }
 
     func linkedDiaryPhotoPaths() async -> Set<String> {
         let photoPaths = entry.photoPaths
         let directLinkedPaths = Set(entry.locations.flatMap(\.photoPaths))
-        guard directLinkedPaths.isEmpty == false else { return [] }
-        let targetPaths = Set(photoPaths)
-        let identityByPath = await PhotoStorage.identityMap(for: Array(targetPaths.union(directLinkedPaths)))
-        let linkedIdentitySet = Set(directLinkedPaths.compactMap { identityByPath[$0] })
-        return Set(photoPaths.filter { path in
-            if directLinkedPaths.contains(path) {
-                return true
-            }
-            guard let identity = identityByPath[path] else { return false }
-            return linkedIdentitySet.contains(identity)
+        guard !directLinkedPaths.isEmpty else { return [] }
+        let identifiers = PhotoStorage.assetIdentifierMap(for: Array(Set(photoPaths).union(directLinkedPaths)))
+        let linkedAssetIDs = Set(directLinkedPaths.compactMap { identifiers[$0] })
+        var linkedPaths = Set(photoPaths.filter {
+            directLinkedPaths.contains($0) || identifiers[$0].map { linkedAssetIDs.contains($0) } == true
         })
+        let legacyLinked = directLinkedPaths.filter { identifiers[$0] == nil }
+        let legacyKinds = Set(legacyLinked.map { PhotoStorage.isVideo(at: $0) })
+        let legacyUnlinked = photoPaths.filter {
+            !linkedPaths.contains($0) && identifiers[$0] == nil
+                && legacyKinds.contains(PhotoStorage.isVideo(at: $0))
+        }
+        guard !legacyLinked.isEmpty, !legacyUnlinked.isEmpty else { return linkedPaths }
+        let candidateKinds = Set(legacyUnlinked.map { PhotoStorage.isVideo(at: $0) })
+        let comparableLinked = legacyLinked.filter { candidateKinds.contains(PhotoStorage.isVideo(at: $0)) }
+        let identityByPath = await PhotoStorage.identityMap(for: legacyUnlinked + Array(comparableLinked))
+        let linkedIdentities = Set(comparableLinked.compactMap { identityByPath[$0] })
+        for path in legacyUnlinked {
+            if let identity = identityByPath[path], linkedIdentities.contains(identity) {
+                linkedPaths.insert(path)
+            }
+        }
+        return linkedPaths
     }
 
     func linkedLocationIDs(forPhoto path: String) async -> Set<UUID> {
         let locations = entry.locations
         let directMatches = Set(locations.filter { $0.photoPaths.contains(path) }.map(\.id))
-        let allLocationPaths = Set(locations.flatMap(\.photoPaths))
-        let identityByPath = await PhotoStorage.identityMap(for: Array(allLocationPaths.union([path])))
-        guard let targetIdentity = identityByPath[path] else {
-            return directMatches
+        let isVideo = PhotoStorage.isVideo(at: path)
+        let locationPaths = Set(locations.flatMap(\.photoPaths))
+            .filter { PhotoStorage.isVideo(at: $0) == isVideo }
+        let identifiers = PhotoStorage.assetIdentifierMap(for: Array(locationPaths.union([path])))
+        if let assetIdentifier = identifiers[path] {
+            return directMatches.union(locations.filter { location in
+                location.photoPaths.contains { identifiers[$0] == assetIdentifier }
+            }.map(\.id))
         }
-        var linkedIDs = directMatches
-        for location in locations where linkedIDs.contains(location.id) == false {
-            if location.photoPaths.contains(where: { identityByPath[$0] == targetIdentity }) {
-                linkedIDs.insert(location.id)
-            }
-        }
-        return linkedIDs
+        let legacyCandidates = locationPaths.filter { $0 != path && identifiers[$0] == nil }
+        guard !legacyCandidates.isEmpty else { return directMatches }
+        let identityByPath = await PhotoStorage.identityMap(for: Array(legacyCandidates) + [path])
+        guard let targetIdentity = identityByPath[path] else { return directMatches }
+        return directMatches.union(locations.filter { location in
+            location.photoPaths.contains { identityByPath[$0] == targetIdentity }
+        }.map(\.id))
     }
 
     func recentLocationCoordinate() -> CLLocationCoordinate2D? {
@@ -267,7 +318,6 @@ final class DiaryViewModel: ObservableObject {
     }
 
     func addPhoto(data: Data) {
-        guard entry.photoPaths.count < diaryPhotoLimit else { return }
         guard let path = try? PhotoStorage.save(data: data) else { return }
         entry.photoPaths.append(path)
         persist()
@@ -276,62 +326,123 @@ final class DiaryViewModel: ObservableObject {
     func addLocationPhoto(data: Data) {
         guard let path = try? PhotoStorage.save(data: data) else { return }
         entry.locationPhotoPaths.append(path)
+        entry.photoPaths.append(path)
         persist()
     }
 
     func importPhotos(from items: [PhotosPickerItem]) async -> PhotoImportSummary {
-        guard items.isEmpty == false else { return PhotoImportSummary() }
-
-        let targetDate = entry.date
-        let availableSlots = max(0, diaryPhotoLimit - entry.photoPaths.count)
-        if availableSlots == 0 {
-            return PhotoImportSummary(addedPaths: [],
-                                      skippedCount: items.count,
-                                      failedLoadCount: 0,
-                                      failedSaveCount: 0)
-        }
-        
-        let locationPhotoIdentityIndex = await PhotoStorage.identityIndex(for: entry.locationPhotoPaths)
-        let summary = await DiaryPhotoImporter.importPhotos(
-            from: photoImportItems(from: items),
-            maximumCount: availableSlots,
-            alreadyContains: { self.entry.photoPaths.contains($0) },
-            matchingPath: { identifier, data in
-                await PhotoStorage.matchingPhotoPath(assetIdentifier: identifier, data: data,
-                                                    in: locationPhotoIdentityIndex)
-            }
-        )
-        appendImportedPhotos(summary.addedPaths, for: targetDate, to: \.photoPaths)
-        return summary
+        await importPhotoItems(photoImportItems(from: items))
     }
 
-    func importLocationPhotos(from items: [PhotosPickerItem]) async -> PhotoImportSummary {
-        guard items.isEmpty == false else { return PhotoImportSummary() }
+    func importLocationPhotos(from items: [PhotosPickerItem],
+                              forLocation locationID: UUID? = nil) async -> PhotoImportSummary {
+        await importPhotoItems(photoImportItems(from: items), forLocation: locationID, isLocationImport: true)
+    }
 
+    /// Publish each finished attachment immediately. Persist the visible day's
+    /// batch once, instead of rebuilding the journal and saving SwiftData for
+    /// every selection. Changing days/closing the editor also flushes the draft.
+    /// See docs/requirements.md §4.4.
+    func importPhotoItems(
+        _ items: [DiaryPhotoImporter.Item],
+        forLocation locationID: UUID? = nil,
+        isLocationImport: Bool = false,
+        save: @MainActor (Data, String?) async throws -> String = {
+            try await PhotoStorage.saveAsync(data: $0, sourceAssetIdentifier: $1)
+        }
+    ) async -> PhotoImportSummary {
+        guard !items.isEmpty else { return PhotoImportSummary() }
+        let targetID = entry.id
         let targetDate = entry.date
-        let summary = await DiaryPhotoImporter.importPhotos(from: photoImportItems(from: items))
-        appendImportedPhotos(summary.addedPaths, for: targetDate, to: \.locationPhotoPaths)
+        var identityIndexes: [Bool: (paths: [String], index: PhotoIdentityIndex)] = [:]
+
+        func targetEntry() -> DiaryEntry? {
+            entry.id == targetID ? entry : store.diaryEntries.first { $0.id == targetID }
+        }
+
+        func matchingIndex(for identifier: String?, isVideo: Bool) async -> PhotoIdentityIndex {
+            var paths = targetEntry().map { DiaryMediaCollection.allPaths(in: $0) } ?? []
+            paths.removeAll { PhotoStorage.isVideo(at: $0) != isVideo }
+            if let identifier, !identifier.isEmpty {
+                // Stable Photos identities already ruled out every known
+                // different asset. Only legacy attachments without that identity
+                // need byte/visual matching; never hash a newly imported movie
+                // again just to append the next picker selection.
+                let identifiers = PhotoStorage.assetIdentifierMap(for: paths)
+                paths.removeAll { identifiers[$0] != nil }
+            }
+            if let cached = identityIndexes[isVideo], cached.paths == paths { return cached.index }
+            let index = await PhotoStorage.identityIndex(for: paths)
+            identityIndexes[isVideo] = (paths, index)
+            return index
+        }
+
+        let summary = await DiaryPhotoImporter.importPhotos(
+            from: items,
+            alreadyContains: { path in
+                guard let target = targetEntry() else { return false }
+                if isLocationImport {
+                    if let locationID {
+                        return target.locations.first { $0.id == locationID }?.photoPaths.contains(path) == true
+                    }
+                    return target.locationPhotoPaths.contains(path)
+                }
+                return target.photoPaths.contains(path)
+            },
+            matchingAssetPath: { identifier in
+                let paths = targetEntry().map { DiaryMediaCollection.allPaths(in: $0) } ?? []
+                return PhotoStorage.assetIdentifierIndex(for: paths)[identifier]?.first
+            },
+            matchingPath: { identifier, data in
+                await PhotoStorage.matchingPhotoPath(assetIdentifier: identifier, data: data,
+                                                    in: matchingIndex(for: identifier, isVideo: false))
+            },
+            matchingVideoPath: { identifier, url in
+                await PhotoStorage.matchingVideoPath(assetIdentifier: identifier, fileURL: url,
+                                                    in: matchingIndex(for: identifier, isVideo: true))
+            },
+            save: save,
+            onAdded: { path in
+                self.appendImportedPhoto(path, entryID: targetID, date: targetDate,
+                                         locationID: locationID, isLocationImport: isLocationImport)
+            }
+        )
+        if entry.id == targetID { persist() }
         return summary
     }
 
     private func photoImportItems(from items: [PhotosPickerItem]) -> [DiaryPhotoImporter.Item] {
         items.map { item in
-            DiaryPhotoImporter.Item(assetIdentifier: item.itemIdentifier) {
+            if item.supportedContentTypes.contains(where: { $0.conforms(to: .movie) }) {
+                return DiaryPhotoImporter.Item.video(assetIdentifier: item.itemIdentifier, load: {
+                    try await item.loadTransferable(type: ImportedDiaryVideo.self)
+                })
+            }
+            return DiaryPhotoImporter.Item(assetIdentifier: item.itemIdentifier) {
                 try await item.loadTransferable(type: Data.self)
             }
         }
     }
 
-    private func appendImportedPhotos(_ paths: [String], for date: Date,
-                                      to destination: WritableKeyPath<DiaryEntry, [String]>) {
-        guard !paths.isEmpty else { return }
-        if entry.date.isSameDay(as: date) {
-            entry[keyPath: destination].append(contentsOf: paths)
-            persist()
+    private func appendImportedPhoto(_ path: String, entryID: UUID, date: Date,
+                                     locationID: UUID?, isLocationImport: Bool) {
+        func append(to target: inout DiaryEntry) {
+            if !target.photoPaths.contains(path) { target.photoPaths.append(path) }
+            if isLocationImport && !target.locationPhotoPaths.contains(path) {
+                target.locationPhotoPaths.append(path)
+            }
+            if let locationID, let index = target.locations.firstIndex(where: { $0.id == locationID }),
+               !target.locations[index].photoPaths.contains(path) {
+                target.locations[index].photoPaths.append(path)
+            }
+        }
+        if entry.id == entryID {
+            append(to: &entry)
         } else {
-            var otherEntry = store.entry(for: date) ?? DiaryEntry(date: date, text: "")
-            otherEntry[keyPath: destination].append(contentsOf: paths)
-            store.upsert(entry: otherEntry)
+            var target = store.diaryEntries.first { $0.id == entryID }
+                ?? DiaryEntry(id: entryID, date: date, text: "")
+            append(to: &target)
+            store.upsert(entry: target)
         }
     }
 
@@ -345,6 +456,8 @@ final class DiaryViewModel: ObservableObject {
                 entry.favoritePhotoPath = nil
             }
             entry.photoPaths.remove(at: index)
+            entry.locationPhotoPaths.removeAll { $0 == path }
+            removePhotoLinks(for: path)
             if !removePhotoAssetIfUnreferenced(path) { entry = previous }
         }
         persist()
@@ -379,23 +492,20 @@ final class DiaryViewModel: ObservableObject {
     }
 
     func cleanupMissingPhotos() {
-        let originalDiary = entry.photoPaths
-        let originalLocation = entry.locationPhotoPaths
-        // Missing local files can be deliberately offloaded or awaiting restoration.
-        // Only an explicit, durable deletion proves a photo should leave the diary.
-        let keptDiary = originalDiary.filter { !PhotoSyncManifest.shared.isDeleted(path: $0) }
-        let keptLocation = originalLocation.filter { !PhotoSyncManifest.shared.isDeleted(path: $0) }
-        let allKept = Set(keptDiary + keptLocation)
-        let didChange = keptDiary.count != originalDiary.count
-            || keptLocation.count != originalLocation.count
-        guard didChange else { return }
-        entry.photoPaths = keptDiary
-        entry.locationPhotoPaths = keptLocation
-        if let favorite = entry.favoritePhotoPath, keptDiary.contains(favorite) == false {
+        let previous = entry
+        // Missing originals may be offloaded or awaiting restoration. Only an
+        // explicit durable deletion removes a shared attachment from the diary.
+        let keptPaths = Set(DiaryMediaCollection.allPaths(in: entry).filter {
+            !PhotoSyncManifest.shared.isDeleted(path: $0)
+        })
+        entry.photoPaths.removeAll { !keptPaths.contains($0) }
+        entry.locationPhotoPaths.removeAll { !keptPaths.contains($0) }
+        pruneLocationPhotoLinks(availablePaths: keptPaths)
+        entry = DiaryMediaCollection.normalized(entry)
+        if let favorite = entry.favoritePhotoPath, !entry.photoPaths.contains(favorite) {
             entry.favoritePhotoPath = nil
         }
-        pruneLocationPhotoLinks(availablePaths: allKept)
-        persist()
+        if previous != entry { persist() }
     }
 
     private func orderedPhotoPaths(from selection: Set<String>) -> [String] {
@@ -403,7 +513,7 @@ final class DiaryViewModel: ObservableObject {
     }
 
     private var allPhotoPathsInOrder: [String] {
-        entry.photoPaths + entry.locationPhotoPaths
+        DiaryMediaCollection.allPaths(in: entry)
     }
 
     private func removePhotoLinks(for path: String) {

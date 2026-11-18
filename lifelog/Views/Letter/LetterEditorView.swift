@@ -129,6 +129,7 @@ struct LetterEditorView: View {
             deliverySection
             deleteSection
         }
+        .appThemeBackground()
         .navigationTitle(existingLetter == nil ? "新しい手紙" : "手紙を編集")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

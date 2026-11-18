@@ -135,6 +135,7 @@ struct EmotionTagManagerView: View {
                     }
                 }
             }
+            .appThemeBackground()
             .navigationTitle("感情タグを管理")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -189,6 +190,7 @@ struct EmotionTagManagerView: View {
 // MARK: - Emoji Grid Picker Sheet
 private struct EmojiGridPickerSheet: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
     let onSelect: (String) -> Void
     
     // 絵文字カテゴリ
@@ -219,7 +221,7 @@ private struct EmojiGridPickerSheet: View {
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 6)
                                     .background(selectedCategory == index ? Color.accentColor : Color(.secondarySystemBackground), in: Capsule())
-                                    .foregroundStyle(selectedCategory == index ? .white : .primary)
+                                    .foregroundStyle(selectedCategory == index ? (theme?.onAccent ?? .white) : .primary)
                             }
                             .buttonStyle(.plain)
                         }
@@ -248,6 +250,7 @@ private struct EmojiGridPickerSheet: View {
                     .padding()
                 }
             }
+            .appThemeBackground()
             .navigationTitle("絵文字を選択")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

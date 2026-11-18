@@ -141,6 +141,72 @@ final class DiaryPhotoFilesTests: XCTestCase {
         XCTAssertNoThrow(try files.removeFiles(at: "photo.jpg"), "Deletion retries must be safe")
     }
 
+    func testVideoContainerDetection_distinguishesMoviesFromImages() {
+        for path in ["video.mov", "video.mp4", "video.MOV", "video.m4v"] {
+            XCTAssertTrue(DiaryPhotoFiles.isVideo(at: path), path)
+        }
+        for path in ["photo.jpg", "photo.heic", "photo.png", "unknown", "photo.gif"] {
+            XCTAssertFalse(DiaryPhotoFiles.isVideo(at: path), path)
+        }
+    }
+
+    func testVideoThumbnail_survivesOriginalEvictionAndIsLimitedTo512Pixels() throws {
+        let files = try makeFiles()
+        let source = try XCTUnwrap(Bundle(for: Self.self).url(forResource: "diary-video-fixture", withExtension: "mov"))
+        try files.copyOriginal(from: source, at: "video.mov")
+
+        try files.prepareThumbnail(at: "video.mov")
+
+        let thumbnail = try XCTUnwrap(UIImage(contentsOfFile: files.thumbnailURL(for: "video.mov").path)?.cgImage)
+        XCTAssertEqual(thumbnail.width, 512)
+        XCTAssertEqual(thumbnail.height, 288)
+        try files.removeOriginal(at: "video.mov")
+        XCTAssertFalse(files.originalExists(at: "video.mov"))
+        XCTAssertTrue(files.thumbnailExists(at: "video.mov"))
+        XCTAssertNoThrow(try files.prepareThumbnail(at: "video.mov"))
+    }
+
+    func testFileCopy_preservesOriginalBytesAndCanReplaceDownloadedOriginal() throws {
+        let files = try makeFiles()
+        let source = files.directory.appendingPathComponent("source.mov")
+        let first = Data(repeating: 0x42, count: 32_768)
+        try first.write(to: source)
+
+        try files.copyOriginal(from: source, at: "video.mov")
+        XCTAssertEqual(try Data(contentsOf: files.fullImageURL(for: "video.mov")), first)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: source.path), "Picker transfer ownership is separate")
+        let second = Data("restored movie".utf8)
+        try second.write(to: source)
+        try files.copyOriginal(from: source, at: "video.mov")
+        XCTAssertEqual(try Data(contentsOf: files.fullImageURL(for: "video.mov")), second)
+        XCTAssertThrowsError(try files.copyOriginal(from: source, at: "../video.mov"))
+    }
+
+    func testStreamingMovieFingerprint_matchesDataDigestAcrossChunkBoundaries() throws {
+        let files = try makeFiles()
+        let bytes = Data((0..<2_100_003).map { UInt8($0 % 251) })
+        let url = files.directory.appendingPathComponent("video.mov")
+        try bytes.write(to: url)
+
+        XCTAssertEqual(try PhotoStorage.digestHex(forFileAt: url), PhotoStorage.digestHex(for: bytes))
+    }
+
+    func testPlaybackSnapshot_survivesOriginalRemovalAndReleasesOnlyOwnedFile() throws {
+        let files = try makeFiles()
+        let source = files.directory.appendingPathComponent("video.mov")
+        let bytes = Data("video fixture".utf8)
+        try bytes.write(to: source)
+        let playbackURL = try PhotoStorage.makeVideoPlaybackCopy(from: source, path: "video.mov")
+        defer { PhotoStorage.releaseVideoURL(playbackURL) }
+
+        PhotoStorage.releaseVideoURL(source)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: source.path), "Release must leave persistent originals alone")
+        try FileManager.default.removeItem(at: source)
+        XCTAssertEqual(try Data(contentsOf: playbackURL), bytes)
+        PhotoStorage.releaseVideoURL(playbackURL)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: playbackURL.path))
+    }
+
     private func makeFiles() throws -> DiaryPhotoFiles {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("DiaryPhotoFilesTests-" + UUID().uuidString, isDirectory: true)

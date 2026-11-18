@@ -64,6 +64,7 @@ struct EventsView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .appThemeBackground()
         .navigationTitle("予定")
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {

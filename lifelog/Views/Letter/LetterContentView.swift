@@ -55,6 +55,7 @@ struct LetterContentView: View {
             }
             .padding()
         }
+        .appThemeBackground()
         .navigationTitle("手紙を読む")
         .navigationBarTitleDisplayMode(.inline)
         .task {

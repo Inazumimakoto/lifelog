@@ -112,7 +112,7 @@ final class NotificationServiceTests: XCTestCase {
         service.scheduleDiaryReminder(components: components(date(day: 9, hour: 11)))
         service.scheduleDiaryReminder(hour: 13, minute: 0)
 
-        XCTAssertEqual(cancelled, ["diary-daily-reminder", "diary-daily-reminder"])
+        XCTAssertTrue(cancelled.isEmpty)
         XCTAssertEqual(requests.map(\.identifier), Array(repeating: "diary-daily-reminder", count: 3))
         let triggers = try requests.map { try XCTUnwrap($0.trigger as? UNCalendarNotificationTrigger) }
         XCTAssertEqual(triggers[0].dateComponents, triggers[1].dateComponents)
@@ -131,7 +131,43 @@ final class NotificationServiceTests: XCTestCase {
         service.scheduleTodayOverviewReminder(fireDate: now, body: "Ignored")
         XCTAssertTrue(operations.isEmpty)
         service.scheduleTodayOverviewReminder(fireDate: date(day: 9, hour: 12), body: "Today")
-        XCTAssertEqual(operations, ["cancel:today-overview-reminder", "add:today-overview-reminder"])
+        XCTAssertEqual(operations, ["add:today-overview-reminder"])
+    }
+
+    func testCalendarPlanRequest_matchesScheduledRequestWithoutSubmitting() throws {
+        var requests: [UNNotificationRequest] = []
+        let now = date(day: 8, hour: 12)
+        let service = NotificationService(referenceDate: { now }, requestHandler: { requests.append($0) })
+        let occurrenceID = UUID()
+        let fireDate = date(day: 9, hour: 12)
+        let desired = try XCTUnwrap(service.calendarReminderRequest(type: .recurringEvent, key: occurrenceID.uuidString,
+                                                                    title: "User title", reminderDate: fireDate))
+        XCTAssertTrue(requests.isEmpty)
+        service.scheduleRecurringEventReminder(occurrenceID: occurrenceID, title: "User title", reminderDate: fireDate)
+        XCTAssertTrue(NotificationRequestDispatcher.hasSameReservation(desired, try XCTUnwrap(requests.first)))
+        XCTAssertNil(service.calendarReminderRequest(type: .externalEvent, key: "past", title: "Past", reminderDate: now))
+    }
+
+    func testInjectedReconciliation_keepsDesiredAndUnrelatedRequestsAndRejectsStalePlan() throws {
+        var pending: [String: UNNotificationRequest] = [:]
+        var cancellations: [String] = []
+        let now = date(day: 8, hour: 12)
+        let service = NotificationService(referenceDate: { now }, requestHandler: { pending[$0.identifier] = $0 },
+                                          cancellationHandler: { identifiers in
+            cancellations.append(contentsOf: identifiers)
+            for identifier in identifiers { pending.removeValue(forKey: identifier) }
+        })
+        let keep = try XCTUnwrap(service.calendarReminderRequest(type: .externalEvent, key: "keep", title: "Keep", reminderDate: date(day: 9, hour: 12)))
+        service.scheduleExternalEventReminderAtDate(externalEventKey: "keep", title: "Keep", reminderDate: date(day: 9, hour: 12))
+        service.scheduleExternalEventReminderAtDate(externalEventKey: "remove", title: "Remove", reminderDate: date(day: 9, hour: 12))
+        let taskID = UUID()
+        service.scheduleTaskReminder(taskId: taskID, title: "Unrelated", reminderDate: date(day: 9, hour: 12))
+
+        service.reconcileReminders(ofTypes: [.externalEvent, .recurringEvent], requests: [keep])
+        service.reconcileReminders(ofTypes: [.externalEvent], requests: [], shouldApply: { false })
+
+        XCTAssertEqual(cancellations, ["external-event-remove"])
+        XCTAssertEqual(Set(pending.keys), Set([keep.identifier, "task-\(taskID.uuidString)"]))
     }
 
     func testCommonCalendarRequest_preservesLetterUserInfoWithoutApplyingReminderDatePolicy() throws {

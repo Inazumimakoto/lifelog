@@ -312,16 +312,16 @@
       "comment" : "Number of overdue tasks omitted from the visible widget rows.",
       "extractionState" : "manual",
       "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "+期限切れ%lld件"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "+%lld overdue"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "+期限切れ%lld件"
           }
         },
         "ko" : {
@@ -662,16 +662,16 @@
       "comment" : "Accessibility label for the unfinished task count in the lock screen widget.",
       "extractionState" : "manual",
       "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "タスク"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Tasks"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タスク"
           }
         },
         "ko" : {
@@ -730,7 +730,6 @@
       }
     },
     "チームMTG" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1253,16 +1252,16 @@
       "comment" : "Schedule widget description, including overdue task availability.",
       "extractionState" : "manual",
       "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "今日の予定と、期限切れを含む未完了タスクを表示。中サイズでは月間カレンダーも確認できます。"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "See today’s events and unfinished tasks, including overdue tasks. The medium widget also shows a month calendar."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今日の予定と、期限切れを含む未完了タスクを表示。中サイズでは月間カレンダーも確認できます。"
           }
         },
         "ko" : {
@@ -1321,6 +1320,7 @@
       }
     },
     "今日の予定と未完了タスクを表示。中サイズでは月間カレンダーも確認できます。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1674,16 +1674,16 @@
       "comment" : "Marks an unfinished task whose original deadline has passed.",
       "extractionState" : "manual",
       "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "期限切れ"
-          }
-        },
         "en" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Overdue"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "期限切れ"
           }
         },
         "ko" : {

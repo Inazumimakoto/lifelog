@@ -60,6 +60,7 @@ struct ShoppingAddItemsView: View {
                 proxy.scrollTo(id, anchor: .bottom)
             }
         }
+        .appThemeBackground()
         .navigationTitle("商品を追加")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

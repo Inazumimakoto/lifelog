@@ -45,6 +45,36 @@ final class PhotoCloudSyncTests: XCTestCase {
         XCTAssertNotNil(fixture.service.lastError)
     }
 
+    func testOptimizedVideoFetch_returnsReleasablePlaybackFileWithoutRestoringOriginal() async throws {
+        let fixture = try makeFixture(pathExtension: "mov")
+        fixture.service.startSync()
+        await fixture.service.waitForSync()
+
+        let playbackURL = try await fixture.service.fetchVideoFile(at: fixture.path)
+        defer { PhotoStorage.releaseVideoURL(playbackURL) }
+
+        XCTAssertEqual(playbackURL.pathExtension, "mov")
+        XCTAssertEqual(try Data(contentsOf: playbackURL), fixture.data)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: fixture.fullImageURL.path))
+        PhotoStorage.releaseVideoURL(playbackURL)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: playbackURL.path))
+    }
+
+    func testKeepAllLocalVideoFetch_restoresOriginalAndReleasePreservesIt() async throws {
+        let fixture = try makeFixture(pathExtension: "mov")
+        fixture.service.startSync()
+        await fixture.service.waitForSync()
+        fixture.service.setMode(.keepAllLocal)
+        await fixture.service.waitForSync()
+
+        XCTAssertEqual(try Data(contentsOf: fixture.fullImageURL), fixture.data)
+        let playbackURL = try await fixture.service.fetchVideoFile(at: fixture.path)
+        XCTAssertNotEqual(playbackURL, fixture.fullImageURL, "Playback must survive a later storage-mode switch")
+        XCTAssertEqual(try Data(contentsOf: playbackURL), fixture.data)
+        PhotoStorage.releaseVideoURL(playbackURL)
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fixture.fullImageURL.path))
+    }
+
     func testKeepAllLocal_restoresPreviouslyEvictedPhoto() async throws {
         let fixture = try makeFixture()
         fixture.service.startSync()
@@ -199,13 +229,13 @@ final class PhotoCloudSyncTests: XCTestCase {
     }
 
     private func makeFixture(backend: FakePhotoCloudBackend = FakePhotoCloudBackend(), directory: URL? = nil,
-                             beforeStore: (@Sendable () -> Void)? = nil) throws -> Fixture {
+                             beforeStore: (@Sendable () -> Void)? = nil, pathExtension: String = "jpg") throws -> Fixture {
         let directory = try directory ?? temporaryDirectory()
         let fullDirectory = directory.appendingPathComponent("photos")
         let thumbnailDirectory = directory.appendingPathComponent("thumbnails")
         try FileManager.default.createDirectory(at: fullDirectory, withIntermediateDirectories: true)
         try FileManager.default.createDirectory(at: thumbnailDirectory, withIntermediateDirectories: true)
-        let path = UUID().uuidString + ".jpg"
+        let path = UUID().uuidString + "." + pathExtension
         let data = Data("fixture photo bytes".utf8)
         let fullImageURL = fullDirectory.appendingPathComponent(path)
         let thumbnailURL = thumbnailDirectory.appendingPathComponent(path)

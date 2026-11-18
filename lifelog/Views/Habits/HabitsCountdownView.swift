@@ -840,6 +840,7 @@ struct HabitDaySummarySheet: View {
             Spacer()
         }
         .padding()
+        .appThemeBackground()
         .toast()
     }
 }
@@ -864,6 +865,7 @@ private struct HabitReorderView: View {
             }
         }
         .environment(\.editMode, .constant(.active))
+        .appThemeBackground()
         .navigationTitle("習慣の並び替え")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
@@ -888,6 +890,7 @@ private struct AnniversaryReorderView: View {
             }
         }
         .environment(\.editMode, .constant(.active))
+        .appThemeBackground()
         .navigationTitle("カウントダウンの並び替え")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

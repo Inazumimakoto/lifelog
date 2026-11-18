@@ -102,20 +102,23 @@ private final class DelayedCalendarNotificationService: NotificationService {
         })
     }
 
-    override func cancelAllReminders(ofTypes types: [NotificationType], shouldCancel: @escaping () -> Bool,
-                                     completion: (() -> Void)?) {
+    override func reconcileReminders(ofTypes types: [NotificationType], requests: [UNNotificationRequest],
+                                      shouldApply: @escaping () -> Bool) {
         let prefixes = types.map { $0.rawValue + "-" }
         let identifiers = recording.pending.keys.filter { identifier in
             prefixes.contains { identifier.hasPrefix($0) }
         }
         cancellations.append { [weak self] in
             guard let self else { return }
-            guard shouldCancel() else {
+            guard shouldApply() else {
                 self.ignoredStaleCancellations += 1
                 return
             }
-            for identifier in identifiers { self.recording.pending.removeValue(forKey: identifier) }
-            completion?()
+            let desiredIDs = Set(requests.map(\.identifier))
+            for identifier in identifiers where !desiredIDs.contains(identifier) {
+                self.recording.pending.removeValue(forKey: identifier)
+            }
+            for request in requests { self.recording.pending[request.identifier] = request }
         }
     }
 

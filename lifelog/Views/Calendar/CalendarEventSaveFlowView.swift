@@ -35,6 +35,7 @@ struct CalendarEventSaveFlowView: View {
                     scopeSelection
                 }
             }
+            .appThemeBackground()
             .navigationTitle(reviewPlan == nil ? LocalizedStringKey("変更する予定を選択") : LocalizedStringKey("変更内容を確認"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

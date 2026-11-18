@@ -112,186 +112,6 @@
         }
       }
     },
-    "タスクを編集" : {
-      "comment" : "Accessibility label for a task row’s edit button.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "タスクを編集"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Edit task"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "작업 편집"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "编辑任务"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "編輯任務"
-          }
-        }
-      }
-    },
-    "折りたたむ" : {
-      "comment" : "Collapse the overdue task list back to its first three rows.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "折りたたむ"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show less"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "접기"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "收起"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "收合"
-          }
-        }
-      }
-    },
-    "期限切れ（%lld件）" : {
-      "comment" : "Today task group heading with the number of overdue tasks.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "期限切れ（%lld件）"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Overdue (%lld)"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "기한 지남(%lld개)"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已逾期（%lld项）"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "已逾期（%lld項）"
-          }
-        }
-      }
-    },
-    "期限：%@" : {
-      "comment" : "Original deadline of an overdue task; the date follows the system locale.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "期限：%@"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Due: %@"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "기한: %@"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "截止日期：%@"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "截止日期：%@"
-          }
-        }
-      }
-    },
-    "残り%lld件を表示" : {
-      "comment" : "Expand the remaining overdue tasks in the Today task card.",
-      "extractionState" : "manual",
-      "localizations" : {
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "残り%lld件を表示"
-          }
-        },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Show %lld more"
-          }
-        },
-        "ko" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%lld개 더 보기"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "显示其余%lld项"
-          }
-        },
-        "zh-Hant" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "顯示其餘%lld項"
-          }
-        }
-      }
-    },
     "（内容なし）" : {
       "comment" : "Literal from lifelog/Views/Letter/LetterListView.swift",
       "extractionState" : "stale",
@@ -3957,7 +3777,6 @@
     },
     "🛠 デバッグ" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5675,6 +5494,652 @@
         }
       }
     },
+    "appTheme.accentColor" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Accent Color"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アクセントカラー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "강조 색상"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "强调色"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "強調色"
+          }
+        }
+      }
+    },
+    "appTheme.blackBlue" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Black + Blue"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "黒＋青"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "검은색 + 파란색"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "黑色＋蓝色"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "黑色＋藍色"
+          }
+        }
+      }
+    },
+    "appTheme.colorDescription" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The background color applies to screens such as Home and Calendar. The accent color is used for buttons and selected items."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "背景色はホームやカレンダーなどの画面に、アクセントカラーはボタンや選択中の項目に反映されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "배경 색상은 홈과 캘린더 등의 화면에 적용됩니다. 강조 색상은 버튼과 선택된 항목에 사용됩니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "背景颜色用于首页、日历等界面，强调色用于按钮和选中的项目。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "背景顏色會套用到首頁、行事曆等畫面，強調色則用於按鈕和選取的項目。"
+          }
+        }
+      }
+    },
+    "appTheme.custom" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom Colors"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "好きな色を選ぶ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "색상 직접 선택"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自选颜色"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自選顏色"
+          }
+        }
+      }
+    },
+    "appTheme.forest" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Forest"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フォレスト"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "포레스트"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "森林绿"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "森林綠"
+          }
+        }
+      }
+    },
+    "appTheme.homeScreenIcon" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Home Screen Icon"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ホーム画面のアイコン"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "홈 화면 아이콘"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主屏幕图标"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "主畫面圖像"
+          }
+        }
+      }
+    },
+    "appTheme.iconDescription" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Home Screen icon updates when you leave this screen. If you choose custom colors, lifelify uses the icon with the closest available colors."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この画面を閉じると、ホーム画面のアイコンに反映されます。好きな色を選んだ場合は、用意されているアイコンの中から近い配色を使います。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 화면을 나가면 홈 화면 아이콘에 반영됩니다. 색상을 직접 선택한 경우 제공되는 아이콘 중 가장 비슷한 색상의 아이콘을 사용합니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "退出此页面后，主屏幕图标会随之更新。自选颜色时，lifelify 会使用配色最接近的现有图标。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "離開此畫面後，主畫面圖像就會更新。使用自選顏色時，lifelify 會套用配色最接近的現有圖像。"
+          }
+        }
+      }
+    },
+    "appTheme.iconError" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The Home Screen icon could not be changed."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ホーム画面のアイコンを変更できませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "홈 화면 아이콘을 변경하지 못했습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未能更改主屏幕图标。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法更改主畫面圖像。"
+          }
+        }
+      }
+    },
+    "appTheme.iconFollowsTheme" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Match Icon to Theme"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アイコンの色も変更"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아이콘 색상도 변경"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "图标配色跟随主题"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "圖像配色跟隨主題"
+          }
+        }
+      }
+    },
+    "appTheme.iconUnavailable" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This device does not support changing the Home Screen icon."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この端末ではホーム画面のアイコンを変更できません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 기기에서는 홈 화면 아이콘을 변경할 수 없습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此设备不支持更改主屏幕图标。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "此裝置不支援更改主畫面圖像。"
+          }
+        }
+      }
+    },
+    "appTheme.lavender" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lavender"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ラベンダー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "라벤더"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "薰衣草紫"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "薰衣草紫"
+          }
+        }
+      }
+    },
+    "appTheme.midnight" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Midnight"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ミッドナイト"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "미드나이트"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "午夜蓝"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "午夜藍"
+          }
+        }
+      }
+    },
+    "appTheme.mint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mint"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ミント"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "민트"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "薄荷绿"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "薄荷綠"
+          }
+        }
+      }
+    },
+    "appTheme.retryIcon" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry Icon Change"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アイコンの変更を再試行"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "아이콘 변경 다시 시도"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试更改图标"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重試更改圖像"
+          }
+        }
+      }
+    },
+    "appTheme.rose" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rose"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ローズ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "로즈"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "玫瑰粉"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "玫瑰粉"
+          }
+        }
+      }
+    },
+    "appTheme.sky" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Sky Blue"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スカイブルー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "스카이 블루"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "天空蓝"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "天空藍"
+          }
+        }
+      }
+    },
+    "appTheme.system" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System Default"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "システム設定に合わせる"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "시스템 설정 따르기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跟随系统"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "跟隨系統"
+          }
+        }
+      }
+    },
+    "appTheme.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App Theme"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アプリのテーマ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "앱 테마"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "应用主题"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "App 主題"
+          }
+        }
+      }
+    },
+    "appTheme.whiteBlue" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "White + Blue"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "白＋青"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "흰색 + 파란색"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "白色＋蓝色"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "白色＋藍色"
+          }
+        }
+      }
+    },
     "Bujo dashboard layout" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6196,6 +6661,286 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "請輸入類別名稱。"
+          }
+        }
+      }
+    },
+    "calendar.display.appliesTo" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Month, week, and wallpaper calendars"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "月表示・週表示・壁紙カレンダー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "월간 · 주간 · 배경화면 캘린더"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "月视图、周视图和墙纸日历"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "月檢視、週檢視與背景圖片行事曆"
+          }
+        }
+      }
+    },
+    "calendar.display.categoryOpacity" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category color opacity"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カテゴリ色の濃さ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "카테고리 색상 농도"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "类别颜色浓度"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "類別顏色濃度"
+          }
+        }
+      }
+    },
+    "calendar.display.emptyWeek" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nothing scheduled this week"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今週の予定はありません"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이번 주에 등록된 일정이 없습니다"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本周没有日程"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本週沒有行程"
+          }
+        }
+      }
+    },
+    "calendar.display.fontSize" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Event text size"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "予定の文字サイズ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "일정 글자 크기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日程文字大小"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行程文字大小"
+          }
+        }
+      }
+    },
+    "calendar.display.pointValue %lld" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld pt"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld pt"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lldpt"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 磅"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 點"
+          }
+        }
+      }
+    },
+    "calendar.display.preview" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This week’s preview"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "今週のプレビュー"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이번 주 미리보기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本周预览"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本週預覽"
+          }
+        }
+      }
+    },
+    "calendar.display.restoreDefaults" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore defaults"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "初期値に戻す"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기본값으로 복원"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复默认值"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "回復預設值"
+          }
+        }
+      }
+    },
+    "calendar.display.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Calendar appearance"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カレンダーの表示"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "캘린더 표시"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "日历外观"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "行事曆外觀"
           }
         }
       }
@@ -6904,7 +7649,6 @@
     },
     "Debugビルド専用。日本にいても海外/課金状態のUIを即テストできます。" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -6969,6 +7713,706 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "設計審查"
+          }
+        }
+      }
+    },
+    "diaryMedia.add" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add photos or videos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "写真・動画を追加"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사진 또는 동영상 추가"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加照片或视频"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加入照片或影片"
+          }
+        }
+      }
+    },
+    "diaryMedia.count" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%ld items"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "現在 %ld 件"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "현재 %ld개"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前 %ld 项"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "目前 %ld 項"
+          }
+        }
+      }
+    },
+    "diaryMedia.delete.confirm" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete this photo or video?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この写真・動画を削除しますか？"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 사진 또는 동영상을 삭제할까요?"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要删除此照片或视频吗？"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "要刪除此照片或影片嗎？"
+          }
+        }
+      }
+    },
+    "diaryMedia.delete.message" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This removes it from this diary and its linked places. The original in Photos won’t be deleted."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この日記と紐付けた場所から削除します。写真アプリの元の写真・動画は削除されません。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 일기와 연결된 장소에서 삭제합니다. 사진 앱의 원본 사진 및 동영상은 삭제되지 않습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "将从此日记及其关联地点中删除。“照片”中的原始照片或视频不会被删除。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "將從此日記及其連結地點中刪除。「照片」中的原始照片或影片不會被刪除。"
+          }
+        }
+      }
+    },
+    "diaryMedia.empty" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No photos or videos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "写真・動画なし"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사진 및 동영상 없음"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无照片或视频"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無照片或影片"
+          }
+        }
+      }
+    },
+    "diaryMedia.help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Add as many as you like. Use the star to choose the day’s cover and the pin to link a place."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "枚数制限なく追加できます。星で「今日の一枚」を、ピンで場所との紐付けを選べます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "개수 제한 없이 추가할 수 있습니다. 별로 오늘의 대표 사진을, 핀으로 연결할 장소를 선택하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "添加数量不限。点按星标选择当天封面，点按图钉关联地点。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "加入數量不限。點選星號選擇當天封面，點選圖釘連結地點。"
+          }
+        }
+      }
+    },
+    "diaryMedia.import.added" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added %ld photos and videos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "写真・動画を %ld 件追加しました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사진 및 동영상 %ld개를 추가했습니다"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已添加 %ld 项照片和视频"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已加入 %ld 項照片和影片"
+          }
+        }
+      }
+    },
+    "diaryMedia.import.loadFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t load %ld photos or videos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "読み込めない写真・動画が %ld 件ありました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사진 또는 동영상 %ld개를 불러오지 못했습니다"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有 %ld 项照片或视频无法读取"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有 %ld 項照片或影片無法讀取"
+          }
+        }
+      }
+    },
+    "diaryMedia.import.saveFailed" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Couldn’t save %ld photos or videos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存に失敗した写真・動画が %ld 件ありました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사진 또는 동영상 %ld개를 저장하지 못했습니다"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有 %ld 项照片或视频保存失败"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "有 %ld 項照片或影片儲存失敗"
+          }
+        }
+      }
+    },
+    "diaryMedia.import.skipped" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skipped %ld items already added"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "追加済みの %ld 件はスキップしました"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이미 추가된 %ld개 항목을 건너뛰었습니다"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已跳过 %ld 个已添加的项目"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已略過 %ld 個已加入的項目"
+          }
+        }
+      }
+    },
+    "diaryMedia.importing" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Adding photos and videos… Saved items appear as they’re ready."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "写真・動画を追加中… 保存できたものから表示されます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사진 및 동영상 추가 중… 저장된 항목부터 표시됩니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在添加照片和视频… 保存完成的项目会依次显示。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在加入照片和影片… 儲存完成的項目會依序顯示。"
+          }
+        }
+      }
+    },
+    "diaryMedia.link.help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link places to this photo or video"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この写真・動画に場所を紐付けます"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 사진 또는 동영상에 장소를 연결합니다"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "为此照片或视频关联地点"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "為此照片或影片連結地點"
+          }
+        }
+      }
+    },
+    "diaryMedia.link.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Link Photos & Videos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "写真・動画を紐付け"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사진 및 동영상 연결"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "关联照片和视频"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "連結照片和影片"
+          }
+        }
+      }
+    },
+    "diaryMedia.place.count" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photos & videos %ld"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "写真・動画 %ld"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사진 및 동영상 %ld"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片和视频 %ld"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片和影片 %ld"
+          }
+        }
+      }
+    },
+    "diaryMedia.place.help" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photos and videos added here also appear in your diary. Tap an item to change its link to this place."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ここで追加した写真・動画は、日記にも表示されます。タップして場所との紐付けを変更できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "여기에 추가한 사진과 동영상은 일기에도 표시됩니다. 항목을 탭하여 이 장소와의 연결을 변경하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在此添加的照片和视频也会显示在日记中。点按项目可更改与此地点的关联。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在此加入的照片和影片也會顯示在日記中。點選項目可變更與此地點的連結。"
+          }
+        }
+      }
+    },
+    "diaryMedia.title" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Photos & Videos"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "写真・動画"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "사진 및 동영상"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片和视频"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "照片和影片"
+          }
+        }
+      }
+    },
+    "diaryMedia.video" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Video"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "動画"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "동영상"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "视频"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "影片"
+          }
+        }
+      }
+    },
+    "diaryMedia.video.loading" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading video…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "動画を読み込み中…"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "동영상 불러오는 중…"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在读取视频…"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "正在讀取影片…"
+          }
+        }
+      }
+    },
+    "diaryMedia.video.retry" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Retry"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再試行"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "다시 시도"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重试"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重試"
+          }
+        }
+      }
+    },
+    "diaryMedia.video.unavailable" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This video couldn’t be loaded."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "動画を読み込めませんでした。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "동영상을 불러오지 못했습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无法读取此视频。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "無法讀取此影片。"
           }
         }
       }
@@ -8521,31 +9965,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Deleting a photo from your diary also deletes its diary copy in iCloud. The original in the Photos app is unaffected."
+            "value" : "Deleting a photo or video from your diary also deletes its diary copy in iCloud. Originals in Photos aren’t affected."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "日記から写真を削除すると、日記用のiCloudのコピーも削除されます。写真アプリの元の写真には影響しません。"
+            "value" : "日記から写真・動画を削除すると、日記用のiCloudのコピーも削除されます。写真アプリの元の写真・動画には影響しません。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "일기에서 사진을 삭제하면 iCloud의 일기용 복사본도 삭제됩니다. 사진 앱의 원본에는 영향을 주지 않습니다."
+            "value" : "일기에서 사진이나 동영상을 삭제하면 iCloud의 일기용 사본도 삭제됩니다. 사진 앱의 원본에는 영향이 없습니다."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "从日记中删除照片时，iCloud 中的日记副本也会被删除，不影响照片 App 中的原始照片。"
+            "value" : "从日记中删除照片或视频时，也会删除 iCloud 中的日记副本。“照片”中的原始文件不受影响。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "從日記中刪除照片時，iCloud 中的日記副本也會被刪除，不影響「照片」App 中的原始照片。"
+            "value" : "從日記中刪除照片或影片時，也會刪除 iCloud 中的日記副本。「照片」中的原始檔案不受影響。"
           }
         }
       }
@@ -8591,31 +10035,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Switch back to the iCloud account used to save these photos, then try again."
+            "value" : "Switch back to the iCloud account used to save these photos and videos, then retry."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "写真を保存した元のiCloudアカウントに戻して再試行してください。"
+            "value" : "写真・動画を保存した元のiCloudアカウントに戻して再試行してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "사진을 저장한 원래 iCloud 계정으로 전환한 후 다시 시도해 주세요."
+            "value" : "사진과 동영상을 저장한 iCloud 계정으로 돌아가 다시 시도하세요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请切换回保存这些照片时使用的 iCloud 账户，然后重试。"
+            "value" : "请切换回保存这些照片和视频时使用的 iCloud 账户，然后重试。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "請切換回儲存這些照片時使用的 iCloud 帳號，然後再試一次。"
+            "value" : "請切換回儲存這些照片和影片時使用的 iCloud 帳號，然後重試。"
           }
         }
       }
@@ -8626,31 +10070,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Unable to read the photo from iCloud."
+            "value" : "Couldn’t load this photo or video from iCloud."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iCloudから写真を読み込めませんでした。"
+            "value" : "iCloudから写真・動画を読み込めませんでした。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iCloud에서 사진을 읽을 수 없습니다."
+            "value" : "iCloud에서 사진 또는 동영상을 불러오지 못했습니다."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "无法从 iCloud 读取照片。"
+            "value" : "无法从 iCloud 读取照片或视频。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "無法從 iCloud 讀取照片。"
+            "value" : "無法從 iCloud 讀取照片或影片。"
           }
         }
       }
@@ -8661,31 +10105,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Unable to read photo sync information. No photos on this device have been deleted."
+            "value" : "Couldn’t read photo and video sync information. Local originals haven’t been deleted."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "写真の同期情報を読み込めませんでした。端末の写真は削除していません。"
+            "value" : "写真・動画の同期情報を読み込めませんでした。端末の原本は削除していません。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "사진 동기화 정보를 읽을 수 없습니다. 기기의 사진은 삭제되지 않았습니다."
+            "value" : "사진 및 동영상 동기화 정보를 읽지 못했습니다. 기기의 원본은 삭제되지 않았습니다."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "无法读取照片同步信息。设备上的照片未被删除。"
+            "value" : "无法读取照片和视频同步信息。设备上的原件未被删除。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "無法讀取照片同步資訊。裝置上的照片未被刪除。"
+            "value" : "無法讀取照片和影片同步資訊。裝置上的原件未被刪除。"
           }
         }
       }
@@ -8696,31 +10140,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The photo could not be found in iCloud."
+            "value" : "This photo or video wasn’t found in iCloud."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iCloudに写真が見つかりませんでした。"
+            "value" : "iCloudに写真・動画が見つかりませんでした。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iCloud에서 사진을 찾을 수 없습니다."
+            "value" : "iCloud에서 사진 또는 동영상을 찾을 수 없습니다."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在 iCloud 中找不到照片。"
+            "value" : "在 iCloud 中找不到照片或视频。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在 iCloud 中找不到照片。"
+            "value" : "在 iCloud 中找不到照片或影片。"
           }
         }
       }
@@ -8731,31 +10175,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "The photo to upload could not be found on this device."
+            "value" : "The photo or video to upload wasn’t found on this device."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "アップロードする写真が端末に見つかりません。"
+            "value" : "アップロードする写真・動画が端末に見つかりません。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "업로드할 사진을 기기에서 찾을 수 없습니다."
+            "value" : "업로드할 사진 또는 동영상을 기기에서 찾을 수 없습니다."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在设备上找不到要上传的照片。"
+            "value" : "在设备上找不到要上传的照片或视频。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在裝置上找不到要上傳的照片。"
+            "value" : "在裝置上找不到要上傳的照片或影片。"
           }
         }
       }
@@ -8976,31 +10420,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Photo Storage on This Device"
+            "value" : "Local photo and video storage"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "端末の写真使用容量"
+            "value" : "端末の写真・動画使用容量"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "기기의 사진 저장 공간"
+            "value" : "기기의 사진 및 동영상 저장 공간"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "设备上的照片占用空间"
+            "value" : "设备照片和视频占用空间"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "裝置上的照片使用空間"
+            "value" : "裝置照片和影片使用空間"
           }
         }
       }
@@ -9046,31 +10490,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Keep full-quality photos in both iCloud and on this device. Once downloaded, they are available in full quality while offline."
+            "value" : "Keep original photos and videos in both iCloud and on your device. Downloaded items are available offline."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iCloudと端末の両方に高画質の写真を保存します。ダウンロードが完了した写真は、通信なしでも高画質で見られます。"
+            "value" : "iCloudと端末の両方に写真・動画の原本を保存します。ダウンロードが完了したものは、通信なしでも見られます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iCloud와 기기 양쪽에 고화질 사진을 저장합니다. 다운로드가 완료된 사진은 오프라인에서도 고화질로 볼 수 있습니다."
+            "value" : "사진과 동영상 원본을 iCloud와 기기 모두에 저장합니다. 다운로드가 완료된 항목은 오프라인에서도 볼 수 있습니다."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在 iCloud 和设备上都保存高画质照片。下载完成后，离线时也能查看高画质照片。"
+            "value" : "在 iCloud 和设备上均保留照片和视频原件。下载完成后可离线查看。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在 iCloud 和裝置上都儲存高畫質照片。下載完成後，離線時也能檢視高畫質照片。"
+            "value" : "在 iCloud 和裝置上均保留照片和影片原件。下載完成後可離線查看。"
           }
         }
       }
@@ -9116,31 +10560,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "After a photo is saved to iCloud, only its thumbnail stays on this device. The full-quality photo is downloaded only while you view it."
+            "value" : "After photos and videos are saved to iCloud, keep only thumbnails on your device. Load originals while viewing or playing them."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iCloudへの保存が完了した写真は、端末にはサムネイルだけを残します。高画質の写真は開いている間だけ読み込みます。"
+            "value" : "iCloudへの保存が完了した写真・動画は、端末にはサムネイルだけを残します。原本は表示・再生中だけ読み込みます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iCloud 저장이 완료된 사진은 기기에 썸네일만 남깁니다. 고화질 사진은 보는 동안에만 다운로드합니다."
+            "value" : "iCloud에 저장된 사진과 동영상은 기기에 썸네일만 남깁니다. 원본은 보거나 재생하는 동안만 불러옵니다."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "照片存入 iCloud 后，设备上仅保留缩略图。仅在查看时下载高画质照片。"
+            "value" : "照片和视频保存到 iCloud 后，设备上仅保留缩略图。查看或播放时才读取原件。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "照片存入 iCloud 後，裝置上僅保留縮圖。僅在檢視時下載高畫質照片。"
+            "value" : "照片和影片儲存到 iCloud 後，裝置上僅保留縮圖。檢視或播放時才讀取原件。"
           }
         }
       }
@@ -9186,31 +10630,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Unsynced photos stay on this device with either setting."
+            "value" : "Unsynced photos and videos stay on your device with either setting."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "未同期の写真は、どちらの設定でも端末に残します。"
+            "value" : "未同期の写真・動画は、どちらの設定でも端末に残します。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "동기화되지 않은 사진은 어느 설정에서든 기기에 보관합니다."
+            "value" : "동기화되지 않은 사진과 동영상은 두 설정 모두에서 기기에 유지됩니다."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "无论选择哪种设置，未同步的照片都会保留在设备上。"
+            "value" : "无论选择哪种设置，未同步的照片和视频都会保留在设备上。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "無論選擇哪種設定，未同步的照片都會保留在裝置上。"
+            "value" : "無論選擇哪種設定，未同步的照片和影片都會保留在裝置上。"
           }
         }
       }
@@ -9221,31 +10665,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Thumbnails of all photos stay on this device, so you can view calendar photos and change the cover photo even while offline."
+            "value" : "Thumbnails for photos and videos stay on your device, so calendar previews and cover selection work offline."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "すべての写真のサムネイルを端末に残すので、通信できないときもカレンダーの写真や代表写真の切り替えを利用できます。"
+            "value" : "写真・動画のサムネイルを端末に残すので、通信できないときもカレンダーの表示や「今日の一枚」の切り替えを利用できます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "모든 사진의 썸네일을 기기에 보관하므로 오프라인에서도 캘린더 사진을 보거나 대표 사진을 바꿀 수 있습니다."
+            "value" : "사진과 동영상의 썸네일은 기기에 유지되어 오프라인에서도 캘린더 미리보기와 대표 사진 선택을 사용할 수 있습니다."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "所有照片的缩略图都会保留在设备上，因此离线时也能查看日历照片或更换封面照片。"
+            "value" : "照片和视频的缩略图保留在设备上，离线时也可查看日历预览和切换当天封面。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "所有照片的縮圖都會保留在裝置上，因此離線時也能檢視行事曆照片或更換封面照片。"
+            "value" : "照片和影片的縮圖保留在裝置上，離線時也可檢視日曆預覽和切換當天封面。"
           }
         }
       }
@@ -9256,31 +10700,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Unsynced Photos"
+            "value" : "Unsynced photos and videos"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "未同期の写真"
+            "value" : "未同期の写真・動画"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "동기화되지 않은 사진"
+            "value" : "동기화되지 않은 사진 및 동영상"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "未同步的照片"
+            "value" : "未同步的照片和视频"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "未同步的照片"
+            "value" : "未同步的照片和影片"
           }
         }
       }
@@ -9326,31 +10770,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Keep thumbnails on this device and store diary photos in iCloud."
+            "value" : "Keep thumbnails on your device and save diary photos and videos to iCloud."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "サムネイルを端末に残し、日記の写真をiCloudに保存できます。"
+            "value" : "サムネイルを端末に残し、日記の写真・動画をiCloudに保存できます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "기기에 썸네일을 남기고 일기 사진을 iCloud에 저장할 수 있습니다."
+            "value" : "기기에 썸네일을 유지하고 일기의 사진과 동영상을 iCloud에 저장할 수 있습니다."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "将缩略图保留在设备上，并将日记照片存储到 iCloud。"
+            "value" : "在设备上保留缩略图，并将日记照片和视频保存到 iCloud。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "將縮圖保留在裝置上，並將日記照片儲存到 iCloud。"
+            "value" : "在裝置上保留縮圖，並將日記照片和影片儲存到 iCloud。"
           }
         }
       }
@@ -9396,31 +10840,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "All Photos Are Synced"
+            "value" : "All photos and videos are synced"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "すべての写真を同期済みです"
+            "value" : "すべての写真・動画を同期済みです"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "모든 사진이 동기화되었습니다"
+            "value" : "모든 사진과 동영상이 동기화되었습니다"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "所有照片均已同步"
+            "value" : "所有照片和视频均已同步"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "所有照片均已同步"
+            "value" : "所有照片和影片均已同步"
           }
         }
       }
@@ -9431,31 +10875,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Syncing Photos…"
+            "value" : "Syncing photos and videos…"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "写真を同期中…"
+            "value" : "写真・動画を同期中…"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "사진 동기화 중…"
+            "value" : "사진 및 동영상 동기화 중…"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在同步照片…"
+            "value" : "正在同步照片和视频…"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "正在同步照片…"
+            "value" : "正在同步照片和影片…"
           }
         }
       }
@@ -9466,31 +10910,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Start syncing to save all existing photos. New diary photos will then sync automatically. If interrupted, syncing resumes when you next open the app."
+            "value" : "Start syncing to save existing photos and videos, then automatically sync new diary attachments. Interrupted syncs resume when you next open the app."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "同期を開始すると、今ある写真をまとめて保存し、以降に追加する日記の写真も自動で同期します。中断した場合は、次にアプリを開いたときに再開します。"
+            "value" : "同期を開始すると、今ある写真・動画をまとめて保存し、以降に追加する日記の写真・動画も自動で同期します。中断した場合は、次にアプリを開いたときに再開します。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "동기화를 시작하면 기존 사진을 모두 저장하고, 이후 추가하는 일기 사진도 자동으로 동기화합니다. 중단되면 다음에 앱을 열 때 다시 시작합니다."
+            "value" : "동기화를 시작하면 기존 사진과 동영상을 저장하고 이후에 추가하는 일기 첨부 파일도 자동으로 동기화합니다. 중단되면 다음에 앱을 열 때 재개됩니다."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "开始同步后，会保存所有现有照片，之后添加的日记照片也会自动同步。如果中断，下次打开 App 时会继续。"
+            "value" : "开始同步后，会保存现有照片和视频，并自动同步以后添加的日记附件。中断后会在下次打开应用时继续。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "開始同步後，會儲存所有現有照片，之後新增的日記照片也會自動同步。如果中斷，下次開啟 App 時會繼續。"
+            "value" : "開始同步後，會儲存現有照片和影片，並自動同步之後加入的日記附件。中斷後會在下次開啟 App 時繼續。"
           }
         }
       }
@@ -9536,31 +10980,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Sync All Photos to iCloud"
+            "value" : "Sync all photos and videos to iCloud"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "すべての写真をiCloudに同期"
+            "value" : "すべての写真・動画をiCloudに同期"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "모든 사진을 iCloud에 동기화"
+            "value" : "모든 사진과 동영상을 iCloud에 동기화"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "将所有照片同步到 iCloud"
+            "value" : "将所有照片和视频同步到 iCloud"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "將所有照片同步到 iCloud"
+            "value" : "將所有照片和影片同步到 iCloud"
           }
         }
       }
@@ -9571,31 +11015,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Synced Photos"
+            "value" : "Synced photos and videos"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "同期済みの写真"
+            "value" : "同期済みの写真・動画"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "동기화된 사진"
+            "value" : "동기화된 사진 및 동영상"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已同步的照片"
+            "value" : "已同步的照片和视频"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "已同步的照片"
+            "value" : "已同步的照片和影片"
           }
         }
       }
@@ -9606,31 +11050,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Diary Photos & iCloud"
+            "value" : "Diary Photos, Videos & iCloud"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "日記の写真とiCloud"
+            "value" : "日記の写真・動画とiCloud"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "일기 사진과 iCloud"
+            "value" : "일기 사진·동영상 및 iCloud"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "日记照片与 iCloud"
+            "value" : "日记照片、视频与 iCloud"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "日記照片與 iCloud"
+            "value" : "日記照片、影片與 iCloud"
           }
         }
       }
@@ -12937,6 +14381,7 @@
     },
     "この写真に場所を紐付けます" : {
       "comment" : "Literal from lifelog/Views/Diary/DiaryEditorView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -12972,6 +14417,7 @@
     },
     "この写真を削除しますか？" : {
       "comment" : "Literal from lifelog/Views/Diary/DiaryPhotoViewerView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -16665,6 +18111,42 @@
         }
       }
     },
+    "タスクを編集" : {
+      "comment" : "Accessibility label for a task row’s edit button.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Edit task"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "タスクを編集"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "작업 편집"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "编辑任务"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "編輯任務"
+          }
+        }
+      }
+    },
     "タスクを追加" : {
       "comment" : "Literal from lifelog/Views/Journal/JournalView.swift",
       "localizations" : {
@@ -17197,7 +18679,6 @@
     },
     "テストデータをクリア" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -17233,7 +18714,6 @@
     },
     "テスト友達リクエストを追加" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -17269,7 +18749,6 @@
     },
     "テスト友達を追加" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -17972,7 +19451,6 @@
     },
     "プレミアム強制ON" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -20444,7 +21922,6 @@
     },
     "リリース時は非表示" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -20976,7 +22453,6 @@
     },
     "ロック画面カレンダー告知を未読に戻す" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -21012,7 +22488,6 @@
     },
     "ロック画面カレンダー告知を表示" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -25976,6 +27451,7 @@
       }
     },
     "写真 %lld" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -26011,6 +27487,7 @@
     },
     "写真がありません" : {
       "comment" : "Literal from lifelog/Views/Diary/DiaryEditorView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -26046,6 +27523,7 @@
     },
     "写真なし" : {
       "comment" : "Literal from lifelog/Views/Journal/ReviewMapView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -26223,6 +27701,7 @@
       }
     },
     "写真は最大%lld枚まで追加できます。⭐️で「今日の一枚」をえらびましょう。現在 %lld/%lld 枚。" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -26400,6 +27879,7 @@
     },
     "写真を紐付け" : {
       "comment" : "Literal from lifelog/Views/Diary/DiaryEditorView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -26575,6 +28055,7 @@
     },
     "写真上限を解放（プレミアム）" : {
       "comment" : "Literal from lifelog/Views/Diary/DiaryEditorView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -29203,6 +30684,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "可以重新查看從製作背景圖片到設定自動更新的完整步驟。"
+          }
+        }
+      }
+    },
+    "壁紙の背景色" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Wallpaper Background Color"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "壁紙の背景色"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "배경화면 배경색"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "壁纸背景颜色"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "桌布背景顏色"
           }
         }
       }
@@ -32552,6 +34067,42 @@
         }
       }
     },
+    "折りたたむ" : {
+      "comment" : "Collapse the overdue task list back to its first three rows.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show less"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "折りたたむ"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "접기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收起"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "收合"
+          }
+        }
+      }
+    },
     "招待リンク" : {
       "comment" : "Literal from lifelog/ContentView.swift",
       "localizations" : {
@@ -32837,7 +34388,6 @@
     },
     "招待リンク受信をテスト" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -34002,7 +35552,6 @@
     },
     "日本 (JP)" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -34179,6 +35728,7 @@
     },
     "日記の写真" : {
       "comment" : "Literal from lifelog/Views/Diary/DiaryEditorView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -34709,6 +36259,7 @@
     },
     "日記写真の上限を3枚から10枚に拡張" : {
       "comment" : "Literal from lifelog/Views/Settings/PremiumPaywallView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -35691,6 +37242,42 @@
         }
       }
     },
+    "期限：%@" : {
+      "comment" : "Original deadline of an overdue task; the date follows the system locale.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Due: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "期限：%@"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기한: %@"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "截止日期：%@"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "截止日期：%@"
+          }
+        }
+      }
+    },
     "期限切れ" : {
       "comment" : "Literal from lifelog/ViewModels/TasksViewModel.swift",
       "localizations" : {
@@ -35722,6 +37309,42 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "已逾期"
+          }
+        }
+      }
+    },
+    "期限切れ（%lld件）" : {
+      "comment" : "Today task group heading with the number of overdue tasks.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overdue (%lld)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "期限切れ（%lld件）"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "기한 지남(%lld개)"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已逾期（%lld项）"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已逾期（%lld項）"
           }
         }
       }
@@ -37357,6 +38980,42 @@
         }
       }
     },
+    "残り%lld件を表示" : {
+      "comment" : "Expand the remaining overdue tasks in the Today task card.",
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show %lld more"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "残り%lld件を表示"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld개 더 보기"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "显示其余%lld项"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "顯示其餘%lld項"
+          }
+        }
+      }
+    },
     "毎年繰り返し" : {
       "comment" : "Literal from lifelog/Views/Settings/HelpView.swift",
       "extractionState" : "stale",
@@ -37955,6 +39614,7 @@
     },
     "海外版の無料プランでは日記写真は%lld枚までです。プレミアムで%lld枚まで追加できます。" : {
       "comment" : "Monetization diary photo limit",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -39792,7 +41452,6 @@
     },
     "米国 (US)" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -41950,6 +43609,7 @@
     },
     "背景色を自由に選ぶ" : {
       "comment" : "Literal from lifelog/Views/Settings/WallpaperCalendarSettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -41985,7 +43645,6 @@
     },
     "自分自身にテスト手紙を送る" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -42057,7 +43716,6 @@
     },
     "自動" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -42340,7 +43998,6 @@
     },
     "英国 (GB)" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -44489,7 +46146,6 @@
     },
     "課金テスト国" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -45648,6 +47304,7 @@
     },
     "追加した写真" : {
       "comment" : "Literal from lifelog/Views/Diary/DiaryEditorView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

@@ -46,6 +46,7 @@ struct HabitDetailView: View {
                 .padding()
             }
         }
+        .appThemeBackground()
         .navigationTitle("習慣詳細")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(isPresented: $showEditor) {

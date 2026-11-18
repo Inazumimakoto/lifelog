@@ -40,6 +40,7 @@ struct ShoppingItemEditorView: View {
                 Button("削除", role: .destructive) { showDeleteConfirmation = true }
             }
         }
+        .appThemeBackground()
         .navigationTitle("商品を編集")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

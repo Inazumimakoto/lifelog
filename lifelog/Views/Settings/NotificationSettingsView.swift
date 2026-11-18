@@ -51,6 +51,7 @@ struct NotificationSettingsView: View {
             // タスクセクション
             taskSection
         }
+        .appThemeBackground()
         .navigationTitle("通知")
         .navigationBarTitleDisplayMode(.inline)
         .task {

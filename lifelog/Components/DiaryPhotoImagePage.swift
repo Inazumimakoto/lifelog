@@ -18,6 +18,16 @@ struct DiaryPhotoImagePage: View {
     @State private var retryAttempt = 0
 
     var body: some View {
+        Group {
+            if PhotoStorage.isVideo(at: path) {
+                DiaryVideoPage(path: path, isActive: isActive, chromeVisible: $chromeVisible)
+            } else {
+                imagePage
+            }
+        }
+    }
+
+    private var imagePage: some View {
         ZStack {
             Color.black
             if let image {

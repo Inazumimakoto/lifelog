@@ -488,6 +488,7 @@ final class JournalViewModel: ObservableObject {
         allowPermissionPrompt: Bool = false
     ) async {
         guard !PersistenceController.isSimulatorDemoMode else { return }
+        guard store.hasLoadedAppState || store.loadAppState() else { return }
         let calendar = Calendar.current
         let anchor = anchorDate ?? monthAnchor
         guard ExternalCalendarSyncPolicy.shouldSync(anchor: anchor,
@@ -511,7 +512,10 @@ final class JournalViewModel: ObservableObject {
         do {
             calendarService.refreshCalendarLinks(store: store)
             let ekEvents = try await calendarService.fetchEvents(from: desiredRange.start, to: desiredRange.end)
-            let external = ExternalCalendarEventMapper(links: store.appState.calendarCategoryLinks).map(ekEvents)
+            let external = ExternalCalendarEventMapper(
+                links: store.appState.calendarCategoryLinks,
+                unavailableLinks: store.appState.unavailableCalendarCategoryLinks
+            ).map(ekEvents)
             store.updateExternalCalendarEvents(external, range: desiredRange)
             store.updateLastCalendarSync(date: Date())
             calendarAccessDenied = false

@@ -24,7 +24,7 @@ Updated: 2026-10-12
 - Free:
   - Habit registration: up to 3 active habits.
   - Countdown registration: up to 1 item.
-  - Diary photo upload: up to 3 photos per day.
+  - Diary photo/video attachments: no count limit.
   - Diary location save: unavailable.
   - Schedule calendar, diary, tasks, health: available.
 - Premium:
@@ -34,7 +34,7 @@ Updated: 2026-10-12
   - Letter to Loved One (shared letters).
   - Lock Screen calendar wallpaper generation.
   - Home Screen and Lock Screen widgets.
-  - Diary photo upload: up to 10 photos per day.
+  - Diary photo/video attachments: no count limit (also available on Free).
   - Diary location save.
   - Unlimited habits/countdowns.
 

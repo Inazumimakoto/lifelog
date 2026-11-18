@@ -15,12 +15,12 @@ struct WallpaperCalendarRenderView: View {
     let isDarkAppearance: Bool
 
     private let gridSpacing: CGFloat = 4
-    private let cellTopPadding: CGFloat = 4
+    private let cellTopPadding = WallpaperCalendarGridStyle.topPadding
     private let cellHorizontalPadding: CGFloat = 0
-    private let cellHeight: CGFloat = 88
-    private let dateRowHeight: CGFloat = 18
-    private let previewRowHeight: CGFloat = 14
-    private let cellRowSpacing: CGFloat = 2
+    private let cellHeight = WallpaperCalendarGridStyle.cellHeight
+    private let dateRowHeight = WallpaperCalendarGridStyle.dateHeight
+    private var previewRowHeight: CGFloat { snapshot.gridStyle.rowHeight }
+    private let cellRowSpacing = WallpaperCalendarGridStyle.rowSpacing
     private let cellCornerRadius: CGFloat = 10
     private let previewRowCornerRadius: CGFloat = 4
 
@@ -92,13 +92,14 @@ struct WallpaperCalendarRenderView: View {
     }
 
     private func dayCell(_ day: WallpaperCalendarDay, width: CGFloat, height: CGFloat) -> some View {
-        VStack(alignment: .leading, spacing: cellRowSpacing) {
+        let isToday = WallpaperCalendarDataProvider.calendar.isDateInToday(day.date)
+        return VStack(alignment: .leading, spacing: cellRowSpacing) {
             dateLabel(for: day.date)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .frame(height: dateRowHeight)
 
             ForEach(0..<day.rowContents.count, id: \.self) { index in
-                calendarCellRowView(day.rowContents[index])
+                calendarCellRowView(day.rowContents[index], isToday: isToday)
             }
 
             Spacer(minLength: 0)
@@ -109,8 +110,8 @@ struct WallpaperCalendarRenderView: View {
         .background(
             RoundedRectangle(cornerRadius: cellCornerRadius)
                 .fill(
-                    WallpaperCalendarDataProvider.calendar.isDateInToday(day.date)
-                    ? Color.accentColor.opacity(0.28)
+                    isToday
+                    ? WallpaperCalendarGridStyle.todayColor.opacity(WallpaperCalendarGridStyle.todayOpacity)
                     : Color.clear
                 )
         )
@@ -130,7 +131,7 @@ struct WallpaperCalendarRenderView: View {
     }
 
     @ViewBuilder
-    private func calendarCellRowView(_ content: WallpaperCalendarCellRowContent) -> some View {
+    private func calendarCellRowView(_ content: WallpaperCalendarCellRowContent, isToday: Bool) -> some View {
         switch content {
         case .multiDayPlaceholder, .empty:
             Color.clear
@@ -138,7 +139,8 @@ struct WallpaperCalendarRenderView: View {
                 .frame(height: previewRowHeight)
         case .overflow(let count):
             Text("+\(count)")
-                .font(.system(size: 9))
+                .font(.system(size: snapshot.gridStyle.preferences.fontSize))
+                .lineLimit(1)
                 .foregroundStyle(secondaryTextColor)
                 .shadow(color: textShadowColor, radius: textShadowRadius, x: 0, y: 1)
                 .padding(.horizontal, 4)
@@ -148,6 +150,7 @@ struct WallpaperCalendarRenderView: View {
             previewBar(
                 title: item.displayTitle(privacyMode: settings.privacyMode),
                 color: item.color,
+                isToday: isToday,
                 leadingRadius: previewRowCornerRadius,
                 trailingRadius: previewRowCornerRadius
             )
@@ -160,10 +163,10 @@ struct WallpaperCalendarRenderView: View {
                 ForEach(week.multiDayLayout.segments) { segment in
                     let spanLength = segment.endColumn - segment.startColumn + 1
                     let x = CGFloat(segment.startColumn) * (cellWidth + gridSpacing) + cellHorizontalPadding
-                    let y = CGFloat(weekIndex) * (cellHeight + gridSpacing) + multiDayOverlayRowY(lane: segment.lane)
+                    let y = CGFloat(weekIndex) * (cellHeight + gridSpacing) + snapshot.gridStyle.rowOffset(segment.lane)
                     let width = CGFloat(spanLength) * cellWidth + CGFloat(max(0, spanLength - 1)) * gridSpacing - cellHorizontalPadding * 2
 
-                    multiDayBar(segment: segment)
+                    multiDayBar(segment: segment, startDate: week.days[segment.startColumn].date)
                         .frame(width: max(0, width), height: previewRowHeight, alignment: .leading)
                         .offset(x: x, y: y)
                 }
@@ -172,33 +175,29 @@ struct WallpaperCalendarRenderView: View {
         .frame(width: width, height: gridHeight(cellHeight: cellHeight), alignment: .topLeading)
     }
 
-    private func multiDayBar(segment: WallpaperCalendarWeekMultiDaySegment) -> some View {
+    private func multiDayBar(segment: WallpaperCalendarWeekMultiDaySegment, startDate: Date) -> some View {
         let leadingRadius: CGFloat = segment.continuesBeforeWeek ? 0 : previewRowCornerRadius
         let trailingRadius: CGFloat = segment.continuesAfterWeek ? 0 : previewRowCornerRadius
-        let title = segment.continuesBeforeWeek ? " " : segment.displayTitle(privacyMode: settings.privacyMode)
+        let title = snapshot.gridStyle.title(for: segment, privacyMode: settings.privacyMode)
 
         return previewBar(
             title: title,
             color: segment.color,
+            isToday: WallpaperCalendarDataProvider.calendar.isDateInToday(startDate),
             leadingRadius: leadingRadius,
             trailingRadius: trailingRadius
         )
-        .opacity(segment.continuesBeforeWeek ? 0.92 : 1)
     }
 
     private func previewBar(title: String,
                             color: Color,
+                            isToday: Bool,
                             leadingRadius: CGFloat,
                             trailingRadius: CGFloat) -> some View {
-        Text(title)
-            .font(.system(size: 9, weight: .medium))
-            .lineLimit(1)
-            .fixedSize(horizontal: true, vertical: false)
-            .allowsTightening(true)
-            .foregroundStyle(primaryTextColor)
-            .shadow(color: textShadowColor, radius: textShadowRadius, x: 0, y: 1)
+        let attributedTitle = snapshot.gridStyle.attributedTitle(title, category: color, settings: settings,
+                                                                 hasPhoto: backgroundImage != nil, isToday: isToday)
+        return WallpaperCalendarEventLabel(title: attributedTitle)
             .padding(.horizontal, 3)
-            .padding(.vertical, 1.5)
             .frame(maxWidth: .infinity, alignment: .leading)
             .frame(height: previewRowHeight)
             .background(
@@ -208,7 +207,7 @@ struct WallpaperCalendarRenderView: View {
                     bottomTrailingRadius: trailingRadius,
                     topTrailingRadius: trailingRadius
                 )
-                .fill(color.opacity(backgroundImage == nil ? 0.30 : 0.62))
+                .fill(color.opacity(snapshot.gridStyle.preferences.opacity))
             )
             .clipped()
     }
@@ -245,13 +244,6 @@ struct WallpaperCalendarRenderView: View {
         return (totalWidth - totalSpacing) / 7
     }
 
-    private func multiDayOverlayRowY(lane: Int) -> CGFloat {
-        cellTopPadding +
-        dateRowHeight +
-        cellRowSpacing +
-        CGFloat(lane) * (previewRowHeight + cellRowSpacing)
-    }
-
     private func dateTextColor(for date: Date) -> Color {
         let weekday = WallpaperCalendarDataProvider.calendar.component(.weekday, from: date)
         if weekday == 1 || weekday == 7 {
@@ -274,6 +266,22 @@ struct WallpaperCalendarRenderView: View {
 
     private var textShadowRadius: CGFloat {
         isDarkAppearance ? 1.2 : 0
+    }
+}
+
+private struct WallpaperCalendarEventLabel: UIViewRepresentable {
+    let title: NSAttributedString
+
+    func makeUIView(context: Context) -> UILabel {
+        let label = UILabel()
+        label.numberOfLines = 1
+        label.lineBreakMode = .byClipping
+        label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return label
+    }
+
+    func updateUIView(_ label: UILabel, context: Context) {
+        label.attributedText = title
     }
 }
 

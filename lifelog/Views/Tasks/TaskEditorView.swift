@@ -104,6 +104,7 @@ struct TaskEditorView: View {
                 }
             }
         }
+        .appThemeBackground()
         .navigationTitle("タスク")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

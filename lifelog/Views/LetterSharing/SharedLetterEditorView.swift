@@ -146,6 +146,7 @@ struct SharedLetterEditorView: View {
                     lastLoginSection
                 }
             }
+            .appThemeBackground()
             .navigationTitle("手紙を書く")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -638,7 +639,7 @@ struct FriendPickerView: View {
                                     
                                     if selectedFriend?.id == friend.id {
                                         Image(systemName: "checkmark.circle.fill")
-                                            .foregroundColor(.blue)
+                                            .foregroundColor(.accentColor)
                                     }
                                 }
                                 .contentShape(Rectangle())
@@ -648,6 +649,7 @@ struct FriendPickerView: View {
                     }
                 }
             }
+            .appThemeBackground()
             .navigationTitle("宛先を選択")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

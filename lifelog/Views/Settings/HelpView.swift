@@ -102,6 +102,7 @@ struct HelpView: View {
                     Text("各画面で表示される「💡ヒント」を再度表示します")
                 }
             }
+            .appThemeBackground()
             .navigationTitle("使い方")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

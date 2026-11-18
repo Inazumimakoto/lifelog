@@ -25,4 +25,22 @@ final class ExternalCalendarEventMapperTests: XCTestCase {
         XCTAssertEqual(mapper.categoryName(for: "empty"), "")
         XCTAssertTrue(mapper.map([]).isEmpty)
     }
+
+    func testUnavailableCalendarEvents_keepSavedCategoryAndHiddenSettingWhileCurrentChoiceWins() {
+        let mapper = ExternalCalendarEventMapper(links: [
+            CalendarCategoryLink(calendarIdentifier: "current", calendarTitle: "Current",
+                                 categoryId: "Updated choice", colorHex: nil)
+        ], unavailableLinks: [
+            CalendarCategoryLink(calendarIdentifier: "missing", calendarTitle: "Missing",
+                                 categoryId: "Saved choice", colorHex: nil),
+            CalendarCategoryLink(calendarIdentifier: "hidden", calendarTitle: "Hidden",
+                                 categoryId: nil, colorHex: nil),
+            CalendarCategoryLink(calendarIdentifier: "current", calendarTitle: "Old snapshot",
+                                 categoryId: "Old choice", colorHex: nil)
+        ])
+
+        XCTAssertEqual(mapper.categoryName(for: "missing"), "Saved choice")
+        XCTAssertNil(mapper.categoryName(for: "hidden"))
+        XCTAssertEqual(mapper.categoryName(for: "current"), "Updated choice")
+    }
 }

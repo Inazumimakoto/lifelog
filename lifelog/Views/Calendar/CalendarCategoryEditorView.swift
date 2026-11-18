@@ -62,6 +62,7 @@ struct CalendarCategoryEditorView: View {
                     }
                 }
             }
+            .appThemeBackground()
             .navigationTitle(category == nil ? LocalizedStringKey("カテゴリを追加") : LocalizedStringKey("カテゴリを編集"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

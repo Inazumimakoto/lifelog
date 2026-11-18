@@ -49,6 +49,7 @@ struct CalendarCategorySettingsView: View {
                 }
             }
         }
+        .appThemeBackground()
         .navigationTitle("カレンダー連携")
         .toolbar {
             ToolbarItem(placement: .navigationBarLeading) {

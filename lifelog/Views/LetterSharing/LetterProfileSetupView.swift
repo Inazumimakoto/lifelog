@@ -9,6 +9,7 @@ import SwiftUI
 
 /// プロフィール設定画面
 struct LetterProfileSetupView: View {
+    @Environment(\.appTheme) private var theme
     @ObservedObject private var authService = AuthService.shared
     @Environment(\.dismiss) private var dismiss
     
@@ -69,8 +70,8 @@ struct LetterProfileSetupView: View {
                                 Spacer()
                                 Image(systemName: "pencil.circle.fill")
                                     .font(.title2)
-                                    .foregroundColor(.blue)
-                                    .background(Circle().fill(.white))
+                                    .foregroundColor(.accentColor)
+                                    .background(Circle().fill(theme?.onAccent ?? .white))
                             }
                         }
                         .frame(width: 120, height: 120)
@@ -97,7 +98,7 @@ struct LetterProfileSetupView: View {
                     HStack {
                         if isSaving {
                             ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .progressViewStyle(CircularProgressViewStyle(tint: theme?.onAccent ?? .white))
                         } else {
                             Text(isEditMode ? "保存" : "始める")
                                 .fontWeight(.semibold)
@@ -106,15 +107,16 @@ struct LetterProfileSetupView: View {
                     .frame(maxWidth: .infinity)
                     .padding()
                     .background(
-                        displayName.isEmpty ? Color.gray : Color.blue
+                        displayName.isEmpty ? Color.gray : Color.accentColor
                     )
-                    .foregroundColor(.white)
+                    .foregroundColor(displayName.isEmpty ? .white : (theme?.onAccent ?? .white))
                     .cornerRadius(12)
                 }
                 .disabled(displayName.isEmpty || isSaving)
                 .padding(.horizontal, 32)
                 .padding(.bottom, 32)
             }
+            .appThemeBackground()
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 if isEditMode {
@@ -152,7 +154,7 @@ struct LetterProfileSetupView: View {
                                 .frame(width: 44, height: 44)
                                 .background(
                                     selectedEmoji == emoji
-                                        ? Color.blue.opacity(0.2)
+                                        ? (theme?.selectionIndicator ?? .blue).opacity(0.2)
                                         : Color.clear
                                 )
                                 .cornerRadius(8)
@@ -162,6 +164,7 @@ struct LetterProfileSetupView: View {
                 }
                 .padding()
             }
+            .appThemeBackground()
             .navigationTitle("アイコンを選択")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

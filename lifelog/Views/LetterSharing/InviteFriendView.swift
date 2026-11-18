@@ -9,6 +9,7 @@ import SwiftUI
 
 /// 友達招待画面
 struct InviteFriendView: View {
+    @Environment(\.appTheme) private var theme
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var pairingService = PairingService.shared
     
@@ -74,8 +75,8 @@ struct InviteFriendView: View {
                             .fontWeight(.semibold)
                             .frame(maxWidth: .infinity)
                             .padding()
-                            .background(Color.blue)
-                            .foregroundColor(.white)
+                            .background(Color.accentColor)
+                            .foregroundColor(theme?.onAccent ?? .white)
                             .cornerRadius(12)
                         }
                         
@@ -83,7 +84,7 @@ struct InviteFriendView: View {
                         Button(action: generateNewLink) {
                             Text("新しいリンクを生成")
                                 .font(.subheadline)
-                                .foregroundColor(.blue)
+                                .foregroundColor(theme?.selectionIndicator ?? .blue)
                         }
                     }
                     .padding(.horizontal, 32)
@@ -93,7 +94,7 @@ struct InviteFriendView: View {
                         HStack {
                             if isGenerating {
                                 ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .progressViewStyle(CircularProgressViewStyle(tint: theme?.onAccent ?? .white))
                             } else {
                                 Image(systemName: "link.badge.plus")
                                 Text("招待リンクを生成")
@@ -102,8 +103,8 @@ struct InviteFriendView: View {
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
+                        .background(Color.accentColor)
+                        .foregroundColor(theme?.onAccent ?? .white)
                         .cornerRadius(12)
                     }
                     .disabled(isGenerating)
@@ -126,6 +127,7 @@ struct InviteFriendView: View {
                     .foregroundColor(.secondary)
                     .padding(.bottom, 32)
             }
+            .appThemeBackground()
             .navigationTitle("友達を招待")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

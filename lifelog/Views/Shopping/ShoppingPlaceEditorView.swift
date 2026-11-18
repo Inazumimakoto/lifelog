@@ -25,6 +25,7 @@ struct ShoppingPlaceEditorView: View {
                 .submitLabel(.done)
                 .onSubmit(save)
         }
+        .appThemeBackground()
         .navigationTitle(place == nil ? String(localized: "購入先を追加") : String(localized: "購入先を編集"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

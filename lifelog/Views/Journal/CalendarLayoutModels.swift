@@ -11,15 +11,10 @@ enum CalendarMode: Equatable {
     case review
 }
 
-enum MultiDayPosition {
-    case none      // Single-day or non-multi-day
-    case start     // First day of multi-day event
-    case middle    // Middle day of multi-day event
-    case end       // Last day of multi-day event
-}
-
 struct CalendarPreviewText: UIViewRepresentable {
     let text: String
+    let fontSize: CGFloat
+    let textColor: UIColor
 
     func makeUIView(context: Context) -> UILabel {
         let label = UILabel()
@@ -27,19 +22,18 @@ struct CalendarPreviewText: UIViewRepresentable {
         label.lineBreakMode = .byClipping
         label.adjustsFontSizeToFitWidth = false
         label.allowsDefaultTighteningForTruncation = true
-        label.textColor = .label
         label.backgroundColor = .clear
         label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
         label.setContentCompressionResistancePriority(.required, for: .vertical)
         label.setContentHuggingPriority(.required, for: .vertical)
-        label.font = Self.previewFont
         return label
     }
 
     func updateUIView(_ uiView: UILabel, context: Context) {
         uiView.text = text
-        uiView.font = Self.previewFont
+        uiView.font = Self.baseFont.withSize(fontSize)
+        uiView.textColor = textColor
     }
 
     @available(iOS 16.0, *)
@@ -50,7 +44,11 @@ struct CalendarPreviewText: UIViewRepresentable {
         return CGSize(width: proposal.width ?? size.width, height: size.height)
     }
 
-    private static let previewFont: UIFont = {
+    static func rowHeight(for fontSize: CGFloat) -> CGFloat {
+        ceil(baseFont.withSize(fontSize).lineHeight) + 3
+    }
+
+    private static let baseFont: UIFont = {
         let baseFont = UIFont.systemFont(ofSize: 9, weight: .medium)
         let descriptor = baseFont.fontDescriptor
         let traits = (descriptor.object(forKey: .traits) as? [UIFontDescriptor.TraitKey: Any]) ?? [:]
@@ -61,41 +59,26 @@ struct CalendarPreviewText: UIViewRepresentable {
     }()
 }
 
-struct DayPreviewItem: Identifiable {
-    enum Kind {
-        case event
-        case task
-    }
-    let id: String
-    let title: String
-    let color: Color
-    let timeText: String?
-    let kind: Kind
+/// Month, week and settings preview use the same fixed-size day cells (requirements §4.2).
+struct CalendarGridMetrics {
+    static let cellHeight: CGFloat = 88
+    static let dateHeight: CGFloat = 22
+    static let topPadding: CGFloat = 4
+    static let rowSpacing: CGFloat = 2
+    static let gridSpacing: CGFloat = 4
 
-    // Multi-day event info (nil for tasks or when not needed)
-    let eventStartDate: Date?
-    let eventEndDate: Date?
+    let rowHeight: CGFloat
 
-    var isMultiDayEvent: Bool {
-        guard kind == .event, let start = eventStartDate, let end = eventEndDate else { return false }
-        let calendar = Calendar.current
-        return CalendarPreviewLayout.isMultiDayEvent(start: start, end: end, calendar: calendar)
+    init(fontSize: CGFloat) {
+        rowHeight = CalendarPreviewText.rowHeight(for: fontSize)
     }
 
-    func multiDayPosition(on date: Date) -> MultiDayPosition {
-        guard isMultiDayEvent, let start = eventStartDate, let end = eventEndDate else {
-            return .none
-        }
-        let calendar = Calendar.current
-        let isStart = calendar.isDate(date, inSameDayAs: start)
-        let adjustedEnd = calendar.date(byAdding: .second, value: -1, to: end) ?? end
-        let isEnd = calendar.isDate(date, inSameDayAs: adjustedEnd)
+    var laneCount: Int {
+        let available = Self.cellHeight - Self.topPadding - Self.dateHeight
+        return min(4, Int(available / (rowHeight + Self.rowSpacing)))
+    }
 
-        if isStart { return .start }
-        if isEnd { return .end }
-        return .middle
+    func rowOffset(for lane: Int) -> CGFloat {
+        Self.topPadding + Self.dateHeight + Self.rowSpacing + CGFloat(lane) * (rowHeight + Self.rowSpacing)
     }
 }
-
-
-typealias CalendarCellRowContent = CalendarPreviewLayout.Row<DayPreviewItem>

@@ -2,6 +2,7 @@ import SwiftUI
 
 /// The entire row toggles purchase state; editing stays in the trailing menu.
 struct ShoppingItemRow: View {
+    @Environment(\.appTheme) private var theme
     let item: ShoppingItem
     let isChecked: Bool
     let placeName: String?
@@ -16,7 +17,8 @@ struct ShoppingItemRow: View {
                     AnimatedCheckmark(isCompleted: isChecked,
                                       color: .accentColor,
                                       size: 24,
-                                      providesHapticFeedback: false)
+                                      providesHapticFeedback: false,
+                                      foregroundColor: theme?.onAccent)
                         .accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 4) {
                         Text(verbatim: item.title)

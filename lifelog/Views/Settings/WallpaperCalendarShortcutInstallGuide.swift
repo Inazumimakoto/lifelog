@@ -104,6 +104,7 @@ struct WallpaperCalendarShortcutInstallGuide<
                     }
                 }
             }
+            .appThemeBackground()
             .navigationTitle("ロック画面カレンダー")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -356,6 +357,7 @@ struct WallpaperCalendarShortcutInstallGuide<
                         manualGuide()
                             .padding(20)
                     }
+                    .appThemeBackground()
                     .navigationTitle("手動で設定")
                     .navigationBarTitleDisplayMode(.inline)
                 } label: {

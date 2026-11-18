@@ -39,6 +39,7 @@ struct LocationSearchView: View {
                 }
             }
             .searchable(text: $service.query, prompt: "地名や施設を検索")
+            .appThemeBackground()
             .navigationTitle("場所を検索")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {

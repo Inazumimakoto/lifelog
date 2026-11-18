@@ -8,6 +8,7 @@
 import SwiftUI
 
 struct FloatingButton: View {
+    @Environment(\.appTheme) private var theme
     let iconName: String
     let menuContent: () -> AnyView
     
@@ -22,7 +23,7 @@ struct FloatingButton: View {
         } label: {
             Image(systemName: iconName)
                 .font(.title2.weight(.semibold))
-                .foregroundStyle(.white)
+                .foregroundStyle(theme?.onAccent ?? .white)
                 .frame(width: 56, height: 56)
                 .background(Color.accentColor)
                 .clipShape(Circle())

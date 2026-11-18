@@ -40,6 +40,7 @@ struct CalendarCategoryManagementView: View {
                 }
             }
         }
+        .appThemeBackground()
         .navigationTitle("calendar.categories.title")
         .navigationBarTitleDisplayMode(.inline)
         .sheet(item: $editor) { destination in

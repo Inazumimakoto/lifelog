@@ -68,6 +68,7 @@ struct ShoppingPlacesView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .appThemeBackground()
         .navigationTitle("購入先を管理")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {

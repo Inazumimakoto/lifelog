@@ -22,10 +22,11 @@ enum NotificationType: String {
 }
 
 /// ローカル通知を管理するサービス
+@MainActor
 class NotificationService {
     static let shared = NotificationService()
     
-    private let center = UNUserNotificationCenter.current()
+    private let requestDispatcher: NotificationRequestDispatcher
     private let referenceDate: () -> Date
     private let requestHandler: ((UNNotificationRequest) -> Void)?
     private let cancellationHandler: (([String]) -> Void)?
@@ -33,10 +34,12 @@ class NotificationService {
 
     init(referenceDate: @escaping () -> Date = { Date() },
          requestHandler: ((UNNotificationRequest) -> Void)? = nil,
-         cancellationHandler: (([String]) -> Void)? = nil) {
+         cancellationHandler: (([String]) -> Void)? = nil,
+         requestDispatcher: NotificationRequestDispatcher = NotificationRequestDispatcher()) {
         self.referenceDate = referenceDate
         self.requestHandler = requestHandler
         self.cancellationHandler = cancellationHandler
+        self.requestDispatcher = requestDispatcher
     }
 
     // This service has no actor-bound teardown. Avoid Swift 6.2's crashing
@@ -48,7 +51,7 @@ class NotificationService {
     /// 通知許可をリクエスト
     func requestAuthorization(registerForRemoteNotifications: Bool = false) async -> Bool {
         do {
-            let granted = try await center.requestAuthorization(options: [.alert, .sound, .badge])
+            let granted = try await requestDispatcher.requestAuthorization()
             if granted && registerForRemoteNotifications {
                 await MainActor.run {
                     UIApplication.shared.registerForRemoteNotifications()
@@ -63,8 +66,7 @@ class NotificationService {
     
     /// 現在の通知許可状態を取得
     func getAuthorizationStatus() async -> UNAuthorizationStatus {
-        let settings = await center.notificationSettings()
-        return settings.authorizationStatus
+        await requestDispatcher.authorizationStatus()
     }
     
     // MARK: - 予定リマインダー
@@ -187,9 +189,6 @@ class NotificationService {
     
     /// 日記リマインダーをスケジュール（翌日以降の次の通知時刻）
     func scheduleDiaryReminder(hour: Int, minute: Int) {
-        // まずキャンセル
-        cancelDiaryReminder()
-        
         let calendar = Calendar.current
         let now = referenceDate()
         
@@ -229,8 +228,6 @@ class NotificationService {
     func scheduleTodayOverviewReminder(fireDate: Date, body: String) {
         guard fireDate > referenceDate() else { return }
 
-        cancelTodayOverviewReminder()
-
         let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fireDate)
         scheduleCalendarNotification(identifier: todayOverviewReminderIdentifier,
                                      title: String(localized: "今日の予定・タスク"), body: body,
@@ -245,28 +242,47 @@ class NotificationService {
 
     // MARK: - 共通の通知作成
 
+    /// Keep letter opening/deletion ordered after any queued seal notification.
+    func cancelLetterReminder(letterID: UUID) {
+        cancel(identifier: "letter-\(letterID.uuidString)")
+    }
+
     /// 通知ごとの日時判定・キャンセル方針を保ったまま、要求の作成と送信を共通化する。
     func scheduleCalendarNotification(identifier: String, title: String, body: String,
                                       components: DateComponents, repeats: Bool = false,
                                       userInfo: [AnyHashable: Any] = [:], errorMessage: String) {
+        let request = calendarNotificationRequest(identifier: identifier, title: title, body: body,
+                                                  components: components, repeats: repeats, userInfo: userInfo)
+
+        if let requestHandler {
+            injectedPendingIdentifiers.insert(identifier)
+            requestHandler(request)
+        } else {
+            requestDispatcher.submit(request, errorMessage: errorMessage)
+        }
+    }
+
+    /// Construct a desired calendar plan without submitting it. Reconciliation
+    /// preserves identical OS reservations instead of canceling a whole plan.
+    func calendarReminderRequest(type: NotificationType, key: String, title: String,
+                                 reminderDate: Date) -> UNNotificationRequest? {
+        guard [.event, .externalEvent, .recurringEvent].contains(type), reminderDate > referenceDate() else { return nil }
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: reminderDate)
+        return calendarNotificationRequest(identifier: identifier(for: type, key: key),
+                                            title: String(localized: "予定のリマインダー"), body: title,
+                                            components: components)
+    }
+
+    private func calendarNotificationRequest(identifier: String, title: String, body: String,
+                                              components: DateComponents, repeats: Bool = false,
+                                              userInfo: [AnyHashable: Any] = [:]) -> UNNotificationRequest {
         let content = UNMutableNotificationContent()
         content.title = title
         content.body = body
         content.sound = .default
         content.userInfo = userInfo
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: repeats)
-        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-
-        if let requestHandler {
-            injectedPendingIdentifiers.insert(identifier)
-            requestHandler(request)
-        } else {
-            center.add(request) { error in
-                if let error {
-                    AppLogger.notifications.error("\(errorMessage): \(error)")
-                }
-            }
-        }
+        return UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
     }
 
     private func scheduleOneTimeReminder(identifier: String, title: String, body: String,
@@ -285,8 +301,8 @@ class NotificationService {
         injectedPendingIdentifiers.remove(identifier)
         if let cancellationHandler {
             cancellationHandler([identifier])
-        } else {
-            center.removePendingNotificationRequests(withIdentifiers: [identifier])
+        } else if requestHandler == nil {
+            requestDispatcher.cancel(identifiers: [identifier])
         }
     }
     
@@ -310,17 +326,31 @@ class NotificationService {
             completion?()
             return
         }
-        center.getPendingNotificationRequests { requests in
-            let identifiers = requests
-                .filter { request in prefixes.contains { request.identifier.hasPrefix($0) } }
-                .map { $0.identifier }
-            DispatchQueue.main.async {
-                // Validate before cancellation too: an older asynchronous read
-                // must not remove requests that a newer plan has just replaced.
-                guard shouldCancel() else { return }
-                self.center.removePendingNotificationRequests(withIdentifiers: identifiers)
-                completion?()
+        requestDispatcher.reconcile(prefixes: prefixes, requests: nil,
+                                    validation: NotificationMutationGuard(shouldApply: shouldCancel, completion: completion))
+    }
+
+    /// Apply a complete plan for these types, preserving unrelated reminders.
+    /// The predicate is checked after the asynchronous OS read, on MainActor.
+    func reconcileReminders(ofTypes types: [NotificationType], requests: [UNNotificationRequest],
+                             shouldApply: @escaping () -> Bool = { true }) {
+        let prefixes = types.map { $0.rawValue + "-" }
+        let desired = requests.filter { request in prefixes.contains { request.identifier.hasPrefix($0) } }
+        if let requestHandler {
+            guard shouldApply() else { return }
+            let desiredIDs = Set(desired.map(\.identifier))
+            let obsolete = injectedPendingIdentifiers.filter { identifier in
+                prefixes.contains { identifier.hasPrefix($0) } && !desiredIDs.contains(identifier)
             }
+            injectedPendingIdentifiers.subtract(obsolete)
+            if !obsolete.isEmpty { cancellationHandler?(Array(obsolete)) }
+            for request in desired {
+                injectedPendingIdentifiers.insert(request.identifier)
+                requestHandler(request)
+            }
+            return
         }
+        requestDispatcher.reconcile(prefixes: prefixes, requests: desired,
+                                    validation: NotificationMutationGuard(shouldApply: shouldApply))
     }
 }

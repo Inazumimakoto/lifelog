@@ -212,6 +212,7 @@ private enum WallpaperCalendarAnnouncementDemo {
     static func makeSnapshot(settings: WallpaperCalendarSettings,
                              now: Date = Date()) -> WallpaperCalendarSnapshot {
         let calendar = WallpaperCalendarDataProvider.calendar
+        let gridStyle = WallpaperCalendarGridStyle(preferences: CalendarDisplayPreferences())
         let today = calendar.startOfDay(for: now)
         let rangeStart = startOfWeek(containing: today, calendar: calendar)
         let weekCount = settings.effectiveWeekCount.rawValue
@@ -238,7 +239,7 @@ private enum WallpaperCalendarAnnouncementDemo {
                 return WallpaperCalendarDay(
                     date: date,
                     previews: items,
-                    rowContents: rowContents(for: items)
+                    rowContents: rowContents(for: items, itemLimit: gridStyle.itemLimit)
                 )
             }
 
@@ -254,6 +255,7 @@ private enum WallpaperCalendarAnnouncementDemo {
             rangeStart: rangeStart,
             rangeEndExclusive: rangeEndExclusive,
             weekdaySymbols: CalendarWeekStart.current.weekdaySymbols(in: calendar),
+            gridStyle: gridStyle,
             weeks: weeks,
             fingerprintPayload: WallpaperCalendarFingerprintPayload(
                 rangeStart: rangeStart.timeIntervalSince1970,
@@ -303,13 +305,8 @@ private enum WallpaperCalendarAnnouncementDemo {
         }
     }
 
-    private static func rowContents(for items: [WallpaperCalendarItem]) -> [WallpaperCalendarCellRowContent] {
-        var rows = Array(repeating: WallpaperCalendarCellRowContent.empty, count: WallpaperCalendarDataProvider.itemLimit)
-        let visibleCount = min(items.count, rows.count)
-        for index in 0..<visibleCount {
-            rows[index] = .item(items[index])
-        }
-        return rows
+    private static func rowContents(for items: [WallpaperCalendarItem], itemLimit: Int) -> [WallpaperCalendarCellRowContent] {
+        CalendarPreviewLayout.rows(regularItems: items, itemLimit: itemLimit, multiDayState: .empty)
     }
 
     private static func startOfWeek(containing date: Date, calendar: Calendar) -> Date {

@@ -1,6 +1,8 @@
 import Foundation
 import ImageIO
 import UIKit
+import AVFoundation
+import UniformTypeIdentifiers
 
 /// Persistent previews belong to the diary, including after an original moves to iCloud.
 /// See docs/diary-photo-icloud-sync.md. This type has no network or account side effects.
@@ -28,6 +30,27 @@ nonisolated struct DiaryPhotoFiles: Sendable {
         try write(data, to: fullImageURL(for: path))
     }
 
+    func copyOriginal(from source: URL, at path: String) throws {
+        try validate(path)
+        let destination = fullImageURL(for: path)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let staging = directory.appendingPathComponent(".import-" + UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: staging) }
+        try FileManager.default.copyItem(at: source, to: staging)
+        try FileManager.default.setAttributes(
+            [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: staging.path)
+        if FileManager.default.fileExists(atPath: destination.path) {
+            _ = try FileManager.default.replaceItemAt(destination, withItemAt: staging)
+        } else {
+            try FileManager.default.moveItem(at: staging, to: destination)
+        }
+    }
+
+    static func isVideo(at path: String) -> Bool {
+        guard let type = UTType(filenameExtension: (path as NSString).pathExtension) else { return false }
+        return type.conforms(to: .movie)
+    }
+
     func writeThumbnail(_ data: Data, at path: String) throws {
         try validate(path)
         guard isImage(data) else { throw StorageError.invalidImage }
@@ -37,6 +60,19 @@ nonisolated struct DiaryPhotoFiles: Sendable {
     func prepareThumbnail(at path: String) throws {
         try validate(path)
         if hasValidThumbnail(at: path) { return }
+        if Self.isVideo(at: path) {
+            // All callers run file preparation off the main thread. Keep this
+            // synchronous entry point for cloud eviction's atomic file operation.
+            let generator = AVAssetImageGenerator(asset: AVURLAsset(url: fullImageURL(for: path)))
+            generator.appliesPreferredTrackTransform = true
+            generator.maximumSize = CGSize(width: Self.thumbnailPixelSize, height: Self.thumbnailPixelSize)
+            let image = try generator.copyCGImage(at: .zero, actualTime: nil)
+            guard let data = UIImage(cgImage: image).jpegData(compressionQuality: 0.8) else {
+                throw StorageError.invalidImage
+            }
+            try writeThumbnail(data, at: path)
+            return
+        }
         guard let source = CGImageSourceCreateWithURL(fullImageURL(for: path) as CFURL,
                 [kCGImageSourceShouldCache: false] as CFDictionary),
               let image = CGImageSourceCreateThumbnailAtIndex(source, 0, [

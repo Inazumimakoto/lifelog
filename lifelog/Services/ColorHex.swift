@@ -15,7 +15,7 @@ import UIKit
 /// (#F00 → FF0000、#ABC → AABBCC)。
 /// 先頭の "#" や前後の記号・空白は許容するが、桁数や16進として
 /// 不正な入力は nil を返す(呼び出し側は accentColor 等へフォールバックする)。
-private func normalizedHexComponents(from hex: String) -> (r: Double, g: Double, b: Double)? {
+private func rgbValue(from hex: String) -> UInt32? {
     // alphanumerics 以外(# や空白)を取り除いてから桁数で分岐する。
     let sanitized = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
 
@@ -31,7 +31,15 @@ private func normalizedHexComponents(from hex: String) -> (r: Double, g: Double,
         return nil
     }
 
-    guard let value = UInt64(expanded, radix: 16) else { return nil }
+    return UInt32(expanded, radix: 16)
+}
+
+func normalizedRGBHex(_ hex: String) -> String? {
+    rgbValue(from: hex).map { String(format: "#%06X", $0) }
+}
+
+private func normalizedHexComponents(from hex: String) -> (r: Double, g: Double, b: Double)? {
+    guard let value = rgbValue(from: hex) else { return nil }
     let r = Double((value >> 16) & 0xFF) / 255
     let g = Double((value >> 8) & 0xFF) / 255
     let b = Double(value & 0xFF) / 255

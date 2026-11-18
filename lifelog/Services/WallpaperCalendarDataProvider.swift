@@ -14,6 +14,7 @@ struct WallpaperCalendarSnapshot {
     let rangeStart: Date
     let rangeEndExclusive: Date
     let weekdaySymbols: [String]
+    let gridStyle: WallpaperCalendarGridStyle
     let weeks: [WallpaperCalendarWeek]
     let fingerprintPayload: WallpaperCalendarFingerprintPayload
 
@@ -125,9 +126,19 @@ struct WallpaperCalendarFingerprintPayload: Codable {
 
 @MainActor
 final class WallpaperCalendarDataProvider {
-    nonisolated deinit {}
+    private let displayDefaults: UserDefaults
+    private let modelContext: @MainActor () -> ModelContext
+    private let externalDefaults: @MainActor () -> UserDefaults?
 
-    static let itemLimit = 4
+    init(displayDefaults: UserDefaults = .standard,
+         modelContext: @escaping @MainActor () -> ModelContext = { PersistenceController.shared.container.mainContext },
+         externalDefaults: @escaping @MainActor () -> UserDefaults? = { UserDefaults(suiteName: PersistenceController.appGroupIdentifier) }) {
+        self.displayDefaults = displayDefaults
+        self.modelContext = modelContext
+        self.externalDefaults = externalDefaults
+    }
+
+    nonisolated deinit {}
 
     static var calendar: Calendar {
         var calendar = CalendarWeekStart.current.calendar
@@ -138,6 +149,7 @@ final class WallpaperCalendarDataProvider {
     func makeSnapshot(settings: WallpaperCalendarSettings,
                       now: Date = Date()) -> WallpaperCalendarSnapshot {
         let calendar = Self.calendar
+        let gridStyle = WallpaperCalendarGridStyle(preferences: CalendarDisplayPreferences(defaults: displayDefaults))
         let rangeStart = startOfWeek(containing: now, calendar: calendar)
         let weekCount = settings.effectiveWeekCount.rawValue
         let rangeEndExclusive = calendar.date(
@@ -151,13 +163,15 @@ final class WallpaperCalendarDataProvider {
         let eventsByDay = eventsByDay(events, rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive, calendar: calendar)
         let tasksByDay = tasksByDay(tasks, rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive, calendar: calendar)
         let dates = dates(from: rangeStart, count: weekCount * 7, calendar: calendar)
-        let weeks = buildWeeks(dates: dates, eventsByDay: eventsByDay, tasksByDay: tasksByDay, calendar: calendar)
+        let weeks = buildWeeks(dates: dates, eventsByDay: eventsByDay, tasksByDay: tasksByDay,
+                               itemLimit: gridStyle.itemLimit, calendar: calendar)
 
         return WallpaperCalendarSnapshot(
             generatedAt: now,
             rangeStart: rangeStart,
             rangeEndExclusive: rangeEndExclusive,
             weekdaySymbols: weekdaySymbols(calendar: calendar),
+            gridStyle: gridStyle,
             weeks: weeks,
             fingerprintPayload: makeFingerprintPayload(
                 rangeStart: rangeStart,
@@ -173,7 +187,7 @@ final class WallpaperCalendarDataProvider {
         let externalEvents = fetchExternalEvents(from: rangeStart, to: rangeEndExclusive)
         do {
             return try CalendarEventStorageQuery.events(
-                in: PersistenceController.shared.container.mainContext,
+                in: modelContext(),
                 from: rangeStart,
                 to: rangeEndExclusive,
                 externalEvents: externalEvents,
@@ -186,14 +200,13 @@ final class WallpaperCalendarDataProvider {
 
     private func fetchExternalEvents(from rangeStart: Date, to rangeEndExclusive: Date) -> [CalendarEvent] {
         // 外部イベントの読み出しとデコードは共有 EventQuerying に集約。
-        let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier)
-        let events = EventQuerying.loadExternalEvents(from: defaults)
+        let events = EventQuerying.loadExternalEvents(from: externalDefaults())
         return EventQuerying.overlapping(events, rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive, calendar: Self.calendar)
     }
 
     private func fetchTasks(from rangeStart: Date, to rangeEndExclusive: Date) -> [Task] {
         do {
-            let context = PersistenceController.shared.container.mainContext
+            let context = modelContext()
             let descriptor = FetchDescriptor<SDTask>()
             return try context.fetch(descriptor)
                 .map {
@@ -263,6 +276,7 @@ final class WallpaperCalendarDataProvider {
     private func buildWeeks(dates: [Date],
                             eventsByDay: [Date: [CalendarEvent]],
                             tasksByDay: [Date: [Task]],
+                            itemLimit: Int,
                             calendar: Calendar) -> [WallpaperCalendarWeek] {
         stride(from: 0, to: dates.count, by: 7).compactMap { startIndex in
             let endIndex = min(startIndex + 7, dates.count)
@@ -272,7 +286,7 @@ final class WallpaperCalendarDataProvider {
             let multiDayLayout = buildWeekMultiDayLayout(
                 weekDates: weekDates,
                 events: uniqueMultiDayEvents,
-                itemLimit: Self.itemLimit,
+                itemLimit: itemLimit,
                 calendar: calendar
             )
 
@@ -286,7 +300,7 @@ final class WallpaperCalendarDataProvider {
                 let state = multiDayLayout.dayStates.indices.contains(index) ? multiDayLayout.dayStates[index] : .empty
                 let rows = calendarCellRowContents(
                     previews: previews,
-                    itemLimit: Self.itemLimit,
+                    itemLimit: itemLimit,
                     multiDayState: state
                 )
                 return WallpaperCalendarDay(date: dayStart, previews: previews, rowContents: rows)

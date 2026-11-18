@@ -61,6 +61,7 @@ struct HealthHistoryView: View {
             }
             .padding()
         }
+        .appThemeBackground()
         .navigationTitle(metric.title)
         .navigationBarTitleDisplayMode(.inline)
         .task {

@@ -167,6 +167,7 @@ struct CalendarEventEditorView: View {
         }
         .environment(\.calendar, formState.calendar)
         .environment(\.timeZone, formState.calendar.timeZone)
+        .appThemeBackground()
         .navigationTitle(originalEvent == nil ? "予定を追加" : "予定を編集")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

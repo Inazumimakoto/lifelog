@@ -15,6 +15,7 @@ struct AnimatedCheckmark: View {
     let color: Color
     var size: CGFloat = 24
     var providesHapticFeedback = true
+    var foregroundColor: Color?
     
     @Environment(\.colorScheme) private var colorScheme
     @State private var circleScale: CGFloat = 0
@@ -24,7 +25,7 @@ struct AnimatedCheckmark: View {
     /// デバイスのカラースキームに応じてチェックマークの色を決定
     private var checkmarkColor: Color {
         // ダークモードなら黒、ライトモードなら白
-        colorScheme == .dark ? .black : .white
+        foregroundColor ?? (colorScheme == .dark ? .black : .white)
     }
     
     var body: some View {

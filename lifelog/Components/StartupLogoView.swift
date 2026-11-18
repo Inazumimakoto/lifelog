@@ -1,11 +1,13 @@
 import SwiftUI
 
-/// Matches StartupLaunchScreen.storyboard, then opens the actual UI through the blue dot.
+/// Uses the launch storyboard's logo geometry, with the app's current theme.
 /// See docs/ui-guidelines.md §起動時の表示.
 struct StartupLogoView: View {
     var onComplete: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.appTheme) private var theme
+    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
     @State private var hasStarted = false
     @State private var hasCompleted = false
@@ -15,15 +17,18 @@ struct StartupLogoView: View {
     @State private var revealProgress: CGFloat = 0
     @State private var overlayOpacity: Double = 1
 
-    // The transparent launch artwork preserves the approved 1024pt logo layout.
-    // Separate the stem and dot so the static launch handoff keeps its shape.
     private let logoSize: CGFloat = 200
-    private let artworkSize: CGFloat = 1024
-    private let dotBounds = CGRect(x: 572, y: 559, width: 204, height: 204)
 
     var body: some View {
+        let scheme = theme?.colorScheme ?? colorScheme
+        let systemLogo = scheme == .dark ? AppIconPalette.primaryDark : AppIconPalette.primaryLight
+        let stem = theme == nil ? AppTheme.color(hex: systemLogo.stemHex) : (scheme == .dark ? Color.white : Color.black)
+        let accent = theme.map { $0.accent ?? Color(uiColor: .systemBlue) } ?? AppTheme.color(hex: systemLogo.accentHex)
+        let outline = theme?.selectionIndicator ?? accent
+        let scale = logoSize / AppIconArtwork.dimension
+        let transform = CGAffineTransform(scaleX: scale, y: scale)
         GeometryReader { geometry in
-            let bounds = scaledDotBounds
+            let bounds = AppIconArtwork.dotBounds.applying(transform)
             let dotPosition = CGPoint(
                 x: geometry.size.width / 2 + bounds.midX - logoSize / 2,
                 y: geometry.size.height / 2 + bounds.midY - logoSize / 2
@@ -34,22 +39,17 @@ struct StartupLogoView: View {
             ) + 2
 
             ZStack {
-                Color("LaunchBackground")
+                (theme?.background ?? Color("LaunchBackground"))
 
-                logo
-                    .mask {
-                        Path { path in
-                            path.addRect(CGRect(origin: .zero, size: CGSize(width: logoSize, height: logoSize)))
-                            path.addEllipse(in: bounds)
-                        }
-                        .fill(style: FillStyle(eoFill: true))
-                    }
+                Path(AppIconArtwork.stem).applying(transform)
+                    .fill(stem)
+                    .frame(width: logoSize, height: logoSize)
                     .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
 
-                logo
-                    .offset(x: logoSize / 2 - bounds.midX, y: logoSize / 2 - bounds.midY)
+                Circle()
+                    .fill(accent)
+                    .overlay { Circle().strokeBorder(outline, lineWidth: 1) }
                     .frame(width: bounds.width, height: bounds.height)
-                    .clipShape(Circle())
                     .scaleEffect(x: dotScale.width, y: dotScale.height, anchor: .bottom)
                     .position(x: dotPosition.x, y: dotPosition.y + dotOffset)
             }
@@ -60,18 +60,20 @@ struct StartupLogoView: View {
                 center: dotPosition,
                 initialRadius: bounds.width / 2,
                 finalRadius: revealRadius,
+                rimColor: outline,
                 progress: revealProgress,
                 isRevealing: isRevealing
             ))
             .opacity(overlayOpacity)
             .clipped()
             .task {
-                // Let the matching static state enter the view tree first.
+                // Let the themed first frame enter the view tree before animating.
                 await _Concurrency.Task.yield()
                 guard !_Concurrency.Task.isCancelled else { return }
                 startAnimation()
             }
         }
+        .environment(\.colorScheme, scheme)
         .ignoresSafeArea()
         .accessibilityHidden(true)
         .allowsHitTesting(false)
@@ -80,23 +82,6 @@ struct StartupLogoView: View {
                 complete()
             }
         }
-    }
-
-    private var logo: some View {
-        Image("LaunchLogo")
-            .resizable()
-            .interpolation(.high)
-            .frame(width: logoSize, height: logoSize)
-    }
-
-    private var scaledDotBounds: CGRect {
-        let scale = logoSize / artworkSize
-        return CGRect(
-            x: dotBounds.minX * scale,
-            y: dotBounds.minY * scale,
-            width: dotBounds.width * scale,
-            height: dotBounds.height * scale
-        )
     }
 
     private func startAnimation() {
@@ -191,6 +176,7 @@ struct StartupLogoView: View {
         var center: CGPoint
         var initialRadius: CGFloat
         var finalRadius: CGFloat
+        var rimColor: Color
         var progress: CGFloat
         var isRevealing: Bool
 
@@ -211,7 +197,7 @@ struct StartupLogoView: View {
                 .overlay {
                     if isRevealing {
                         Circle()
-                            .stroke(Color(red: 0, green: 0.5, blue: 1).opacity(0.75), lineWidth: 1.5)
+                            .stroke(rimColor.opacity(0.75), lineWidth: 1.5)
                             .frame(width: radius * 2, height: radius * 2)
                             .position(center)
                             .shadow(color: .black.opacity(0.14), radius: 3, y: 1)

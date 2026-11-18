@@ -23,6 +23,7 @@ struct FriendRequestsView: View {
                     requestListView
                 }
             }
+            .appThemeBackground()
             .navigationTitle("友達リクエスト")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

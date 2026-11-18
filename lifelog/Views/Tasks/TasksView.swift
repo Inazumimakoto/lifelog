@@ -61,6 +61,7 @@ struct TasksView: View {
             }
         }
         .listStyle(.insetGrouped)
+        .appThemeBackground()
         .navigationTitle("タスク")
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {

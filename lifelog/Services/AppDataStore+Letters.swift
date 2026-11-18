@@ -5,7 +5,6 @@
 
 import Foundation
 import SwiftData
-import UserNotifications
 import os
 
 extension AppDataStore {
@@ -94,7 +93,7 @@ extension AppDataStore {
         }
 
         // 通知をキャンセル
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["letter-\(letterID.uuidString)"])
+        NotificationService.shared.cancelLetterReminder(letterID: letterID)
     }
 
     func deleteLetter(_ letterID: UUID) {
@@ -107,7 +106,7 @@ extension AppDataStore {
         }
 
         // 通知をキャンセル
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: ["letter-\(letterID.uuidString)"])
+        NotificationService.shared.cancelLetterReminder(letterID: letterID)
     }
 
     private func scheduleLetterNotification(_ letter: Letter) {

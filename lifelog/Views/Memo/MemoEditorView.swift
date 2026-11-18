@@ -41,6 +41,7 @@ struct MemoEditorView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .padding()
+        .appThemeBackground()
         .navigationTitle("メモ")
         .ignoresSafeArea(.keyboard, edges: .bottom)
         .scrollDismissesKeyboard(.never)

@@ -20,6 +20,7 @@ struct InviteSignInFlowView: View {
                                 subtitle: "大切な人への手紙を始めましょう",
                                 onSignInComplete: completeSignIn,
                                 onCancel: cancel)
+            .appThemeBackground()
             .navigationTitle("大切な人への手紙")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -54,6 +55,7 @@ struct InviteSignInFlowView: View {
 
 /// 招待フロー用プロフィール設定
 struct InviteProfileSetupView: View {
+    @Environment(\.appTheme) private var theme
     @Environment(\.dismiss) private var dismiss
     @ObservedObject private var authService = AuthService.shared
     
@@ -82,7 +84,7 @@ struct InviteProfileSetupView: View {
                                     .font(.system(size: 32))
                                     .padding(8)
                                     .background(
-                                        selectedEmoji == emoji ? Color.blue.opacity(0.2) : Color.clear
+                                        selectedEmoji == emoji ? (theme?.selectionIndicator ?? .blue).opacity(0.2) : Color.clear
                                     )
                                     .cornerRadius(12)
                                     .onTapGesture {
@@ -115,7 +117,7 @@ struct InviteProfileSetupView: View {
                     HStack {
                         if isSaving {
                             ProgressView()
-                                .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                .progressViewStyle(CircularProgressViewStyle(tint: theme?.onAccent ?? .white))
                         } else {
                             Text("始める")
                         }
@@ -123,14 +125,15 @@ struct InviteProfileSetupView: View {
                     .fontWeight(.semibold)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(displayName.isEmpty ? Color.gray : Color.blue)
-                    .foregroundColor(.white)
+                    .background(displayName.isEmpty ? Color.gray : Color.accentColor)
+                    .foregroundColor(displayName.isEmpty ? .white : (theme?.onAccent ?? .white))
                     .cornerRadius(12)
                 }
                 .disabled(displayName.isEmpty || isSaving)
                 .padding(.horizontal, 32)
                 .padding(.bottom, 32)
             }
+            .appThemeBackground()
             .navigationTitle("プロフィール設定")
             .navigationBarTitleDisplayMode(.inline)
         }

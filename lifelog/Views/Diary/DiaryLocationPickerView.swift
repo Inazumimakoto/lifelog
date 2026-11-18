@@ -214,6 +214,7 @@ struct DiaryLocationPickerView: View {
                 .listStyle(.insetGrouped)
                 .scrollDismissesKeyboard(.never)
             }
+            .appThemeBackground()
             .navigationTitle("場所を選ぶ")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -247,6 +248,7 @@ struct DiaryLocationPickerView: View {
                             }
                         }
                     }
+                    .appThemeBackground()
                     .navigationTitle("場所名を設定")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {

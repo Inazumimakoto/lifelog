@@ -171,6 +171,7 @@ struct AnniversaryEditorView: View {
         }
         .environment(\.calendar, editorCalendar)
         .environment(\.timeZone, editorCalendar.timeZone)
+        .appThemeBackground()
         .navigationTitle(editingAnniversary == nil ? "記念日を追加" : "記念日を編集")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

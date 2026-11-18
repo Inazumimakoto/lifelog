@@ -259,7 +259,7 @@ struct SettingsView: View {
                         showPATHelp = true
                     } label: {
                         Image(systemName: "questionmark.circle")
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.accentColor)
                     }
                     .buttonStyle(.plain)
                     
@@ -318,6 +318,7 @@ struct SettingsView: View {
                 Text("PATを設定すると正確なコントリビューション数が取得できます")
             }
         }
+        .appThemeBackground()
         .navigationTitle("設定")
         .navigationBarTitleDisplayMode(.inline)
         .onChange(of: isDiaryTextHidden) { _, newValue in
@@ -457,6 +458,13 @@ struct SettingsView: View {
             }
 
             NavigationLink {
+                CalendarDisplaySettingsView()
+            } label: {
+                Label("calendar.display.title", systemImage: "textformat.size")
+                    .foregroundStyle(.primary)
+            }
+
+            NavigationLink {
                 CalendarCategoryManagementView(store: store)
             } label: {
                 Label("calendar.categories.title", systemImage: "tag")
@@ -493,6 +501,13 @@ struct SettingsView: View {
 
     private var appSettingsSection: some View {
         Section("アプリ設定") {
+            NavigationLink {
+                AppThemeSettingsView()
+            } label: {
+                Label("appTheme.title", systemImage: "paintpalette")
+                    .foregroundStyle(.primary)
+            }
+
             Toggle(isOn: appLockToggleBinding) {
                 Label("アプリロック", systemImage: "lock.fill")
                     .foregroundStyle(.primary)

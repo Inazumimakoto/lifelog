@@ -220,6 +220,7 @@ extension AppDataStore {
         anchorDate: Date = Date()
     ) async -> Bool {
         guard !PersistenceController.isSimulatorDemoMode else { return false }
+        guard hasLoadedAppState || loadAppState() else { return false }
         let calendarService = CalendarEventService()
         let granted = await calendarService.requestAccessIfNeeded(shouldPrompt: requestPermissionIfNeeded)
         guard granted else { return false }
@@ -229,7 +230,10 @@ extension AppDataStore {
 
         do {
             let ekEvents = try await calendarService.fetchEvents(from: range.start, to: range.end)
-            let external = ExternalCalendarEventMapper(links: appState.calendarCategoryLinks).map(ekEvents)
+            let external = ExternalCalendarEventMapper(
+                links: appState.calendarCategoryLinks,
+                unavailableLinks: appState.unavailableCalendarCategoryLinks
+            ).map(ekEvents)
             updateExternalCalendarEvents(external, range: range)
             updateLastCalendarSync(date: Date())
             return true
@@ -248,31 +252,29 @@ extension AppDataStore {
     }
 
     func updateCalendarLinks(with calendars: [EKCalendar]) {
-        // docs/requirements.md §Settings: list only calendars still on this
-        // device, while preserving each calendar's chosen category and order.
-        let availableIdentifiers = Set(calendars.map { $0.calendarIdentifier as String })
-        var seenIdentifiers = Set<String>()
-        var links = appState.calendarCategoryLinks.filter {
-            availableIdentifiers.contains($0.calendarIdentifier) &&
-                seenIdentifiers.insert($0.calendarIdentifier).inserted
+        guard hasLoadedAppState else { return }
+        // docs/requirements.md §Settings: missing from one EventKit snapshot
+        // does not mean the user discarded their category/hidden preference.
+        let inventory = calendars.map { calendar in
+            CalendarCategoryLink(calendarIdentifier: calendar.calendarIdentifier,
+                                 calendarTitle: calendar.title, categoryId: nil,
+                                 colorHex: calendar.cgColor?.hexString,
+                                 sourceIdentifier: calendar.source?.sourceIdentifier,
+                                 sourceTitle: calendar.source?.title,
+                                 sourceTypeRawValue: calendar.source?.sourceType.rawValue,
+                                 calendarTypeRawValue: calendar.type.rawValue)
         }
-        for calendar in calendars {
-            let colorHex = calendar.cgColor?.hexString
-            if let index = links.firstIndex(where: { $0.calendarIdentifier == calendar.calendarIdentifier }) {
-                links[index].calendarTitle = calendar.title
-                links[index].colorHex = colorHex
-            } else {
-                // Auto-map category based on calendar name
-                let autoCategory = autoMapCategory(for: calendar.title)
-                let link = CalendarCategoryLink(calendarIdentifier: calendar.calendarIdentifier,
-                                                calendarTitle: calendar.title,
-                                                categoryId: autoCategory,
-                                                colorHex: colorHex)
-                links.append(link)
-            }
-        }
-        guard links != appState.calendarCategoryLinks else { return }
-        appState.calendarCategoryLinks = links
+        let result = CalendarLinkReconciler.reconcile(
+            calendars: inventory, links: appState.calendarCategoryLinks,
+            unavailableLinks: appState.unavailableCalendarCategoryLinks,
+            defaultCategory: autoMapCategory(for:)
+        )
+        guard result.links != appState.calendarCategoryLinks ||
+                result.unavailableLinks != appState.unavailableCalendarCategoryLinks else { return }
+        var updatedState = appState
+        updatedState.calendarCategoryLinks = result.links
+        updatedState.unavailableCalendarCategoryLinks = result.unavailableLinks
+        appState = updatedState
         persistAppState()
     }
 
@@ -370,6 +372,11 @@ extension AppDataStore {
             appState.calendarCategoryLinks[index].categoryId = target
             hasLinkChanges = true
         }
+        for index in appState.unavailableCalendarCategoryLinks.indices
+            where appState.unavailableCalendarCategoryLinks[index].categoryId == source {
+            appState.unavailableCalendarCategoryLinks[index].categoryId = target
+            hasLinkChanges = true
+        }
         if hasLinkChanges {
             persistAppState()
         }
@@ -378,7 +385,8 @@ extension AppDataStore {
         reapplyEventCategoryNotificationSettings()
     }
 
-    func reapplyEventCategoryNotificationSettings() {
+    func reapplyEventCategoryNotificationSettings(referenceDate: Date = Date()) {
+        guard areNotificationUpdatesEnabled else { return }
         let categories = Set((calendarEvents + externalCalendarEvents).map(\.calendarName))
         let manager = NotificationSettingsManager.shared
         let settings = manager.ensureCategorySettings(for: Array(categories))
@@ -393,9 +401,10 @@ extension AppDataStore {
             let defaultStrategy = parentEnabled
                 ? eventCategoryDefaultReminderStrategy(for: event, setting: settingsByCategory[event.calendarName])
                 : nil
-            scheduleEventNotification(event, strategy: explicitReminderStrategy(for: event) ?? defaultStrategy)
+            scheduleEventNotification(event, strategy: explicitReminderStrategy(for: event) ?? defaultStrategy,
+                                      referenceDate: referenceDate)
         }
-        rescheduleExternalEventNotifications()
+        rescheduleExternalEventNotifications(referenceDate: referenceDate)
     }
 
     func reapplyEventCategoryNotificationSettings(
@@ -569,6 +578,7 @@ extension AppDataStore {
     }
 
     func rescheduleExternalEventNotifications(referenceDate: Date = Date()) {
+        guard areNotificationUpdatesEnabled else { return }
         let now = referenceDate
         // External and recurring occurrences share the same bounded plan.
         // Never register a repeating trigger that would ignore skipped dates.
@@ -616,7 +626,6 @@ extension AppDataStore {
 
         struct PendingExternalReminder {
             let event: CalendarEvent
-            let strategy: EventReminderStrategy
             let fireDate: Date
         }
 
@@ -633,7 +642,7 @@ extension AppDataStore {
             }
 
             guard fireDate > now else { return nil }
-            return PendingExternalReminder(event: event, strategy: strategy, fireDate: fireDate)
+            return PendingExternalReminder(event: event, fireDate: fireDate)
         }
 
         let remindersToSchedule = candidates
@@ -647,40 +656,18 @@ extension AppDataStore {
         externalReminderRescheduleGeneration &+= 1
         let generation = externalReminderRescheduleGeneration
 
-        calendarNotificationService.cancelAllReminders(ofTypes: [.externalEvent, .recurringEvent], shouldCancel: { [weak self] in
-            self?.externalReminderRescheduleGeneration == generation
-        }) { [weak self] in
-            DispatchQueue.main.async {
-                guard let self else { return }
-                guard self.externalReminderRescheduleGeneration == generation else { return }
-
-                for candidate in remindersToSchedule {
-                    if candidate.event.occurrenceReference != nil {
-                        self.calendarNotificationService.scheduleRecurringEventReminder(
-                            occurrenceID: candidate.event.id, title: candidate.event.title,
-                            reminderDate: candidate.fireDate
-                        )
-                        continue
-                    }
-                    let externalEventKey = self.externalEventReminderKey(for: candidate.event)
-                    switch candidate.strategy {
-                    case .relative(let minutesBefore):
-                        self.calendarNotificationService.scheduleExternalEventReminder(
-                            externalEventKey: externalEventKey,
-                            title: candidate.event.title,
-                            startDate: candidate.event.startDate,
-                            minutesBefore: minutesBefore
-                        )
-                    case .absolute(let reminderDate):
-                        self.calendarNotificationService.scheduleExternalEventReminderAtDate(
-                            externalEventKey: externalEventKey,
-                            title: candidate.event.title,
-                            reminderDate: reminderDate
-                        )
-                    }
-                }
-            }
+        let requests = remindersToSchedule.compactMap { candidate in
+            let isRecurring = candidate.event.occurrenceReference != nil
+            return calendarNotificationService.calendarReminderRequest(
+                type: isRecurring ? .recurringEvent : .externalEvent,
+                key: isRecurring ? candidate.event.id.uuidString : externalEventReminderKey(for: candidate.event),
+                title: candidate.event.title, reminderDate: candidate.fireDate
+            )
         }
+        calendarNotificationService.reconcileReminders(
+            ofTypes: [.externalEvent, .recurringEvent], requests: requests,
+            shouldApply: { [weak self] in self?.externalReminderRescheduleGeneration == generation }
+        )
     }
 
     private func externalEventReminderKey(for event: CalendarEvent) -> String {
@@ -704,36 +691,34 @@ extension AppDataStore {
         scheduleEventNotification(event, strategy: effectiveReminderStrategy(for: event))
     }
 
-    private func scheduleEventNotification(_ event: CalendarEvent, strategy: EventReminderStrategy?) {
-        // キャンセルしてから再スケジュール
-        calendarNotificationService.cancelEventReminder(eventId: event.id)
-
+    private func scheduleEventNotification(_ event: CalendarEvent, strategy: EventReminderStrategy?,
+                                           referenceDate: Date = Date()) {
+        guard areNotificationUpdatesEnabled else { return }
         if event.recurrenceRule != nil {
+            calendarNotificationService.cancelEventReminder(eventId: event.id)
             rescheduleExternalEventNotifications()
             return
         }
 
-        guard let strategy else { return }
-
+        let fireDate: Date
         switch strategy {
-        case .relative(let minutesBefore):
-            if minutesBefore == 0 {
-                calendarNotificationService.scheduleEventReminderAtDate(eventId: event.id, title: event.title, reminderDate: event.startDate)
-                return
-            }
-            calendarNotificationService.scheduleEventReminder(
-                eventId: event.id,
-                title: event.title,
-                startDate: event.startDate,
-                minutesBefore: minutesBefore
-            )
+        case .relative(let minutesBefore) where minutesBefore >= 0:
+            fireDate = event.startDate.addingTimeInterval(-Double(minutesBefore * 60))
         case .absolute(let reminderDate):
-            calendarNotificationService.scheduleEventReminderAtDate(
-                eventId: event.id,
-                title: event.title,
-                reminderDate: reminderDate
-            )
+            fireDate = reminderDate
+        default:
+            calendarNotificationService.cancelEventReminder(eventId: event.id)
+            return
         }
+        guard fireDate > referenceDate else {
+            calendarNotificationService.cancelEventReminder(eventId: event.id)
+            return
+        }
+        // Reusing the identifier replaces a changed request. Removing it first
+        // would defeat reconciliation of unchanged reservations at startup.
+        calendarNotificationService.scheduleEventReminderAtDate(
+            eventId: event.id, title: event.title, reminderDate: fireDate
+        )
     }
 
     // MARK: - Calendar Persisters

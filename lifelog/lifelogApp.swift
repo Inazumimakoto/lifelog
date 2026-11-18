@@ -18,6 +18,7 @@ struct lifelogApp: App {
     // AppDelegateを接続
     @UIApplicationDelegateAdaptor(AppDelegate.self) var delegate
     
+    @StateObject private var appIconCoordinator = AppIconCoordinator()
     @StateObject private var storeOwner = AppDataStoreOwner()
     @State private var hasFinishedStartup = false
     private var store: AppDataStore { storeOwner.store }
@@ -36,6 +37,11 @@ struct lifelogApp: App {
     @ObservedObject private var appLockService = AppLockService.shared
     @Environment(\.scenePhase) private var scenePhase
 
+    private var canRefreshNotifications: Bool {
+        hasFinishedStartup && scenePhase == .active &&
+            (!appLockService.isAppLockEnabled || appLockService.isUnlocked)
+    }
+
     var body: some Scene {
         WindowGroup {
             ZStack {
@@ -45,11 +51,8 @@ struct lifelogApp: App {
                     .allowsHitTesting(hasFinishedStartup)
                     .accessibilityHidden(!hasFinishedStartup)
                     .onAppear {
-                        // 日記リマインダーを再スケジュール（今日書いていなければ通知）
                         syncMemoPrivacySettingsToSharedDefaults()
                         store.resumeDiaryPhotoSync()
-                        store.rescheduleDiaryReminderIfNeeded()
-                        store.rescheduleTodayOverviewReminderIfNeeded()
                         WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
                         WidgetCenter.shared.reloadTimelines(ofKind: "HabitWidget")
                         WidgetCenter.shared.reloadTimelines(ofKind: "AnniversaryWidget")
@@ -74,6 +77,20 @@ struct lifelogApp: App {
                     .zIndex(1000)
                 }
             }
+            .modifier(AppThemeAppearance(
+                canChangeIcon: hasFinishedStartup && scenePhase == .active && !PersistenceController.isRunningTests
+            ))
+            .environmentObject(appIconCoordinator)
+            .task(id: canRefreshNotifications) {
+                guard canRefreshNotifications,
+                      !PersistenceController.isRunningTests,
+                      !PersistenceController.isSimulatorDemoMode else { return }
+                // Reveal the home first. Notification IPC must never extend the
+                // startup logo or run again from a second onAppear path (§起動時の表示).
+                await _Concurrency.Task.yield()
+                guard !_Concurrency.Task.isCancelled, canRefreshNotifications else { return }
+                store.refreshNotificationsAfterStartup()
+            }
             .onChange(of: hasFinishedStartup) { _, isComplete in
                 guard isComplete else { return }
                 if scenePhase == .active && appLockService.isAppLockEnabled && !appLockService.isUnlocked {
@@ -94,8 +111,6 @@ struct lifelogApp: App {
 
                     syncMemoPrivacySettingsToSharedDefaults()
                     store.resumeDiaryPhotoSync()
-                    store.refreshCalendarRemindersIfNeeded()
-                    store.rescheduleTodayOverviewReminderIfNeeded()
                     WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
                     WidgetCenter.shared.reloadTimelines(ofKind: "HabitWidget")
                     WidgetCenter.shared.reloadTimelines(ofKind: "AnniversaryWidget")

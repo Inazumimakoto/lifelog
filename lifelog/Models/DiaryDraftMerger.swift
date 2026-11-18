@@ -9,8 +9,8 @@ nonisolated enum DiaryDraftMerger {
         if draft.text != baseline.text { result.text = draft.text }
         if draft.mood != baseline.mood { result.mood = draft.mood }
         if draft.conditionScore != baseline.conditionScore { result.conditionScore = draft.conditionScore }
-        if draft.photoPaths != baseline.photoPaths { result.photoPaths = draft.photoPaths }
-        if draft.locationPhotoPaths != baseline.locationPhotoPaths { result.locationPhotoPaths = draft.locationPhotoPaths }
+        if draft.photoPaths != baseline.photoPaths { result.photoPaths = mergePaths(draft.photoPaths, baseline: baseline.photoPaths, current: current.photoPaths) }
+        if draft.locationPhotoPaths != baseline.locationPhotoPaths { result.locationPhotoPaths = mergePaths(draft.locationPhotoPaths, baseline: baseline.locationPhotoPaths, current: current.locationPhotoPaths) }
         if draft.favoritePhotoPath != baseline.favoritePhotoPath { result.favoritePhotoPath = draft.favoritePhotoPath }
         let old = Dictionary(uniqueKeysWithValues: baseline.locations.map { ($0.id, $0) })
         let desired = Dictionary(uniqueKeysWithValues: draft.locations.map { ($0.id, $0) })
@@ -26,7 +26,7 @@ nonisolated enum DiaryDraftMerger {
             if location.latitude != previous.latitude { locations[index].latitude = location.latitude }
             if location.longitude != previous.longitude { locations[index].longitude = location.longitude }
             if location.mapItemURL != previous.mapItemURL { locations[index].mapItemURL = location.mapItemURL }
-            if location.photoPaths != previous.photoPaths { locations[index].photoPaths = location.photoPaths }
+            if location.photoPaths != previous.photoPaths { locations[index].photoPaths = mergePaths(location.photoPaths, baseline: previous.photoPaths, current: locations[index].photoPaths) }
             if location.visitTags != previous.visitTags { locations[index].visitTags = location.visitTags }
         }
         if draft.locations.map(\.id) != baseline.locations.map(\.id) {
@@ -36,6 +36,19 @@ nonisolated enum DiaryDraftMerger {
         result.locations = locations; result.locationName = locations.first?.name; result.latitude = locations.first?.latitude; result.longitude = locations.first?.longitude
         return result
     }
+    /// Imports can continue while another editor writes the same diary. Apply
+    /// this draft's additions/removals without replacing the other editor's
+    /// independently added attachments or reviving its removed links.
+    private static func mergePaths(_ draft: [String], baseline: [String], current: [String]) -> [String] {
+        let baselineSet = Set(baseline)
+        let draftSet = Set(draft)
+        let removed = baselineSet.subtracting(draftSet)
+        var seen = Set<String>()
+        let retained = current.filter { !removed.contains($0) && seen.insert($0).inserted }
+        let added = draft.filter { !baselineSet.contains($0) && seen.insert($0).inserted }
+        return retained + added
+    }
+
     @MainActor static func placesEqual(_ lhs: DiaryLocation, _ rhs: DiaryLocation) -> Bool {
         lhs.id == rhs.id && lhs.name == rhs.name && lhs.address == rhs.address && lhs.latitude == rhs.latitude && lhs.longitude == rhs.longitude && lhs.mapItemURL == rhs.mapItemURL && lhs.visitTags == rhs.visitTags
     }

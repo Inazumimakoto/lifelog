@@ -196,6 +196,12 @@ struct CalendarCategoryLink: Identifiable, Codable, Equatable {
     var categoryId: String?
     /// iOSカレンダーの色 (hex)
     var colorHex: String?
+    /// Recovery hints when EventKit replaces local calendar identifiers on sync.
+    /// Optional so mappings saved before these hints existed still decode.
+    var sourceIdentifier: String? = nil
+    var sourceTitle: String? = nil
+    var sourceTypeRawValue: Int? = nil
+    var calendarTypeRawValue: Int? = nil
 
     var id: String { calendarIdentifier }
 }

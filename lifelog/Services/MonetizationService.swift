@@ -63,8 +63,6 @@ final class MonetizationService: ObservableObject {
 
     let freeHabitLimit = MonetizationPolicy.freeHabitLimit
     let freeCountdownLimit = MonetizationPolicy.freeCountdownLimit
-    let freeDiaryPhotoLimit = MonetizationPolicy.freeDiaryPhotoLimit
-    let premiumDiaryPhotoLimit = MonetizationPolicy.premiumDiaryPhotoLimit
 
 #if DEBUG
     private let debugStorefrontCountryCodeKey = "debug.monetization.storefrontCountryCode"
@@ -112,7 +110,7 @@ final class MonetizationService: ObservableObject {
         isPremiumUnlocked
     }
 
-    var diaryPhotoLimit: Int {
+    var diaryPhotoLimit: Int? {
         policy.diaryPhotoLimit
     }
 
@@ -165,10 +163,6 @@ final class MonetizationService: ObservableObject {
 
     func countdownLimitMessage() -> String {
         String(localized: "海外版の無料プランではカウントダウンは\(freeCountdownLimit)件までです。プレミアムで無制限になります。")
-    }
-
-    func diaryPhotoLimitMessage() -> String {
-        String(localized: "海外版の無料プランでは日記写真は\(freeDiaryPhotoLimit)枚までです。プレミアムで\(premiumDiaryPhotoLimit)枚まで追加できます。")
     }
 
     func diaryLocationMessage() -> String {

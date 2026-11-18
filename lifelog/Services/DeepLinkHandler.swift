@@ -160,6 +160,7 @@ class DeepLinkHandler: ObservableObject {
 
 /// 招待確認ダイアログ
 struct InviteConfirmationView: View {
+    @Environment(\.appTheme) private var theme
     @ObservedObject private var handler = DeepLinkHandler.shared
     @Environment(\.dismiss) private var dismiss
     
@@ -212,7 +213,7 @@ struct InviteConfirmationView: View {
                         HStack {
                             if handler.isLoading {
                                 ProgressView()
-                                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                    .progressViewStyle(CircularProgressViewStyle(tint: theme?.onAccent ?? .white))
                             } else {
                                 Image(systemName: "person.badge.plus")
                                 Text("友達に追加する")
@@ -221,8 +222,8 @@ struct InviteConfirmationView: View {
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(Color.blue)
-                        .foregroundColor(.white)
+                        .background(Color.accentColor)
+                        .foregroundColor(theme?.onAccent ?? .white)
                         .cornerRadius(12)
                     }
                     .disabled(handler.isLoading)
@@ -236,6 +237,7 @@ struct InviteConfirmationView: View {
                 .padding(.horizontal, 32)
                 .padding(.bottom, 32)
             }
+            .appThemeBackground()
             .navigationTitle("友達を追加")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

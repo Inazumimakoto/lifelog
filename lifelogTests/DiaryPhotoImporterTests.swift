@@ -30,8 +30,8 @@ final class DiaryPhotoImporterTests: XCTestCase {
 
     func testFailures_distinguishMissingDataLoadErrorAndSaveError() async {
         let items = [
-            DiaryPhotoImporter.Item(assetIdentifier: "missing") { nil },
-            DiaryPhotoImporter.Item(assetIdentifier: "load-error") { throw FixtureError.load },
+            DiaryPhotoImporter.Item(assetIdentifier: "missing", loadData: { nil }),
+            DiaryPhotoImporter.Item(assetIdentifier: "load-error", loadData: { throw FixtureError.load }),
             DiaryPhotoImporter.Item(assetIdentifier: "save-error") { Data([1]) },
             DiaryPhotoImporter.Item(assetIdentifier: "saved") { Data([2]) }
         ]
@@ -86,5 +86,75 @@ final class DiaryPhotoImporterTests: XCTestCase {
         XCTAssertEqual(saveCount, 10)
         XCTAssertEqual(summary.addedCount, 10)
         XCTAssertFalse(summary.hasIssues)
+    }
+
+    func testUnlimitedBatch_publishesEachSavedItemBeforeLoadingNextItem() async {
+        var published: [String] = []
+        let items = (0..<24).map { index in
+            DiaryPhotoImporter.Item(assetIdentifier: "asset-\(index)") {
+                XCTAssertEqual(published.count, index, "Completed attachments must appear during the batch")
+                return Data([UInt8(index)])
+            }
+        }
+
+        let summary = await DiaryPhotoImporter.importPhotos(
+            from: items,
+            save: { _, identifier in identifier! + ".jpg" },
+            onAdded: { published.append($0) }
+        )
+
+        XCTAssertEqual(summary.addedCount, 24)
+        XCTAssertEqual(published, summary.addedPaths)
+        XCTAssertFalse(summary.hasIssues)
+    }
+
+    func testKnownAsset_reusesPathWithoutLoadingOriginal() async {
+        let item = DiaryPhotoImporter.Item(assetIdentifier: "known") {
+            XCTFail("An asset identity match must not download the original from Photos")
+            return Data()
+        }
+        var published: [String] = []
+
+        let summary = await DiaryPhotoImporter.importPhotos(
+            from: [item], matchingAssetPath: { _ in "existing.mov" },
+            onAdded: { published.append($0) }
+        )
+
+        XCTAssertEqual(summary.addedPaths, ["existing.mov"])
+        XCTAssertEqual(published, summary.addedPaths)
+    }
+
+    func testVideoSaveFailure_removesOwnedTransferFile() async throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mov")
+        try Data("movie fixture".utf8).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let item = DiaryPhotoImporter.Item.video(assetIdentifier: nil, load: { ImportedDiaryVideo(url: url) })
+
+        let summary = await DiaryPhotoImporter.importPhotos(from: [item], saveVideo: { source, _ in
+            XCTAssertEqual(source, url)
+            XCTAssertTrue(FileManager.default.fileExists(atPath: source.path))
+            throw FixtureError.save
+        })
+
+        XCTAssertEqual(summary.failedSaveCount, 1)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
+    }
+
+    func testVideoReuse_removesTransferWithoutSavingAgain() async throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mov")
+        try Data("movie fixture".utf8).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let item = DiaryPhotoImporter.Item.video(assetIdentifier: nil, load: { ImportedDiaryVideo(url: url) })
+
+        let summary = await DiaryPhotoImporter.importPhotos(
+            from: [item], matchingVideoPath: { _, _ in "existing.mov" },
+            saveVideo: { _, _ in
+                XCTFail("A matching movie must reuse its original")
+                return "unexpected.mov"
+            }
+        )
+
+        XCTAssertEqual(summary.addedPaths, ["existing.mov"])
+        XCTAssertFalse(FileManager.default.fileExists(atPath: url.path))
     }
 }

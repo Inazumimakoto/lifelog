@@ -459,6 +459,7 @@ extension AppState {
         self.init(
             lastCalendarSyncDate: sd.lastCalendarSyncDate,
             calendarCategoryLinks: sd.calendarCategoryLinks,
+            unavailableCalendarCategoryLinks: sd.unavailableCalendarCategoryLinks ?? [],
             diaryReminderEnabled: sd.diaryReminderEnabled,
             diaryReminderHour: sd.diaryReminderHour,
             diaryReminderMinute: sd.diaryReminderMinute

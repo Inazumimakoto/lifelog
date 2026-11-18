@@ -156,6 +156,7 @@ class MigrationManager {
                 let newItem = SDAppState(
                     lastCalendarSyncDate: item.lastCalendarSyncDate,
                     calendarCategoryLinks: item.calendarCategoryLinks,
+                    unavailableCalendarCategoryLinks: item.unavailableCalendarCategoryLinks,
                     diaryReminderEnabled: item.diaryReminderEnabled,
                     diaryReminderHour: item.diaryReminderHour,
                     diaryReminderMinute: item.diaryReminderMinute

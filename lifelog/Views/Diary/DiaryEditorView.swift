@@ -11,6 +11,7 @@ import MapKit
 import _Concurrency
 
 struct DiaryEditorView: View {
+    @Environment(\.appTheme) private var theme
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @StateObject private var viewModel: DiaryViewModel
@@ -48,6 +49,7 @@ struct DiaryEditorView: View {
             locationSection
             photosSection
         }
+        .appThemeBackground()
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .principal) {
@@ -297,7 +299,7 @@ struct DiaryEditorView: View {
                                     .padding(.vertical, 6)
                                     .background(isSelected ? Color.accentColor : Color(.secondarySystemBackground),
                                                in: Capsule())
-                                    .foregroundStyle(isSelected ? .white : .primary)
+                                    .foregroundStyle(isSelected ? (theme?.onAccent ?? .white) : .primary)
                             }
                             .buttonStyle(.plain)
                         }
@@ -404,11 +406,9 @@ struct DiaryEditorView: View {
     }
 
     private var photosSection: some View {
-        let maxPhotos = viewModel.diaryPhotoLimit
-        let remainingSlots = max(0, maxPhotos - viewModel.entry.photoPaths.count)
-        return Section("写真") {
+        Section("diaryMedia.title") {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack {
+                LazyHStack {
                     DiaryPhotoThumbnailList(photoPaths: viewModel.entry.photoPaths,
                                             favoritePhotoPath: viewModel.entry.favoritePhotoPath,
                                             linkedPhotoPaths: linkedPhotoPathsCache,
@@ -426,8 +426,11 @@ struct DiaryEditorView: View {
                                             },
                                             onDelete: nil)
                     PhotosPicker(selection: $selection,
-                                 maxSelectionCount: max(1, remainingSlots),
-                                 matching: .images) {
+                                 maxSelectionCount: nil,
+                                 selectionBehavior: .ordered,
+                                 matching: .any(of: [.images, .videos]),
+                                 preferredItemEncoding: .current,
+                                 photoLibrary: .shared()) {
                         VStack {
                             if isImportingPhotos {
                                 ProgressView()
@@ -441,18 +444,16 @@ struct DiaryEditorView: View {
                         .frame(width: 80, height: 80)
                         .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
                     }
-                    .disabled(isImportingPhotos || remainingSlots == 0)
+                    .accessibilityLabel(Text("diaryMedia.add"))
+                    .disabled(isImportingPhotos)
                 }
             }
-            Text("写真は最大\(maxPhotos)枚まで追加できます。⭐️で「今日の一枚」をえらびましょう。現在 \(viewModel.entry.photoPaths.count)/\(maxPhotos) 枚。")
+            Text(String(format: String(localized: "diaryMedia.count"), viewModel.entry.photoPaths.count))
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            if remainingSlots == 0 && monetization.isPremiumUnlocked == false {
-                Button("写真上限を解放（プレミアム）") {
-                    showPaywall = true
-                }
-                .font(.caption.weight(.semibold))
-            }
+            Text(isImportingPhotos ? String(localized: "diaryMedia.importing") : String(localized: "diaryMedia.help"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 
@@ -472,16 +473,16 @@ struct DiaryEditorView: View {
         guard summary.hasIssues || summary.addedCount == 0 else { return }
         var lines: [String] = []
         if summary.addedCount > 0 {
-            lines.append("写真を追加しました（\(summary.addedCount)枚）")
+            lines.append(String(format: String(localized: "diaryMedia.import.added"), summary.addedCount))
         }
         if summary.skippedCount > 0 {
-            lines.append("最大\(viewModel.diaryPhotoLimit)枚までのため、\(summary.skippedCount)枚は追加できませんでした")
+            lines.append(String(format: String(localized: "diaryMedia.import.skipped"), summary.skippedCount))
         }
         if summary.failedLoadCount > 0 {
-            lines.append("読み込めない写真が\(summary.failedLoadCount)枚ありました")
+            lines.append(String(format: String(localized: "diaryMedia.import.loadFailed"), summary.failedLoadCount))
         }
         if summary.failedSaveCount > 0 {
-            lines.append("保存に失敗した写真が\(summary.failedSaveCount)枚ありました")
+            lines.append(String(format: String(localized: "diaryMedia.import.saveFailed"), summary.failedSaveCount))
         }
         guard lines.isEmpty == false else { return }
         let emoji = summary.addedCount > 0 ? "🖼️" : "⚠️"
@@ -595,7 +596,7 @@ private struct DiaryLocationRow: View, Equatable {
                 } label: {
                     HStack(spacing: 4) {
                         Image(systemName: "photo.on.rectangle.angled")
-                        Text(photoCount == 0 ? "写真" : "写真 \(photoCount)")
+                        Text(String(format: String(localized: "diaryMedia.place.count"), photoCount))
                     }
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(photoCount == 0 ? .secondary : .primary)
@@ -704,6 +705,7 @@ private struct LocationVisitTagPickerSheet: View {
     var body: some View {
         NavigationStack {
             listContent
+            .appThemeBackground()
             .navigationTitle("訪問タグ")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -974,6 +976,7 @@ private struct LocationVisitTagManagerView: View {
                     }
                 }
             }
+            .appThemeBackground()
             .navigationTitle("訪問タグ管理")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -1134,7 +1137,8 @@ private struct PhotoLocationLinkSheet: View {
                     photoModeView
                 }
             }
-            .navigationTitle(isLocationMode ? "写真を紐付け" : "場所を紐付け")
+            .appThemeBackground()
+            .navigationTitle(isLocationMode ? String(localized: "diaryMedia.link.title") : String(localized: "場所を紐付け"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
@@ -1146,7 +1150,7 @@ private struct PhotoLocationLinkSheet: View {
                     Button("完了") {
                         applySelection()
                     }
-                    .disabled(isPreparingSelection)
+                    .disabled(isPreparingSelection || isImportingLocationPhotos)
                 }
             }
             .task(id: context.id) {
@@ -1161,15 +1165,11 @@ private struct PhotoLocationLinkSheet: View {
                 locationSelection = []
                 isImportingLocationPhotos = true
                 _Concurrency.Task {
-                    let summary = await viewModel.importLocationPhotos(from: items)
+                    let summary = await viewModel.importLocationPhotos(from: items, forLocation: currentLocation?.id)
                     await MainActor.run {
                         isImportingLocationPhotos = false
                         if summary.addedCount > 0 {
                             selectedPhotoPaths.formUnion(summary.addedPaths)
-                            // 追加分のみを既存リンクへ追記（上書きしない）
-                            if case .location(let locationID) = context {
-                                viewModel.addPhotoLinks(forLocation: locationID, paths: summary.addedPaths)
-                            }
                         }
                         onImportSummary(summary)
                     }
@@ -1187,53 +1187,29 @@ private struct PhotoLocationLinkSheet: View {
                     .padding(.top, 8)
             }
             let diaryPaths = viewModel.entry.photoPaths
-            let linkedLocationPaths = Set(currentLocation?.photoPaths ?? [])
-            // 編集中（未確定）の選択も表示に反映して、追加直後の確認を可能にする
-            let previewLinkedLocationPaths = linkedLocationPaths.union(selectedPhotoPaths)
-            let locationPaths = viewModel.entry.locationPhotoPaths.filter { previewLinkedLocationPaths.contains($0) }
-            if diaryPaths.isEmpty && locationPaths.isEmpty {
-                VStack(spacing: 12) {
-                    Text("写真がありません")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+            Text("diaryMedia.place.help")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal, 16)
+            if isImportingLocationPhotos {
+                Text("diaryMedia.importing")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 16)
+            }
+            ScrollView {
+                LazyVGrid(columns: photoGridColumns, spacing: 12) {
+                    ForEach(diaryPaths, id: \.self) { path in
+                        PhotoLinkTile(path: path,
+                                      isSelected: selectedPhotoPaths.contains(path)
+                                        || (isImportingLocationPhotos && currentLocation?.photoPaths.contains(path) == true)) {
+                            togglePhoto(path)
+                        }
+                        .disabled(isImportingLocationPhotos || isPreparingSelection)
+                    }
                     locationPhotoAddPicker
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ScrollView {
-                    LazyVStack(alignment: .leading, spacing: 16) {
-                        if diaryPaths.isEmpty == false {
-                            Text("日記の写真")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.secondary)
-                                .padding(.horizontal, 16)
-                            LazyVGrid(columns: photoGridColumns, spacing: 12) {
-                                ForEach(diaryPaths, id: \.self) { path in
-                                    PhotoLinkTile(path: path,
-                                                  isSelected: selectedPhotoPaths.contains(path)) {
-                                        togglePhoto(path)
-                                    }
-                                }
-                            }
-                            .padding(.horizontal, 16)
-                        }
-                        Text("追加した写真")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 16)
-                        LazyVGrid(columns: photoGridColumns, spacing: 12) {
-                            ForEach(locationPaths, id: \.self) { path in
-                                PhotoLinkTile(path: path,
-                                              isSelected: selectedPhotoPaths.contains(path)) {
-                                    togglePhoto(path)
-                                }
-                            }
-                            locationPhotoAddPicker
-                        }
-                        .padding(.horizontal, 16)
-                    }
-                    .padding(.vertical, 12)
-                }
+                .padding(16)
             }
         }
     }
@@ -1241,7 +1217,10 @@ private struct PhotoLocationLinkSheet: View {
     private var locationPhotoAddPicker: some View {
         PhotosPicker(selection: $locationSelection,
                      maxSelectionCount: nil,
-                     matching: .images) {
+                     selectionBehavior: .ordered,
+                     matching: .any(of: [.images, .videos]),
+                     preferredItemEncoding: .current,
+                     photoLibrary: .shared()) {
             VStack {
                 if isImportingLocationPhotos {
                     ProgressView()
@@ -1255,7 +1234,8 @@ private struct PhotoLocationLinkSheet: View {
             .frame(width: 72, height: 72)
             .background(Color(.secondarySystemBackground), in: RoundedRectangle(cornerRadius: 12))
         }
-        .disabled(isImportingLocationPhotos)
+        .accessibilityLabel(Text("diaryMedia.add"))
+        .disabled(isImportingLocationPhotos || isPreparingSelection)
     }
 
     private var photoModeView: some View {
@@ -1264,7 +1244,7 @@ private struct PhotoLocationLinkSheet: View {
                 HStack(spacing: 12) {
                     AsyncThumbnailImage(path: path, size: 72)
                         .clipShape(RoundedRectangle(cornerRadius: 12))
-                    Text("この写真に場所を紐付けます")
+                    Text("diaryMedia.link.help")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -1373,7 +1353,12 @@ private struct PhotoLocationLinkSheet: View {
             let ordered = viewModel.entry.locations
                 .map(\.id)
                 .filter { selectedLocationIDs.contains($0) }
-            viewModel.updateLocationLinks(forPhoto: path, selectedLocationIDs: ordered)
+            isPreparingSelection = true
+            _Concurrency.Task {
+                await viewModel.updateLocationLinks(forPhoto: path, selectedLocationIDs: ordered)
+                dismiss()
+            }
+            return
         }
         dismiss()
     }
@@ -1420,7 +1405,7 @@ private struct DiaryPhotoThumbnailList: View, Equatable {
     }
 
     var body: some View {
-        ForEach(Array(photoPaths.enumerated()), id: \.offset) { index, path in
+        ForEach(Array(photoPaths.enumerated()), id: \.element) { index, path in
             let isFavorite = favoritePhotoPath == path
             let isLinked = linkedPhotoPaths.contains(path)
             DiaryPhotoThumbnailItem(
@@ -1441,6 +1426,7 @@ private struct DiaryPhotoThumbnailList: View, Equatable {
 
 // 個別のサムネイルアイテム（非同期読み込み）
 private struct DiaryPhotoThumbnailItem: View {
+    @Environment(\.appTheme) private var theme
     let path: String
     let index: Int
     let isFavorite: Bool
@@ -1466,6 +1452,12 @@ private struct DiaryPhotoThumbnailItem: View {
         }
         .frame(width: 80, height: 80)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(alignment: .bottomLeading) {
+            if PhotoStorage.isVideo(at: path) {
+                DiaryVideoBadge()
+                    .padding(4)
+            }
+        }
         .overlay(alignment: .topLeading) {
             if showFavorite {
                 Button {
@@ -1500,13 +1492,14 @@ private struct DiaryPhotoThumbnailItem: View {
             } label: {
                 Image(systemName: "mappin.and.ellipse")
                     .font(.caption)
-                    .foregroundStyle(isLinked ? Color.white : Color.white.opacity(0.9))
+                    .foregroundStyle(isLinked ? (theme?.onAccent ?? .white) : Color.white.opacity(0.9))
                     .padding(6)
                     .background(isLinked ? Color.accentColor.opacity(0.9) : Color.black.opacity(0.45),
                                 in: Circle())
             }
             .offset(x: 6, y: 6)
             .buttonStyle(.plain)
+            .accessibilityLabel(Text("場所を紐付け"))
         }
         .onTapGesture {
             onOpen(index)

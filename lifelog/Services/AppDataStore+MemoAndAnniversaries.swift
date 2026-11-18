@@ -7,6 +7,7 @@ import Foundation
 import SwiftData
 import SwiftUI
 import WidgetKit
+import os
 
 extension AppDataStore {
 
@@ -102,25 +103,33 @@ extension AppDataStore {
 
 
     func persistAppState() {
-        // SwiftData
-        let descriptor = FetchDescriptor<SDAppState>()
-        if let existing = try? modelContext.fetch(descriptor).first {
-            existing.lastCalendarSyncDate = appState.lastCalendarSyncDate
-            existing.calendarCategoryLinks = appState.calendarCategoryLinks
-            existing.diaryReminderEnabled = appState.diaryReminderEnabled
-            existing.diaryReminderHour = appState.diaryReminderHour
-            existing.diaryReminderMinute = appState.diaryReminderMinute
-        } else {
-             let newState = SDAppState(
-                lastCalendarSyncDate: appState.lastCalendarSyncDate,
-                calendarCategoryLinks: appState.calendarCategoryLinks,
-                diaryReminderEnabled: appState.diaryReminderEnabled,
-                diaryReminderHour: appState.diaryReminderHour,
-                diaryReminderMinute: appState.diaryReminderMinute
-             )
-             modelContext.insert(newState)
+        guard hasLoadedAppState else { return }
+        do {
+            let descriptor = FetchDescriptor<SDAppState>()
+            if let existing = try modelContext.fetch(descriptor).first {
+                existing.lastCalendarSyncDate = appState.lastCalendarSyncDate
+                existing.calendarCategoryLinks = appState.calendarCategoryLinks
+                existing.unavailableCalendarCategoryLinks = appState.unavailableCalendarCategoryLinks
+                existing.diaryReminderEnabled = appState.diaryReminderEnabled
+                existing.diaryReminderHour = appState.diaryReminderHour
+                existing.diaryReminderMinute = appState.diaryReminderMinute
+            } else {
+                let newState = SDAppState(
+                    lastCalendarSyncDate: appState.lastCalendarSyncDate,
+                    calendarCategoryLinks: appState.calendarCategoryLinks,
+                    unavailableCalendarCategoryLinks: appState.unavailableCalendarCategoryLinks,
+                    diaryReminderEnabled: appState.diaryReminderEnabled,
+                    diaryReminderHour: appState.diaryReminderHour,
+                    diaryReminderMinute: appState.diaryReminderMinute
+                )
+                modelContext.insert(newState)
+            }
+            saveContext()
+        } catch {
+            // A failed lookup must not insert another singleton or replace
+            // unknown persisted selections with the in-memory default state.
+            AppLogger.data.error("Failed to fetch app state for saving: \(error)")
         }
-        saveContext()
     }
 
     // MARK: - Anniversary Notification Helper

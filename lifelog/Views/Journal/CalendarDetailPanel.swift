@@ -517,11 +517,13 @@ struct DetailPagerHeightKey: PreferenceKey {
 }
 
 struct TimelineColumnView: View {
+    @Environment(\.self) private var environment
     @ObservedObject private var categoryPalette = CategoryPaletteObserver.shared
     var date: Date
     var items: [JournalViewModel.TimelineItem]
     var isSelected: Bool
     var timelineHeight: CGFloat
+    let preferences: CalendarDisplayPreferences
     var onTapItem: (JournalViewModel.TimelineItem) -> Void
     var onLongPressItem: (JournalViewModel.TimelineItem) -> Void
 
@@ -530,6 +532,10 @@ struct TimelineColumnView: View {
     }
 
     var body: some View {
+        let canvas = CalendarGridSurface.color(theme: environment.appTheme, in: environment)
+        let columnColor = CalendarPreviewBar.colors(category: isSelected ? .accentColor : .gray,
+                                                    opacity: isSelected ? 0.18 : 0.08,
+                                                    canvas: canvas, in: environment).fill
         VStack(spacing: 8) {
             Text(date.jaMonthDayString)
                 .font(.caption.bold())
@@ -538,78 +544,62 @@ struct TimelineColumnView: View {
                 .foregroundStyle(.secondary)
             ZStack(alignment: .topLeading) {
                 RoundedRectangle(cornerRadius: 6)
-                    .fill(isSelected ? Color.accentColor.opacity(0.18) : Color.gray.opacity(0.08))
+                    .fill(columnColor)
                     .frame(height: timelineHeight)
                 ForEach(items) { item in
                     let (offset, blockHeight) = position(for: item, in: timelineHeight)
                     if blockHeight > 1 {
-                        let threshold: CGFloat = 36
-                        let itemColor = color(for: item)
-
-                        // Googleカレンダー風: 左に色ストライプ、右は白背景
-                        HStack(spacing: 0) {
-                            // カラーストライプ（左端）
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(itemColor)
-                                .frame(width: 4)
-
-                            // コンテンツエリア
-                            VStack(alignment: .leading, spacing: 2) {
-                                // タイトル
-                                Text(item.title)
-                                    .font(.caption2.weight(.medium))
-                                    .foregroundStyle(.primary)
-                                    .lineLimit(blockHeight < threshold ? 1 : 2)
-
-                                if item.kind == .event,
-                                   let eventDetail = item.eventDetail,
-                                   eventDetail.isEmpty == false,
-                                   blockHeight >= threshold {
-                                    Text(eventDetail)
-                                        .font(.system(size: 9))
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(1)
-                                }
-
-                                // 開始時間
-                                if item.isAllDay {
-                                    Text("終日")
-                                        .font(.system(size: 9))
-                                        .foregroundStyle(.secondary)
-                                } else {
-                                    Text(item.start.formatted(date: .omitted, time: .shortened))
-                                        .font(.system(size: 9))
-                                        .foregroundStyle(.secondary)
-                                }
-
-                                Spacer(minLength: 0)
-
-                                // 終了時間（2時間以上の予定のみ、終日以外）
-                                let duration = item.end.timeIntervalSince(item.start)
-                                if !item.isAllDay && duration >= 7200 { // 7200秒 = 2時間
-                                    Text(item.end.formatted(date: .omitted, time: .shortened))
-                                        .font(.system(size: 9))
-                                        .foregroundStyle(.secondary)
-                                }
+                        eventBlock(item, height: blockHeight, columnColor: columnColor)
+                            .offset(y: offset)
+                            .onTapGesture {
+                                onTapItem(item)
                             }
-                            .padding(.horizontal, 6)
-                            .padding(.vertical, 4)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                        }
-                        .frame(height: blockHeight)
-                        .background(itemColor.opacity(0.15), in: RoundedRectangle(cornerRadius: 6))
-                        .offset(y: offset)
-                        .onTapGesture {
-                            onTapItem(item)
-                        }
-                        .onLongPressGesture {
-                            onLongPressItem(item)
-                        }
+                            .onLongPressGesture {
+                                onLongPressItem(item)
+                            }
                     }
                 }
             }
         }
         .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    private func eventBlock(_ item: JournalViewModel.TimelineItem, height: CGFloat, columnColor: Color) -> some View {
+        let colors = CalendarPreviewBar.colors(category: color(for: item), opacity: preferences.opacity,
+                                              canvas: columnColor, in: environment)
+        let title = Text(item.title).font(.system(size: preferences.fontSize, weight: .medium))
+        let time = item.isAllDay ? Text("終日") : Text(item.start, format: .dateTime.hour().minute())
+        let shape = RoundedRectangle(cornerRadius: 6)
+
+        // Preserve the actual time span. Drop secondary lines before allowing text
+        // to extend into the next event when a slot is short or the title is large.
+        return ViewThatFits(in: .vertical) {
+            VStack(alignment: .leading, spacing: 1) {
+                title.lineLimit(2)
+                if item.kind == .event, let detail = item.eventDetail, !detail.isEmpty {
+                    Text(detail).lineLimit(1)
+                }
+                time
+                if !item.isAllDay && item.end.timeIntervalSince(item.start) >= 7200 {
+                    Text(item.end, format: .dateTime.hour().minute())
+                }
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 1) {
+                title.lineLimit(1)
+                time
+            }
+            .fixedSize(horizontal: false, vertical: true)
+            title.lineLimit(1)
+        }
+        .font(.system(size: 9))
+        .foregroundStyle(colors.text)
+        .padding(.horizontal, 3)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(height: height, alignment: .topLeading)
+        .background(colors.fill, in: shape)
+        .clipShape(shape)
+        .contentShape(Rectangle())
     }
 
     private func position(for item: JournalViewModel.TimelineItem, in contentHeight: CGFloat) -> (CGFloat, CGFloat) {
@@ -685,13 +675,21 @@ struct DetailPanelPhotoPage: View {
         .frame(maxWidth: .infinity)
         .clipped()
         .cornerRadius(12)
+        .overlay(alignment: .bottomLeading) {
+            if PhotoStorage.isVideo(at: path) {
+                DiaryVideoBadge().padding(10)
+            }
+        }
         .contentShape(Rectangle())
         .onTapGesture {
             onTap()
         }
-        .task {
-            // 詳細パネルではやや大きめの画像が必要なのでサムネイルでなくフルを使用
-            image = await PhotoStorage.loadThumbnail(at: path)
+        .task(id: path) {
+            isLoading = true
+            image = nil
+            let thumbnail = await PhotoStorage.loadThumbnail(at: path)
+            guard !_Concurrency.Task.isCancelled else { return }
+            image = thumbnail
             isLoading = false
         }
     }

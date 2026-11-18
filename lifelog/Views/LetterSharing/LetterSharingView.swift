@@ -10,6 +10,7 @@ import SwiftUI
 /// 大切な人への手紙機能のメイン画面
 /// 認証状態に応じてサインイン画面またはメイン機能を表示
 struct LetterSharingView: View {
+    @Environment(\.appTheme) private var theme
     @ObservedObject private var monetization = MonetizationService.shared
     @ObservedObject private var authService = AuthService.shared
     @ObservedObject private var pairingService = PairingService.shared
@@ -54,6 +55,7 @@ struct LetterSharingView: View {
                     letterMainContent
                 }
             }
+            .appThemeBackground()
             .navigationTitle("大切な人への手紙")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -130,14 +132,14 @@ struct LetterSharingView: View {
                             ZStack {
                                 Image(systemName: "person.badge.plus")
                                     .font(.title2)
-                                    .foregroundColor(.white)
+                                    .foregroundColor(theme?.onAccent ?? .white)
                                     .frame(width: 50, height: 50)
-                                    .background(Color.blue)
+                                    .background(Color.accentColor)
                                     .cornerRadius(12)
                                 
                                 if isGeneratingInvite {
                                     ProgressView()
-                                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                                        .progressViewStyle(CircularProgressViewStyle(tint: theme?.onAccent ?? .white))
                                 }
                             }
                             
@@ -154,7 +156,7 @@ struct LetterSharingView: View {
                             Spacer()
                             
                             Image(systemName: "square.and.arrow.up")
-                                .foregroundColor(.blue)
+                                .foregroundColor(.accentColor)
                         }
                         .padding()
                         .background(Color(.systemBackground))

@@ -22,36 +22,40 @@ extension AppDataStore {
         persistAppState()
 
         if enabled {
-            NotificationService.shared.scheduleDiaryReminder(hour: hour, minute: minute)
+            dailyNotificationService.scheduleDiaryReminder(hour: hour, minute: minute)
         } else {
-            NotificationService.shared.cancelDiaryReminder()
+            dailyNotificationService.cancelDiaryReminder()
         }
     }
 
     /// アプリ起動時に日記リマインダーを再スケジュール（今日書いていなければ）
-    func rescheduleDiaryReminderIfNeeded() {
-        guard diaryReminderEnabled else { return }
+    func rescheduleDiaryReminderIfNeeded(referenceDate: Date = Date()) {
+        guard areNotificationUpdatesEnabled else { return }
+        guard diaryReminderEnabled else {
+            dailyNotificationService.cancelDiaryReminder()
+            return
+        }
 
         // 今日の日記があるかチェック
-        let today = Date()
+        let today = referenceDate
         let hasTodayEntry = diaryEntries.contains { entry in
             Calendar.current.isDate(entry.date, inSameDayAs: today) && !entry.text.isEmpty
         }
 
-        if hasTodayEntry {
-            // 今日書いてあれば翌日用にスケジュール
-            NotificationService.shared.cancelDiaryReminder()
-            // 翌日の通知をスケジュール
-            let calendar = Calendar.current
-            if let tomorrow = calendar.date(byAdding: .day, value: 1, to: today),
-               let targetDate = calendar.date(bySettingHour: diaryReminderHour, minute: diaryReminderMinute, second: 0, of: tomorrow) {
-                let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: targetDate)
-                NotificationService.shared.scheduleDiaryReminder(components: components)
-            }
-        } else {
-            // 今日まだ書いていなければ通常スケジュール
-            NotificationService.shared.scheduleDiaryReminder(hour: diaryReminderHour, minute: diaryReminderMinute)
+        let calendar = Calendar.current
+        var targetDay = calendar.startOfDay(for: today)
+        guard let todayFireDate = calendar.date(bySettingHour: diaryReminderHour, minute: diaryReminderMinute,
+                                                second: 0, of: targetDay) else { return }
+        if hasTodayEntry || todayFireDate <= today {
+            guard let tomorrow = calendar.date(byAdding: .day, value: 1, to: targetDay) else { return }
+            targetDay = tomorrow
         }
+        // Select the day before resolving the clock time: a nonexistent time on
+        // today's DST transition must not change tomorrow's configured hour.
+        guard let targetDate = calendar.date(bySettingHour: diaryReminderHour, minute: diaryReminderMinute,
+                                             second: 0, of: targetDay) else { return }
+        let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: targetDate)
+        dailyNotificationService.scheduleDiaryReminder(components: components)
     }
 
     // MARK: - 今日の予定・タスク通知設定
@@ -76,8 +80,9 @@ extension AppDataStore {
     }
 
     func rescheduleTodayOverviewReminderIfNeeded(referenceDate: Date = Date()) {
+        guard areNotificationUpdatesEnabled else { return }
         guard todayOverviewNotificationEnabled else {
-            NotificationService.shared.cancelTodayOverviewReminder()
+            dailyNotificationService.cancelTodayOverviewReminder()
             return
         }
 
@@ -110,7 +115,7 @@ extension AppDataStore {
             })
 
         let body = todayOverviewBody(targetDate: targetDate, events: targetEvents, tasks: targetTasks)
-        NotificationService.shared.scheduleTodayOverviewReminder(fireDate: fireDate, body: body)
+        dailyNotificationService.scheduleTodayOverviewReminder(fireDate: fireDate, body: body)
     }
 
     private func todayOverviewBody(targetDate: Date, events: [CalendarEvent], tasks: [Task]) -> String {

@@ -158,6 +158,7 @@ struct HabitEditorView: View {
                 }
             }
         }
+        .appThemeBackground()
         .navigationTitle(habit == nil ? "習慣を追加" : "習慣を編集")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {

@@ -132,7 +132,7 @@ nonisolated struct PhotoStorage {
         }
         try files.writeOriginal(dataToWrite, at: filename)
         // A failed preview never discards the only original; sync retries generation.
-        try? ensureThumbnail(at: filename)
+        try? photoFilesQueue.sync { try files.prepareThumbnail(at: filename) }
         if let sourceAssetIdentifier, sourceAssetIdentifier.isEmpty == false {
             setAssetIdentifier(sourceAssetIdentifier, for: filename)
         }
@@ -144,12 +144,47 @@ nonisolated struct PhotoStorage {
         try await withCheckedThrowingContinuation { continuation in
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    let path = try save(data: data, sourceAssetIdentifier: sourceAssetIdentifier)
+                    let path = try autoreleasepool { try save(data: data, sourceAssetIdentifier: sourceAssetIdentifier) }
                     continuation.resume(returning: path)
                 } catch {
                     continuation.resume(throwing: error)
                 }
             }
+        }
+    }
+
+    /// Preserve the selected movie's bytes and container. A file transfer and
+    /// streaming fingerprint keep long clips out of the app's memory buffers.
+    static func saveVideoAsync(fileURL: URL, sourceAssetIdentifier: String? = nil) async throws -> String {
+        try await _Concurrency.Task.detached(priority: .userInitiated) {
+            try autoreleasepool {
+                let fileExtension = fileURL.pathExtension.isEmpty ? "mov" : fileURL.pathExtension.lowercased()
+                let filename = UUID().uuidString + "." + fileExtension
+                guard isVideo(at: filename) else { throw DiaryPhotoFiles.StorageError.invalidImage }
+                do {
+                    try files.copyOriginal(from: fileURL, at: filename)
+                    try photoFilesQueue.sync { try files.prepareThumbnail(at: filename) }
+                    if let sourceAssetIdentifier, !sourceAssetIdentifier.isEmpty {
+                        setAssetIdentifier(sourceAssetIdentifier, for: filename)
+                    }
+                    return filename
+                } catch {
+                    try? files.removeFiles(at: filename)
+                    throw error
+                }
+            }
+        }.value
+    }
+
+    static func isVideo(at path: String) -> Bool { DiaryPhotoFiles.isVideo(at: path) }
+
+    static func matchingVideoPath(assetIdentifier: String?, fileURL: URL,
+                                  in index: PhotoIdentityIndex) async -> String? {
+        guard !_Concurrency.Task.isCancelled else { return nil }
+        return await performIdentityWork {
+            if let assetIdentifier, let path = index.assetIdentifiers[assetIdentifier]?.first { return path }
+            guard !index.digests.isEmpty, let digest = try? digestHex(forFileAt: fileURL) else { return nil }
+            return index.digests[digest]?.first
         }
     }
 
@@ -215,8 +250,14 @@ nonisolated struct PhotoStorage {
         let identifiers = assetIdentifierMap(for: paths)
         var identities: [String: String] = [:]
         for path in paths {
-            identities[path] = PhotoIdentityIndex.linkIdentity(assetIdentifier: identifiers[path],
-                                                              fingerprint: fingerprint(for: path))
+            if let identifier = identifiers[path], !identifier.isEmpty {
+                // The Photos asset already supplies identity. In particular,
+                // linking a newly imported movie must never scan its bytes.
+                identities[path] = PhotoIdentityIndex.linkIdentity(assetIdentifier: identifier, fingerprint: nil)
+            } else {
+                identities[path] = PhotoIdentityIndex.linkIdentity(assetIdentifier: nil,
+                                                                  fingerprint: fingerprint(for: path))
+            }
         }
         return identities
     }
@@ -252,6 +293,55 @@ nonisolated struct PhotoStorage {
     static func localFileURL(for path: String) -> URL { files.fullImageURL(for: path) }
     static func thumbnailFileURL(for path: String) -> URL { files.thumbnailURL(for: path) }
 
+    /// Playback owns a snapshot so background iCloud eviction cannot remove the
+    /// movie while AVPlayer is reading it. The viewer releases it after playback.
+    static func loadVideoURL(at path: String) async throws -> URL {
+        guard !PhotoSyncManifest.shared.isDeleted(path: path) else { throw PhotoCloudSyncError.missingLocalPhoto }
+        let local = try await _Concurrency.Task.detached(priority: .userInitiated) {
+            try photoFilesQueue.sync {
+                guard files.originalExists(at: path) else { return nil as URL? }
+                return try makeVideoPlaybackCopy(from: localFileURL(for: path), path: path)
+            }
+        }.value
+        if let local {
+            guard !_Concurrency.Task.isCancelled, !PhotoSyncManifest.shared.isDeleted(path: path) else {
+                releaseVideoURL(local)
+                throw CancellationError()
+            }
+            return local
+        }
+        return try await PhotoCloudSyncService.shared.fetchVideoFile(at: path)
+    }
+
+    static let videoPlaybackDirectory = FileManager.default.temporaryDirectory
+        .appendingPathComponent("DiaryVideoPlayback", isDirectory: true)
+
+    static func releaseVideoURL(_ url: URL) {
+        guard url.standardizedFileURL.deletingLastPathComponent() == videoPlaybackDirectory.standardizedFileURL else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    static func makeVideoPlaybackCopy(from source: URL, path: String) throws -> URL {
+        try FileManager.default.createDirectory(at: videoPlaybackDirectory, withIntermediateDirectories: true)
+        let destination = videoPlaybackDirectory.appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension((path as NSString).pathExtension)
+        do {
+            do {
+                // A separate directory entry survives eviction of the original
+                // without duplicating a long clip on the same filesystem.
+                try FileManager.default.linkItem(at: source, to: destination)
+            } catch {
+                try FileManager.default.copyItem(at: source, to: destination)
+            }
+            try FileManager.default.setAttributes(
+                [.protectionKey: FileProtectionType.completeUntilFirstUserAuthentication], ofItemAtPath: destination.path)
+            return destination
+        } catch {
+            try? FileManager.default.removeItem(at: destination)
+            throw error
+        }
+    }
+
     static func ensureThumbnail(at path: String) throws {
         try photoFilesQueue.sync {
             try files.prepareThumbnail(at: path)
@@ -269,6 +359,14 @@ nonisolated struct PhotoStorage {
     static func storeDownloadedData(_ data: Data, at path: String) throws {
         try photoFilesQueue.sync {
             try files.writeOriginal(data, at: path)
+            try files.prepareThumbnail(at: path)
+            _ = fingerprint(for: path)
+        }
+    }
+
+    static func storeDownloadedFile(_ source: URL, at path: String) throws {
+        try photoFilesQueue.sync {
+            try files.copyOriginal(from: source, at: path)
             try files.prepareThumbnail(at: path)
             _ = fingerprint(for: path)
         }
@@ -300,6 +398,7 @@ nonisolated struct PhotoStorage {
     }
 
     static func loadFullImage(at path: String) async -> UIImage? {
+        if isVideo(at: path) { return await loadThumbnail(at: path) }
         guard !_Concurrency.Task.isCancelled, !PhotoSyncManifest.shared.isDeleted(path: path) else { return nil }
         if let cached = PhotoThumbnailCache.shared.fullImage(for: path) { return cached }
         let local = await PhotoImageLoader.shared.load(key: "original:" + path) {
@@ -469,9 +568,14 @@ nonisolated struct PhotoStorage {
                 cachedFingerprints[path] = stored
                 return stored
             }
-            guard let data = loadData(at: path) else { return nil }
-            let value = Fingerprint(digest: digestHex(for: data),
-                                    visualDigest: visualDigest(for: data))
+            let value: Fingerprint
+            if isVideo(at: path) {
+                guard let digest = try? digestHex(forFileAt: localFileURL(for: path)) else { return nil }
+                value = Fingerprint(digest: digest, visualDigest: nil)
+            } else {
+                guard let data = loadData(at: path) else { return nil }
+                value = Fingerprint(digest: digestHex(for: data), visualDigest: visualDigest(for: data))
+            }
             // One tiny sidecar per image avoids rewriting the whole index during bulk migration.
             if let encoded = try? JSONEncoder().encode(value) {
                 try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -505,6 +609,16 @@ nonisolated struct PhotoStorage {
         SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
     }
 
+    static func digestHex(forFileAt url: URL) throws -> String {
+        let handle = try FileHandle(forReadingFrom: url)
+        defer { try? handle.close() }
+        var hasher = SHA256()
+        while let chunk = try handle.read(upToCount: 1_024 * 1_024), !chunk.isEmpty {
+            hasher.update(data: chunk)
+        }
+        return hasher.finalize().map { String(format: "%02x", $0) }.joined()
+    }
+
 }
 
 // MARK: - Async Image View (SwiftUI)
@@ -529,6 +643,11 @@ struct AsyncThumbnailImage: View {
         }
         .frame(width: size, height: size)
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(alignment: .bottomLeading) {
+            if PhotoStorage.isVideo(at: path) {
+                DiaryVideoBadge().padding(6)
+            }
+        }
         .task(id: path) {
             image = nil
             isLoading = true

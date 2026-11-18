@@ -14,6 +14,8 @@ struct WallpaperCalendarSettingsView: View {
     @AppStorage("WallpaperCalendar_OnboardingPresented_V1") private var hasSeenSetupGuide = false
     @AppStorage(CalendarWeekStart.storageKey, store: CalendarWeekStart.defaults)
     private var firstWeekday = CalendarWeekStart.sunday.rawValue
+    @AppStorage(CalendarDisplayPreferences.fontSizeKey) private var eventFontSize = CalendarDisplayPreferences.defaultFontSize
+    @AppStorage(CalendarDisplayPreferences.opacityKey) private var categoryOpacity = CalendarDisplayPreferences.defaultOpacity
     @State private var settings = WallpaperCalendarSettingsStore.shared.load()
     @State private var selectedBackgroundItem: PhotosPickerItem?
     @State private var previewSnapshot: WallpaperCalendarSnapshot?
@@ -121,6 +123,10 @@ struct WallpaperCalendarSettingsView: View {
     private let shortcutCreateURL = URL(string: "shortcuts://create-shortcut")
     private let shortcutInstallationURL = WallpaperCalendarShortcut.installationURL
 
+    private var displayPreferences: CalendarDisplayPreferences {
+        CalendarDisplayPreferences(fontSize: eventFontSize, opacity: categoryOpacity)
+    }
+
     var body: some View {
         Form {
             previewSection
@@ -128,6 +134,7 @@ struct WallpaperCalendarSettingsView: View {
             shortcutSection
             manualSetupFootnote
         }
+        .appThemeBackground()
         .navigationTitle("ロック画面カレンダー")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -140,6 +147,9 @@ struct WallpaperCalendarSettingsView: View {
             loadBackground(from: newItem)
         }
         .onChange(of: firstWeekday) { _, _ in
+            _Concurrency.Task { await refreshPreview() }
+        }
+        .onChange(of: displayPreferences) { _, _ in
             _Concurrency.Task { await refreshPreview() }
         }
         .alert("ロック画面カレンダー", isPresented: Binding(
@@ -190,6 +200,7 @@ struct WallpaperCalendarSettingsView: View {
                     systemImage: "photo",
                     description: Text("もう一度、壁紙画像を選び直してください。")
                 )
+                .appThemeBackground()
             }
         }
     }
@@ -270,7 +281,7 @@ struct WallpaperCalendarSettingsView: View {
             .accessibilityIdentifier("wallpaperSetup.photo")
 
             if previewBackgroundImage == nil {
-                ColorPicker("背景色", selection: colorPickerSelection(for: backgroundColorBinding), supportsOpacity: false)
+                ColorPicker("壁紙の背景色", selection: colorPickerSelection(for: backgroundColorBinding), supportsOpacity: false)
                     .frame(minHeight: 44)
                     .accessibilityIdentifier("wallpaperSetup.color")
             } else {
@@ -519,6 +530,7 @@ struct WallpaperCalendarSettingsView: View {
                     manualSetupContent
                         .padding()
                 }
+                .appThemeBackground()
                 .navigationTitle("手動で設定")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -786,6 +798,7 @@ private struct WallpaperCalendarPreviewPage: Identifiable {
 }
 
 private struct WallpaperCalendarPreviewEditor: View {
+    @Environment(\.appTheme) private var theme
     @Binding var selectedBackgroundItem: PhotosPickerItem?
 
     let pages: [WallpaperCalendarPreviewPage]
@@ -857,7 +870,7 @@ private struct WallpaperCalendarPreviewEditor: View {
                     Text(page.preset.weekLayoutTitle)
                         .font(.caption.weight(.semibold))
                         .monospacedDigit()
-                        .foregroundStyle(page.preset == selectedPreset.normalized ? Color.white : Color.primary)
+                        .foregroundStyle(page.preset == selectedPreset.normalized ? (theme?.onAccent ?? .white) : .primary)
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
                         .background(
@@ -917,14 +930,14 @@ private struct PreviewEditorColorPicker: View {
     @Binding var color: Color
 
     var body: some View {
-        ColorPicker("", selection: $color, supportsOpacity: false)
+        ColorPicker("壁紙の背景色", selection: $color, supportsOpacity: false)
             .labelsHidden()
             .frame(width: 46, height: 46)
             .overlay {
                 PreviewEditorIconButton(systemImage: "paintpalette", tint: .accentColor)
                     .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
-            .accessibilityLabel("背景色を自由に選ぶ")
     }
 }
 
@@ -1212,6 +1225,7 @@ private struct WallpaperBackgroundAdjustmentSheet: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .padding(.vertical, verticalPadding / 2)
             }
+            .appThemeBackground()
             .navigationTitle("画像の位置を調整")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

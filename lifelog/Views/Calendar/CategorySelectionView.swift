@@ -58,6 +58,7 @@ struct CategorySelectionView: View {
                     }
                 }
             }
+            .appThemeBackground()
             .navigationTitle("カテゴリを選択")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

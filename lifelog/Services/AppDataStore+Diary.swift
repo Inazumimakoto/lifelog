@@ -180,7 +180,7 @@ extension AppDataStore {
     }
 
     private static func normalizedDiaryEntry(_ entry: DiaryEntry) -> DiaryEntry {
-        var normalized = entry
+        var normalized = DiaryMediaCollection.normalized(entry)
         for index in normalized.locations.indices {
             normalized.locations[index].visitTags = DiaryVisitTagNormalizer.normalize(normalized.locations[index].visitTags,
                                                                                      limit: maxLocationVisitTagsPerVisit)

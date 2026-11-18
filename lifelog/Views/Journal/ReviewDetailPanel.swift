@@ -211,7 +211,9 @@ struct ReviewDetailPanel: View {
 // MARK: - Review Day Cell (非同期サムネイル対応)
 struct ReviewDayCell: View {
     let day: JournalViewModel.CalendarDay
+    let calendar: Calendar
     let isSelected: Bool
+    let highlightColor: Color
     let showMoodOnReviewCalendar: Bool
     let onTap: () -> Void
 
@@ -230,21 +232,22 @@ struct ReviewDayCell: View {
                     .resizable()
                     .scaledToFill()
                     .frame(minWidth: 0, maxWidth: .infinity, minHeight: 0, maxHeight: .infinity)
+                    .opacity(day.isWithinDisplayedMonth ? 1 : 0.4)
             } else {
                 Color.clear
             }
 
             // Overlay: Date and mood
             ZStack(alignment: .top) {
-                Text("\(Calendar.current.component(.day, from: day.date))")
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(reviewDateTextColor)
+                CalendarDayNumber(date: day.date, calendar: calendar, isToday: day.isToday,
+                                  isInMonth: day.isWithinDisplayedMonth, overPhoto: hasPhoto, font: .caption.bold())
                     .padding(.horizontal, 4)
                     .padding(.vertical, 2)
-                    .background(
-                        hasPhoto ? Color.black.opacity(0.4) : Color.clear,
-                        in: RoundedRectangle(cornerRadius: 4)
-                    )
+                    .background {
+                        if hasPhoto {
+                            RoundedRectangle(cornerRadius: 4).fill(.black.opacity(0.4))
+                        }
+                    }
                     .frame(maxWidth: .infinity, alignment: .topLeading)
 
                 if shouldShowMood {
@@ -263,16 +266,15 @@ struct ReviewDayCell: View {
         .frame(height: 88)
         .background(
             RoundedRectangle(cornerRadius: 10)
-                .fill(day.isToday ? Color.accentColor.opacity(0.12) : Color(.systemGray6))
+                .fill(day.isToday ? Color.accentColor.opacity(0.12) : Color(uiColor: .systemGray6))
         )
         .clipShape(RoundedRectangle(cornerRadius: 10))
         .overlay(alignment: .center) {
             if isSelected {
                 RoundedRectangle(cornerRadius: 10)
-                    .stroke(Color.accentColor, lineWidth: 2)
+                    .strokeBorder(highlightColor, lineWidth: 2)
             }
         }
-        .opacity(day.isWithinDisplayedMonth ? 1.0 : 0.35)
         .contentShape(Rectangle())
         .onTapGesture {
             onTap()
@@ -287,11 +289,4 @@ struct ReviewDayCell: View {
         }
     }
 
-    private var reviewDateTextColor: Color {
-        guard hasPhoto == false else { return .white }
-        guard day.isWithinDisplayedMonth, Calendar.current.isDateInWeekend(day.date) == false else {
-            return .secondary
-        }
-        return .primary
-    }
 }

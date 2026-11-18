@@ -399,17 +399,21 @@ final class SDAppState {
     // Similarly, only one instance expected.
     var lastCalendarSyncDate: Date?
     var calendarCategoryLinks: [CalendarCategoryLink] // CalendarCategoryLink must be Codable
+    // Optional for lightweight migration of existing stores; nil means no archive yet.
+    var unavailableCalendarCategoryLinks: [CalendarCategoryLink]?
     var diaryReminderEnabled: Bool
     var diaryReminderHour: Int
     var diaryReminderMinute: Int
 
     init(lastCalendarSyncDate: Date? = nil,
          calendarCategoryLinks: [CalendarCategoryLink] = [],
+         unavailableCalendarCategoryLinks: [CalendarCategoryLink]? = nil,
          diaryReminderEnabled: Bool = false,
          diaryReminderHour: Int = 21,
          diaryReminderMinute: Int = 0) {
         self.lastCalendarSyncDate = lastCalendarSyncDate
         self.calendarCategoryLinks = calendarCategoryLinks
+        self.unavailableCalendarCategoryLinks = unavailableCalendarCategoryLinks
         self.diaryReminderEnabled = diaryReminderEnabled
         self.diaryReminderHour = diaryReminderHour
         self.diaryReminderMinute = diaryReminderMinute

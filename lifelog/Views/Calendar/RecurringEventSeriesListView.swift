@@ -39,6 +39,7 @@ struct RecurringEventSeriesListView: View {
                 }
             }
         }
+        .appThemeBackground()
         .navigationTitle("繰り返し予定を管理")
         .sheet(item: $editingSeries) { event in
             NavigationStack {

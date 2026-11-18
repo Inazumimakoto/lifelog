@@ -5,7 +5,7 @@ import Combine
 /// See docs/requirements.md §6 (responsive UI).
 @MainActor
 final class AppDataStoreOwner: ObservableObject {
-    let store = AppDataStore()
+    let store = AppDataStore(defersNotificationUpdatesUntilStartup: true)
 
     // The store has no actor-bound teardown; avoid the same older-runtime
     // implicit isolated-deinit path as AppDataStore and ShoppingStore.
