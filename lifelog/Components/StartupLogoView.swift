@@ -11,13 +11,8 @@ struct StartupLogoView: View {
     @Environment(\.scenePhase) private var scenePhase
     @State private var hasStarted = false
     @State private var hasCompleted = false
-    @State private var dotOffset: CGFloat = 0
-    @State private var dotScale = CGSize(width: 1, height: 1)
-    @State private var isRevealing = false
-    @State private var revealProgress: CGFloat = 0
+    @State private var elapsed: TimeInterval = 0
     @State private var overlayOpacity: Double = 1
-
-    private let logoSize: CGFloat = 200
 
     var body: some View {
         let scheme = theme?.colorScheme ?? colorScheme
@@ -25,53 +20,18 @@ struct StartupLogoView: View {
         let stem = theme == nil ? AppTheme.color(hex: systemLogo.stemHex) : (scheme == .dark ? Color.white : Color.black)
         let accent = theme.map { $0.accent ?? Color(uiColor: .systemBlue) } ?? AppTheme.color(hex: systemLogo.accentHex)
         let outline = theme?.selectionIndicator ?? accent
-        let scale = logoSize / AppIconArtwork.dimension
-        let transform = CGAffineTransform(scaleX: scale, y: scale)
-        GeometryReader { geometry in
-            let bounds = AppIconArtwork.dotBounds.applying(transform)
-            let dotPosition = CGPoint(
-                x: geometry.size.width / 2 + bounds.midX - logoSize / 2,
-                y: geometry.size.height / 2 + bounds.midY - logoSize / 2
-            )
-            let revealRadius = hypot(
-                max(dotPosition.x, geometry.size.width - dotPosition.x),
-                max(dotPosition.y, geometry.size.height - dotPosition.y)
-            ) + 2
-
-            ZStack {
-                (theme?.background ?? Color("LaunchBackground"))
-
-                Path(AppIconArtwork.stem).applying(transform)
-                    .fill(stem)
-                    .frame(width: logoSize, height: logoSize)
-                    .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
-
-                Circle()
-                    .fill(accent)
-                    .overlay { Circle().strokeBorder(outline, lineWidth: 1) }
-                    .frame(width: bounds.width, height: bounds.height)
-                    .scaleEffect(x: dotScale.width, y: dotScale.height, anchor: .bottom)
-                    .position(x: dotPosition.x, y: dotPosition.y + dotOffset)
-            }
-            .frame(width: geometry.size.width, height: geometry.size.height)
-            // Cut the window through every splash layer so the underlying live
-            // ContentView (or LockView) is visible, while the outside stays opaque.
-            .modifier(CircularRevealModifier(
-                center: dotPosition,
-                initialRadius: bounds.width / 2,
-                finalRadius: revealRadius,
-                rimColor: outline,
-                progress: revealProgress,
-                isRevealing: isRevealing
-            ))
-            .opacity(overlayOpacity)
-            .clipped()
-            .task {
-                // Let the themed first frame enter the view tree before animating.
-                await _Concurrency.Task.yield()
-                guard !_Concurrency.Task.isCancelled else { return }
-                startAnimation()
-            }
+        AnimatedLogo(
+            elapsed: elapsed,
+            background: theme?.background ?? Color("LaunchBackground"),
+            stem: stem,
+            accent: accent,
+            outline: outline
+        )
+        .opacity(overlayOpacity)
+        .task {
+            await _Concurrency.Task.yield()
+            guard !_Concurrency.Task.isCancelled else { return }
+            startAnimation()
         }
         .environment(\.colorScheme, scheme)
         .ignoresSafeArea()
@@ -97,70 +57,9 @@ struct StartupLogoView: View {
             return
         }
 
-        // Keep the lower edge planted while squashing to anticipate the jump.
-        withAnimation(.easeInOut(duration: 0.07)) {
-            dotScale = CGSize(width: 1.16, height: 0.8)
-        } completion: {
-            takeOff()
-        }
-    }
-
-    private func takeOff() {
-        guard !hasCompleted else { return }
-        // A quick stretch releases the stored energy, then the rise slows down.
-        withAnimation(.easeIn(duration: 0.025)) {
-            dotOffset = -10
-            dotScale = CGSize(width: 0.86, height: 1.2)
-        } completion: {
-            rise()
-        }
-    }
-
-    private func rise() {
-        guard !hasCompleted else { return }
-        withAnimation(.easeOut(duration: 0.045)) {
-            dotOffset = -28
-            dotScale = CGSize(width: 1, height: 1)
-        } completion: {
-            land()
-        }
-    }
-
-    private func land() {
-        guard !hasCompleted else { return }
-        withAnimation(.easeIn(duration: 0.055)) {
-            dotOffset = 0
-            dotScale = CGSize(width: 0.92, height: 1.1)
-        } completion: {
-            absorbLanding()
-        }
-    }
-
-    private func absorbLanding() {
-        guard !hasCompleted else { return }
-        withAnimation(.easeOut(duration: 0.025)) {
-            dotScale = CGSize(width: 1.12, height: 0.86)
-        } completion: {
-            settle()
-        }
-    }
-
-    private func settle() {
-        guard !hasCompleted else { return }
-        withAnimation(.easeInOut(duration: 0.03)) {
-            dotScale = CGSize(width: 1, height: 1)
-        } completion: {
-            revealUI()
-        }
-    }
-
-    private func revealUI() {
-        guard !hasCompleted else { return }
-        // Open only after landing has recovered its round shape. One modifier
-        // interpolates both the aperture and its rim so they stay aligned.
-        isRevealing = true
-        withAnimation(.timingCurve(0.32, 0, 0.62, 1, duration: 0.28)) {
-            revealProgress = 1
+        let duration = AnimatedLogo.timeline.duration
+        withAnimation(.linear(duration: duration)) {
+            elapsed = duration
         } completion: {
             complete()
         }
@@ -172,18 +71,103 @@ struct StartupLogoView: View {
         onComplete()
     }
 
-    private struct CircularRevealModifier: AnimatableModifier {
+    private struct AnimatedLogo: View, Animatable {
+        var elapsed: TimeInterval
+        let background: Color
+        let stem: Color
+        let accent: Color
+        let outline: Color
+
+        var animatableData: TimeInterval {
+            get { elapsed }
+            set { elapsed = newValue }
+        }
+
+        struct Frame {
+            var offset: CGFloat = 0
+            var scale = CGSize(width: 1, height: 1)
+            var reveal: CGFloat = 0
+        }
+
+        // Sample all three properties from one clock, including when a frame is late.
+        static let timeline = KeyframeTimeline(initialValue: Frame()) {
+            KeyframeTrack(\.scale) {
+                LinearKeyframe(CGSize(width: 1.16, height: 0.8), duration: 0.07, timingCurve: .easeInOut)
+                LinearKeyframe(CGSize(width: 0.86, height: 1.2), duration: 0.025, timingCurve: .easeIn)
+                LinearKeyframe(CGSize(width: 1, height: 1), duration: 0.045, timingCurve: .easeOut)
+                LinearKeyframe(CGSize(width: 0.92, height: 1.1), duration: 0.055, timingCurve: .easeIn)
+                LinearKeyframe(CGSize(width: 1.12, height: 0.86), duration: 0.025, timingCurve: .easeOut)
+                LinearKeyframe(CGSize(width: 1, height: 1), duration: 0.03, timingCurve: .easeInOut)
+            }
+            KeyframeTrack(\.offset) {
+                LinearKeyframe(0, duration: 0.07)
+                LinearKeyframe(-10, duration: 0.025, timingCurve: .easeIn)
+                LinearKeyframe(-28, duration: 0.045, timingCurve: .easeOut)
+                LinearKeyframe(0, duration: 0.055, timingCurve: .easeIn)
+            }
+            KeyframeTrack(\.reveal) {
+                LinearKeyframe(0, duration: 0.25)
+                LinearKeyframe(1, duration: 0.28, timingCurve: .bezier(
+                    startControlPoint: UnitPoint(x: 0.32, y: 0),
+                    endControlPoint: UnitPoint(x: 0.62, y: 1)
+                ))
+            }
+        }
+
+        var body: some View {
+            let frame = Self.timeline.value(time: elapsed)
+            let logoSize: CGFloat = 200
+            let scale = logoSize / AppIconArtwork.dimension
+            let transform = CGAffineTransform(scaleX: scale, y: scale)
+            GeometryReader { geometry in
+                let bounds = AppIconArtwork.dotBounds.applying(transform)
+                let dotPosition = CGPoint(
+                    x: geometry.size.width / 2 + bounds.midX - logoSize / 2,
+                    y: geometry.size.height / 2 + bounds.midY - logoSize / 2
+                )
+                let revealRadius = hypot(
+                    max(dotPosition.x, geometry.size.width - dotPosition.x),
+                    max(dotPosition.y, geometry.size.height - dotPosition.y)
+                ) + 2
+
+                ZStack {
+                    background
+
+                    Path(AppIconArtwork.stem).applying(transform)
+                        .fill(stem)
+                        .frame(width: logoSize, height: logoSize)
+                        .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+
+                    Circle()
+                        .fill(accent)
+                        .overlay { Circle().strokeBorder(outline, lineWidth: 1) }
+                        .frame(width: bounds.width, height: bounds.height)
+                        .scaleEffect(x: frame.scale.width, y: frame.scale.height, anchor: .bottom)
+                        .position(x: dotPosition.x, y: dotPosition.y + frame.offset)
+                }
+                .frame(width: geometry.size.width, height: geometry.size.height)
+                // Cut the window through every splash layer so the underlying live
+                // ContentView (or LockView) is visible, while the outside stays opaque.
+                .modifier(CircularRevealModifier(
+                    center: dotPosition,
+                    initialRadius: bounds.width / 2,
+                    finalRadius: revealRadius,
+                    rimColor: outline,
+                    progress: frame.reveal,
+                    isRevealing: frame.reveal > 0
+                ))
+                .clipped()
+            }
+        }
+    }
+
+    private struct CircularRevealModifier: ViewModifier {
         var center: CGPoint
         var initialRadius: CGFloat
         var finalRadius: CGFloat
         var rimColor: Color
         var progress: CGFloat
         var isRevealing: Bool
-
-        var animatableData: CGFloat {
-            get { progress }
-            set { progress = newValue }
-        }
 
         func body(content: Content) -> some View {
             let radius = initialRadius + (finalRadius - initialRadius) * progress

@@ -22,7 +22,6 @@ struct lifelogApp: App {
     @StateObject private var storeOwner = AppDataStoreOwner()
     @State private var hasFinishedStartup = false
     @ObservedObject private var deepLinkManager = DeepLinkManager.shared
-    @ObservedObject private var monetizationService = MonetizationService.shared
     
     init() {
         // Remove the retired AI analysis quota; see docs/ai-analysis-retirement.md.
@@ -36,8 +35,12 @@ struct lifelogApp: App {
     @ObservedObject private var appLockService = AppLockService.shared
     @Environment(\.scenePhase) private var scenePhase
 
+    private var isForegroundReady: Bool {
+        hasFinishedStartup && scenePhase == .active
+    }
+
     private var canRefreshNotifications: Bool {
-        storeOwner.store != nil && hasFinishedStartup && scenePhase == .active &&
+        storeOwner.store != nil && isForegroundReady &&
             (!appLockService.isAppLockEnabled || appLockService.isUnlocked)
     }
 
@@ -50,16 +53,15 @@ struct lifelogApp: App {
                         .environmentObject(deepLinkManager)
                         .allowsHitTesting(hasFinishedStartup)
                         .accessibilityHidden(!hasFinishedStartup)
-                        .onAppear {
+                        .task(id: isForegroundReady) {
+                            guard isForegroundReady else { return }
+                            // Initial appearance and activation share one refresh, after the logo.
                             syncMemoPrivacySettingsToSharedDefaults()
                             store.resumeDiaryPhotoSync()
-                            WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
-                            WidgetCenter.shared.reloadTimelines(ofKind: "HabitWidget")
-                            WidgetCenter.shared.reloadTimelines(ofKind: "AnniversaryWidget")
-                            WidgetCenter.shared.reloadTimelines(ofKind: "MemoWidget")
-                            _Concurrency.Task {
-                                await monetizationService.refreshStatus()
-                            }
+                            WidgetCenter.shared.reloadAllTimelines()
+                            async let lastLogin: Void = AuthService.shared.updateLastLoginAt()
+                            await MonetizationService.shared.refreshStatus()
+                            await lastLogin
                         }
                 } else {
                     ContentUnavailableView {
@@ -123,7 +125,7 @@ struct lifelogApp: App {
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
                 storeOwner.openIfNeeded()
             }
-            .onChange(of: scenePhase) { newPhase in
+            .onChange(of: scenePhase) { _, newPhase in
                 if newPhase == .inactive || newPhase == .background {
                     appLockService.lock()
                 } else if newPhase == .active {
@@ -136,19 +138,6 @@ struct lifelogApp: App {
                     }
 
                     storeOwner.openIfNeeded()
-                    guard let store = storeOwner.store else { return }
-                    syncMemoPrivacySettingsToSharedDefaults()
-                    store.resumeDiaryPhotoSync()
-                    WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
-                    WidgetCenter.shared.reloadTimelines(ofKind: "HabitWidget")
-                    WidgetCenter.shared.reloadTimelines(ofKind: "AnniversaryWidget")
-                    WidgetCenter.shared.reloadTimelines(ofKind: "MemoWidget")
-                    
-                    // 最終ログイン日時を更新（手紙の生存確認用）
-                    _Concurrency.Task {
-                        await AuthService.shared.updateLastLoginAt()
-                        await monetizationService.refreshStatus()
-                    }
                 }
             }
             // Universal Links (招待リンク) のハンドリング

@@ -18,17 +18,17 @@ final class WeatherService: NSObject, ObservableObject {
     @Published private(set) var errorMessage: String?
     @Published private(set) var locationStatus: CLAuthorizationStatus = .notDetermined
     
-    private let weatherKitService = WeatherKit.WeatherService.shared
-    private let locationManager = CLLocationManager()
+    // Home can render its header before the launch animation finishes. Initialize
+    // the system services only when Home refreshes or setup requests access.
+    private lazy var weatherKitService = WeatherKit.WeatherService.shared
+    private lazy var locationManager: CLLocationManager = {
+        let manager = CLLocationManager()
+        manager.desiredAccuracy = kCLLocationAccuracyKilometer
+        manager.delegate = self
+        return manager
+    }()
     private var lastFetchDate: Date?
-    
-    override init() {
-        super.init()
-        locationStatus = locationManager.authorizationStatus
-        locationManager.delegate = self
-        locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
-    }
-    
+
     /// Invoked from the Home weather action. Background refreshes never ask for permission.
     func requestLocationPermission() {
         guard locationManager.authorizationStatus == .notDetermined else { return }
@@ -49,8 +49,9 @@ final class WeatherService: NSObject, ObservableObject {
 
     /// 天気情報を取得
     func fetchWeather() async {
-        locationStatus = locationManager.authorizationStatus
-
+        let status = locationManager.authorizationStatus
+        if locationStatus != status { locationStatus = status }
+        guard !isLoading else { return }
         guard locationStatus == .authorizedWhenInUse || locationStatus == .authorizedAlways else { return }
         
         // 10分以内に取得済みならスキップ

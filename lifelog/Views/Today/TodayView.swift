@@ -42,19 +42,23 @@ struct TodayView: View {
         String(localized: "買い物リストや気づいたことを書いておけます")
     }
     private let store: AppDataStore
-    @State private var didAppear = false
-    @State private var calendarSyncTrigger = 0
+    private let allowsRefresh: Bool
     @State private var showPaywall = false
 
-    init(store: AppDataStore) {
+    init(store: AppDataStore, allowsRefresh: Bool) {
         self.store = store
+        self.allowsRefresh = allowsRefresh
         _viewModel = StateObject(wrappedValue: TodayViewModel(store: store))
+    }
+
+    private var canRefresh: Bool {
+        allowsRefresh && scenePhase == .active
     }
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             ScrollView {
-                VStack(spacing: 16) {
+                LazyVStack(spacing: 16) {
                     header
                     letterSection
                     sharedLetterSection
@@ -82,30 +86,25 @@ struct TodayView: View {
                 .padding()
                 .padding(.bottom, 80) // FABのための余白
             }
-            .task {
+            // Start each integration once when Home becomes available (§起動時の表示).
+            .task(id: canRefresh) {
+                guard canRefresh else { return }
+                viewModel.refreshCurrentDate()
+                await viewModel.syncExternalCalendarsIfNeeded()
+            }
+            .task(id: canRefresh) {
+                guard canRefresh else { return }
                 await weatherService.fetchWeather()
-                // 共有手紙を取得
+            }
+            .task(id: canRefresh && !showSharedLetterOpening) {
+                guard canRefresh, !showSharedLetterOpening else { return }
                 await loadSharedLetters()
             }
-            .onAppear {
-                viewModel.refreshCurrentDate()
-                // タブ切り替え時に共有手紙を再読み込み（他画面で開封された可能性）
-                _Concurrency.Task {
-                    await loadSharedLetters()
-                }
+            .onChange(of: viewModel.date.startOfDay) { _, _ in
+                showsAllOverdueTasks = false
             }
-            .task(id: calendarSyncTrigger) {
-                await syncCalendarsIfNeeded()
-            }
-            .onChange(of: scenePhase, initial: false) { oldPhase, newPhase in
-                if oldPhase != .active && newPhase == .active {
-                    viewModel.refreshCurrentDate()
-                    calendarSyncTrigger += 1
-                    // 他の画面で開封された可能性があるので再読み込み
-                    _Concurrency.Task {
-                        await loadSharedLetters()
-                    }
-                }
+            .onChange(of: viewModel.overdueTasks.isEmpty) { _, isEmpty in
+                if isEmpty { showsAllOverdueTasks = false }
             }
             .onChange(of: weatherService.currentWeather?.temperature) { _, _ in
                 // 天気データをHealthSummaryに保存
@@ -187,10 +186,6 @@ struct TodayView: View {
         }
         .fullScreenCover(isPresented: $showSharedLetterOpening, onDismiss: {
             sharedLetterToOpen = nil
-            // 開封後にリストを更新
-            _Concurrency.Task {
-                await loadSharedLetters()
-            }
         }) {
             if let letter = sharedLetterToOpen {
                 SharedLetterOpeningView(letter: letter)
@@ -260,15 +255,6 @@ struct TodayView: View {
         .sheet(isPresented: $showPaywall) {
             PremiumPaywallView()
         }
-    }
-
-    private func syncCalendarsIfNeeded() async {
-        guard didAppear == false else {
-            await viewModel.syncExternalCalendarsIfNeeded()
-            return
-        }
-        didAppear = true
-        await viewModel.syncExternalCalendarsIfNeeded()
     }
 
     private func openDiaryEditor() {
@@ -541,12 +527,6 @@ struct TodayView: View {
                     Spacer()
                 }
             }
-        }
-        .onChange(of: viewModel.date.startOfDay) { _, _ in
-            showsAllOverdueTasks = false
-        }
-        .onChange(of: viewModel.overdueTasks.isEmpty) { _, isEmpty in
-            if isEmpty { showsAllOverdueTasks = false }
         }
     }
 
@@ -897,9 +877,11 @@ struct TodayView: View {
     private func loadSharedLetters() async {
         do {
             let fetchedLetters = try await LetterReceivingService.shared.getReceivedLetters()
+            guard !_Concurrency.Task.isCancelled else { return }
             pruneDismissedSharedLetterIDs(using: fetchedLetters)
             receivedSharedLetters = fetchedLetters.filter { !dismissedSharedLetterIDs.contains($0.id) }
         } catch {
+            guard !_Concurrency.Task.isCancelled else { return }
             AppLogger.letters.error("共有手紙の取得に失敗: \(error.localizedDescription)")
         }
     }

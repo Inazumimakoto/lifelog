@@ -10,7 +10,7 @@ import EventKit
 
 @MainActor
 final class CalendarEventService {
-    private let eventStore = EKEventStore()
+    private lazy var eventStore = EKEventStore()
     private static let eventQuery = CalendarEventQueryCoordinator()
 
     // Match AppDataStore's workaround for isolated teardown on iOS 26.1.

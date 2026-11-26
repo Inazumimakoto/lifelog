@@ -63,7 +63,7 @@ struct ContentView: View {
     private var mainTabs: some View {
         TabView(selection: $selection) {
             navigationStack(for: 0) {
-                TodayView(store: store)
+                TodayView(store: store, allowsRefresh: canPresentMainContent && selection == 0)
             }
             .tabItem {
                 Label("ホーム", systemImage: "sun.max.fill")

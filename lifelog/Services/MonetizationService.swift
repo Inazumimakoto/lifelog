@@ -49,16 +49,15 @@ final class MonetizationService: ObservableObject {
 
     private var transactionUpdatesTask: _Concurrency.Task<Void, Never>?
 
-    @Published private(set) var storefrontCountryCode: String = "JP" {
+    @Published private var storefrontCountryCode: String = "JP" {
         didSet { syncSharedPremiumAccessIfNeeded() }
     }
-    @Published private(set) var hasPremiumEntitlement: Bool = false {
+    @Published private(set) var hasPremiumEntitlement = MonetizationPolicy.isBillingTemporarilyDisabled {
         didSet { syncSharedPremiumAccessIfNeeded() }
     }
     @Published private(set) var availableProducts: [Product] = []
     @Published private(set) var isLoadingProducts: Bool = false
-    @Published private(set) var isRefreshingStatus: Bool = false
-    @Published private(set) var hasLoadedProducts: Bool = false
+    @Published private(set) var hasLoadedProducts = MonetizationPolicy.isBillingTemporarilyDisabled
     @Published var errorMessage: String?
 
     let freeHabitLimit = MonetizationPolicy.freeHabitLimit
@@ -70,7 +69,9 @@ final class MonetizationService: ObservableObject {
 #endif
 
     var isJapanStorefront: Bool {
-        storefrontCountryCode.uppercased() == "JP"
+        // While billing is paused, only the paywall needs the actual storefront.
+        let country = isBillingDisabled ? currentStorefrontCountry() : storefrontCountryCode
+        return country.uppercased() == "JP"
     }
 
     var isBillingDisabled: Bool {
@@ -115,7 +116,11 @@ final class MonetizationService: ObservableObject {
     }
 
     private init() {
-        refreshStorefrontCountry()
+        if isBillingDisabled {
+            syncSharedPremiumAccessIfNeeded()
+            return
+        }
+        storefrontCountryCode = currentStorefrontCountry()
         syncSharedPremiumAccessIfNeeded()
         startTransactionListener()
         _Concurrency.Task {
@@ -128,16 +133,9 @@ final class MonetizationService: ObservableObject {
     }
 
     func refreshStatus() async {
-        isRefreshingStatus = true
+        guard !isBillingDisabled else { return }
         errorMessage = nil
-        refreshStorefrontCountry()
-        if isBillingDisabled {
-            hasPremiumEntitlement = true
-            availableProducts = []
-            hasLoadedProducts = true
-            isRefreshingStatus = false
-            return
-        }
+        storefrontCountryCode = currentStorefrontCountry()
         await refreshEntitlements()
         if isJapanStorefront == false {
             await loadProductsIfNeeded(force: false)
@@ -146,7 +144,6 @@ final class MonetizationService: ObservableObject {
             // Force a fresh fetch if storefront later switches from JP to non-JP.
             hasLoadedProducts = false
         }
-        isRefreshingStatus = false
     }
 
     func canAddHabit(activeHabitCount: Int) -> Bool {
@@ -190,11 +187,7 @@ final class MonetizationService: ObservableObject {
     }
 
     func loadProductsIfNeeded(force: Bool) async {
-        if isBillingDisabled {
-            availableProducts = []
-            hasLoadedProducts = true
-            return
-        }
+        guard !isBillingDisabled else { return }
 
         if isJapanStorefront {
             availableProducts = []
@@ -267,21 +260,19 @@ final class MonetizationService: ObservableObject {
         }
     }
 
-    private func refreshStorefrontCountry() {
+    private func currentStorefrontCountry() -> String {
 #if DEBUG
         if let debugCode = debugStorefrontCountryCode, debugCode.isEmpty == false {
-            storefrontCountryCode = debugCode
-            return
+            return debugCode
         }
 #endif
 
         if let code = SKPaymentQueue.default().storefront?.countryCode,
            code.isEmpty == false {
-            storefrontCountryCode = code.uppercased()
-            return
+            return code.uppercased()
         }
 
-        storefrontCountryCode = (Locale.current.region?.identifier ?? "JP").uppercased()
+        return (Locale.current.region?.identifier ?? "JP").uppercased()
     }
 
     private func refreshEntitlements() async {
@@ -387,6 +378,7 @@ extension MonetizationService {
     }
 
     func applyDebugStorefrontCountryCode(_ code: String?) {
+        objectWillChange.send()
         debugStorefrontCountryCode = code
         _Concurrency.Task {
             await refreshStatus()
@@ -394,6 +386,7 @@ extension MonetizationService {
     }
 
     func applyDebugForcePremiumEntitlement(_ enabled: Bool) {
+        objectWillChange.send()
         debugForcePremiumEntitlement = enabled
         _Concurrency.Task {
             await refreshStatus()

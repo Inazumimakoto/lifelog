@@ -86,6 +86,33 @@ final class PhotoCloudSyncTests: XCTestCase {
         XCTAssertEqual(fixture.service.mode, .keepAllLocal)
     }
 
+    func testChangingDiaryPathsDuringFileScan_syncsCurrentPathsAndPreservesRemovedOriginal() async throws {
+        let scanStarted = expectation(description: "Scanning the stored original")
+        let continueScan = DispatchSemaphore(value: 0)
+        let backend = FakePhotoCloudBackend()
+        let addedPath = "added.jpg"
+        let fixture = try makeFixture(backend: backend, beforeCheckingOriginal: { path in
+            guard path != addedPath else { return }
+            XCTAssertFalse(Thread.isMainThread, "The file scan must leave the main thread available")
+            scanStarted.fulfill()
+            if !Thread.isMainThread { continueScan.wait() }
+        })
+        let addedURL = fixture.fullImageURL.deletingLastPathComponent().appendingPathComponent(addedPath)
+        try fixture.data.write(to: addedURL)
+        XCTAssertTrue(try fixture.manifest.beginUpload(path: fixture.path, accountIdentifier: "original-account"))
+        try fixture.manifest.markUploaded(path: fixture.path, accountIdentifier: "original-account")
+
+        fixture.service.startSync()
+        await fulfillment(of: [scanStarted], timeout: 5)
+        fixture.service.configure(paths: [addedPath])
+        continueScan.signal()
+        await fixture.service.waitForSync()
+
+        XCTAssertTrue(FileManager.default.fileExists(atPath: fixture.fullImageURL.path))
+        let uploaded = await backend.storedData(for: addedPath)
+        XCTAssertEqual(uploaded, fixture.data)
+    }
+
     func testDeletionDuringUpload_removesCloudCopyAndKeepsTombstone() async throws {
         let backend = FakePhotoCloudBackend(suspendUpload: true)
         let fixture = try makeFixture(backend: backend)
@@ -229,7 +256,8 @@ final class PhotoCloudSyncTests: XCTestCase {
     }
 
     private func makeFixture(backend: FakePhotoCloudBackend = FakePhotoCloudBackend(), directory: URL? = nil,
-                             beforeStore: (@Sendable () -> Void)? = nil, pathExtension: String = "jpg") throws -> Fixture {
+                             beforeStore: (@Sendable () -> Void)? = nil, pathExtension: String = "jpg",
+                             beforeCheckingOriginal: (@Sendable (String) -> Void)? = nil) throws -> Fixture {
         let directory = try directory ?? temporaryDirectory()
         let fullDirectory = directory.appendingPathComponent("photos")
         let thumbnailDirectory = directory.appendingPathComponent("thumbnails")
@@ -244,7 +272,10 @@ final class PhotoCloudSyncTests: XCTestCase {
         let files = PhotoSyncFiles(
             fullImageURL: { fullDirectory.appendingPathComponent($0) },
             thumbnailURL: { thumbnailDirectory.appendingPathComponent($0) },
-            fullImageExists: { FileManager.default.fileExists(atPath: fullDirectory.appendingPathComponent($0).path) },
+            fullImageExists: { path in
+                beforeCheckingOriginal?(path)
+                return FileManager.default.fileExists(atPath: fullDirectory.appendingPathComponent(path).path)
+            },
             ensureThumbnail: { try Data("thumbnail".utf8).write(to: thumbnailDirectory.appendingPathComponent($0)) },
             removeFullImage: { try FileManager.default.removeItem(at: fullDirectory.appendingPathComponent($0)) },
             storeFullImage: { data, path in

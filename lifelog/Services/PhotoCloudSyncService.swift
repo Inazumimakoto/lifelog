@@ -370,17 +370,29 @@ final class PhotoCloudSyncService: ObservableObject {
         isSyncing = true
         lastError = nil
         completedCount = 0
-        let deletions = manifest.pendingDeletionPaths
-        let livePaths = paths.filter { path in
-            guard !manifest.isDeleted(path: path) else { return false }
-            if !manifest.isCloudBacked(path: path) { return true }
-            return mode == .keepAllLocal ? !files.fullImageExists(path) : files.fullImageExists(path)
-        }.sorted()
-        totalCount = deletions.count + livePaths.count
+        totalCount = 0
         defer {
             isSyncing = false
             refreshCounts()
         }
+
+        // Checking every original can involve thousands of file system calls on launch.
+        let scannedPaths = paths
+        let scannedMode = mode
+        let livePaths = await _Concurrency.Task.detached(priority: .utility) { [manifest, files] in
+            scannedPaths.filter { path in
+                guard !manifest.isDeleted(path: path) else { return false }
+                if !manifest.isCloudBacked(path: path) { return true }
+                let exists = files.fullImageExists(path)
+                return scannedMode == .keepAllLocal ? !exists : exists
+            }.sorted()
+        }.value
+        guard scannedMode == mode, scannedPaths == paths else {
+            rerunRequested = true
+            return
+        }
+        let deletions = manifest.pendingDeletionPaths
+        totalCount = deletions.count + livePaths.count
         guard !deletions.isEmpty || !livePaths.isEmpty else { return }
         do {
             let account = try await checkedAccount()
