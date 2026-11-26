@@ -252,6 +252,7 @@ private enum WallpaperCalendarAnnouncementDemo {
 
         return WallpaperCalendarSnapshot(
             generatedAt: now,
+            calendar: calendar,
             rangeStart: rangeStart,
             rangeEndExclusive: rangeEndExclusive,
             weekdaySymbols: CalendarWeekStart.current.weekdaySymbols(in: calendar),

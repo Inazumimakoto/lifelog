@@ -185,6 +185,7 @@ final class WallpaperCalendarRenderer {
                 let cellRect = CGRect(x: x, y: weekY, width: cellWidth, height: cellHeight)
                 drawDayCell(day,
                             in: cellRect,
+                            snapshot: snapshot,
                             settings: settings,
                             primaryColor: primaryColor,
                             secondaryColor: secondaryColor,
@@ -202,7 +203,7 @@ final class WallpaperCalendarRenderer {
                 let width = CGFloat(spanLength) * cellWidth + CGFloat(max(0, spanLength - 1)) * gridSpacing
                 let rect = CGRect(x: x, y: y, width: max(0, width), height: gridStyle.rowHeight)
                 let title = gridStyle.title(for: segment, privacyMode: settings.privacyMode)
-                let isToday = WallpaperCalendarDataProvider.calendar.isDateInToday(week.days[segment.startColumn].date)
+                let isToday = snapshot.isToday(week.days[segment.startColumn].date)
                 let label = gridStyle.attributedTitle(title, category: segment.color, settings: settings,
                                                       hasPhoto: hasBackgroundImage, isToday: isToday)
                 drawPreviewBar(title: label,
@@ -236,14 +237,15 @@ final class WallpaperCalendarRenderer {
 
     private func drawDayCell(_ day: WallpaperCalendarDay,
                              in rect: CGRect,
+                             snapshot: WallpaperCalendarSnapshot,
                              settings: WallpaperCalendarSettings,
                              primaryColor: UIColor,
                              secondaryColor: UIColor,
                              gridStyle: WallpaperCalendarGridStyle,
                              hasPhoto: Bool,
                              textShadow: NSShadow?) {
-        let calendar = WallpaperCalendarDataProvider.calendar
-        let isToday = calendar.isDateInToday(day.date)
+        let calendar = snapshot.calendar
+        let isToday = snapshot.isToday(day.date)
         if isToday {
             UIColor(WallpaperCalendarGridStyle.todayColor).withAlphaComponent(WallpaperCalendarGridStyle.todayOpacity).setFill()
             UIBezierPath(roundedRect: rect, cornerRadius: cellCornerRadius).fill()
@@ -391,6 +393,7 @@ final class WallpaperCalendarRenderer {
         }
         let payload = RenderFingerprintPayload(
             renderVersion: Self.renderVersion,
+            highlightedDay: snapshot.calendar.startOfDay(for: snapshot.generatedAt),
             weekCount: settings.effectiveWeekCount.rawValue,
             layoutPreset: settings.layoutPreset.rawValue,
             privacyMode: settings.privacyMode.rawValue,
@@ -422,6 +425,7 @@ private struct WallpaperCalendarDrawingLayout {
 
 private struct RenderFingerprintPayload: Codable {
     let renderVersion: Int
+    let highlightedDay: Date
     let weekCount: Int
     let layoutPreset: String
     let privacyMode: String

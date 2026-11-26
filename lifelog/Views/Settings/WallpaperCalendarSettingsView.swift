@@ -149,6 +149,9 @@ struct WallpaperCalendarSettingsView: View {
         .onChange(of: firstWeekday) { _, _ in
             _Concurrency.Task { await refreshPreview() }
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
+            _Concurrency.Task { await refreshPreview() }
+        }
         .onChange(of: displayPreferences) { _, _ in
             _Concurrency.Task { await refreshPreview() }
         }

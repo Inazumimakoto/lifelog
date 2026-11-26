@@ -5,6 +5,49 @@ import XCTest
 
 @MainActor
 final class WallpaperCalendarExportTests: XCTestCase {
+    func testUnchangedCalendar_reusesImageUntilLocalMidnight() throws {
+        let suite = "WallpaperExportTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(suite, isDirectory: true)
+        let files = WallpaperCalendarPhotoBackgroundTests.IsolatedFileManager(rootURL: directory)
+        defer {
+            defaults.removePersistentDomain(forName: suite)
+            try? files.removeItem(at: directory)
+        }
+
+        let persistence = PersistenceController(inMemory: true)
+        let provider = WallpaperCalendarDataProvider(displayDefaults: defaults,
+                                                     modelContext: { persistence.container.mainContext },
+                                                     externalDefaults: { defaults })
+        let settings = WallpaperCalendarSettingsStore(defaults: defaults, fileManager: files)
+        let renderer = WallpaperCalendarRenderer(settingsStore: settings, dataProvider: provider, fileManager: files)
+        func render(at date: Date) throws -> URL {
+            try renderer.render(now: date, screenSize: CGSize(width: 390, height: 844), scale: 1)
+        }
+
+        // Both days fall in the same display week for either supported week start.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = WallpaperCalendarDataProvider.calendar.timeZone
+        let morning = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 11, day: 18, hour: 9)))
+        let lateEvening = try XCTUnwrap(calendar.date(bySettingHour: 23, minute: 59, second: 59, of: morning))
+        let midnight = lateEvening.addingTimeInterval(1)
+
+        let firstURL = try render(at: morning)
+        let firstImage = try Data(contentsOf: firstURL)
+        let timestamp = Date(timeIntervalSince1970: 946_684_800)
+        try files.setAttributes([.modificationDate: timestamp], ofItemAtPath: firstURL.path)
+
+        let cachedURL = try render(at: lateEvening)
+        let attributes = try files.attributesOfItem(atPath: cachedURL.path)
+        XCTAssertEqual(attributes[.modificationDate] as? Date, timestamp)
+
+        let nextImage = try Data(contentsOf: render(at: midnight))
+        XCTAssertNotEqual(nextImage, firstImage, "The highlight should move after midnight with no edits to the calendar.")
+        let snapshot = renderer.makePreviewSnapshot(settings: settings.load(), now: midnight)
+        let highlightedDates = snapshot.weeks.flatMap(\.days).map(\.date).filter(snapshot.isToday)
+        XCTAssertEqual(highlightedDates, [midnight])
+    }
+
     func testPhotoWallpaperWithSavedEvents_writesJPEGUsingShortcutRenderPath() throws {
         let suite = "WallpaperExportTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))

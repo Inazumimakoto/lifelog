@@ -91,6 +91,7 @@
 				"Services/PhotoIdentityIndex 2.swift",
 				"Services/PhotoImageLoader 2.swift",
 				"ViewModels/HabitRecordIndex 2.swift",
+				"Views/Settings/WallpaperCalendarShortcutInstallGuide 2.swift",
 			);
 			target = 0E6196E52EC5A3A000A0734C /* lifelog */;
 		};

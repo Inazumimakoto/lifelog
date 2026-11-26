@@ -11,6 +11,7 @@ import SwiftUI
 
 struct WallpaperCalendarSnapshot {
     let generatedAt: Date
+    let calendar: Calendar
     let rangeStart: Date
     let rangeEndExclusive: Date
     let weekdaySymbols: [String]
@@ -20,6 +21,10 @@ struct WallpaperCalendarSnapshot {
 
     var dayCount: Int {
         weeks.reduce(0) { $0 + $1.days.count }
+    }
+
+    func isToday(_ date: Date) -> Bool {
+        calendar.isDate(date, inSameDayAs: generatedAt)
     }
 }
 
@@ -168,6 +173,7 @@ final class WallpaperCalendarDataProvider {
 
         return WallpaperCalendarSnapshot(
             generatedAt: now,
+            calendar: calendar,
             rangeStart: rangeStart,
             rangeEndExclusive: rangeEndExclusive,
             weekdaySymbols: weekdaySymbols(calendar: calendar),

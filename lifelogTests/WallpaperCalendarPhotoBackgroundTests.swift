@@ -422,7 +422,8 @@ final class WallpaperCalendarPhotoBackgroundTests: XCTestCase {
                                          multiDayLayout: CalendarWeekMultiDayLayout(visibleLaneCount: 1, dayStates: [],
                                                                                   segments: [segment]))
         return WallpaperCalendarSnapshot(
-            generatedAt: date, rangeStart: date, rangeEndExclusive: date, weekdaySymbols: [],
+            generatedAt: date, calendar: WallpaperCalendarDataProvider.calendar,
+            rangeStart: date, rangeEndExclusive: date, weekdaySymbols: [],
             gridStyle: style, weeks: [week],
             fingerprintPayload: WallpaperCalendarFingerprintPayload(rangeStart: 0, rangeEndExclusive: 0,
                                                                      firstWeekday: 1, events: [], tasks: [])

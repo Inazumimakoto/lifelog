@@ -92,7 +92,7 @@ struct WallpaperCalendarRenderView: View {
     }
 
     private func dayCell(_ day: WallpaperCalendarDay, width: CGFloat, height: CGFloat) -> some View {
-        let isToday = WallpaperCalendarDataProvider.calendar.isDateInToday(day.date)
+        let isToday = snapshot.isToday(day.date)
         return VStack(alignment: .leading, spacing: cellRowSpacing) {
             dateLabel(for: day.date)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -120,7 +120,7 @@ struct WallpaperCalendarRenderView: View {
 
     @ViewBuilder
     private func dateLabel(for date: Date) -> some View {
-        let calendar = WallpaperCalendarDataProvider.calendar
+        let calendar = snapshot.calendar
         let dayText = String(calendar.component(.day, from: date))
 
         Text(dayText)
@@ -183,7 +183,7 @@ struct WallpaperCalendarRenderView: View {
         return previewBar(
             title: title,
             color: segment.color,
-            isToday: WallpaperCalendarDataProvider.calendar.isDateInToday(startDate),
+            isToday: snapshot.isToday(startDate),
             leadingRadius: leadingRadius,
             trailingRadius: trailingRadius
         )
@@ -245,7 +245,7 @@ struct WallpaperCalendarRenderView: View {
     }
 
     private func dateTextColor(for date: Date) -> Color {
-        let weekday = WallpaperCalendarDataProvider.calendar.component(.weekday, from: date)
+        let weekday = snapshot.calendar.component(.weekday, from: date)
         if weekday == 1 || weekday == 7 {
             return secondaryTextColor
         }
