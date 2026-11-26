@@ -45,14 +45,19 @@ struct ContentView: View {
     @State private var isHandlingWidgetDestination = false
     @State private var hasAuthorizedPendingWidgetMemo = false
     @State private var showStoreRecoveryNotice = false
+    @State private var showStoreRecovery = false
+    @State private var hasCheckedInitialPermissionsSetup = false
+    @State private var showInitialPermissionsSetup = false
     @AppStorage(WallpaperCalendarAnnouncementState.hasSeenKey) private var hasSeenWallpaperCalendarAnnouncement = false
     @State private var showWallpaperCalendarAnnouncement = false
     @State private var showSettingsFromWallpaperCalendarAnnouncement = false
-    @AppStorage(InitialPermissionsState.completedKey) private var hasCompletedInitialPermissionsSetup = false
-    @State private var showInitialPermissionsSetup = false
 
     private var canPresentStartupContent: Bool {
         isStartupComplete && (appLockService.isAppLockEnabled == false || appLockService.isUnlocked)
+    }
+
+    private var canPresentMainContent: Bool {
+        canPresentStartupContent && hasCheckedInitialPermissionsSetup && !showInitialPermissionsSetup
     }
 
     private var mainTabs: some View {
@@ -118,7 +123,16 @@ struct ContentView: View {
     }
 
     private var letterRoutingContent: some View {
-        mainTabs
+        Group {
+            if showInitialPermissionsSetup {
+                InitialPermissionsSetupView(store: store) {
+                    UserDefaults.standard.set(true, forKey: InitialPermissionsState.completedKey)
+                    showInitialPermissionsSetup = false
+                }
+            } else {
+                mainTabs
+            }
+        }
         // ディープリンク: 未来への手紙の通知タップ
         .onChange(of: deepLinkManager.pendingLetterID) { _, letterID in
             handlePendingLetterIfNeeded(letterID)
@@ -162,8 +176,8 @@ struct ContentView: View {
         }
         // 招待リンクのエラーアラート
         .alert("招待リンク", isPresented: Binding(
-            get: { canPresentStartupContent && deepLinkHandler.errorMessage != nil },
-            set: { if canPresentStartupContent && !$0 { deepLinkHandler.errorMessage = nil } }
+            get: { canPresentMainContent && deepLinkHandler.errorMessage != nil },
+            set: { if canPresentMainContent && !$0 { deepLinkHandler.errorMessage = nil } }
         )) {
             Button("OK") {
                 deepLinkHandler.clear()
@@ -215,13 +229,26 @@ struct ContentView: View {
         } message: {
             Text(premiumAlertMessage ?? "")
         }
-        // データベース破損から自動復旧した場合の通知。
-        // 黙って空のデータで起動するとユーザーが「全部消えた」とだけ
-        // 受け取るため、何が起きたかを必ず伝える。
-        .alert("データベースを初期化しました", isPresented: $showStoreRecoveryNotice) {
-            Button("OK") { }
+        .alert(Text("startup.recoveryFound", tableName: "RecoveryStartup"), isPresented: $showStoreRecoveryNotice) {
+            Button { showStoreRecovery = true } label: {
+                Text("startup.review", tableName: "RecoveryStartup")
+            }
+            Button(role: .cancel) { } label: { Text("あとで") }
         } message: {
-            Text("保存データの読み込みに失敗したため、新しいデータベースで起動しました。以前のデータファイルは端末内に退避されています。お問い合わせいただければ復旧を試みられる場合があります。")
+            Text("startup.recoveryHint", tableName: "RecoveryStartup")
+        }
+        .onChange(of: showStoreRecoveryNotice) { _, showing in
+            if !showing { handleStartupPresentationsIfNeeded() }
+        }
+        .sheet(isPresented: $showStoreRecovery, onDismiss: handleStartupPresentationsIfNeeded) {
+            NavigationStack {
+                StoreRecoveryView()
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("閉じる") { showStoreRecovery = false }
+                        }
+                    }
+            }
         }
     }
 
@@ -250,6 +277,9 @@ struct ContentView: View {
         .onChange(of: appLockService.isUnlocked) { _, _ in
             handleStartupPresentationsIfNeeded()
         }
+        .onChange(of: showInitialPermissionsSetup) { _, showing in
+            if !showing { presentMainContentIfNeeded() }
+        }
     }
 
     var body: some View {
@@ -264,13 +294,6 @@ struct ContentView: View {
                 SettingsView(openWallpaperCalendarOnAppear: true)
             }
         }
-        .fullScreenCover(isPresented: $showInitialPermissionsSetup) {
-            InitialPermissionsSetupView(store: store) {
-                hasCompletedInitialPermissionsSetup = true
-                showInitialPermissionsSetup = false
-                handleInitialPermissionsSetupCompletion()
-            }
-        }
         .fullScreenCover(isPresented: $showMemoEditorFromWidget) {
             NavigationStack {
                 MemoEditorView(store: store)
@@ -280,23 +303,38 @@ struct ContentView: View {
 
     private func startupPresentationBinding(_ presentation: Binding<Bool>) -> Binding<Bool> {
         Binding(
-            get: { canPresentStartupContent && presentation.wrappedValue },
-            set: { if canPresentStartupContent { presentation.wrappedValue = $0 } }
+            get: { canPresentMainContent && presentation.wrappedValue },
+            set: { if canPresentMainContent { presentation.wrappedValue = $0 } }
         )
     }
 
     private func handleStartupPresentationsIfNeeded() {
         guard canPresentStartupContent else { return }
-        consumeStoreRecoveryFlagIfNeeded()
+        presentRecoveryIfNeeded()
+        guard !showStoreRecoveryNotice, !showStoreRecovery else { return }
+        if !hasCheckedInitialPermissionsSetup {
+            hasCheckedInitialPermissionsSetup = true
+            if !UserDefaults.standard.bool(forKey: InitialPermissionsState.completedKey) {
+                if store.hasExistingUserFootprintForInitialPermissions {
+                    UserDefaults.standard.set(true, forKey: InitialPermissionsState.completedKey)
+                } else {
+                    showInitialPermissionsSetup = true
+                }
+            }
+        }
+        presentMainContentIfNeeded()
+    }
+
+    private func presentMainContentIfNeeded() {
+        guard canPresentMainContent else { return }
         handleWidgetDestinationIfNeeded(deepLinkManager.pendingWidgetDestination)
         handlePendingLetterIfNeeded(deepLinkManager.pendingLetterID)
         handlePendingSharedLetterIfNeeded(deepLinkManager.pendingSharedLetterID)
-        presentInitialPermissionsSetupIfNeeded()
         presentWallpaperCalendarAnnouncementIfNeeded()
     }
 
     private func handlePendingLetterIfNeeded(_ letterID: UUID?) {
-        guard canPresentStartupContent, let letterID else { return }
+        guard canPresentMainContent, let letterID else { return }
         guard monetization.canUseLetters else {
             deepLinkManager.clearPendingLetter()
             premiumAlertMessage = monetization.lettersMessage()
@@ -312,7 +350,7 @@ struct ContentView: View {
     }
 
     private func handlePendingSharedLetterIfNeeded(_ letterID: String?) {
-        guard canPresentStartupContent, let letterID else { return }
+        guard canPresentMainContent, let letterID else { return }
         guard monetization.canUseLetters else {
             deepLinkManager.clearPendingSharedLetter()
             premiumAlertMessage = monetization.lettersMessage()
@@ -347,7 +385,7 @@ struct ContentView: View {
     }
 
     private func handleWidgetDestinationIfNeeded(_ destination: DeepLinkManager.WidgetDestination?) {
-        guard canPresentStartupContent, let destination, !isHandlingWidgetDestination else { return }
+        guard canPresentMainContent, let destination, !isHandlingWidgetDestination else { return }
 
         isHandlingWidgetDestination = true
 
@@ -382,33 +420,8 @@ struct ContentView: View {
         }
     }
 
-    private func presentInitialPermissionsSetupIfNeeded() {
-        guard canPresentStartupContent, hasCompletedInitialPermissionsSetup == false else { return }
-        if store.hasExistingUserFootprintForInitialPermissions {
-            hasCompletedInitialPermissionsSetup = true
-            return
-        }
-        guard appLockService.isAppLockEnabled == false || appLockService.isUnlocked else { return }
-        showInitialPermissionsSetup = true
-    }
-
-    private func handleInitialPermissionsSetupCompletion() {
-        store.rescheduleDiaryReminderIfNeeded()
-        store.rescheduleTodayOverviewReminderIfNeeded()
-        WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
-        WidgetCenter.shared.reloadTimelines(ofKind: "HabitWidget")
-        WidgetCenter.shared.reloadTimelines(ofKind: "AnniversaryWidget")
-        WidgetCenter.shared.reloadTimelines(ofKind: "MemoWidget")
-
-        _Concurrency.Task {
-            await store.loadHealthData()
-            await store.syncExternalCalendarsIfAuthorized()
-        }
-    }
-
     private func presentWallpaperCalendarAnnouncementIfNeeded() {
-        guard canPresentStartupContent,
-              hasCompletedInitialPermissionsSetup,
+        guard canPresentMainContent,
               monetization.canUseWallpaperCalendar,
               hasSeenWallpaperCalendarAnnouncement == false,
               showWallpaperCalendarAnnouncement == false,
@@ -419,8 +432,7 @@ struct ContentView: View {
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-            guard canPresentStartupContent,
-                  hasCompletedInitialPermissionsSetup,
+            guard canPresentMainContent,
                   monetization.canUseWallpaperCalendar,
                   hasSeenWallpaperCalendarAnnouncement == false,
                   showWallpaperCalendarAnnouncement == false,
@@ -446,13 +458,16 @@ struct ContentView: View {
         }
     }
 
-    /// ストア復旧フラグを読み取り、一度だけユーザーに通知する
-    private func consumeStoreRecoveryFlagIfNeeded() {
-        guard canPresentStartupContent else { return }
-        let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier)
-        guard defaults?.bool(forKey: PersistenceController.storeRecoveryOccurredKey) == true else { return }
-        defaults?.removeObject(forKey: PersistenceController.storeRecoveryOccurredKey)
-        showStoreRecoveryNotice = true
+    private func presentRecoveryIfNeeded() {
+        // 1.18.0 dismissed its warning permanently. Discover actual archived files even
+        // when that flag was already consumed; Settings continues to offer another look.
+        let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier) ?? .standard
+        let prompted = "lifelog.checkedArchivedRecords.1"
+        guard !defaults.bool(forKey: prompted) else { return }
+        guard let archives = try? StoreRecoveryService().candidates() else { return }
+        defaults.set(true, forKey: prompted)
+        defaults.removeObject(forKey: PersistenceController.storeRecoveryOccurredKey)
+        showStoreRecoveryNotice = !archives.isEmpty
     }
 
     private func syncMemoPrivacySettingsToSharedDefaults() {

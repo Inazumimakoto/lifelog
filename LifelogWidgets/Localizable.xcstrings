@@ -730,6 +730,7 @@
       }
     },
     "チームMTG" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

@@ -705,20 +705,24 @@ struct WallpaperCalendarSettingsView: View {
         let backgroundImage = settingsStore
             .backgroundImageURL(for: settings)
             .flatMap { UIImage(contentsOfFile: $0.path) }
-        let pages = WallpaperCalendarLayoutPreset.selectableCases.map { preset in
-            var pageSettings = settings
-            pageSettings.layoutPreset = preset.normalized
-            pageSettings.weekCount = preset.weekCount
-            return WallpaperCalendarPreviewPage(
-                preset: preset.normalized,
-                snapshot: renderer.makePreviewSnapshot(settings: pageSettings),
-                settings: pageSettings
-            )
+        do {
+            let pages = try WallpaperCalendarLayoutPreset.selectableCases.map { preset in
+                var pageSettings = settings
+                pageSettings.layoutPreset = preset.normalized
+                pageSettings.weekCount = preset.weekCount
+                return WallpaperCalendarPreviewPage(
+                    preset: preset.normalized,
+                    snapshot: try renderer.makePreviewSnapshot(settings: pageSettings),
+                    settings: pageSettings
+                )
+            }
+            previewPages = pages
+            previewSnapshot = pages.first { $0.preset == settings.layoutPreset.normalized }?.snapshot
+                ?? pages.first?.snapshot
+            previewBackgroundImage = backgroundImage
+        } catch {
+            alertMessage = error.localizedDescription
         }
-        previewPages = pages
-        previewSnapshot = pages.first { $0.preset == settings.layoutPreset.normalized }?.snapshot
-            ?? pages.first?.snapshot
-        previewBackgroundImage = backgroundImage
     }
 
     private func renderNow() {

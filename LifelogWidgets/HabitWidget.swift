@@ -109,7 +109,7 @@ struct HabitProvider: TimelineProvider {
         }
 
         do {
-            let context = PersistenceController.shared.container.mainContext
+            let context = try PersistenceController.sharedContainer().mainContext
             let activeHabitsDesc = FetchDescriptor<SDHabit>(
                 predicate: #Predicate<SDHabit> { !$0.isArchived },
                 sortBy: [SortDescriptor(\.orderIndex)]

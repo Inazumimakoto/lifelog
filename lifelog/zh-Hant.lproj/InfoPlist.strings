@@ -2,6 +2,6 @@
 "NSCalendarsFullAccessUsageDescription" = "用於從外部日曆讀取事件並將其顯示在主頁和日曆上。";
 "NSCalendarsUsageDescription" = "用於從外部日曆讀取事件並在“今天”中顯示它們。";
 "NSFaceIDUsageDescription" = "用於解鎖應用程式";
-"NSHealthShareUsageDescription" = "用於讀取醫療保健資料並將其顯示在應用程式中。";
+"NSHealthShareUsageDescription" = "lifelify 從「健康」讀取你的步數、睡眠和活動資料，並顯示在每日記錄與圖表中。";
 "NSHealthUpdateUsageDescription" = "此應用程式不會寫入醫療保健資料。";
-"NSLocationWhenInUseUsageDescription" = "我們使用位置資訊來取得和顯示您目前位置的天氣資訊。";
+"NSLocationWhenInUseUsageDescription" = "lifelify 會使用你的位置在首頁顯示當地天氣，並在你為日記加入地點時於地圖上顯示目前位置。";

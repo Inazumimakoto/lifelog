@@ -43,7 +43,7 @@ final class WallpaperCalendarExportTests: XCTestCase {
 
         let nextImage = try Data(contentsOf: render(at: midnight))
         XCTAssertNotEqual(nextImage, firstImage, "The highlight should move after midnight with no edits to the calendar.")
-        let snapshot = renderer.makePreviewSnapshot(settings: settings.load(), now: midnight)
+        let snapshot = try renderer.makePreviewSnapshot(settings: settings.load(), now: midnight)
         let highlightedDates = snapshot.weeks.flatMap(\.days).map(\.date).filter(snapshot.isToday)
         XCTAssertEqual(highlightedDates, [midnight])
     }
@@ -86,7 +86,7 @@ final class WallpaperCalendarExportTests: XCTestCase {
         context.insert(trip)
         try context.save()
 
-        let snapshot = renderer.makePreviewSnapshot(settings: settings.load(), now: now)
+        let snapshot = try renderer.makePreviewSnapshot(settings: settings.load(), now: now)
         XCTAssertTrue(snapshot.weeks.flatMap(\.multiDayLayout.segments).contains { $0.eventID == trip.id })
         XCTAssertTrue(snapshot.weeks.flatMap(\.days).flatMap(\.rowContents).contains {
             if case .item(let item) = $0 { return item.sourceID == meeting.id }

@@ -2,6 +2,6 @@
 "NSCalendarsFullAccessUsageDescription" = "외부 캘린더 일정을 읽고 홈 및 캘린더에 표시하는 데 사용합니다.";
 "NSCalendarsUsageDescription" = "외부 캘린더 일정을 읽고 오늘에 표시하는 데 사용합니다.";
 "NSFaceIDUsageDescription" = "앱 잠금 해제에 사용";
-"NSHealthShareUsageDescription" = "건강 관리 데이터를 읽고 앱에 표시하는 데 사용합니다.";
+"NSHealthShareUsageDescription" = "lifelify는 건강 앱에서 걸음 수, 수면 및 활동 데이터를 읽어 일별 기록과 차트에 표시합니다.";
 "NSHealthUpdateUsageDescription" = "이 응용 프로그램은 건강 관리 데이터를 쓰지 않습니다.";
-"NSLocationWhenInUseUsageDescription" = "현재 위치의 날씨 정보를 취득·표시하기 위해서 위치 정보를 사용합니다.";
+"NSLocationWhenInUseUsageDescription" = "lifelify는 현재 위치를 사용해 홈에 날씨를 표시하고 일기에 장소를 추가할 때 지도에서 현재 위치를 찾습니다.";

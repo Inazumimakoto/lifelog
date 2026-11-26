@@ -7,11 +7,15 @@
 
 import SwiftUI
 import PhotosUI
+import UserNotifications
 import os
 
 struct LetterEditorView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var store: AppDataStore
+    @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var notifications = NotificationService.shared
+    @AppStorage(AppDataStore.letterNotificationEnabledKey) private var letterNotificationsEnabled = true
     
     private let existingLetter: Letter?
     
@@ -168,6 +172,9 @@ struct LetterEditorView: View {
             // 既存の写真を読み込む
             await loadExistingPhotos()
         }
+        .task(id: scenePhase) {
+            if scenePhase == .active { await notifications.refreshAuthorizationStatus() }
+        }
     }
     
     private var contentSection: some View {
@@ -263,6 +270,22 @@ struct LetterEditorView: View {
                     if useTimeRange {
                         DatePicker("開始時刻", selection: $startTime, displayedComponents: .hourAndMinute)
                         DatePicker("終了時刻", selection: $endTime, displayedComponents: .hourAndMinute)
+                    }
+                }
+                NavigationLink {
+                    NotificationSettingsView()
+                } label: {
+                    LabeledContent {
+                        if let status = notifications.authorizationStatus {
+                            let allowed = status == .authorized || status == .provisional || status == .ephemeral
+                            if letterNotificationsEnabled && allowed {
+                                Text("letters.notificationsOn", tableName: "ContextualPermissions")
+                            } else {
+                                Text("letters.notificationsOff", tableName: "ContextualPermissions")
+                            }
+                        }
+                    } label: {
+                        Text("手紙が届いたときの通知")
                     }
                 }
             } header: {

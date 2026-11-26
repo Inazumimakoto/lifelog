@@ -127,7 +127,7 @@ struct AnniversaryEditorView: View {
             }
             
             Section("通知") {
-                Toggle("リマインダー", isOn: $hasReminder)
+                NotificationPermissionToggle("リマインダー", isOn: $hasReminder)
                 if hasReminder {
                     Picker("通知方法", selection: $useRelativeReminder) {
                         Text("記念日前").tag(true)

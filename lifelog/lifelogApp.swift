@@ -21,7 +21,6 @@ struct lifelogApp: App {
     @StateObject private var appIconCoordinator = AppIconCoordinator()
     @StateObject private var storeOwner = AppDataStoreOwner()
     @State private var hasFinishedStartup = false
-    private var store: AppDataStore { storeOwner.store }
     @ObservedObject private var deepLinkManager = DeepLinkManager.shared
     @ObservedObject private var monetizationService = MonetizationService.shared
     
@@ -38,30 +37,47 @@ struct lifelogApp: App {
     @Environment(\.scenePhase) private var scenePhase
 
     private var canRefreshNotifications: Bool {
-        hasFinishedStartup && scenePhase == .active &&
+        storeOwner.store != nil && hasFinishedStartup && scenePhase == .active &&
             (!appLockService.isAppLockEnabled || appLockService.isUnlocked)
     }
 
     var body: some Scene {
         WindowGroup {
             ZStack {
-                ContentView(store: store, isStartupComplete: hasFinishedStartup)
-                    .environmentObject(store)
-                    .environmentObject(deepLinkManager)
-                    .allowsHitTesting(hasFinishedStartup)
-                    .accessibilityHidden(!hasFinishedStartup)
-                    .onAppear {
-                        syncMemoPrivacySettingsToSharedDefaults()
-                        store.resumeDiaryPhotoSync()
-                        WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
-                        WidgetCenter.shared.reloadTimelines(ofKind: "HabitWidget")
-                        WidgetCenter.shared.reloadTimelines(ofKind: "AnniversaryWidget")
-                        WidgetCenter.shared.reloadTimelines(ofKind: "MemoWidget")
-                        _Concurrency.Task {
-                            await monetizationService.refreshStatus()
+                if let store = storeOwner.store {
+                    ContentView(store: store, isStartupComplete: hasFinishedStartup)
+                        .environmentObject(store)
+                        .environmentObject(deepLinkManager)
+                        .allowsHitTesting(hasFinishedStartup)
+                        .accessibilityHidden(!hasFinishedStartup)
+                        .onAppear {
+                            syncMemoPrivacySettingsToSharedDefaults()
+                            store.resumeDiaryPhotoSync()
+                            WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
+                            WidgetCenter.shared.reloadTimelines(ofKind: "HabitWidget")
+                            WidgetCenter.shared.reloadTimelines(ofKind: "AnniversaryWidget")
+                            WidgetCenter.shared.reloadTimelines(ofKind: "MemoWidget")
+                            _Concurrency.Task {
+                                await monetizationService.refreshStatus()
+                            }
                         }
+                } else {
+                    ContentUnavailableView {
+                        Label {
+                            Text("startup.unavailable.title", tableName: "RecoveryStartup")
+                        } icon: {
+                            Image(systemName: "externaldrive.badge.exclamationmark")
+                        }
+                    } description: {
+                        Text("startup.unavailable.message", tableName: "RecoveryStartup")
+                    } actions: {
+                        Button { storeOwner.openIfNeeded() } label: {
+                            Text("startup.retry", tableName: "RecoveryStartup")
+                        }
+                        .buttonStyle(.borderedProminent)
                     }
-                
+                }
+
                 if !appLockService.isUnlocked && appLockService.isAppLockEnabled {
                     LockView()
                         .allowsHitTesting(hasFinishedStartup)
@@ -82,7 +98,7 @@ struct lifelogApp: App {
             ))
             .environmentObject(appIconCoordinator)
             .task(id: canRefreshNotifications) {
-                guard canRefreshNotifications,
+                guard let store = storeOwner.store, canRefreshNotifications,
                       !PersistenceController.isRunningTests,
                       !PersistenceController.isSimulatorDemoMode else { return }
                 // Reveal the home first. Notification IPC must never extend the
@@ -90,12 +106,22 @@ struct lifelogApp: App {
                 await _Concurrency.Task.yield()
                 guard !_Concurrency.Task.isCancelled, canRefreshNotifications else { return }
                 store.refreshNotificationsAfterStartup()
+                await NotificationService.shared.refreshAuthorizationStatus()
+            }
+            .onReceive(NotificationService.shared.authorizationBecameAvailable) { _ in
+                if !UIApplication.shared.isRegisteredForRemoteNotifications {
+                    UIApplication.shared.registerForRemoteNotifications()
+                }
+                storeOwner.store?.restoreRemindersAfterNotificationAuthorization()
             }
             .onChange(of: hasFinishedStartup) { _, isComplete in
                 guard isComplete else { return }
                 if scenePhase == .active && appLockService.isAppLockEnabled && !appLockService.isUnlocked {
                     appLockService.authenticate()
                 }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
+                storeOwner.openIfNeeded()
             }
             .onChange(of: scenePhase) { newPhase in
                 if newPhase == .inactive || newPhase == .background {
@@ -109,6 +135,8 @@ struct lifelogApp: App {
                         appLockService.authenticate()
                     }
 
+                    storeOwner.openIfNeeded()
+                    guard let store = storeOwner.store else { return }
                     syncMemoPrivacySettingsToSharedDefaults()
                     store.resumeDiaryPhotoSync()
                     WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")

@@ -178,9 +178,15 @@ struct CalendarCategorySettingsView: View {
         Section {
             Label("calendar.integration.permission.title", systemImage: "calendar.badge.exclamationmark")
                 .font(.headline)
-            Text("calendar.integration.permission.description")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            Group {
+                if authorization == .restricted {
+                    Text("calendar.restricted", tableName: "ContextualPermissions")
+                } else {
+                    Text("calendar.integration.permission.description")
+                }
+            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
             if authorization == .notDetermined {
                 Button("calendar.integration.allowAccess") {
                     _Concurrency.Task {

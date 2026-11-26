@@ -25,8 +25,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNUserNot
         // 通知デリゲート設定
         UNUserNotificationCenter.current().delegate = self
 
-        // 通知許可の OS ダイアログは初期設定フローから順番に出す。
-        // 既に許可済みの場合だけ APNs 登録を復元する。
+        // 起動時は許可済みの APNs 登録を復元する。初回セットアップか通知機能で利用者が選んだ時に許可を求める。
         UNUserNotificationCenter.current().getNotificationSettings { settings in
             switch settings.authorizationStatus {
             case .authorized, .provisional, .ephemeral:

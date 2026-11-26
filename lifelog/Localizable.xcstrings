@@ -3777,6 +3777,7 @@
     },
     "🛠 デバッグ" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -7056,31 +7057,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Show your iPhone calendars. Choose a category for the events in each calendar."
+            "value" : "Show events from the calendars on your device. Choose a category for each calendar."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iPhoneのカレンダーを表示します。カレンダーごとに、予定の表示先カテゴリを選べます。"
+            "value" : "端末のカレンダーにある予定を表示します。カレンダーごとに表示先のカテゴリを選べます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iPhone 캘린더를 표시합니다. 각 캘린더의 일정에 사용할 카테고리를 선택할 수 있습니다."
+            "value" : "기기 캘린더의 일정을 표시합니다. 각 캘린더에 사용할 카테고리를 선택할 수 있습니다."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "显示 iPhone 日历。您可以为每个日历的日程选择显示类别。"
+            "value" : "显示设备日历中的日程。你可以为每个日历选择类别。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "顯示 iPhone 行事曆。您可以為每個行事曆的行程選擇顯示類別。"
+            "value" : "顯示裝置行事曆中的行程。你可以為每個行事曆選擇類別。"
           }
         }
       }
@@ -7126,31 +7127,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Add a calendar in the iPhone Calendar app to see it here."
+            "value" : "Add a calendar in the Calendar app to see it here."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iPhoneのカレンダーアプリでカレンダーを追加すると、ここに表示されます。"
+            "value" : "カレンダーアプリでカレンダーを追加すると、ここに表示されます。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "iPhone 캘린더 앱에서 캘린더를 추가하면 여기에 표시됩니다."
+            "value" : "캘린더 앱에서 캘린더를 추가하면 여기에 표시됩니다."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在 iPhone 日历 App 中添加日历后，它会显示在这里。"
+            "value" : "在“日历”App 中添加日历后，就会在这里显示。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "在 iPhone 行事曆 App 中加入行事曆後，就會顯示在這裡。"
+            "value" : "在「行事曆」App 中加入行事曆後，就會顯示在這裡。"
           }
         }
       }
@@ -7231,31 +7232,31 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Allow full access to calendars to display your events."
+            "value" : "Allow full calendar access to show events from your device on the Home and Calendar tabs."
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "予定を表示するには、カレンダーへのフルアクセスを許可してください。"
+            "value" : "端末の予定を読み込んでホームとカレンダーに表示するには、カレンダーへのフルアクセスを許可してください。"
           }
         },
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "일정을 표시하려면 캘린더에 대한 전체 접근을 허용해 주세요."
+            "value" : "기기의 일정을 홈 및 캘린더 탭에 표시하려면 캘린더에 대한 전체 접근을 허용해 주세요."
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "请允许完全访问日历以显示您的日程。"
+            "value" : "要在“首页”和“日历”标签页显示设备中的日程，请允许完全访问日历。"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "請允許完整存取行事曆以顯示您的行程。"
+            "value" : "若要在「首頁」和「日曆」標籤頁顯示裝置上的行程，請允許完整取用行事曆。"
           }
         }
       }
@@ -7649,6 +7650,7 @@
     },
     "Debugビルド専用。日本にいても海外/課金状態のUIを即テストできます。" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -11219,6 +11221,30 @@
         }
       }
     },
+    "recovery.diaries" : {
+
+    },
+    "recovery.events" : {
+
+    },
+    "recovery.invalidDatabase" : {
+
+    },
+    "recovery.missingDatabase" : {
+
+    },
+    "recovery.other" : {
+
+    },
+    "recovery.saveFailed" : {
+
+    },
+    "recovery.tasks" : {
+
+    },
+    "recovery.unreadableArchive" : {
+
+    },
     "shopping.add.memo" : {
       "comment" : "Optional note button beside the product name in the shopping addition screen.",
       "localizations" : {
@@ -14011,19 +14037,19 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "캘린더 연계"
+            "value" : "캘린더 연동"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "日历合作"
+            "value" : "日历同步"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "日曆合作"
+            "value" : "行事曆同步"
           }
         }
       }
@@ -14070,7 +14096,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "cancel"
+            "value" : "Cancel"
           }
         },
         "ja" : {
@@ -18713,6 +18739,7 @@
     },
     "データベースを初期化しました" : {
       "comment" : "Literal from lifelog/ContentView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -18819,6 +18846,7 @@
     },
     "テストデータをクリア" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -18854,6 +18882,7 @@
     },
     "テスト友達リクエストを追加" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -18889,6 +18918,7 @@
     },
     "テスト友達を追加" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -19591,6 +19621,7 @@
     },
     "プレミアム強制ON" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -19875,7 +19906,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "healthcare"
+            "value" : "Health"
           }
         },
         "ja" : {
@@ -19887,19 +19918,19 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "건강 관리"
+            "value" : "건강"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "卫生保健"
+            "value" : "健康"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "衛生保健"
+            "value" : "健康"
           }
         }
       }
@@ -19910,7 +19941,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Open Health App"
+            "value" : "Open Health"
           }
         },
         "ja" : {
@@ -19922,19 +19953,19 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "건강 관리 앱 열기"
+            "value" : "건강 앱 열기"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "打开医疗保健应用程序"
+            "value" : "打开“健康”App"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "開啟醫療保健應用程式"
+            "value" : "打開「健康」App"
           }
         }
       }
@@ -20016,7 +20047,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Connect to Healthcare"
+            "value" : "Connect to Health"
           }
         },
         "ja" : {
@@ -20028,19 +20059,19 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "건강 관리에 연결"
+            "value" : "건강 앱에 연결"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "连接医疗保健"
+            "value" : "连接“健康”"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "連接醫療保健"
+            "value" : "連接「健康」"
           }
         }
       }
@@ -22062,6 +22093,7 @@
     },
     "リリース時は非表示" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -22593,6 +22625,7 @@
     },
     "ロック画面カレンダー告知を未読に戻す" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -22628,6 +22661,7 @@
     },
     "ロック画面カレンダー告知を表示" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -24671,7 +24705,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "I won't do it now"
+            "value" : "Not Now"
           }
         },
         "ja" : {
@@ -24683,19 +24717,19 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "지금은 안"
+            "value" : "나중에"
           }
         },
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "我现在不会做"
+            "value" : "暂不"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "我現在不會做"
+            "value" : "暫時不要"
           }
         }
       }
@@ -26324,6 +26358,7 @@
     },
     "保存データの読み込みに失敗したため、新しいデータベースで起動しました。以前のデータファイルは端末内に退避されています。お問い合わせいただければ復旧を試みられる場合があります。" : {
       "comment" : "Literal from lifelog/ContentView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -34528,6 +34563,7 @@
     },
     "招待リンク受信をテスト" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -35692,6 +35728,7 @@
     },
     "日本 (JP)" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -41592,6 +41629,7 @@
     },
     "米国 (US)" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -43785,6 +43823,7 @@
     },
     "自分自身にテスト手紙を送る" : {
       "comment" : "Literal from lifelog/Views/LetterSharing/LetterSharingView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -43856,6 +43895,7 @@
     },
     "自動" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -44138,6 +44178,7 @@
     },
     "英国 (GB)" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -45370,7 +45411,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "setting"
+            "value" : "Settings"
           }
         },
         "ja" : {
@@ -45388,13 +45429,13 @@
         "zh-Hans" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "环境"
+            "value" : "设置"
           }
         },
         "zh-Hant" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "環境"
+            "value" : "設定"
           }
         }
       }
@@ -46286,6 +46327,7 @@
     },
     "課金テスト国" : {
       "comment" : "Literal from lifelog/Views/Settings/SettingsView.swift",
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -48156,7 +48198,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "notify"
+            "value" : "Notifications"
           }
         },
         "ja" : {
@@ -48168,7 +48210,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "통지하다"
+            "value" : "알림"
           }
         },
         "zh-Hans" : {
@@ -49785,7 +49827,7 @@
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "close"
+            "value" : "Close"
           }
         },
         "ja" : {
@@ -49797,7 +49839,7 @@
         "ko" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "닫다"
+            "value" : "닫기"
           }
         },
         "zh-Hans" : {

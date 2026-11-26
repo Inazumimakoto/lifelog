@@ -69,6 +69,7 @@ final class AppDataStore: ObservableObject {
     private(set) var hasLoadedAppState = false
     private var healthLoadTask: _Concurrency.Task<Bool, Never>?
     private var healthAuthorizationTask: _Concurrency.Task<Bool, Never>?
+    private var hasLoadedHealthSummaries = false
     private var needsHealthPersistence = false
     private var categoryPaletteObservation: AnyCancellable?
 
@@ -84,18 +85,9 @@ final class AppDataStore: ObservableObject {
     }
     #endif
 
-    static let tasksDefaultsKey = "Tasks_Storage_V1"
-    static let diaryDefaultsKey = "DiaryEntries_Storage_V1"
-    static let habitsDefaultsKey = "Habits_Storage_V1"
-    static let habitRecordsDefaultsKey = "HabitRecords_Storage_V1"
-    static let anniversariesDefaultsKey = "Anniversaries_Storage_V1"
-    static let calendarEventsDefaultsKey = "CalendarEvents_Storage_V1"
     // キー文字列の正は共有 EventQuerying。値は不変のまま参照だけ集約する。
     static let externalCalendarEventsDefaultsKey = EventQuerying.externalCalendarEventsDefaultsKey
     static let externalCalendarRangeDefaultsKey = EventQuerying.externalCalendarRangeDefaultsKey
-    static let memoPadDefaultsKey = "MemoPad_Storage_V1"
-    static let appStateDefaultsKey = "AppState_Storage_V1"
-    static let healthSummariesDefaultsKey = "HealthSummaries_Storage_V1"
     static let locationVisitTagsDefaultsKey = "LocationVisitTags_Storage_V1"
     static let locationVisitTagsSeededDefaultsKey = "LocationVisitTagsSeeded_Storage_V1"
     static let defaultLocationVisitTagNames: [String] = [
@@ -109,12 +101,13 @@ final class AppDataStore: ObservableObject {
     #endif
 
     // MARK: - SwiftData Context
-    let modelContext: ModelContext
+    private(set) var modelContext: ModelContext
     let shoppingStore: ShoppingStore
     let taskNotificationService: NotificationService
     let calendarNotificationService: NotificationService
     let anniversaryNotificationService: NotificationService
     let dailyNotificationService: NotificationService
+    let diaryReminderDefaults: UserDefaults?
     private(set) var areNotificationUpdatesEnabled = true
     private var hasRefreshedStartupNotifications = false
 
@@ -143,19 +136,20 @@ final class AppDataStore: ObservableObject {
 
     // MARK: - Init
 
-    init(container: ModelContainer? = nil, startsBackgroundServices: Bool = true,
+    init(container: ModelContainer, startsBackgroundServices: Bool = true,
          taskNotificationService: NotificationService? = nil,
          calendarNotificationService: NotificationService? = nil,
          anniversaryNotificationService: NotificationService? = nil,
          dailyNotificationService: NotificationService? = nil,
+         diaryReminderDefaults: UserDefaults? = nil,
          defersNotificationUpdatesUntilStartup: Bool = false) {
         // Setup SwiftData
-        let container = container ?? PersistenceController.shared.container
         self.modelContext = container.mainContext
         self.taskNotificationService = taskNotificationService ?? NotificationService.shared
         self.calendarNotificationService = calendarNotificationService ?? NotificationService.shared
         self.anniversaryNotificationService = anniversaryNotificationService ?? NotificationService.shared
         self.dailyNotificationService = dailyNotificationService ?? NotificationService.shared
+        self.diaryReminderDefaults = diaryReminderDefaults ?? (startsBackgroundServices ? .standard : nil)
         self.areNotificationUpdatesEnabled = !defersNotificationUpdatesUntilStartup
         self.shoppingStore = ShoppingStore(container: container)
 
@@ -169,63 +163,9 @@ final class AppDataStore: ObservableObject {
             MigrationManager.shared.migrate(modelContext: modelContext)
         }
 
-        // 2. Load Data from SwiftData
-        // We load into the existing @Published properties to maintain View compatibility
-        // Note: We use helper methods to fetch and map SD models to structs
-
-        // Calendar selections must load independently of unrelated domain reads.
-        // A failed diary/task fetch must not let startup sync overwrite them.
         loadAppState()
-
         do {
-            // Tasks
-            let sdTasks = try modelContext.fetch(FetchDescriptor<SDTask>())
-            self.tasks = sdTasks.map { Task(sd: $0) }
-
-            // DiaryEntries
-            let sdDiaries = try modelContext.fetch(FetchDescriptor<SDDiaryEntry>())
-            let mappedDiaries = sdDiaries.map { DiaryEntry(sd: $0) }
-            self.diaryEntries = Self.normalizeDiaryEntries(mappedDiaries)
-
-            // Habits
-            let sdHabits = try modelContext.fetch(FetchDescriptor<SDHabit>(sortBy: [SortDescriptor(\.orderIndex)]))
-            self.habits = sdHabits.map { Habit(sd: $0) }
-
-            // HabitRecords
-            let sdRecords = try modelContext.fetch(FetchDescriptor<SDHabitRecord>())
-            self.habitRecords = sdRecords.map { HabitRecord(sd: $0) }
-            self.habitRecordLookup = HabitRecordLookup(records: habitRecords)
-
-            // Anniversaries
-            let sdAnniversaries = try modelContext.fetch(FetchDescriptor<SDAnniversary>(sortBy: [SortDescriptor(\.orderIndex)]))
-            self.anniversaries = sdAnniversaries.map { Anniversary(sd: $0) }
-
-            // CalendarEvents (Internal)
-            let sdEvents = try modelContext.fetch(FetchDescriptor<SDCalendarEvent>())
-            self.calendarEvents = sdEvents.map { CalendarEvent(sd: $0) }
-            self.calendarExceptions = try modelContext.fetch(FetchDescriptor<SDCalendarEventException>())
-                .map { CalendarEventException(sd: $0) }
-
-            // Letters
-            let sdLetters = try modelContext.fetch(FetchDescriptor<SDLetter>())
-            self.letters = sdLetters.map { Letter(sd: $0) }
-
-            // SharedLetters (他ユーザーからの手紙)
-            let sdSharedLetters = try modelContext.fetch(FetchDescriptor<SDSharedLetter>(sortBy: [SortDescriptor(\.openedAt, order: .reverse)]))
-            self.sharedLetters = sdSharedLetters.map { SharedLetter(sd: $0) }
-
-            // HealthSummaries (Cache)
-            let sdHealth = try modelContext.fetch(FetchDescriptor<SDHealthSummary>(sortBy: [SortDescriptor(\.date, order: .reverse)]))
-            self.healthSummaries = sdHealth.map { HealthSummary(sd: $0) }
-
-            // MemoPad
-            let sdMemos = try modelContext.fetch(FetchDescriptor<SDMemoPad>())
-            if let first = sdMemos.first {
-                self.memoPad = MemoPad(sd: first)
-            } else {
-                self.memoPad = MemoPad()
-            }
-
+            try loadStoredRecords()
         } catch {
             AppLogger.data.error("Failed to fetch initial data from SwiftData: \(error)")
         }
@@ -242,13 +182,8 @@ final class AppDataStore: ObservableObject {
             self.externalCalendarRange = nil
         }
         self.locationVisitTagDefinitions = Self.loadValue(forKey: Self.locationVisitTagsDefaultsKey, defaultValue: [])
+        recordInitialPermissionsFootprint(standard: .standard, shared: UserDefaults(suiteName: PersistenceController.appGroupIdentifier))
         normalizeLocationVisitTagOrderIfNeeded()
-        let hasSeenInitialPermissionsFeature = UserDefaults.standard.bool(forKey: InitialPermissionsState.featureSeenKey)
-        hasExistingUserFootprintForInitialPermissions = hasUserContentForInitialPermissions ||
-            Self.hasStoredUserDefaultsFootprintForInitialPermissions(
-                includeAutoSeededKeys: hasSeenInitialPermissionsFeature == false
-            )
-        UserDefaults.standard.set(true, forKey: InitialPermissionsState.featureSeenKey)
         seedDefaultLocationVisitTagsIfNeeded()
 
         #if DEBUG && targetEnvironment(simulator)
@@ -267,6 +202,84 @@ final class AppDataStore: ObservableObject {
             if await syncExternalCalendarsIfAuthorized() {
                 WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
             }
+        }
+    }
+
+    func recordInitialPermissionsFootprint(standard: UserDefaults, shared: UserDefaults?) {
+        let hasUserRecords = !tasks.isEmpty || !shoppingStore.items.isEmpty || !shoppingStore.places.isEmpty ||
+            !diaryEntries.isEmpty || !habits.isEmpty || !habitRecords.isEmpty || !anniversaries.isEmpty ||
+            !calendarEvents.isEmpty || !letters.isEmpty || !sharedLetters.isEmpty ||
+            !memoPad.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || memoPad.lastUpdatedAt != nil ||
+            diaryReminderEnabled
+        let hasIntegrationData = !externalCalendarEvents.isEmpty || !healthSummaries.isEmpty ||
+            appState.lastCalendarSyncDate != nil || !appState.calendarCategoryLinks.isEmpty ||
+            !appState.unavailableCalendarCategoryLinks.isEmpty
+        hasExistingUserFootprintForInitialPermissions = InitialPermissionsState.recordLaunch(
+            standard: standard, shared: shared, hasUserRecords: hasUserRecords, hasIntegrationData: hasIntegrationData
+        )
+    }
+
+    /// The importer commits in its own context. Use fresh contexts so a previously fetched
+    /// diary or memo immediately shows both the existing and the recovered content.
+    func reloadAfterStoreRecovery() throws {
+        // A weather/HealthKit refresh must not reconcile an old snapshot with the restored rows.
+        hasLoadedHealthSummaries = false
+        modelContext = ModelContext(modelContext.container)
+        guard loadAppState() else { throw CocoaError(.fileReadUnknown) }
+        try loadStoredRecords()
+        try shoppingStore.reloadAfterStoreRecovery()
+        refreshNotificationsAfterStartup()
+        resumeDiaryPhotoSync()
+    }
+
+    private func loadStoredRecords() throws {
+        // Tasks
+        let sdTasks = try modelContext.fetch(FetchDescriptor<SDTask>())
+        self.tasks = sdTasks.map { Task(sd: $0) }
+
+        // DiaryEntries
+        let sdDiaries = try modelContext.fetch(FetchDescriptor<SDDiaryEntry>())
+        let mappedDiaries = sdDiaries.map { DiaryEntry(sd: $0) }
+        self.diaryEntries = Self.normalizeDiaryEntries(mappedDiaries)
+
+        // Habits
+        let sdHabits = try modelContext.fetch(FetchDescriptor<SDHabit>(sortBy: [SortDescriptor(\.orderIndex)]))
+        self.habits = sdHabits.map { Habit(sd: $0) }
+
+        // HabitRecords
+        let sdRecords = try modelContext.fetch(FetchDescriptor<SDHabitRecord>())
+        self.habitRecords = sdRecords.map { HabitRecord(sd: $0) }
+        self.habitRecordLookup = HabitRecordLookup(records: habitRecords)
+
+        // Anniversaries
+        let sdAnniversaries = try modelContext.fetch(FetchDescriptor<SDAnniversary>(sortBy: [SortDescriptor(\.orderIndex)]))
+        self.anniversaries = sdAnniversaries.map { Anniversary(sd: $0) }
+
+        // CalendarEvents (Internal)
+        let sdEvents = try modelContext.fetch(FetchDescriptor<SDCalendarEvent>())
+        self.calendarEvents = sdEvents.map { CalendarEvent(sd: $0) }
+        self.calendarExceptions = try modelContext.fetch(FetchDescriptor<SDCalendarEventException>())
+            .map { CalendarEventException(sd: $0) }
+
+        // Letters
+        let sdLetters = try modelContext.fetch(FetchDescriptor<SDLetter>())
+        self.letters = sdLetters.map { Letter(sd: $0) }
+
+        // SharedLetters (他ユーザーからの手紙)
+        let sdSharedLetters = try modelContext.fetch(FetchDescriptor<SDSharedLetter>(sortBy: [SortDescriptor(\.openedAt, order: .reverse)]))
+        self.sharedLetters = sdSharedLetters.map { SharedLetter(sd: $0) }
+
+        // HealthSummaries (Cache)
+        let sdHealth = try modelContext.fetch(FetchDescriptor<SDHealthSummary>(sortBy: [SortDescriptor(\.date, order: .reverse)]))
+        self.healthSummaries = sdHealth.map { HealthSummary(sd: $0) }
+        hasLoadedHealthSummaries = true
+
+        // MemoPad
+        let sdMemos = try modelContext.fetch(FetchDescriptor<SDMemoPad>())
+        if let first = sdMemos.first {
+            self.memoPad = MemoPad(sd: first)
+        } else {
+            self.memoPad = MemoPad()
         }
     }
 
@@ -307,35 +320,14 @@ final class AppDataStore: ObservableObject {
         rescheduleTodayOverviewReminderIfNeeded(referenceDate: referenceDate)
     }
 
-    private var hasUserContentForInitialPermissions: Bool {
-        !tasks.isEmpty ||
-        !shoppingStore.items.isEmpty ||
-        !shoppingStore.places.isEmpty ||
-        !diaryEntries.isEmpty ||
-        !habits.isEmpty ||
-        !habitRecords.isEmpty ||
-        !anniversaries.isEmpty ||
-        !calendarEvents.isEmpty ||
-        !externalCalendarEvents.isEmpty ||
-        !letters.isEmpty ||
-        !sharedLetters.isEmpty ||
-        !healthSummaries.isEmpty ||
-        memoPad.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false ||
-        memoPad.lastUpdatedAt != nil ||
-        appState.lastCalendarSyncDate != nil ||
-        appState.calendarCategoryLinks.isEmpty == false ||
-        appState.unavailableCalendarCategoryLinks.isEmpty == false ||
-        appState.diaryReminderEnabled
-    }
+    // Keep the stored key so upgrades continue to refresh previously linked Health data.
+    static let healthAccessRequestedKey = "initialPermissionsHealthRequestedV1"
 
-    /// 初期権限セットアップ導入(v1.14)以前からのユーザーはセットアップ画面を
-    /// スキップするため healthRequestedKey が立たず、起動時のヘルスデータ取得が
-    /// 止まっていた。HealthKit に権限ダイアログ表示済みかを問い合わせて埋め戻す。
     private func backfillHealthRequestedFlagIfNeeded() async {
         guard !PersistenceController.isSimulatorDemoMode else { return }
-        guard UserDefaults.standard.bool(forKey: InitialPermissionsState.healthRequestedKey) == false else { return }
+        guard UserDefaults.standard.bool(forKey: Self.healthAccessRequestedKey) == false else { return }
         guard await HealthKitManager.shared.hasPreviouslyRequestedAuthorization() else { return }
-        UserDefaults.standard.set(true, forKey: InitialPermissionsState.healthRequestedKey)
+        UserDefaults.standard.set(true, forKey: Self.healthAccessRequestedKey)
     }
 
     @discardableResult
@@ -353,9 +345,9 @@ final class AppDataStore: ObservableObject {
                 }
                 healthAuthorizationTask = authorizationTask
             }
-            UserDefaults.standard.set(true, forKey: InitialPermissionsState.healthRequestedKey)
             let authorizationCompleted = await authorizationTask.value
             guard authorizationCompleted else { return false }
+            UserDefaults.standard.set(true, forKey: Self.healthAccessRequestedKey)
             // A refresh that started before granting access may have queried an
             // empty HealthKit store. Finish it, then fetch using the new grant.
             if let pending = preAuthorizationLoadTask { _ = await pending.value }
@@ -363,7 +355,7 @@ final class AppDataStore: ObservableObject {
             if let authorizationTask = healthAuthorizationTask {
                 guard await authorizationTask.value else { return false }
             }
-            guard UserDefaults.standard.bool(forKey: InitialPermissionsState.healthRequestedKey) else {
+            guard UserDefaults.standard.bool(forKey: Self.healthAccessRequestedKey) else {
                 return false
             }
         }
@@ -396,6 +388,7 @@ final class AppDataStore: ObservableObject {
     }
 
     private func persistHealthSummaries() {
+        guard hasLoadedHealthSummaries else { return }
         needsHealthPersistence = true
         // Full Sync to SwiftData (keyed by Date to avoid duplication if IDs change)
         // 1. Fetch all existing SDHealthSummaries
@@ -484,33 +477,6 @@ final class AppDataStore: ObservableObject {
             return decoded
         }
         return defaultValue
-    }
-
-    static func hasStoredUserDefaultsFootprintForInitialPermissions(includeAutoSeededKeys: Bool) -> Bool {
-        var keys = [
-            tasksDefaultsKey,
-            diaryDefaultsKey,
-            habitsDefaultsKey,
-            habitRecordsDefaultsKey,
-            anniversariesDefaultsKey,
-            calendarEventsDefaultsKey,
-            externalCalendarEventsDefaultsKey,
-            externalCalendarRangeDefaultsKey,
-            memoPadDefaultsKey,
-            appStateDefaultsKey,
-            healthSummariesDefaultsKey
-        ]
-        if includeAutoSeededKeys {
-            keys.append(contentsOf: [
-                locationVisitTagsDefaultsKey,
-                locationVisitTagsSeededDefaultsKey
-            ])
-        }
-
-        let sharedDefaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier)
-        return keys.contains { key in
-            sharedDefaults?.object(forKey: key) != nil || UserDefaults.standard.object(forKey: key) != nil
-        }
     }
 
     func persist<T: Encodable>(_ value: T, forKey key: String) {

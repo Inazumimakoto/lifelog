@@ -77,7 +77,7 @@ struct JournalView: View {
     @State private var showingDetailPanel = false
     @State private var pendingDiaryDate: Date?
     @State private var calendarSyncTrigger = 0
-    @State private var showCalendarSettings = false // Used internally by SettingsView logic if needed, but we are moving entry point
+    @State private var showCalendarSettings = false
     @State private var showSettings = false
     @State private var showTaskManager = false
     @State private var showEventManager = false
@@ -195,6 +195,9 @@ struct JournalView: View {
             NavigationStack {
                 SettingsView()
             }
+        }
+        .navigationDestination(isPresented: $showCalendarSettings) {
+            CalendarCategorySettingsView(store: store)
         }
         .sheet(isPresented: $showTaskManager) {
             NavigationStack {
@@ -1348,12 +1351,12 @@ struct JournalView: View {
     }
 
     private func refreshExternalCalendars() {
+        guard viewModel.hasFullCalendarAccess else {
+            showCalendarSettings = true
+            return
+        }
         _Concurrency.Task {
-            await viewModel.syncExternalCalendarsIfNeeded(
-                force: true,
-                anchorDate: viewModel.monthAnchor,
-                allowPermissionPrompt: true
-            )
+            await viewModel.syncExternalCalendarsIfNeeded(force: true, anchorDate: viewModel.monthAnchor)
         }
     }
 
@@ -1396,8 +1399,13 @@ struct JournalView: View {
             }
 
             Button(action: refreshExternalCalendars) {
-                Image(systemName: "arrow.clockwise")
+                if viewModel.hasFullCalendarAccess {
+                    Label("calendar.integration.refresh", systemImage: "arrow.clockwise")
+                } else {
+                    Label("カレンダー連携", systemImage: "arrow.triangle.2.circlepath")
+                }
             }
+            .labelStyle(.iconOnly)
 
             Menu {
                 Button {
@@ -1430,6 +1438,7 @@ struct JournalView: View {
                 Image(systemName: "gearshape")
                     .foregroundStyle(.primary)
             }
+            .accessibilityLabel("設定")
         }
     }
 }

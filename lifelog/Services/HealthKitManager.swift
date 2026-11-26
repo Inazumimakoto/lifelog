@@ -29,6 +29,12 @@ class HealthKitManager {
     }
     
     private init() { }
+
+    /// HealthKit reports whether a request sheet is needed, never which read permissions were granted.
+    func authorizationRequestStatus() async -> HKAuthorizationRequestStatus {
+        guard HKHealthStore.isHealthDataAvailable() else { return .unknown }
+        return (try? await healthStore.statusForAuthorizationRequest(toShare: [], read: readTypes)) ?? .unknown
+    }
     
     func requestAuthorization() async -> Bool {
         guard HKHealthStore.isHealthDataAvailable() else {

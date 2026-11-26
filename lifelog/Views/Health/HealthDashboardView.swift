@@ -12,6 +12,12 @@ struct HealthDashboardView: View {
     @State private var selectedHistory: HealthMetric?
     @State private var selectedWellnessDate: Date?
     @State private var selectedSleepDate: Date?
+    @State private var requestStatus: HKAuthorizationRequestStatus = .unknown
+    @State private var isConnecting = false
+    @State private var connectionFailed = false
+    @State private var refreshAfterOpeningHealth = false
+    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.openURL) private var openURL
 
     init(store: AppDataStore) {
         _viewModel = StateObject(wrappedValue: HealthViewModel(store: store))
@@ -36,17 +42,28 @@ struct HealthDashboardView: View {
     var body: some View {
         ScrollView {
             VStack(spacing: 16) {
+                if !hasHealthMeasurements {
+                    connectionSection
+                }
                 summarySection
                 sleepSection
                 fitnessSection
                 wellnessTrendSection
-                if !hasHealthMeasurements {
+                if hasHealthMeasurements {
                     connectionSection
                 }
             }
             .padding()
         }
         .navigationTitle("ヘルスケア")
+        .task(id: scenePhase) {
+            guard scenePhase == .active else { return }
+            requestStatus = await HealthKitManager.shared.authorizationRequestStatus()
+            if refreshAfterOpeningHealth {
+                refreshAfterOpeningHealth = false
+                await viewModel.refreshHealthData()
+            }
+        }
         .refreshable {
             await viewModel.refreshHealthData()
         }
@@ -210,27 +227,40 @@ struct HealthDashboardView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            Button("ヘルスケア連携を確認") {
-                _Concurrency.Task { await viewModel.requestHealthKitAuthorization() }
-            }
-            .font(.caption.weight(.medium))
         }
     }
 
     private var connectionSection: some View {
-        SectionCard(title: "ヘルスケアデータがありません") {
-            if HKHealthStore.isHealthDataAvailable() {
-                Text("iPhoneの「ヘルスケア」アプリとの連携が必要です。")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+        SectionCard(title: "ヘルスケア") {
+            if !HKHealthStore.isHealthDataAvailable() {
+                Text("お使いのデバイスではヘルスケアを利用できません。")
+            } else if requestStatus == .unnecessary {
+                Text("health.manageAccess", tableName: "ContextualPermissions")
+                Button("ヘルスケアアプリを開く") {
+                    if let url = URL(string: "x-apple-health://") {
+                        refreshAfterOpeningHealth = true
+                        openURL(url)
+                    }
+                }
+                .buttonStyle(.bordered)
+            } else {
+                Text("health.connectPurpose", tableName: "ContextualPermissions")
                 Button("ヘルスケアに接続") {
-                    _Concurrency.Task { await viewModel.requestHealthKitAuthorization() }
+                    isConnecting = true
+                    connectionFailed = false
+                    _Concurrency.Task {
+                        let completed = await viewModel.requestHealthKitAuthorization()
+                        requestStatus = await HealthKitManager.shared.authorizationRequestStatus()
+                        connectionFailed = !completed
+                        isConnecting = false
+                    }
                 }
                 .buttonStyle(.borderedProminent)
-            } else {
-                Text("お使いのデバイスではヘルスケアを利用できません。")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                .disabled(isConnecting)
+                if connectionFailed {
+                    Text("health.requestFailed", tableName: "ContextualPermissions")
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }

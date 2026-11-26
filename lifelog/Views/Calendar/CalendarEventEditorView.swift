@@ -127,7 +127,7 @@ struct CalendarEventEditorView: View {
                 .disabled(isReadOnly)
 
             Section("通知") {
-                Toggle("リマインダー", isOn: $formState.hasReminder)
+                NotificationPermissionToggle("リマインダー", isOn: $formState.hasReminder)
                 if formState.hasReminder {
                     if !formState.isRepeating || isOccurrence {
                         Picker("通知方法", selection: $formState.useRelativeReminder) {

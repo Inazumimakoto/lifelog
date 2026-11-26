@@ -89,7 +89,7 @@ struct MemoProvider: TimelineProvider {
         do {
             let descriptor = FetchDescriptor<SDMemoPad>()
             // Use the shared container which has the proper full schema
-            let memos = try PersistenceController.shared.container.mainContext.fetch(descriptor)
+            let memos = try PersistenceController.sharedContainer().mainContext.fetch(descriptor)
             guard let memo = memos.first else {
                 return MemoWidgetData(
                     text: "",

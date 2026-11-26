@@ -70,7 +70,9 @@ final class JournalViewModel: ObservableObject {
     @Published private(set) var monthTitle: String = ""
     @Published var displayMode: DisplayMode = .month
     @Published private(set) var monthAnchor: Date
-    @Published private(set) var calendarAccessDenied: Bool = false
+    @Published private var calendarAuthorization = EKEventStore.authorizationStatus(for: .event)
+    var hasFullCalendarAccess: Bool { calendarAuthorization == .fullAccess }
+    var calendarAccessDenied: Bool { calendarAuthorization == .denied || calendarAuthorization == .writeOnly }
     @Published private(set) var weekStart: CalendarWeekStart
     @Published private(set) var dataRevision: UInt = 0
 
@@ -484,10 +486,12 @@ final class JournalViewModel: ObservableObject {
 
     func syncExternalCalendarsIfNeeded(
         force: Bool = false,
-        anchorDate: Date? = nil,
-        allowPermissionPrompt: Bool = false
+        anchorDate: Date? = nil
     ) async {
         guard !PersistenceController.isSimulatorDemoMode else { return }
+        let status = EKEventStore.authorizationStatus(for: .event)
+        if calendarAuthorization != status { calendarAuthorization = status }
+        guard hasFullCalendarAccess else { return }
         guard store.hasLoadedAppState || store.loadAppState() else { return }
         let calendar = Calendar.current
         let anchor = anchorDate ?? monthAnchor
@@ -498,17 +502,6 @@ final class JournalViewModel: ObservableObject {
                                                     force: force) else { return }
         let desiredRange = ExternalCalendarSyncPolicy.desiredRange(for: anchor, calendar: calendar)
 
-        let status = EKEventStore.authorizationStatus(for: .event)
-        if status == .notDetermined && allowPermissionPrompt == false {
-            return
-        }
-
-        let granted = await calendarService.requestAccessIfNeeded(shouldPrompt: allowPermissionPrompt)
-        guard granted else {
-            calendarAccessDenied = true
-            return
-        }
-
         do {
             calendarService.refreshCalendarLinks(store: store)
             let ekEvents = try await calendarService.fetchEvents(from: desiredRange.start, to: desiredRange.end)
@@ -518,7 +511,6 @@ final class JournalViewModel: ObservableObject {
             ).map(ekEvents)
             store.updateExternalCalendarEvents(external, range: desiredRange)
             store.updateLastCalendarSync(date: Date())
-            calendarAccessDenied = false
         } catch {
             // Ignore errors
         }

@@ -9,28 +9,53 @@ import os
 
 extension AppDataStore {
 
+    /// Recreate existing reservations once when iOS starts accepting them again.
+    func restoreRemindersAfterNotificationAuthorization(referenceDate: Date = Date()) {
+        guard areNotificationUpdatesEnabled else { return }
+        rescheduleDiaryReminderIfNeeded(referenceDate: referenceDate)
+        rescheduleTodayOverviewReminderIfNeeded(referenceDate: referenceDate)
+        reapplyEventCategoryNotificationSettings(referenceDate: referenceDate)
+        for task in tasks where !task.isCompleted {
+            if let reminderDate = task.reminderDate, reminderDate > referenceDate {
+                taskNotificationService.scheduleTaskReminder(taskId: task.id, title: task.title, reminderDate: reminderDate)
+            }
+        }
+        for anniversary in anniversaries where anniversary.reminderDate != nil || anniversary.reminderDaysBefore != nil {
+            scheduleAnniversaryNotification(anniversary)
+        }
+        syncLetterDeliveryNotifications(referenceDate: referenceDate)
+    }
+
     // MARK: - Diary Reminder Settings
 
-    var diaryReminderEnabled: Bool { appState.diaryReminderEnabled }
-    var diaryReminderHour: Int { appState.diaryReminderHour }
-    var diaryReminderMinute: Int { appState.diaryReminderMinute }
+    // Older Settings screens saved these preferences in UserDefaults. Reads are
+    // side-effect free so an unavailable SwiftData record can't be overwritten.
+    var diaryReminderEnabled: Bool {
+        diaryReminderDefaults?.object(forKey: "diaryReminderEnabled") as? Bool ?? appState.diaryReminderEnabled
+    }
+    var diaryReminderHour: Int {
+        diaryReminderDefaults?.object(forKey: "diaryReminderHour") as? Int ?? appState.diaryReminderHour
+    }
+    var diaryReminderMinute: Int {
+        diaryReminderDefaults?.object(forKey: "diaryReminderMinute") as? Int ?? appState.diaryReminderMinute
+    }
 
     func updateDiaryReminder(enabled: Bool, hour: Int, minute: Int) {
+        diaryReminderDefaults?.set(enabled, forKey: "diaryReminderEnabled")
+        diaryReminderDefaults?.set(hour, forKey: "diaryReminderHour")
+        diaryReminderDefaults?.set(minute, forKey: "diaryReminderMinute")
         appState.diaryReminderEnabled = enabled
         appState.diaryReminderHour = hour
         appState.diaryReminderMinute = minute
         persistAppState()
 
-        if enabled {
-            dailyNotificationService.scheduleDiaryReminder(hour: hour, minute: minute)
-        } else {
-            dailyNotificationService.cancelDiaryReminder()
-        }
+        rescheduleDiaryReminderIfNeeded()
     }
 
     /// アプリ起動時に日記リマインダーを再スケジュール（今日書いていなければ）
     func rescheduleDiaryReminderIfNeeded(referenceDate: Date = Date()) {
         guard areNotificationUpdatesEnabled else { return }
+        guard hasLoadedAppState || diaryReminderDefaults?.object(forKey: "diaryReminderEnabled") != nil else { return }
         guard diaryReminderEnabled else {
             dailyNotificationService.cancelDiaryReminder()
             return

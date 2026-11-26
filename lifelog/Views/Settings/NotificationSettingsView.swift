@@ -6,14 +6,18 @@
 //
 
 import SwiftUI
+import UserNotifications
 
 struct NotificationSettingsView: View {
     @EnvironmentObject private var store: AppDataStore
+    @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var notifications = NotificationService.shared
+    @State private var requestingAuthorization = false
 
     // 日記リマインダー設定
-    @AppStorage("diaryReminderEnabled") private var diaryReminderEnabled: Bool = false
-    @AppStorage("diaryReminderHour") private var diaryReminderHour: Int = 21
-    @AppStorage("diaryReminderMinute") private var diaryReminderMinute: Int = 0
+    private var diaryReminderEnabled: Bool { store.diaryReminderEnabled }
+    private var diaryReminderHour: Int { store.diaryReminderHour }
+    private var diaryReminderMinute: Int { store.diaryReminderMinute }
 
     // 今日の予定・タスク通知
     @AppStorage("todayOverviewNotificationEnabled") private var todayOverviewNotificationEnabled: Bool = false
@@ -32,10 +36,11 @@ struct NotificationSettingsView: View {
     @State private var hasLoaded: Bool = false
     
     // 未来への手紙通知
-    @AppStorage("letterNotificationEnabled") private var letterNotificationEnabled: Bool = true
+    @AppStorage(AppDataStore.letterNotificationEnabledKey) private var letterNotificationEnabled: Bool = true
     
     var body: some View {
         Form {
+            systemPermissionSection
             // 日記リマインダーセクション
             diaryReminderSection
 
@@ -60,19 +65,10 @@ struct NotificationSettingsView: View {
             hasLoaded = true
             loadSettings()
         }
-        .onChange(of: diaryReminderEnabled) { _, enabled in
-            updateDiaryReminder(enabled: enabled)
+        .task(id: scenePhase) {
+            if scenePhase == .active { await notifications.refreshAuthorizationStatus() }
         }
-        .onChange(of: diaryReminderHour) { _, _ in
-            if diaryReminderEnabled {
-                updateDiaryReminder(enabled: true)
-            }
-        }
-        .onChange(of: diaryReminderMinute) { _, _ in
-            if diaryReminderEnabled {
-                updateDiaryReminder(enabled: true)
-            }
-        }
+        .notificationPermissionRequest($requestingAuthorization) { }
         .onChange(of: todayOverviewNotificationEnabled) { _, enabled in
             updateTodayOverviewReminder(enabled: enabled)
         }
@@ -87,6 +83,7 @@ struct NotificationSettingsView: View {
             }
         }
         .onChange(of: letterNotificationEnabled) { _, enabled in
+            store.syncLetterDeliveryNotifications()
             // Firestoreにも同期（Cloud Functionsが参照）
             _Concurrency.Task {
                 await AuthService.shared.updateLetterNotificationEnabled(enabled)
@@ -112,10 +109,34 @@ struct NotificationSettingsView: View {
     }
     
     // MARK: - Sections
+
+    @ViewBuilder
+    private var systemPermissionSection: some View {
+        if notifications.authorizationStatus == .denied,
+           let url = URL(string: UIApplication.openNotificationSettingsURLString) {
+            Section {
+                Link(destination: url) { Text("notifications.openSettings", tableName: "ContextualPermissions") }
+            } footer: {
+                Text("notifications.deniedMessage", tableName: "ContextualPermissions")
+            }
+        } else if notifications.authorizationStatus == .notDetermined &&
+                    (diaryReminderEnabled || letterNotificationEnabled || todayOverviewNotificationEnabled ||
+                     eventCategoryNotificationEnabled || taskPriorityNotificationEnabled) {
+            Section {
+                Button { requestingAuthorization = true } label: {
+                    Text("notifications.configure", tableName: "ContextualPermissions")
+                }
+                .disabled(requestingAuthorization)
+            }
+        }
+    }
     
     private var diaryReminderSection: some View {
         Section {
-            Toggle("日記リマインダー", isOn: $diaryReminderEnabled)
+            NotificationPermissionToggle("日記リマインダー", isOn: Binding(
+                get: { diaryReminderEnabled },
+                set: { store.updateDiaryReminder(enabled: $0, hour: diaryReminderHour, minute: diaryReminderMinute) }
+            ))
             
             if diaryReminderEnabled {
                 DatePicker(
@@ -135,7 +156,7 @@ struct NotificationSettingsView: View {
     
     private var letterSection: some View {
         Section {
-            Toggle("手紙の通知", isOn: $letterNotificationEnabled)
+            NotificationPermissionToggle("手紙の通知", isOn: $letterNotificationEnabled)
             
             Text("「未来への手紙」と「大切な人への手紙」が届いたときに通知を受け取ります。")
                 .font(.caption)
@@ -147,7 +168,7 @@ struct NotificationSettingsView: View {
 
     private var todayOverviewSection: some View {
         Section {
-            Toggle("今日の予定・タスク通知", isOn: $todayOverviewNotificationEnabled)
+            NotificationPermissionToggle("今日の予定・タスク通知", isOn: $todayOverviewNotificationEnabled)
 
             if todayOverviewNotificationEnabled {
                 DatePicker(
@@ -167,7 +188,7 @@ struct NotificationSettingsView: View {
     
     private var eventSection: some View {
         Section {
-            Toggle("カテゴリごとの通知設定", isOn: $eventCategoryNotificationEnabled)
+            NotificationPermissionToggle("カテゴリごとの通知設定", isOn: $eventCategoryNotificationEnabled)
             
             if eventCategoryNotificationEnabled {
                 ForEach($categorySettings) { $setting in
@@ -178,8 +199,9 @@ struct NotificationSettingsView: View {
                                 .frame(width: 12, height: 12)
                             Text(CategoryPalette.displayName(for: setting.categoryName))
                             Spacer()
-                            Toggle("", isOn: $setting.enabled)
+                            NotificationPermissionToggle("", isOn: $setting.enabled)
                                 .labelsHidden()
+                                .accessibilityLabel(Text(verbatim: CategoryPalette.displayName(for: setting.categoryName)))
                         }
                         
                         if setting.enabled {
@@ -234,7 +256,7 @@ struct NotificationSettingsView: View {
     
     private var taskSection: some View {
         Section {
-            Toggle("優先度ごとの通知設定", isOn: $taskPriorityNotificationEnabled)
+            NotificationPermissionToggle("優先度ごとの通知設定", isOn: $taskPriorityNotificationEnabled)
             
             if taskPriorityNotificationEnabled {
                 ForEach($prioritySettings) { $setting in
@@ -242,8 +264,9 @@ struct NotificationSettingsView: View {
                         HStack {
                             Text(priorityLabel(for: setting.priority))
                             Spacer()
-                            Toggle("", isOn: $setting.enabled)
+                            NotificationPermissionToggle("", isOn: $setting.enabled)
                                 .labelsHidden()
+                                .accessibilityLabel(Text(verbatim: priorityLabel(for: setting.priority)))
                         }
                         
                         if setting.enabled {
@@ -289,8 +312,7 @@ struct NotificationSettingsView: View {
             },
             set: { newDate in
                 let components = Calendar.current.dateComponents([.hour, .minute], from: newDate)
-                diaryReminderHour = components.hour ?? 21
-                diaryReminderMinute = components.minute ?? 0
+                store.updateDiaryReminder(enabled: diaryReminderEnabled, hour: components.hour ?? 21, minute: components.minute ?? 0)
             }
         )
     }
@@ -344,7 +366,6 @@ struct NotificationSettingsView: View {
 
         prioritySettings = NotificationSettingsManager.shared.getPrioritySettings()
         previousPrioritySettings = prioritySettings
-        store.reapplyEventCategoryNotificationSettings()
     }
     
     private func saveCategorySettings() {
@@ -355,14 +376,6 @@ struct NotificationSettingsView: View {
         NotificationSettingsManager.shared.savePrioritySettings(prioritySettings)
     }
     
-    private func updateDiaryReminder(enabled: Bool) {
-        if enabled {
-            NotificationService.shared.scheduleDiaryReminder(hour: diaryReminderHour, minute: diaryReminderMinute)
-        } else {
-            NotificationService.shared.cancelDiaryReminder()
-        }
-    }
-
     private func updateTodayOverviewReminder(enabled: Bool) {
         store.updateTodayOverviewReminder(
             enabled: enabled,
@@ -376,5 +389,5 @@ struct NotificationSettingsView: View {
     NavigationStack {
         NotificationSettingsView()
     }
-    .environmentObject(AppDataStore())
+    .environmentObject(AppDataStore(container: PersistenceController.preview.container, startsBackgroundServices: false))
 }

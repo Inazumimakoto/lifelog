@@ -123,6 +123,7 @@ struct HabitsCountdownView: View {
                     Image(systemName: "gearshape")
                         .foregroundStyle(.primary)
                 }
+                .accessibilityLabel("設定")
             }
         }
         .sheet(isPresented: $showSettings) {

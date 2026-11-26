@@ -15,6 +15,8 @@ struct DiaryLocationPickerView: View {
     @StateObject private var viewModel: DiaryLocationPickerViewModel
     @State private var showSavedLocationsOnMap: Bool = false
     @State private var pendingMapSelection: DiaryLocation?
+    @State private var showsLocationHelp = false
+    @Environment(\.openURL) private var openURL
     @State private var pendingCustomLocation: EditableLocationDraft?
     @State private var customLocationName: String = ""
     @State private var isSearchSectionExpanded: Bool = true
@@ -222,9 +224,38 @@ struct DiaryLocationPickerView: View {
                         isPresented = false
                     }
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        switch viewModel.locationAuthorization {
+                        case .denied, .restricted:
+                            showsLocationHelp = true
+                        default:
+                            viewModel.showCurrentLocation()
+                        }
+                    } label: {
+                        Label {
+                            Text("diary.currentLocation", tableName: "ContextualPermissions")
+                        } icon: {
+                            Image(systemName: "location")
+                        }
+                    }
+                }
             }
             .onAppear {
-                viewModel.requestCurrentLocationIfNeeded()
+                viewModel.centerOnAuthorizedLocationOnFirstAppearance()
+            }
+            .alert(Text("diary.currentLocation", tableName: "ContextualPermissions"), isPresented: $showsLocationHelp) {
+                if viewModel.locationAuthorization == .denied,
+                   let url = URL(string: UIApplication.openSettingsURLString) {
+                    Button("設定を開く") { openURL(url) }
+                }
+                Button("閉じる", role: .cancel) {}
+            } message: {
+                if viewModel.locationAuthorization == .denied {
+                    Text("diary.locationSettings", tableName: "ContextualPermissions")
+                } else {
+                    Text("location.restricted", tableName: "ContextualPermissions")
+                }
             }
             .alert(item: $pendingMapSelection) { location in
                 Alert(title: Text(location.name),
@@ -367,8 +398,9 @@ private final class DiaryLocationPickerViewModel: NSObject, ObservableObject {
     private let recentSavedLocationLimit = 10
     private let refreshMinimumDistance: CLLocationDistance = 40
     private var lastLoadedCoordinate: CLLocationCoordinate2D?
-    private var hasRequestedCurrentLocation = false
-    private var hasAppliedCurrentLocation = false
+    private var didSetInitialRegion = false
+    private var awaitingLocationPermission = false
+    var locationAuthorization: CLAuthorizationStatus { locationManager.authorizationStatus }
 
     init(centerCoordinate: CLLocationCoordinate2D,
          pastEntries: [DiaryEntry]) {
@@ -384,22 +416,33 @@ private final class DiaryLocationPickerViewModel: NSObject, ObservableObject {
         updateCenter(centerCoordinate)
     }
 
-    func requestCurrentLocationIfNeeded() {
-        guard hasRequestedCurrentLocation == false else { return }
-        hasRequestedCurrentLocation = true
-        if let currentCoordinate = locationManager.location?.coordinate {
-            applyInitialCurrentLocation(currentCoordinate)
-            return
+    func centerOnAuthorizedLocationOnFirstAppearance() {
+        guard !didSetInitialRegion else { return }
+        didSetInitialRegion = true
+        if locationAuthorization == .authorizedAlways || locationAuthorization == .authorizedWhenInUse {
+            centerOnCurrentLocation()
         }
-        switch locationManager.authorizationStatus {
+    }
+
+    func showCurrentLocation() {
+        switch locationAuthorization {
         case .authorizedAlways, .authorizedWhenInUse:
-            locationManager.requestLocation()
+            centerOnCurrentLocation()
         case .notDetermined:
+            awaitingLocationPermission = true
             locationManager.requestWhenInUseAuthorization()
         case .restricted, .denied:
             break
         @unknown default:
             break
+        }
+    }
+
+    private func centerOnCurrentLocation() {
+        if let coordinate = locationManager.location?.coordinate {
+            focus(on: coordinate)
+        } else {
+            locationManager.requestLocation()
         }
     }
 
@@ -630,12 +673,6 @@ private final class DiaryLocationPickerViewModel: NSObject, ObservableObject {
         return distance(from: lastLoadedCoordinate, to: coordinate) >= refreshMinimumDistance
     }
 
-    private func applyInitialCurrentLocation(_ coordinate: CLLocationCoordinate2D) {
-        guard hasAppliedCurrentLocation == false else { return }
-        hasAppliedCurrentLocation = true
-        focus(on: coordinate)
-    }
-
     private static func buildSavedLocations(from entries: [DiaryEntry]) -> [SavedDiaryLocation] {
         struct AggregatedLocation {
             var location: DiaryLocation
@@ -703,17 +740,20 @@ private final class DiaryLocationPickerViewModel: NSObject, ObservableObject {
 extension DiaryLocationPickerViewModel: CLLocationManagerDelegate {
     nonisolated func locationManager(_ manager: CLLocationManager,
                                      didChangeAuthorization status: CLAuthorizationStatus) {
-        guard status == .authorizedWhenInUse || status == .authorizedAlways else {
-            return
+        _Concurrency.Task { @MainActor [weak self] in
+            guard let self, awaitingLocationPermission, status != .notDetermined else { return }
+            awaitingLocationPermission = false
+            if status == .authorizedWhenInUse || status == .authorizedAlways {
+                centerOnCurrentLocation()
+            }
         }
-        manager.requestLocation()
     }
 
     nonisolated func locationManager(_ manager: CLLocationManager,
                                      didUpdateLocations locations: [CLLocation]) {
         guard let coordinate = locations.last?.coordinate else { return }
         _Concurrency.Task { [weak self] in
-            await self?.applyInitialCurrentLocation(coordinate)
+            await self?.focus(on: coordinate)
         }
     }
 

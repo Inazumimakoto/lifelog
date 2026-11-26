@@ -192,7 +192,7 @@ struct ScheduleProvider: TimelineProvider {
         let merged: [CalendarEvent]
         do {
             merged = try CalendarEventStorageQuery.events(
-                in: PersistenceController.shared.container.mainContext,
+                in: PersistenceController.sharedContainer().mainContext,
                 from: rangeStart,
                 to: rangeEnd,
                 externalEvents: externalEvents
@@ -240,7 +240,7 @@ struct ScheduleProvider: TimelineProvider {
     @MainActor
     private func fetchTasks(on date: Date) -> [ScheduleTaskItem] {
         do {
-            let context = PersistenceController.shared.container.mainContext
+            let context = try PersistenceController.sharedContainer().mainContext
             let descriptor = FetchDescriptor<SDTask>(
                 predicate: #Predicate<SDTask> { !$0.isCompleted }
             )

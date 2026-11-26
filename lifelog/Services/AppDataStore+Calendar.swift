@@ -215,14 +215,11 @@ extension AppDataStore {
     }
 
     @discardableResult
-    func syncExternalCalendarsIfAuthorized(
-        requestPermissionIfNeeded: Bool = false,
-        anchorDate: Date = Date()
-    ) async -> Bool {
+    func syncExternalCalendarsIfAuthorized(anchorDate: Date = Date()) async -> Bool {
         guard !PersistenceController.isSimulatorDemoMode else { return false }
         guard hasLoadedAppState || loadAppState() else { return false }
         let calendarService = CalendarEventService()
-        let granted = await calendarService.requestAccessIfNeeded(shouldPrompt: requestPermissionIfNeeded)
+        let granted = await calendarService.requestAccessIfNeeded(shouldPrompt: false)
         guard granted else { return false }
 
         calendarService.refreshCalendarLinks(store: self)

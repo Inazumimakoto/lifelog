@@ -25,7 +25,7 @@ private enum AnniversaryWidgetStore {
     @MainActor
     static func fetchAll() -> [AnniversaryWidgetModel] {
         do {
-            let context = PersistenceController.shared.container.mainContext
+            let context = try PersistenceController.sharedContainer().mainContext
             let descriptor = FetchDescriptor<SDAnniversary>(sortBy: [SortDescriptor(\.orderIndex)])
             return try context.fetch(descriptor).map {
                 AnniversaryWidgetModel(
@@ -47,7 +47,7 @@ private enum AnniversaryWidgetStore {
     @MainActor
     static func fetchByID(_ id: UUID) -> AnniversaryWidgetModel? {
         do {
-            let context = PersistenceController.shared.container.mainContext
+            let context = try PersistenceController.sharedContainer().mainContext
             let descriptor = FetchDescriptor<SDAnniversary>(predicate: #Predicate { $0.id == id })
             return try context.fetch(descriptor).first.map {
                 AnniversaryWidgetModel(

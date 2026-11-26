@@ -2,6 +2,6 @@
 "NSCalendarsFullAccessUsageDescription" = "Used to read events from external calendars and display them on Home and Calendar.";
 "NSCalendarsUsageDescription" = "Used to read events from an external calendar and display them in Today.";
 "NSFaceIDUsageDescription" = "Use to unlock apps";
-"NSHealthShareUsageDescription" = "Used to read healthcare data and display it within the app.";
+"NSHealthShareUsageDescription" = "lifelify reads your steps, sleep, and activity from Health to show them in daily summaries and charts.";
 "NSHealthUpdateUsageDescription" = "This app does not write healthcare data.";
-"NSLocationWhenInUseUsageDescription" = "We use location information to obtain and display weather information for your current location.";
+"NSLocationWhenInUseUsageDescription" = "lifelify uses your location to show local weather on Home and help you find your current location on the map when adding a place to your diary.";

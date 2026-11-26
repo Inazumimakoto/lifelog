@@ -12,7 +12,7 @@ final class ShoppingStore: ObservableObject {
     @Published private(set) var places: [ShoppingPlace] = []
     @Published private(set) var loadError: String?
 
-    private let context: ModelContext
+    private var context: ModelContext
     private let saveOperation: (ModelContext) throws -> Void
     private var hasLoadedData = false
 
@@ -28,6 +28,12 @@ final class ShoppingStore: ObservableObject {
     // Avoid the implicit isolated-deinit crash on older Swift runtimes.
     // https://github.com/swiftlang/swift/issues/87316
     nonisolated deinit {}
+
+    func reloadAfterStoreRecovery() throws {
+        context = ModelContext(context.container)
+        context.autosaveEnabled = false
+        try reload()
+    }
 
     func reload() throws {
         do {

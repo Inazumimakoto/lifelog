@@ -77,6 +77,17 @@ struct SettingsView: View {
             // ストレージ
             Section {
                 NavigationLink {
+                    StoreRecoveryView()
+                } label: {
+                    Label {
+                        Text("recovery.title", tableName: "StoreRecovery")
+                    } icon: {
+                        Image(systemName: "clock.arrow.circlepath")
+                    }
+                }
+                .foregroundStyle(.primary)
+
+                NavigationLink {
                     PhotoStorageSettingsView()
                 } label: {
                     HStack {

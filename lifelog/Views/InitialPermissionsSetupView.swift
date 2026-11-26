@@ -1,291 +1,221 @@
-//
-//  InitialPermissionsSetupView.swift
-//  lifelog
-//
-//  Created by Codex on 2026/05/02.
-//
-
 import SwiftUI
 
+/// docs/ui-guidelines.md: first-run permissions are optional, one choice at a time.
 struct InitialPermissionsSetupView: View {
-    @ObservedObject var store: AppDataStore
-    var onComplete: () -> Void
+    let store: AppDataStore
+    let onComplete: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @StateObject private var weatherService = WeatherService()
     @State private var currentStep: InitialPermissionStep = .notifications
-    @State private var completedSteps: Set<InitialPermissionStep> = []
-    @State private var isRequesting = false
-    @State private var statusText: String?
+    @State private var requestedStep: InitialPermissionStep?
+    @State private var hasFinished = false
+    @AccessibilityFocusState private var focusedStep: InitialPermissionStep?
 
     var body: some View {
-        VStack(spacing: 0) {
-            progressHeader
-
-            Spacer(minLength: 24)
-
-            VStack(spacing: 22) {
-                Image(systemName: currentStep.systemImage)
-                    .font(.system(size: 54, weight: .semibold))
-                    .symbolRenderingMode(.hierarchical)
-                    .foregroundStyle(currentStep.tint)
-                    .frame(width: 96, height: 96)
-                    .background(currentStep.tint.opacity(0.14), in: Circle())
-
-                VStack(spacing: 10) {
-                    Text(currentStep.title)
-                        .font(.title2.weight(.bold))
-                        .multilineTextAlignment(.center)
-
-                    Text(currentStep.message)
-                        .font(.body)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                        .lineSpacing(3)
-                        .frame(maxWidth: 340)
+        GeometryReader { geometry in
+            ScrollView {
+                VStack(spacing: 24) {
+                    progressHeader
+                    Spacer(minLength: 0)
+                    permissionDetails
+                    Spacer(minLength: 0)
+                    actions
                 }
-
-                VStack(alignment: .leading, spacing: 12) {
-                    ForEach(currentStep.details, id: \.self) { detail in
-                        Label(detail, systemImage: "checkmark.circle.fill")
-                            .font(.subheadline)
-                            .foregroundStyle(.primary)
-                            .labelStyle(.titleAndIcon)
-                    }
-                }
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-
-                if let statusText {
-                    Text(statusText)
-                        .font(.footnote.weight(.medium))
-                        .foregroundStyle(.secondary)
-                }
+                .padding(.horizontal, 24)
+                .padding(.vertical, 20)
+                .frame(maxWidth: 560)
+                .frame(maxWidth: .infinity, minHeight: geometry.size.height)
             }
-            .padding(.horizontal, 24)
-
-            Spacer(minLength: 24)
-
-            VStack(spacing: 12) {
-                Button {
-                    requestCurrentPermission()
-                } label: {
-                    HStack {
-                        if isRequesting {
-                            ProgressView()
-                                .tint(.white)
-                        }
-                        Text(currentStep.primaryButtonTitle)
-                            .font(.headline)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 52)
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(isRequesting)
-
-                Button {
-                    skipCurrentPermission()
-                } label: {
-                    Text("あとで")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .disabled(isRequesting)
-            }
-            .padding(.horizontal, 24)
-            .padding(.bottom, 28)
+            .scrollBounceBehavior(.basedOnSize)
+            .id(currentStep)
         }
-        .background(Color(.systemGroupedBackground))
-        .interactiveDismissDisabled()
+        .clipped()
+        .background(Color(.systemGroupedBackground).ignoresSafeArea())
+        .onChange(of: currentStep) { _, step in focusedStep = step }
+        .task(id: requestedStep) {
+            guard let step = requestedStep else { return }
+            await requestPermission(for: step)
+            guard !_Concurrency.Task.isCancelled, requestedStep == step, !hasFinished else { return }
+            advance()
+        }
     }
 
     private var progressHeader: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 12))
+        return VStack(alignment: .leading, spacing: 12) {
+            layout {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("初期設定")
+                    Text("setup.title", tableName: "FirstRunPermissions")
                         .font(.headline)
-                    Text("\(currentStep.rawValue + 1) / \(InitialPermissionStep.allCases.count)")
-                        .font(.caption)
+                    Text("progress \(currentStep.rawValue + 1)/\(InitialPermissionStep.allCases.count)", tableName: "FirstRunPermissions")
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
+                .accessibilityElement(children: .combine)
 
-                Spacer()
+                if !dynamicTypeSize.isAccessibilitySize { Spacer() }
 
-                Button("スキップ") {
-                    completeSetup()
+                Button(action: finish) {
+                    Text("action.skipAll", tableName: "FirstRunPermissions")
+                        .frame(minHeight: 44)
                 }
                 .font(.subheadline.weight(.semibold))
-                .disabled(isRequesting)
             }
-
             HStack(spacing: 8) {
                 ForEach(InitialPermissionStep.allCases) { step in
                     Capsule()
-                        .fill(progressColor(for: step))
+                        .fill(step.rawValue <= currentStep.rawValue ? step.tint : Color(.systemGray4))
                         .frame(height: 5)
                 }
             }
-        }
-        .padding(.horizontal, 24)
-        .padding(.top, 20)
-        .padding(.bottom, 8)
-    }
-
-    private func progressColor(for step: InitialPermissionStep) -> Color {
-        if completedSteps.contains(step) || step.rawValue <= currentStep.rawValue {
-            return step.tint
-        }
-        return Color(.systemGray4)
-    }
-
-    private func requestCurrentPermission() {
-        guard isRequesting == false else { return }
-        isRequesting = true
-        statusText = nil
-
-        _Concurrency.Task { @MainActor in
-            let granted = await requestPermission(for: currentStep)
-            completedSteps.insert(currentStep)
-            statusText = granted ? "許可されました" : "あとから設定で変更できます"
-
-            try? await _Concurrency.Task.sleep(nanoseconds: 450_000_000)
-            isRequesting = false
-            moveToNextStep()
+            .accessibilityHidden(true)
         }
     }
 
-    private func skipCurrentPermission() {
-        guard isRequesting == false else { return }
-        completedSteps.insert(currentStep)
-        statusText = nil
-        moveToNextStep()
-    }
+    private var permissionDetails: some View {
+        VStack(spacing: 16) {
+            Image(systemName: currentStep.symbol)
+                .font(.largeTitle.weight(.semibold))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(currentStep.tint)
+                .padding(18)
+                .background(currentStep.tint.opacity(0.14), in: Circle())
+                .accessibilityHidden(true)
+            Text(currentStep.title, tableName: "FirstRunPermissions")
+                .font(.title2.bold())
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityFocused($focusedStep, equals: currentStep)
+            Text(currentStep.purpose, tableName: "FirstRunPermissions")
+                .font(.body)
+                .foregroundStyle(.secondary)
 
-    private func moveToNextStep() {
-        guard let nextStep = currentStep.next else {
-            completeSetup()
-            return
+            VStack(alignment: .leading, spacing: 12) {
+                ForEach(Array(currentStep.examples.enumerated()), id: \.offset) { _, example in
+                    Label {
+                        Text(example, tableName: "FirstRunPermissions")
+                    } icon: {
+                        Image(systemName: "checkmark.circle")
+                            .accessibilityHidden(true)
+                    }
+                }
+            }
+            .font(.subheadline)
+            .multilineTextAlignment(.leading)
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
         }
-        statusText = nil
-        currentStep = nextStep
+        .multilineTextAlignment(.center)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
-    private func completeSetup() {
-        UserDefaults.standard.set(true, forKey: InitialPermissionsState.completedKey)
+    private var actions: some View {
+        VStack(spacing: 8) {
+            Button {
+                requestedStep = currentStep
+            } label: {
+                Group {
+                    if requestedStep == currentStep {
+                        Text("action.working", tableName: "FirstRunPermissions")
+                    } else {
+                        Text("action.continue", tableName: "FirstRunPermissions")
+                    }
+                }
+                .font(.headline)
+                .frame(maxWidth: .infinity, minHeight: 44)
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(requestedStep != nil)
+
+            Button(action: advance) {
+                Text("action.later", tableName: "FirstRunPermissions")
+                    .frame(maxWidth: .infinity, minHeight: 44)
+            }
+        }
+    }
+
+    private func advance() {
+        guard !hasFinished else { return }
+        requestedStep = nil
+        if let next = InitialPermissionStep(rawValue: currentStep.rawValue + 1) {
+            currentStep = next
+        } else {
+            finish()
+        }
+    }
+
+    private func finish() {
+        guard !hasFinished else { return }
+        hasFinished = true
+        requestedStep = nil
         onComplete()
     }
 
-    @MainActor
-    private func requestPermission(for step: InitialPermissionStep) async -> Bool {
+    private func requestPermission(for step: InitialPermissionStep) async {
         switch step {
         case .notifications:
-            UserDefaults.standard.set(true, forKey: InitialPermissionsState.notificationRequestedKey)
-            return await NotificationService.shared.requestAuthorization(registerForRemoteNotifications: true)
+            _ = await NotificationService.shared.authorizationForUserAction()
         case .location:
-            UserDefaults.standard.set(true, forKey: InitialPermissionsState.locationRequestedKey)
-            return await weatherService.requestLocationPermissionForInitialSetup()
+            _ = await weatherService.requestLocationPermissionForSetup()
         case .calendar:
-            UserDefaults.standard.set(true, forKey: InitialPermissionsState.calendarRequestedKey)
-            return await store.syncExternalCalendarsIfAuthorized(requestPermissionIfNeeded: true)
+            if await CalendarEventService().requestAccessIfNeeded(shouldPrompt: true) {
+                _ = await store.syncExternalCalendarsIfAuthorized()
+            }
         case .health:
-            UserDefaults.standard.set(true, forKey: InitialPermissionsState.healthRequestedKey)
-            return await store.loadHealthData(requestAuthorizationIfNeeded: true)
+            _ = await store.loadHealthData(requestAuthorizationIfNeeded: true)
         }
     }
 }
 
-private enum InitialPermissionStep: Int, CaseIterable, Identifiable, Hashable {
-    case notifications
-    case location
-    case calendar
-    case health
+private enum InitialPermissionStep: Int, CaseIterable, Identifiable {
+    case notifications, location, calendar, health
+    var id: Self { self }
 
-    var id: Int { rawValue }
-
-    var next: InitialPermissionStep? {
-        InitialPermissionStep(rawValue: rawValue + 1)
-    }
-
-    var title: String {
+    var title: LocalizedStringKey {
         switch self {
-        case .notifications:
-            return "通知をオンにしてください"
-        case .location:
-            return "位置情報を許可してください"
-        case .calendar:
-            return "カレンダー連携を許可してください"
-        case .health:
-            return "歩数と睡眠の取得を許可してください"
+        case .notifications: "notifications.title"
+        case .location: "location.title"
+        case .calendar: "calendar.title"
+        case .health: "health.title"
         }
     }
 
-    var message: String {
+    var purpose: LocalizedStringKey {
         switch self {
-        case .notifications:
-            return "日記、予定、タスク、手紙のリマインダーを必要なタイミングで受け取れます。"
-        case .location:
-            return "現在地の天気をホームに表示し、日記の振り返りに使いやすくします。"
-        case .calendar:
-            return "iPhoneの標準カレンダーに入っている予定を、lifelifyのホームとカレンダーに表示します。"
-        case .health:
-            return "ヘルスケアの歩数や睡眠を読み取り、日ごとの振り返りにまとめます。"
+        case .notifications: "notifications.purpose"
+        case .location: "location.purpose"
+        case .calendar: "calendar.purpose"
+        case .health: "health.purpose"
         }
     }
 
-    var details: [String] {
+    var examples: [LocalizedStringKey] {
         switch self {
-        case .notifications:
-            return ["予定やタスクのリマインダー", "日記を書き忘れた日の通知", "手紙が届いたときの通知"]
-        case .location:
-            return ["今日の天気", "最高・最低気温", "日記の振り返り"]
-        case .calendar:
-            return ["標準カレンダーの予定を表示", "カレンダーごとにカテゴリ分け", "ホームの今日の予定に反映"]
-        case .health:
-            return ["歩数", "睡眠時間", "ムーブ・エクササイズ・スタンド"]
+        case .notifications: ["notifications.example1", "notifications.example2", "notifications.example3"]
+        case .location: ["location.example1", "location.example2", "location.example3"]
+        case .calendar: ["calendar.example1", "calendar.example2", "calendar.example3"]
+        case .health: ["health.example1", "health.example2", "health.example3"]
         }
     }
 
-    var primaryButtonTitle: String {
+    var symbol: String {
         switch self {
-        case .notifications:
-            return "通知を許可する"
-        case .location:
-            return "位置情報を許可する"
-        case .calendar:
-            return "カレンダーを許可する"
-        case .health:
-            return "ヘルスケアを許可する"
-        }
-    }
-
-    var systemImage: String {
-        switch self {
-        case .notifications:
-            return "bell.badge.fill"
-        case .location:
-            return "location.circle.fill"
-        case .calendar:
-            return "calendar.badge.clock"
-        case .health:
-            return "heart.text.square.fill"
+        case .notifications: "bell.badge.fill"
+        case .location: "location.circle.fill"
+        case .calendar: "calendar.badge.clock"
+        case .health: "heart.text.square.fill"
         }
     }
 
     var tint: Color {
         switch self {
-        case .notifications:
-            return .orange
-        case .location:
-            return .green
-        case .calendar:
-            return .blue
-        case .health:
-            return .pink
+        case .notifications: .orange
+        case .location: .green
+        case .calendar: .blue
+        case .health: .pink
         }
     }
 }

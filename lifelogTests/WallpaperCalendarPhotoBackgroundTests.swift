@@ -152,24 +152,24 @@ final class WallpaperCalendarPhotoBackgroundTests: XCTestCase {
             _ = try renderer.render(now: now, screenSize: canvasSize, scale: 1)
             return try XCTUnwrap(store.load().lastGeneratedFingerprint)
         }
-        func previewStyle() -> WallpaperCalendarGridStyle {
-            renderer.makePreviewSnapshot(settings: store.load(), now: now).gridStyle
+        func previewStyle() throws -> WallpaperCalendarGridStyle {
+            try renderer.makePreviewSnapshot(settings: store.load(), now: now).gridStyle
         }
 
         let original = try renderAndReadFingerprint()
-        XCTAssertEqual(previewStyle().font.pointSize, CalendarDisplayPreferences.defaultFontSize)
-        XCTAssertEqual(previewStyle().preferences.opacity, CalendarDisplayPreferences.defaultOpacity)
-        XCTAssertEqual(previewStyle().itemLimit, 4)
+        XCTAssertEqual(try previewStyle().font.pointSize, CalendarDisplayPreferences.defaultFontSize)
+        XCTAssertEqual(try previewStyle().preferences.opacity, CalendarDisplayPreferences.defaultOpacity)
+        XCTAssertEqual(try previewStyle().itemLimit, 4)
 
         defaults.set(0.0, forKey: CalendarDisplayPreferences.opacityKey)
         let transparent = try renderAndReadFingerprint()
         XCTAssertNotEqual(transparent, original)
-        XCTAssertEqual(previewStyle().preferences.opacity, 0)
+        XCTAssertEqual(try previewStyle().preferences.opacity, 0)
 
         defaults.set(16.0, forKey: CalendarDisplayPreferences.fontSizeKey)
         let enlarged = try renderAndReadFingerprint()
         XCTAssertNotEqual(enlarged, transparent)
-        let large = previewStyle()
+        let large = try previewStyle()
         XCTAssertEqual(large.font.pointSize, 16)
         XCTAssertLessThan(large.itemLimit, 4)
         XCTAssertGreaterThanOrEqual(large.rowHeight, large.font.lineHeight)

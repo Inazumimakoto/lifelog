@@ -15,6 +15,9 @@ struct TodayView: View {
     @StateObject private var weatherService = WeatherService()
     @ObservedObject private var appLockService = AppLockService.shared
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.openURL) private var openURL
+    @State private var showsWeatherLocationHelp = false
     @AppStorage("isDiaryTextHidden") private var isDiaryTextHidden: Bool = false
     @AppStorage("requiresDiaryOpenAuthentication") private var requiresDiaryOpenAuthentication: Bool = false
     @AppStorage("isMemoTextHidden") private var isMemoTextHidden: Bool = false
@@ -139,6 +142,7 @@ struct TodayView: View {
                 } label: {
                     Image(systemName: "note.text")
                 }
+                .accessibilityLabel("メモ")
                 
                 Menu {
                     Button {
@@ -154,6 +158,7 @@ struct TodayView: View {
                 } label: {
                     Image(systemName: "list.bullet")
                 }
+                .accessibilityLabel(Text("home.lists", tableName: "ContextualPermissions"))
                 
                 Button {
                     showSettings = true
@@ -161,6 +166,7 @@ struct TodayView: View {
                     Image(systemName: "gearshape")
                         .foregroundStyle(.primary)
                 }
+                .accessibilityLabel("設定")
             }
         }
         .fullScreenCover(isPresented: $showLetterOpening, onDismiss: {
@@ -290,8 +296,10 @@ struct TodayView: View {
     }
 
     private var header: some View {
-        HStack(alignment: .top) {
-            // 日付: 2行表示
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 8))
+        return layout {
             VStack(alignment: .leading, spacing: 0) {
                 Text(viewModel.date.yearString)
                     .font(.headline)
@@ -300,37 +308,68 @@ struct TodayView: View {
                     .font(.largeTitle.bold())
             }
             
-            Spacer()
-            
-            // 天気（コンパクト + 状態）
-            if let weather = weatherService.currentWeather {
-                VStack(alignment: .trailing, spacing: 0) {
-                    HStack(spacing: 6) {
-                        Image(systemName: weather.symbolName)
-                            .font(.title2)
-                            .symbolRenderingMode(.multicolor)
-                        Text(weather.conditionDescription)
+            if !dynamicTypeSize.isAccessibilitySize { Spacer(minLength: 0) }
+            weatherControl
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    @ViewBuilder private var weatherControl: some View {
+        if let weather = weatherService.currentWeather {
+            VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 0) {
+                HStack(spacing: 6) {
+                    Image(systemName: weather.symbolName)
+                        .font(.title2)
+                        .symbolRenderingMode(.multicolor)
+                        .accessibilityHidden(true)
+                    Text(weather.conditionDescription)
+                        .font(.headline)
+                }
+                HStack(alignment: .lastTextBaseline, spacing: 8) {
+                    Text(weather.temperatureString)
+                        .font(.largeTitle.bold())
+                    if let highLow = weather.numericHighLowString {
+                        Text(highLow)
                             .font(.headline)
-                    }
-                    HStack(alignment: .lastTextBaseline, spacing: 8) {
-                        Text(weather.temperatureString)
-                            .font(.largeTitle.bold())
-                        if let highLow = weather.numericHighLowString {
-                            Text(highLow)
-                                .font(.headline)
-                                .foregroundStyle(.secondary)
-                        }
+                            .foregroundStyle(.secondary)
                     }
                 }
-            } else if weatherService.isLoading {
-                ProgressView()
-            } else if weatherService.locationStatus == .notDetermined {
-                Button {
+            }
+            .accessibilityElement(children: .combine)
+        } else if weatherService.isLoading {
+            ProgressView()
+                .accessibilityLabel(Text("今日の天気"))
+        } else {
+            let canFetch = weatherService.locationStatus == .authorizedAlways || weatherService.locationStatus == .authorizedWhenInUse
+            let actionTitle = canFetch ? Text("weather.refresh", tableName: "ContextualPermissions")
+                : Text("weather.show", tableName: "ContextualPermissions")
+            Button {
+                switch weatherService.locationStatus {
+                case .notDetermined:
                     weatherService.requestLocationPermission()
-                } label: {
-                    Image(systemName: "location.circle")
-                        .font(.title2)
-                        .foregroundStyle(.secondary)
+                case .authorizedAlways, .authorizedWhenInUse:
+                    _Concurrency.Task { await weatherService.fetchWeather() }
+                default:
+                    showsWeatherLocationHelp = true
+                }
+            } label: {
+                Label { actionTitle } icon: { Image(systemName: "location.circle") }
+                    .font(.subheadline)
+                    .multilineTextAlignment(.leading)
+                    .frame(minHeight: 44)
+            }
+            .accessibilityLabel(actionTitle)
+            .alert(Text("今日の天気"), isPresented: $showsWeatherLocationHelp) {
+                if weatherService.locationStatus == .denied,
+                   let url = URL(string: UIApplication.openSettingsURLString) {
+                    Button("設定を開く") { openURL(url) }
+                }
+                Button("閉じる", role: .cancel) {}
+            } message: {
+                if weatherService.locationStatus == .denied {
+                    Text("weather.locationSettings", tableName: "ContextualPermissions")
+                } else {
+                    Text("location.restricted", tableName: "ContextualPermissions")
                 }
             }
         }

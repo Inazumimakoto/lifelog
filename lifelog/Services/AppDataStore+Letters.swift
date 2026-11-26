@@ -11,6 +11,8 @@ extension AppDataStore {
 
     // MARK: - Letter to the Future
 
+    static let letterNotificationEnabledKey = "letterNotificationEnabled"
+
     /// ホームに表示すべき手紙を取得
     /// - 開封可能（未開封）な手紙
     /// - または、開封済みだが配達日が今日の手紙
@@ -76,8 +78,7 @@ extension AppDataStore {
             saveContext()
         }
 
-        // 通知をスケジュール
-        scheduleLetterNotification(letter)
+        updateLetterDeliveryNotification(letter, referenceDate: Date())
     }
 
     func openLetter(_ letterID: UUID) {
@@ -109,8 +110,19 @@ extension AppDataStore {
         NotificationService.shared.cancelLetterReminder(letterID: letterID)
     }
 
-    private func scheduleLetterNotification(_ letter: Letter) {
-        guard letter.status == .sealed else { return }
+    func syncLetterDeliveryNotifications(referenceDate: Date = Date()) {
+        for letter in letters {
+            updateLetterDeliveryNotification(letter, referenceDate: referenceDate)
+        }
+    }
+
+    private func updateLetterDeliveryNotification(_ letter: Letter, referenceDate: Date) {
+        guard letter.status == .sealed, letter.deliveryDate > referenceDate else { return }
+        let enabled = UserDefaults.standard.object(forKey: Self.letterNotificationEnabledKey) as? Bool ?? true
+        guard enabled else {
+            NotificationService.shared.cancelLetterReminder(letterID: letter.id)
+            return
+        }
 
         let formatter = DateFormatter()
         formatter.locale = .autoupdatingCurrent

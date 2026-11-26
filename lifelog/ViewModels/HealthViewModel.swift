@@ -80,7 +80,7 @@ final class HealthViewModel: ObservableObject {
                 environment: calendarEnvironment)
     }
 
-    func requestHealthKitAuthorization() async {
+    func requestHealthKitAuthorization() async -> Bool {
         await store.loadHealthData(requestAuthorizationIfNeeded: true)
     }
 

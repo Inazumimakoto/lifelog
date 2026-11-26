@@ -6,8 +6,8 @@
 //
 
 import Foundation
+import Combine
 import UserNotifications
-import UIKit
 import os
 
 /// 通知タイプの識別子
@@ -23,8 +23,14 @@ enum NotificationType: String {
 
 /// ローカル通知を管理するサービス
 @MainActor
-class NotificationService {
-    static let shared = NotificationService()
+class NotificationService: ObservableObject {
+    static let shared = NotificationService(authorizationDefaults: .standard)
+    @Published private(set) var authorizationStatus: UNAuthorizationStatus?
+    let authorizationBecameAvailable = PassthroughSubject<Void, Never>()
+    private let authorizationDefaults: UserDefaults?
+    private static let restoreOnPermissionKey = "restoreRemindersWhenNotificationAccessReturns"
+    private var authorizationReadGeneration = 0
+    private var pendingAuthorization: _Concurrency.Task<UNAuthorizationStatus, Never>?
     
     private let requestDispatcher: NotificationRequestDispatcher
     private let referenceDate: () -> Date
@@ -35,11 +41,13 @@ class NotificationService {
     init(referenceDate: @escaping () -> Date = { Date() },
          requestHandler: ((UNNotificationRequest) -> Void)? = nil,
          cancellationHandler: (([String]) -> Void)? = nil,
-         requestDispatcher: NotificationRequestDispatcher = NotificationRequestDispatcher()) {
+         requestDispatcher: NotificationRequestDispatcher = NotificationRequestDispatcher(),
+         authorizationDefaults: UserDefaults? = nil) {
         self.referenceDate = referenceDate
         self.requestHandler = requestHandler
         self.cancellationHandler = cancellationHandler
         self.requestDispatcher = requestDispatcher
+        self.authorizationDefaults = authorizationDefaults
     }
 
     // This service has no actor-bound teardown. Avoid Swift 6.2's crashing
@@ -49,15 +57,9 @@ class NotificationService {
     // MARK: - 通知許可
     
     /// 通知許可をリクエスト
-    func requestAuthorization(registerForRemoteNotifications: Bool = false) async -> Bool {
+    func requestAuthorization() async -> Bool {
         do {
-            let granted = try await requestDispatcher.requestAuthorization()
-            if granted && registerForRemoteNotifications {
-                await MainActor.run {
-                    UIApplication.shared.registerForRemoteNotifications()
-                }
-            }
-            return granted
+            return try await requestDispatcher.requestAuthorization()
         } catch {
             AppLogger.notifications.error("通知許可リクエストエラー: \(error)")
             return false
@@ -67,6 +69,44 @@ class NotificationService {
     /// 現在の通知許可状態を取得
     func getAuthorizationStatus() async -> UNAuthorizationStatus {
         await requestDispatcher.authorizationStatus()
+    }
+
+    @discardableResult
+    func refreshAuthorizationStatus() async -> UNAuthorizationStatus {
+        authorizationReadGeneration += 1
+        let generation = authorizationReadGeneration
+        let status = await getAuthorizationStatus()
+        guard generation == authorizationReadGeneration, status != authorizationStatus else { return status }
+        let wasUnavailable = authorizationStatus == .notDetermined || authorizationStatus == .denied ||
+            authorizationDefaults?.bool(forKey: Self.restoreOnPermissionKey) == true
+        authorizationStatus = status
+        switch status {
+        case .notDetermined, .denied:
+            authorizationDefaults?.set(true, forKey: Self.restoreOnPermissionKey)
+        case .authorized, .provisional, .ephemeral:
+            if wasUnavailable {
+                authorizationDefaults?.removeObject(forKey: Self.restoreOnPermissionKey)
+                authorizationBecameAvailable.send()
+            }
+        @unknown default:
+            break
+        }
+        return status
+    }
+
+    /// Called by controls after a person chooses to receive notifications.
+    /// Background scheduling and restoring an existing preference must never prompt.
+    func authorizationForUserAction() async -> UNAuthorizationStatus {
+        if let pendingAuthorization { return await pendingAuthorization.value }
+        let task = _Concurrency.Task { @MainActor in
+            defer { pendingAuthorization = nil }
+            let status = await refreshAuthorizationStatus()
+            guard status == .notDetermined else { return status }
+            _ = await requestAuthorization()
+            return await refreshAuthorizationStatus()
+        }
+        pendingAuthorization = task
+        return await task.value
     }
     
     // MARK: - 予定リマインダー

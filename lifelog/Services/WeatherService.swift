@@ -21,7 +21,6 @@ final class WeatherService: NSObject, ObservableObject {
     private let weatherKitService = WeatherKit.WeatherService.shared
     private let locationManager = CLLocationManager()
     private var lastFetchDate: Date?
-    private var authorizationContinuation: CheckedContinuation<Bool, Never>?
     
     override init() {
         super.init()
@@ -30,42 +29,29 @@ final class WeatherService: NSObject, ObservableObject {
         locationManager.desiredAccuracy = kCLLocationAccuracyKilometer
     }
     
-    /// 位置情報の許可をリクエスト
+    /// Invoked from the Home weather action. Background refreshes never ask for permission.
     func requestLocationPermission() {
+        guard locationManager.authorizationStatus == .notDetermined else { return }
         locationManager.requestWhenInUseAuthorization()
     }
 
-    /// 初期設定画面から位置情報の許可をリクエスト
-    func requestLocationPermissionForInitialSetup() async -> Bool {
-        locationStatus = locationManager.authorizationStatus
-
-        switch locationStatus {
-        case .authorizedWhenInUse, .authorizedAlways:
-            await fetchWeather()
-            return true
-        case .denied, .restricted:
-            return false
-        case .notDetermined:
-            return await withCheckedContinuation { continuation in
-                authorizationContinuation?.resume(returning: false)
-                authorizationContinuation = continuation
-                requestLocationPermission()
-            }
-        @unknown default:
-            return false
+    func requestLocationPermissionForSetup() async -> Bool {
+        let status = locationManager.authorizationStatus
+        guard status == .notDetermined else {
+            return status == .authorizedWhenInUse || status == .authorizedAlways
         }
+        requestLocationPermission()
+        for await status in $locationStatus.values where status != .notDetermined {
+            return status == .authorizedWhenInUse || status == .authorizedAlways
+        }
+        return false
     }
-    
+
     /// 天気情報を取得
-    func fetchWeather(allowPermissionPrompt: Bool = false) async {
+    func fetchWeather() async {
         locationStatus = locationManager.authorizationStatus
 
-        guard locationStatus == .authorizedWhenInUse || locationStatus == .authorizedAlways else {
-            if allowPermissionPrompt {
-                requestLocationPermission()
-            }
-            return
-        }
+        guard locationStatus == .authorizedWhenInUse || locationStatus == .authorizedAlways else { return }
         
         // 10分以内に取得済みならスキップ
         if let lastFetch = lastFetchDate, Date().timeIntervalSince(lastFetch) < 600 {
@@ -73,6 +59,7 @@ final class WeatherService: NSObject, ObservableObject {
         }
         
         guard let location = locationManager.location else {
+            isLoading = true
             locationManager.requestLocation()
             return
         }
@@ -81,11 +68,15 @@ final class WeatherService: NSObject, ObservableObject {
     }
     
     private func fetchWeather(for location: CLLocation) async {
+        guard locationStatus == .authorizedWhenInUse || locationStatus == .authorizedAlways else { return }
         isLoading = true
+        defer { isLoading = false }
         errorMessage = nil
         
         do {
             let weather = try await weatherKitService.weather(for: location)
+            guard locationManager.authorizationStatus == .authorizedWhenInUse ||
+                    locationManager.authorizationStatus == .authorizedAlways else { return }
             
             let current = weather.currentWeather
             let today = weather.dailyForecast.first
@@ -104,8 +95,6 @@ final class WeatherService: NSObject, ObservableObject {
             errorMessage = String(localized: "天気情報を取得できませんでした")
             AppLogger.general.error("WeatherKit Error: \(error)")
         }
-        
-        isLoading = false
     }
 }
 
@@ -115,12 +104,12 @@ extension WeatherService: CLLocationManagerDelegate {
     nonisolated func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
         _Concurrency.Task { @MainActor in
             self.locationStatus = status
-            let granted = status == .authorizedWhenInUse || status == .authorizedAlways
-            self.authorizationContinuation?.resume(returning: granted)
-            self.authorizationContinuation = nil
-
-            if granted {
+            if status == .authorizedWhenInUse || status == .authorizedAlways {
                 await self.fetchWeather()
+            } else {
+                self.currentWeather = nil
+                self.lastFetchDate = nil
+                self.isLoading = false
             }
         }
     }

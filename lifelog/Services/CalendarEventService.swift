@@ -16,7 +16,7 @@ final class CalendarEventService {
     // Match AppDataStore's workaround for isolated teardown on iOS 26.1.
     nonisolated deinit {}
 
-    func requestAccessIfNeeded(shouldPrompt: Bool = true) async -> Bool {
+    func requestAccessIfNeeded(shouldPrompt: Bool) async -> Bool {
         // Demo data must not request access to or import the device calendars.
         guard !PersistenceController.isSimulatorDemoMode else { return false }
         let status = EKEventStore.authorizationStatus(for: .event)

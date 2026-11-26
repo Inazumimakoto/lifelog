@@ -61,7 +61,7 @@ final class WallpaperCalendarRenderer {
         let resolvedScreenSize = screenSize ?? WallpaperCalendarCanvas.size
         let resolvedScale = scale ?? WallpaperCalendarCanvas.scale
         let settings = settingsStore.load()
-        let snapshot = dataProvider.makeSnapshot(settings: settings, now: now)
+        let snapshot = try dataProvider.makeSnapshot(settings: settings, now: now)
         let backgroundURL = settingsStore.backgroundImageURL(for: settings)
         let backgroundImage = backgroundURL.flatMap { UIImage(contentsOfFile: $0.path) }
         let isDarkAppearance = resolveDarkAppearance(settings: settings, hasBackgroundImage: backgroundImage != nil)
@@ -99,8 +99,8 @@ final class WallpaperCalendarRenderer {
     }
 
     func makePreviewSnapshot(settings: WallpaperCalendarSettings,
-                             now: Date = Date()) -> WallpaperCalendarSnapshot {
-        dataProvider.makeSnapshot(settings: settings, now: now)
+                             now: Date = Date()) throws -> WallpaperCalendarSnapshot {
+        try dataProvider.makeSnapshot(settings: settings, now: now)
     }
 
     func resolveDarkAppearance(settings: WallpaperCalendarSettings,

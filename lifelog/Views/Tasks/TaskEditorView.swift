@@ -84,7 +84,7 @@ struct TaskEditorView: View {
             }
 
             Section("通知") {
-                Toggle("リマインダー", isOn: $formState.hasReminder)
+                NotificationPermissionToggle("リマインダー", isOn: $formState.hasReminder)
                 if formState.hasReminder {
                     DatePicker("通知日時", selection: $formState.reminderDate, displayedComponents: [.date, .hourAndMinute])
                 }

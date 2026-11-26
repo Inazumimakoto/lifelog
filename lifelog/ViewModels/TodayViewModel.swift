@@ -288,10 +288,13 @@ final class TodayViewModel: ObservableObject {
 
     func syncExternalCalendarsIfNeeded(
         force: Bool = false,
-        anchorDate: Date? = nil,
-        allowPermissionPrompt: Bool = false
+        anchorDate: Date? = nil
     ) async {
         guard !PersistenceController.isSimulatorDemoMode else { return }
+        let status = EKEventStore.authorizationStatus(for: .event)
+        let denied = status == .denied || status == .writeOnly
+        if calendarAccessDenied != denied { calendarAccessDenied = denied }
+        guard status == .fullAccess else { return }
         guard store.hasLoadedAppState || store.loadAppState() else { return }
         let calendar = Calendar.current
         let anchor = anchorDate ?? date
@@ -302,19 +305,6 @@ final class TodayViewModel: ObservableObject {
                                                     force: force) else { return }
         let desiredRange = ExternalCalendarSyncPolicy.desiredRange(for: anchor, calendar: calendar)
 
-        let status = EKEventStore.authorizationStatus(for: .event)
-        if status == .notDetermined && allowPermissionPrompt == false {
-            return
-        }
-
-        let granted = await calendarService.requestAccessIfNeeded(shouldPrompt: allowPermissionPrompt)
-        guard granted else {
-            await MainActor.run {
-                self.calendarAccessDenied = true
-            }
-            return
-        }
-
         do {
             calendarService.refreshCalendarLinks(store: store)
             let ekEvents = try await calendarService.fetchEvents(from: desiredRange.start, to: desiredRange.end)
@@ -323,7 +313,6 @@ final class TodayViewModel: ObservableObject {
                 unavailableLinks: store.appState.unavailableCalendarCategoryLinks
             ).map(ekEvents)
             await MainActor.run {
-                self.calendarAccessDenied = false
                 self.store.updateExternalCalendarEvents(external, range: desiredRange)
                 self.store.updateLastCalendarSync(date: Date())
             }

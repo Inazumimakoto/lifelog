@@ -132,11 +132,11 @@ struct WallpaperCalendarFingerprintPayload: Codable {
 @MainActor
 final class WallpaperCalendarDataProvider {
     private let displayDefaults: UserDefaults
-    private let modelContext: @MainActor () -> ModelContext
+    private let modelContext: @MainActor () throws -> ModelContext
     private let externalDefaults: @MainActor () -> UserDefaults?
 
     init(displayDefaults: UserDefaults = .standard,
-         modelContext: @escaping @MainActor () -> ModelContext = { PersistenceController.shared.container.mainContext },
+         modelContext: @escaping @MainActor () throws -> ModelContext = { try PersistenceController.sharedContainer().mainContext },
          externalDefaults: @escaping @MainActor () -> UserDefaults? = { UserDefaults(suiteName: PersistenceController.appGroupIdentifier) }) {
         self.displayDefaults = displayDefaults
         self.modelContext = modelContext
@@ -152,7 +152,8 @@ final class WallpaperCalendarDataProvider {
     }
 
     func makeSnapshot(settings: WallpaperCalendarSettings,
-                      now: Date = Date()) -> WallpaperCalendarSnapshot {
+                      now: Date = Date()) throws -> WallpaperCalendarSnapshot {
+        let context = try modelContext()
         let calendar = Self.calendar
         let gridStyle = WallpaperCalendarGridStyle(preferences: CalendarDisplayPreferences(defaults: displayDefaults))
         let rangeStart = startOfWeek(containing: now, calendar: calendar)
@@ -163,8 +164,8 @@ final class WallpaperCalendarDataProvider {
             to: rangeStart
         ) ?? rangeStart
 
-        let events = fetchEvents(from: rangeStart, to: rangeEndExclusive)
-        let tasks = fetchTasks(from: rangeStart, to: rangeEndExclusive)
+        let events = fetchEvents(from: rangeStart, to: rangeEndExclusive, context: context)
+        let tasks = fetchTasks(from: rangeStart, to: rangeEndExclusive, context: context)
         let eventsByDay = eventsByDay(events, rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive, calendar: calendar)
         let tasksByDay = tasksByDay(tasks, rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive, calendar: calendar)
         let dates = dates(from: rangeStart, count: weekCount * 7, calendar: calendar)
@@ -189,11 +190,11 @@ final class WallpaperCalendarDataProvider {
         )
     }
 
-    private func fetchEvents(from rangeStart: Date, to rangeEndExclusive: Date) -> [CalendarEvent] {
+    private func fetchEvents(from rangeStart: Date, to rangeEndExclusive: Date, context: ModelContext) -> [CalendarEvent] {
         let externalEvents = fetchExternalEvents(from: rangeStart, to: rangeEndExclusive)
         do {
             return try CalendarEventStorageQuery.events(
-                in: modelContext(),
+                in: context,
                 from: rangeStart,
                 to: rangeEndExclusive,
                 externalEvents: externalEvents,
@@ -210,9 +211,8 @@ final class WallpaperCalendarDataProvider {
         return EventQuerying.overlapping(events, rangeStart: rangeStart, rangeEndExclusive: rangeEndExclusive, calendar: Self.calendar)
     }
 
-    private func fetchTasks(from rangeStart: Date, to rangeEndExclusive: Date) -> [Task] {
+    private func fetchTasks(from rangeStart: Date, to rangeEndExclusive: Date, context: ModelContext) -> [Task] {
         do {
-            let context = modelContext()
             let descriptor = FetchDescriptor<SDTask>()
             return try context.fetch(descriptor)
                 .map {
