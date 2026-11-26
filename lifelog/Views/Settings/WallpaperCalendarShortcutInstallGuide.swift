@@ -186,7 +186,7 @@ struct WallpaperCalendarShortcutInstallGuide<
         case .shortcutIntro:
             explanationContent(
                 symbol: "square.stack.3d.up",
-                text: "lifelifyがカレンダー画像を作り、Appleの「ショートカット」がiPhoneの壁紙に設定します。"
+                text: "wallpaper.guide.shortcutsApp"
             )
         case .shortcutInstall:
             installationContent
@@ -211,7 +211,7 @@ struct WallpaperCalendarShortcutInstallGuide<
 
     private var welcomeContent: some View {
         VStack(alignment: .leading, spacing: 28) {
-            Text("好きな壁紙に予定を重ねて、毎日の予定をすぐに確認できるようにしましょう。")
+            Text("wallpaper.guide.whereCalendarAppears")
                 .fixedSize(horizontal: false, vertical: true)
 
             VStack(spacing: 12) {
@@ -264,13 +264,12 @@ struct WallpaperCalendarShortcutInstallGuide<
 
     private var verificationContent: some View {
         VStack(alignment: .leading, spacing: 24) {
-            Text("追加したショートカットを一度動かして、壁紙が更新されることを確認します。")
-                .fixedSize(horizontal: false, vertical: true)
-
             instructionList([
                 "「ショートカットを開く」をタップします。",
                 "「lifelify 壁紙カレンダー」をタップして実行します。",
                 "許可を求められたら、内容を確認して許可します。",
+                "wallpaper.guide.wakeLockScreen",
+                "wallpaper.guide.switchWallpaper",
                 "ロック画面に予定が表示されたら、lifelifyに戻って「次へ」をタップします。"
             ])
 

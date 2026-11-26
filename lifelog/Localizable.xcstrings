@@ -12091,6 +12091,146 @@
         }
       }
     },
+    "wallpaper.guide.shortcutsApp" : {
+      "comment" : "Explains which app applies the calendar image to the Lock Screen.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lifelify creates the calendar image. To use it as your Lock Screen wallpaper, you’ll open Shortcuts, a separate app from Apple."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カレンダーの画像はlifelifyで作ります。ロック画面の壁紙に設定するには、Appleの「ショートカット」アプリを開きます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lifelify에서 캘린더 이미지를 만듭니다. 이 이미지를 잠금 화면 배경화면으로 설정하려면 Apple의 ‘단축어’ 앱을 여세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lifelify 会生成日历图片。接下来，请打开 Apple 的“快捷指令”App，将图片设为锁定屏幕墙纸。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "lifelify 會製作行事曆圖片。接著請打開 Apple 的「捷徑」App，將圖片設為鎖定畫面的背景圖片。"
+          }
+        }
+      }
+    },
+    "wallpaper.guide.switchWallpaper" : {
+      "comment" : "Shown after running the shortcut when another wallpaper is still active.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "If you still see your old wallpaper, touch and hold the Lock Screen. Swipe left or right to find the wallpaper with the calendar, then tap it."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "前の壁紙のままなら、ロック画面を長押ししてください。左右にスワイプして、カレンダーが写った壁紙をタップします。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이전 배경화면이 그대로 보이면 잠금 화면을 길게 누르세요. 좌우로 쓸어넘겨 캘린더가 있는 배경화면을 찾아 탭하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "如果仍显示原来的墙纸，请按住锁定屏幕。左右轻扫，找到带日历的墙纸后轻点它。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "如果仍顯示原來的背景圖片，請按住鎖定畫面。左右滑動，找到有行事曆的背景圖片後點一下。"
+          }
+        }
+      }
+    },
+    "wallpaper.guide.wakeLockScreen" : {
+      "comment" : "Verification step for viewing the Lock Screen after running the shortcut.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Lock your iPhone, then wake the screen to check the wallpaper."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhoneをロックし、もう一度画面を点けて壁紙を確認します。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "iPhone을 잠근 다음 화면을 다시 켜서 배경화면을 확인하세요."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "锁定 iPhone，然后点亮屏幕，查看墙纸。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "鎖定 iPhone，然後喚醒螢幕查看背景圖片。"
+          }
+        }
+      }
+    },
+    "wallpaper.guide.whereCalendarAppears" : {
+      "comment" : "Identifies the Lock Screen by its clock and directs users to the in-app theme setting.",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This calendar appears below the clock on your iPhone’s Lock Screen. To change the background color inside lifelify, choose App Theme in the app’s settings."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このカレンダーは、iPhoneのロック画面の時計の下に表示されます。lifelifyを開いたときの背景色は、アプリ内の設定にある「アプリのテーマ」で変更できます。"
+          }
+        },
+        "ko" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "이 캘린더는 iPhone 잠금 화면의 시계 아래에 표시됩니다. lifelify 안에서 보이는 배경색은 앱 설정의 ‘앱 테마’에서 바꿀 수 있습니다."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "这个日历会显示在 iPhone 锁定屏幕的时钟下方。要更改 lifelify 内的背景颜色，请在 App 设置中选择“应用主题”。"
+          }
+        },
+        "zh-Hant" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "這個行事曆會顯示在 iPhone 鎖定畫面的時鐘下方。若要更改 lifelify 內的背景顏色，請在 App 設定中選擇「App 主題」。"
+          }
+        }
+      }
+    },
     "Yoga class" : {
       "extractionState" : "stale",
       "localizations" : {

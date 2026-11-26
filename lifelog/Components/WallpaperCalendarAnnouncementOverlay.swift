@@ -29,6 +29,8 @@ struct WallpaperCalendarAnnouncementOverlayModifier: ViewModifier {
 }
 
 private struct WallpaperCalendarAnnouncementOverlay: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     let onDismiss: () -> Void
     let onOpenSettings: () -> Void
 
@@ -54,51 +56,68 @@ private struct WallpaperCalendarAnnouncementOverlay: View {
             Color.black.opacity(0.34)
                 .ignoresSafeArea()
 
-            VStack(spacing: 16) {
-                preview
-
-                Text("ロック画面からも予定を確認できるようになりました！")
-                    .font(.headline.weight(.semibold))
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.horizontal, 18)
-
-                Divider()
-
-                HStack(spacing: 0) {
-                    Button {
-                        onDismiss()
-                    } label: {
-                        Text("今はしない")
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 44)
-                    }
-
-                    Divider()
-                        .frame(height: 44)
-
-                    Button {
-                        onOpenSettings()
-                    } label: {
-                        Text("設定を開く")
-                            .fontWeight(.semibold)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 44)
-                    }
-                }
+            ViewThatFits(in: .vertical) {
+                card.fixedSize(horizontal: false, vertical: true)
+                ScrollView { card }
+                    .scrollBounceBehavior(.basedOnSize)
             }
-            .padding(.top, 18)
-            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
-                    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
-            )
-            .shadow(color: Color.black.opacity(0.22), radius: 28, x: 0, y: 18)
-            .frame(maxWidth: 330)
+            .frame(maxWidth: dynamicTypeSize.isAccessibilitySize ? 440 : 330)
             .padding(.horizontal, 28)
+            .padding(.vertical, 16)
         }
         .accessibilityAddTraits(.isModal)
+    }
+
+    private var card: some View {
+        VStack(spacing: 16) {
+            if !dynamicTypeSize.isAccessibilitySize && verticalSizeClass != .compact {
+                preview.accessibilityHidden(true)
+            }
+            Text("ロック画面からも予定を確認できるようになりました！")
+                .font(.headline.weight(.semibold))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 18)
+
+            Divider()
+            if dynamicTypeSize.isAccessibilitySize {
+                VStack(spacing: 0) {
+                    actionButton("今はしない", action: onDismiss)
+                    Divider()
+                    actionButton("設定を開く", weight: .semibold, action: onOpenSettings)
+                }
+            } else {
+                HStack(spacing: 0) {
+                    actionButton("今はしない", action: onDismiss)
+                    Divider().frame(height: 44)
+                    actionButton("設定を開く", weight: .semibold, action: onOpenSettings)
+                }
+            }
+        }
+        .padding(.top, 18)
+        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+                .allowsHitTesting(false)
+        }
+        .shadow(color: Color.black.opacity(0.22), radius: 28, x: 0, y: 18)
+    }
+
+    private func actionButton(_ title: LocalizedStringKey, weight: Font.Weight = .regular,
+                              action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .fontWeight(weight)
+                .multilineTextAlignment(.center)
+                .lineLimit(nil)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 4)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .contentShape(Rectangle())
+        }
     }
 
     private var preview: some View {
