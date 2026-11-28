@@ -29,6 +29,22 @@ final class WeatherService: NSObject, ObservableObject {
     }()
     private var lastFetchDate: Date?
 
+    override init() {
+        super.init()
+        #if DEBUG && targetEnvironment(simulator)
+        if ASOScreenshotShowcase.isEnabled {
+            currentWeather = CurrentWeatherData(
+                condition: .clear,
+                symbolName: "sun.max.fill",
+                temperature: 18,
+                temperatureUnit: "°C",
+                highTemperature: 21,
+                lowTemperature: 12
+            )
+        }
+        #endif
+    }
+
     /// Invoked from the Home weather action. Background refreshes never ask for permission.
     func requestLocationPermission() {
         guard locationManager.authorizationStatus == .notDetermined else { return }
@@ -49,6 +65,19 @@ final class WeatherService: NSObject, ObservableObject {
 
     /// 天気情報を取得
     func fetchWeather() async {
+        #if DEBUG && targetEnvironment(simulator)
+        if ASOScreenshotShowcase.isEnabled {
+            currentWeather = CurrentWeatherData(
+                condition: .clear,
+                symbolName: "sun.max.fill",
+                temperature: 18,
+                temperatureUnit: "°C",
+                highTemperature: 21,
+                lowTemperature: 12
+            )
+            return
+        }
+        #endif
         let status = locationManager.authorizationStatus
         if locationStatus != status { locationStatus = status }
         guard !isLoading else { return }

@@ -38,7 +38,7 @@ class GitHubService: ObservableObject {
     @Published var errorMessage: String?
     @Published var totalContributions: Int = 0
     
-    private let dateFormatter: DateFormatter = {
+    private lazy var dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd"
         return formatter

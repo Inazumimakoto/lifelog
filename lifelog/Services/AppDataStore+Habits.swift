@@ -124,6 +124,7 @@ extension AppDataStore {
 
         if allComplete {
             HapticManager.allHabitsComplete()
+            ReviewRequestManager.shared.registerPositiveAction()
         }
     }
 

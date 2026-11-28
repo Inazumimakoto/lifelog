@@ -613,7 +613,10 @@ final class DiaryViewModel: ObservableObject {
         store.upsert(entry: merged)
         entry = store.diaryEntries.first { $0.id == merged.id } ?? merged
         pendingText = entry.text; savedEntry = entry
-        if !entry.text.isEmpty && entry.text.count > 10 { ReviewRequestManager.shared.registerPositiveAction() }
+        let trimmedLength = entry.text.trimmingCharacters(in: .whitespacesAndNewlines).count
+        if trimmedLength >= 5 || !entry.photoPaths.isEmpty {
+            ReviewRequestManager.shared.registerPositiveAction()
+        }
     }
     private func receiveStoreChanges() {
         // Read current state, never an older queued publisher value.

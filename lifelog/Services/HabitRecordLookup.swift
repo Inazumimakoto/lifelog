@@ -18,6 +18,7 @@ final class HabitRecordLookup {
     private var completedIDsByDay: [Date: Set<UUID>] = [:]
     private var completedRecordCountsByHabit: [UUID: Int] = [:]
     private var completedRecordCountsByMonth: [UUID: [Date: Int]] = [:]
+    private var monthStartByDay: [Date: Date] = [:]
 
     init(records: [HabitRecord], calendar: Calendar = .current) {
         self.calendar = calendar
@@ -81,9 +82,16 @@ final class HabitRecordLookup {
         }
     }
 
+    private func monthStart(for day: Date) -> Date? {
+        if let cached = monthStartByDay[day] { return cached }
+        guard let start = calendar.dateInterval(of: .month, for: day)?.start else { return nil }
+        monthStartByDay[day] = start
+        return start
+    }
+
     private func updateCompletionCount(for key: Key, by delta: Int) {
         completedRecordCountsByHabit[key.habitID, default: 0] += delta
-        if let month = calendar.dateInterval(of: .month, for: key.day)?.start {
+        if let month = monthStart(for: key.day) {
             completedRecordCountsByMonth[key.habitID, default: [:]][month, default: 0] += delta
         }
         let count = (completionCounts[key] ?? 0) + delta

@@ -38,6 +38,7 @@ struct SettingsView: View {
     @State private var premiumAlertMessage: String?
     @State private var currentStorageSize: Int64 = 0
     @State private var didHandleInitialWallpaperCalendarNavigation = false
+    @State private var showStartupDiagnostics = false
 #if DEBUG
     private let debugAutomaticStorefront = "AUTO"
     @AppStorage(WallpaperCalendarAnnouncementState.hasSeenKey) private var hasSeenWallpaperCalendarAnnouncement = false
@@ -297,6 +298,24 @@ struct SettingsView: View {
                     }
                 }
 
+                if StartupProfiler.isDiagnosticsAvailable {
+                    Button {
+                        showStartupDiagnostics = true
+                    } label: {
+                        HStack {
+                            Label("起動時間レポート", systemImage: "stopwatch")
+                            Spacer()
+                            Text(StartupProfiler.shared.totalInteractiveSummary)
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .foregroundStyle(.primary)
+                }
+
 #if DEBUG
                 Button {
                     showWallpaperCalendarAnnouncementDebug = true
@@ -413,6 +432,9 @@ struct SettingsView: View {
             }
         ))
 #endif
+        .sheet(isPresented: $showStartupDiagnostics) {
+            StartupDiagnosticsView()
+        }
         .sheet(isPresented: $showNotificationSettings) {
             NotificationSettingsSheet(isPresented: $showNotificationSettings)
         }

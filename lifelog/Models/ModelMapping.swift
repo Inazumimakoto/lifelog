@@ -119,14 +119,17 @@ extension SDDiaryEntry {
 }
 
 private enum DiaryLocationCoding {
+    private static let encoder = JSONEncoder()
+    private static let decoder = JSONDecoder()
+
     static func encode(_ locations: [DiaryLocation]) -> Data? {
         guard locations.isEmpty == false else { return nil }
-        return try? JSONEncoder().encode(locations)
+        return try? encoder.encode(locations)
     }
 
     static func decode(_ data: Data?) -> [DiaryLocation] {
         guard let data else { return [] }
-        return (try? JSONDecoder().decode([DiaryLocation].self, from: data)) ?? []
+        return (try? decoder.decode([DiaryLocation].self, from: data)) ?? []
     }
 
     static func legacyLocation(name: String?, latitude: Double?, longitude: Double?) -> [DiaryLocation] {
@@ -346,11 +349,16 @@ extension SDHealthSummary {
 }
 
 // MARK: - CalendarEvent Mapping
+private enum CalendarEventRuleCoding {
+    static let encoder = JSONEncoder()
+    static let decoder = JSONDecoder()
+}
+
 extension CalendarEvent {
     init(sd: SDCalendarEvent) {
         let rule: EventRecurrenceRule?
         if let data = sd.recurrenceRuleData {
-            rule = try? JSONDecoder().decode(EventRecurrenceRule.self, from: data)
+            rule = try? CalendarEventRuleCoding.decoder.decode(EventRecurrenceRule.self, from: data)
         } else {
             rule = nil
         }

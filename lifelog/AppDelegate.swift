@@ -15,9 +15,12 @@ class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNUserNot
 
     func application(_ application: UIApplication,
                      didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey : Any]? = nil) -> Bool {
+        StartupProfiler.shared.mark("appDelegate.didFinishLaunching.start")
 
         // Firebase初期化
-        FirebaseApp.configure()
+        StartupProfiler.shared.measure("firebase.configure") {
+            FirebaseApp.configure()
+        }
 
         // Messagingデリゲート設定
         Messaging.messaging().delegate = self
@@ -37,6 +40,7 @@ class AppDelegate: NSObject, UIApplicationDelegate, MessagingDelegate, UNUserNot
             }
         }
 
+        StartupProfiler.shared.mark("appDelegate.didFinishLaunching.end")
         return true
     }
 

@@ -20,23 +20,25 @@ struct lifelogApp: App {
     
     @StateObject private var appIconCoordinator = AppIconCoordinator()
     @StateObject private var storeOwner = AppDataStoreOwner()
-    @State private var hasFinishedStartup = false
     @ObservedObject private var deepLinkManager = DeepLinkManager.shared
     
     init() {
+        StartupProfiler.shared.mark("lifelogApp.init.start")
         // Remove the retired AI analysis quota; see docs/ai-analysis-retirement.md.
         UserDefaults.standard.removeObject(forKey: "devpc_llm_usage")
         if !PersistenceController.isRunningTests {
             RetiredIntegrationCredentials.removeIfNeeded()
+            ReviewRequestManager.shared.recordAppLaunch()
         }
         CategoryPalette.initializeIfNeeded()
+        StartupProfiler.shared.mark("lifelogApp.init.end")
     }
 
     @ObservedObject private var appLockService = AppLockService.shared
     @Environment(\.scenePhase) private var scenePhase
 
     private var isForegroundReady: Bool {
-        hasFinishedStartup && scenePhase == .active
+        scenePhase == .active
     }
 
     private var canRefreshNotifications: Bool {
@@ -48,14 +50,17 @@ struct lifelogApp: App {
         WindowGroup {
             ZStack {
                 if let store = storeOwner.store {
-                    ContentView(store: store, isStartupComplete: hasFinishedStartup)
+                    ContentView(store: store)
                         .environmentObject(store)
                         .environmentObject(deepLinkManager)
-                        .allowsHitTesting(hasFinishedStartup)
-                        .accessibilityHidden(!hasFinishedStartup)
                         .task(id: isForegroundReady) {
                             guard isForegroundReady else { return }
-                            // Initial appearance and activation share one refresh, after the logo.
+                            // Let Home's first interactive frame and below-fold mount settle before Stage 2 hydration.
+                            try? await _Concurrency.Task.sleep(for: .milliseconds(150))
+                            guard !_Concurrency.Task.isCancelled, isForegroundReady else { return }
+                            await store.loadRemainingHistoryIncrementally()
+                            guard !_Concurrency.Task.isCancelled, isForegroundReady else { return }
+                            store.startDeferredHealthSyncIfNeeded()
                             syncMemoPrivacySettingsToSharedDefaults()
                             store.resumeDiaryPhotoSync()
                             WidgetCenter.shared.reloadAllTimelines()
@@ -82,32 +87,26 @@ struct lifelogApp: App {
 
                 if !appLockService.isUnlocked && appLockService.isAppLockEnabled {
                     LockView()
-                        .allowsHitTesting(hasFinishedStartup)
-                        .accessibilityHidden(!hasFinishedStartup)
                         .transition(.opacity)
                         .zIndex(999)
                 }
-
-                if !hasFinishedStartup {
-                    StartupLogoView {
-                        hasFinishedStartup = true
-                    }
-                    .zIndex(1000)
-                }
             }
             .modifier(AppThemeAppearance(
-                canChangeIcon: hasFinishedStartup && scenePhase == .active && !PersistenceController.isRunningTests
+                canChangeIcon: scenePhase == .active && !PersistenceController.isRunningTests
             ))
             .environmentObject(appIconCoordinator)
             .task(id: canRefreshNotifications) {
                 guard let store = storeOwner.store, canRefreshNotifications,
                       !PersistenceController.isRunningTests,
                       !PersistenceController.isSimulatorDemoMode else { return }
-                // Reveal the home first. Notification IPC must never extend the
-                // startup logo or run again from a second onAppear path (§起動時の表示).
-                await _Concurrency.Task.yield()
+                // Reveal the home first and let Stage 2 incremental hydration run smoothly.
+                try? await _Concurrency.Task.sleep(for: .milliseconds(250))
                 guard !_Concurrency.Task.isCancelled, canRefreshNotifications else { return }
-                store.refreshNotificationsAfterStartup()
+                await store.loadRemainingHistoryIncrementally()
+                guard !_Concurrency.Task.isCancelled, canRefreshNotifications else { return }
+                StartupProfiler.shared.measure("notifications.refreshAfterStartup") {
+                    store.refreshNotificationsAfterStartup()
+                }
                 await NotificationService.shared.refreshAuthorizationStatus()
             }
             .onReceive(NotificationService.shared.authorizationBecameAvailable) { _ in
@@ -115,12 +114,6 @@ struct lifelogApp: App {
                     UIApplication.shared.registerForRemoteNotifications()
                 }
                 storeOwner.store?.restoreRemindersAfterNotificationAuthorization()
-            }
-            .onChange(of: hasFinishedStartup) { _, isComplete in
-                guard isComplete else { return }
-                if scenePhase == .active && appLockService.isAppLockEnabled && !appLockService.isUnlocked {
-                    appLockService.authenticate()
-                }
             }
             .onReceive(NotificationCenter.default.publisher(for: UIApplication.protectedDataDidBecomeAvailableNotification)) { _ in
                 storeOwner.openIfNeeded()
@@ -133,7 +126,7 @@ struct lifelogApp: App {
                         RetiredIntegrationCredentials.removeIfNeeded()
                     }
                     // アプリがアクティブになった時にロックが有効なら認証を試みる
-                    if hasFinishedStartup && appLockService.isAppLockEnabled && !appLockService.isUnlocked {
+                    if appLockService.isAppLockEnabled && !appLockService.isUnlocked {
                         appLockService.authenticate()
                     }
 

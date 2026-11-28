@@ -126,11 +126,6 @@ final class TasksViewModel: ObservableObject {
     func toggle(task: Task) {
         pendingAnimation = .spring(response: 0.35, dampingFraction: 0.8)
         store.toggleTaskCompletion(task.id)
-        
-        // タスク完了をポジティブアクションとして記録（完了状態にする時のみ）
-        if !task.isCompleted {
-            ReviewRequestManager.shared.registerPositiveAction()
-        }
     }
 
     private func displayDate(for task: Task) -> Date? {

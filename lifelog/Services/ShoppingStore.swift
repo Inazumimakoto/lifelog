@@ -17,11 +17,19 @@ final class ShoppingStore: ObservableObject {
     private var hasLoadedData = false
 
     init(container: ModelContainer,
+         deferInitialLoad: Bool = false,
          saveOperation: @escaping (ModelContext) throws -> Void = { try $0.save() }) {
         context = ModelContext(container)
         context.autosaveEnabled = false
         self.saveOperation = saveOperation
         // reload() records load or legacy-cleanup failures and disables writes until a successful retry.
+        if !deferInitialLoad {
+            try? reload()
+        }
+    }
+
+    func reloadIfNeeded() {
+        guard !hasLoadedData else { return }
         try? reload()
     }
 

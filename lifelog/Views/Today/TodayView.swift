@@ -48,7 +48,9 @@ struct TodayView: View {
     init(store: AppDataStore, allowsRefresh: Bool) {
         self.store = store
         self.allowsRefresh = allowsRefresh
-        _viewModel = StateObject(wrappedValue: TodayViewModel(store: store))
+        _viewModel = StateObject(wrappedValue: StartupProfiler.shared.measure("todayViewModel.init") {
+            TodayViewModel(store: store)
+        })
     }
 
     private var canRefresh: Bool {
@@ -56,6 +58,7 @@ struct TodayView: View {
     }
 
     var body: some View {
+        let _ = StartupProfiler.shared.mark("todayView.body.first")
         ZStack(alignment: .bottomTrailing) {
             ScrollView {
                 LazyVStack(spacing: 16) {
@@ -68,7 +71,7 @@ struct TodayView: View {
                     habitsSection
                     healthSection
                     diarySection
-                    
+
                     // Apple Weather Attribution (Required by WeatherKit)
                     if weatherService.currentWeather != nil {
                         Link(destination: URL(string: "https://weatherkit.apple.com/legal-attribution.html")!) {
@@ -86,9 +89,14 @@ struct TodayView: View {
                 .padding()
                 .padding(.bottom, 80) // FABのための余白
             }
+            .task {
+                StartupProfiler.shared.mark("firstInteractiveFrame")
+            }
             // Start each integration once when Home becomes available (§起動時の表示).
             .task(id: canRefresh) {
+                StartupProfiler.shared.mark("todayView.taskEval")
                 guard canRefresh else { return }
+                StartupProfiler.shared.mark("todayView.canRefresh")
                 viewModel.refreshCurrentDate()
                 await viewModel.syncExternalCalendarsIfNeeded()
             }
@@ -145,11 +153,13 @@ struct TodayView: View {
                 
                 Menu {
                     Button {
+                        store.loadRemainingHistoryIfNeeded()
                         showEventManager = true
                     } label: {
                         Label("予定リスト", systemImage: "calendar")
                     }
                     Button {
+                        store.loadRemainingHistoryIfNeeded()
                         showTaskManager = true
                     } label: {
                         Label("タスクリスト", systemImage: "checklist")
@@ -160,6 +170,7 @@ struct TodayView: View {
                 .accessibilityLabel(Text("home.lists", tableName: "ContextualPermissions"))
                 
                 Button {
+                    store.loadRemainingHistoryIfNeeded()
                     showSettings = true
                 } label: {
                     Image(systemName: "gearshape")

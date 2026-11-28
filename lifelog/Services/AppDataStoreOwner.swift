@@ -16,8 +16,17 @@ final class AppDataStoreOwner: ObservableObject {
     func openIfNeeded() {
         guard store == nil else { return }
         do {
-            store = AppDataStore(container: try PersistenceController.sharedContainer(),
-                                 defersNotificationUpdatesUntilStartup: true)
+            StartupProfiler.shared.mark("storeOwner.openIfNeeded.start")
+            let container = try StartupProfiler.shared.measure("store.openContainer") {
+                try PersistenceController.sharedContainer()
+            }
+            store = StartupProfiler.shared.measure("store.appDataStoreInit") {
+                AppDataStore(container: container,
+                             defersNotificationUpdatesUntilStartup: true,
+                             defersFullHistoryLoad: !PersistenceController.isSimulatorDemoMode)
+            }
+            StartupProfiler.shared.recordDatabaseSizes()
+            StartupProfiler.shared.mark("storeOwner.openIfNeeded.end")
         } catch {
             let failure = error as NSError
             AppLogger.data.error("Unable to open the store: \(failure.domain, privacy: .public) (\(failure.code)) – \(error)")

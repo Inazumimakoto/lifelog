@@ -83,9 +83,30 @@ struct JournalView: View {
     @State private var showEventManager = false
     @State private var showMemoEditor = false
     @AppStorage("showMoodOnReviewCalendar") private var showMoodOnReviewCalendar = true
-    @State private var calendarMode: CalendarMode = .schedule
-    @State private var reviewContentMode: ReviewContentMode = .diary
-    @State private var reviewMapPeriod: ReviewMapPeriod = .month
+    @State private var calendarMode: CalendarMode = {
+        #if DEBUG && targetEnvironment(simulator)
+        switch ASOScreenshotShowcase.requestedScreen {
+        case .reviewCalendar, .reviewMap: return .review
+        default: return .schedule
+        }
+        #else
+        return .schedule
+        #endif
+    }()
+    @State private var reviewContentMode: ReviewContentMode = {
+        #if DEBUG && targetEnvironment(simulator)
+        return ASOScreenshotShowcase.requestedScreen == .reviewMap ? .map : .diary
+        #else
+        return .diary
+        #endif
+    }()
+    @State private var reviewMapPeriod: ReviewMapPeriod = {
+        #if DEBUG && targetEnvironment(simulator)
+        return ASOScreenshotShowcase.requestedScreen == .reviewMap ? .all : .month
+        #else
+        return .month
+        #endif
+    }()
     @State private var selectedReviewDate: Date? = Date().startOfDay
     @State private var reviewPhotoIndex: Int = 0
     @State private var didInitReviewPhotoIndex: Bool = false

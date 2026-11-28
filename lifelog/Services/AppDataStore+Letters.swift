@@ -95,6 +95,7 @@ extension AppDataStore {
 
         // 通知をキャンセル
         NotificationService.shared.cancelLetterReminder(letterID: letterID)
+        ReviewRequestManager.shared.registerPositiveAction()
     }
 
     func deleteLetter(_ letterID: UUID) {

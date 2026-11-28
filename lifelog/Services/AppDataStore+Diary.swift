@@ -16,6 +16,7 @@ extension AppDataStore {
 
     func resumeDiaryPhotoSync() {
         guard !PersistenceController.isSimulatorDemoMode else { return }
+        loadRemainingHistoryIfNeeded()
         PhotoCloudSyncService.shared.configure(paths: allDiaryPhotoPaths)
         PhotoCloudSyncService.shared.resumeSync()
     }
@@ -102,6 +103,7 @@ extension AppDataStore {
     }
 
     func renameLocationVisitTag(id: UUID, to rawName: String) throws {
+        loadRemainingHistoryIfNeeded()
         guard let index = locationVisitTagDefinitions.firstIndex(where: { $0.id == id }) else {
             throw LocationVisitTagError.tagNotFound
         }
@@ -124,6 +126,7 @@ extension AppDataStore {
 
     @discardableResult
     func deleteLocationVisitTag(id: UUID) -> Int {
+        loadRemainingHistoryIfNeeded()
         guard let index = locationVisitTagDefinitions.firstIndex(where: { $0.id == id }) else {
             return 0
         }

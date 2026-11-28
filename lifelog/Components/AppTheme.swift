@@ -167,6 +167,11 @@ struct AppThemeAppearance: ViewModifier {
     @Environment(\.colorScheme) private var inheritedScheme
     @EnvironmentObject private var appIconCoordinator: AppIconCoordinator
     @State private var sceneScheme: ColorScheme?
+    @State private var observedSceneCache = ObservedSceneCache()
+
+    private final class ObservedSceneCache {
+        var scheme: ColorScheme?
+    }
 
     private struct IconUpdate: Equatable {
         let name: String?
@@ -175,19 +180,27 @@ struct AppThemeAppearance: ViewModifier {
 
     func body(content: Content) -> some View {
         let selection = AppTheme.Selection(storedValue: storedSelection, legacyBackground: legacyBackground)
-        let systemScheme = sceneScheme ?? inheritedScheme
+        let resolvedObserved = sceneScheme ?? observedSceneCache.scheme
+        let systemScheme = resolvedObserved ?? inheritedScheme
         let theme = AppTheme(selection: selection, systemColorScheme: systemScheme)
         let palette = AppIconPalette.resolve(selection: selection, followsTheme: iconFollowsTheme, systemColorScheme: systemScheme)
-        let update = IconUpdate(name: palette.alternateName, isActive: canChangeIcon && sceneScheme != nil)
+        let update = IconUpdate(name: palette.alternateName, isActive: canChangeIcon && resolvedObserved != nil)
         content
             .environment(\.appTheme, theme)
             .environment(\.deviceColorScheme, systemScheme)
             .accentColor(theme?.accent)
             .tint(theme?.accent)
             .background {
-                AppThemeWindowAppearance(colorScheme: theme?.colorScheme) { sceneScheme = $0 }
-                    .frame(width: 0, height: 0)
-                    .accessibilityHidden(true)
+                AppThemeWindowAppearance(colorScheme: theme?.colorScheme) { reported in
+                    observedSceneCache.scheme = reported
+                    // Avoid triggering a redundant full-root SwiftUI re-render on Frame 1
+                    // when the observed scene already matches the inherited scheme.
+                    if reported != systemScheme || (canChangeIcon && sceneScheme == nil) {
+                        sceneScheme = reported
+                    }
+                }
+                .frame(width: 0, height: 0)
+                .accessibilityHidden(true)
             }
             .onChange(of: update, initial: true) { _, newValue in
                 appIconCoordinator.update(targetName: newValue.name, isActive: newValue.isActive)

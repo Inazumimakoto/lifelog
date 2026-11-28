@@ -89,6 +89,9 @@ extension AppDataStore {
         scheduleTaskNotification(tasks[index])
         WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
         rescheduleTodayOverviewReminderIfNeeded()
+        if tasks[index].isCompleted {
+            ReviewRequestManager.shared.registerPositiveAction()
+        }
     }
 
     // MARK: - Task Notification Helpers

@@ -16,16 +16,32 @@ struct ContentView: View {
     // Only destination view models observe their data sources. Observing the whole
     // store here invalidated every tab when a diary, habit or health value changed.
     let store: AppDataStore
-    // Keep UIKit presentations behind the launch animation; see docs/ui-guidelines.md §起動時の表示.
-    var isStartupComplete: Bool = true
     @EnvironmentObject private var deepLinkManager: DeepLinkManager
     @ObservedObject private var monetization = MonetizationService.shared
     @ObservedObject private var deepLinkHandler = DeepLinkHandler.shared
     @ObservedObject private var appLockService = AppLockService.shared
     @AppStorage("isMemoTextHidden") private var isMemoTextHidden: Bool = false
     @AppStorage("requiresMemoOpenAuthentication") private var requiresMemoOpenAuthentication: Bool = false
-    @State private var selection: Int = 0
+    @State private var selection: Int = {
+        #if DEBUG && targetEnvironment(simulator)
+        switch ASOScreenshotShowcase.requestedScreen {
+        case .reviewCalendar, .scheduleMonth, .reviewMap: return 1
+        case .shopping: return 4
+        case .habits, .countdown: return 2
+        case .health: return 3
+        default: return 0
+        }
+        #else
+        return 0
+        #endif
+    }()
     @State private var lastSelection: Int = 0
+    #if DEBUG && targetEnvironment(simulator)
+    @State private var showASODiaryDetail = ASOScreenshotShowcase.requestedScreen == .diaryDetail
+    @State private var showASOLetters = ASOScreenshotShowcase.requestedScreen == .letters
+    @State private var showASOWallpaperLockscreen = ASOScreenshotShowcase.requestedScreen == .wallpaperLockscreen
+    @State private var showASOWidgetGallery = ASOScreenshotShowcase.requestedScreen == .widgetGallery
+    #endif
     @State private var calendarResetTrigger: Int = 0
     @State private var calendarDateFromWidget: Date?
     @State private var habitsResetTrigger: Int = 0
@@ -53,7 +69,7 @@ struct ContentView: View {
     @State private var showSettingsFromWallpaperCalendarAnnouncement = false
 
     private var canPresentStartupContent: Bool {
-        isStartupComplete && (appLockService.isAppLockEnabled == false || appLockService.isUnlocked)
+        appLockService.isAppLockEnabled == false || appLockService.isUnlocked
     }
 
     private var canPresentMainContent: Bool {
@@ -106,6 +122,9 @@ struct ContentView: View {
             .tag(3)
         }
         .onChange(of: selection) { oldSelection, newSelection in
+            if newSelection != 0 {
+                store.loadRemainingHistoryIfNeeded()
+            }
             // 他のタブからカレンダータブに戻った時にリセット
             if newSelection == 1 && oldSelection != 1 {
                 calendarResetTrigger += 1
@@ -255,13 +274,9 @@ struct ContentView: View {
     private var startupLifecycleContent: some View {
         noticePresentationContent
         .onAppear {
+            StartupProfiler.shared.mark("contentView.onAppear")
             syncMemoPrivacySettingsToSharedDefaults()
             handleStartupPresentationsIfNeeded()
-        }
-        .onChange(of: isStartupComplete) { _, isComplete in
-            if isComplete {
-                handleStartupPresentationsIfNeeded()
-            }
         }
         .onChange(of: isMemoTextHidden) { _, _ in
             syncMemoPrivacySettingsToSharedDefaults()
@@ -283,6 +298,7 @@ struct ContentView: View {
     }
 
     var body: some View {
+        let _ = StartupProfiler.shared.mark("contentView.body.first")
         startupLifecycleContent
         .modifier(WallpaperCalendarAnnouncementOverlayModifier(
             isPresented: $showWallpaperCalendarAnnouncement,
@@ -299,6 +315,25 @@ struct ContentView: View {
                 MemoEditorView(store: store)
             }
         }
+        #if DEBUG && targetEnvironment(simulator)
+        .fullScreenCover(isPresented: $showASODiaryDetail) {
+            NavigationStack {
+                DiaryEditorView(store: store, date: Date().startOfDay)
+            }
+        }
+        .fullScreenCover(isPresented: $showASOLetters) {
+            NavigationStack {
+                LetterListView()
+                    .environmentObject(store)
+            }
+        }
+        .fullScreenCover(isPresented: $showASOWallpaperLockscreen) {
+            ASOWallpaperLockScreenCaptureView()
+        }
+        .fullScreenCover(isPresented: $showASOWidgetGallery) {
+            ASOWidgetShowcaseView(store: store)
+        }
+        #endif
     }
 
     private func startupPresentationBinding(_ presentation: Binding<Bool>) -> Binding<Bool> {
@@ -315,6 +350,13 @@ struct ContentView: View {
         if !hasCheckedInitialPermissionsSetup {
             hasCheckedInitialPermissionsSetup = true
             if !UserDefaults.standard.bool(forKey: InitialPermissionsState.completedKey) {
+                if !store.hasExistingUserFootprintForInitialPermissions && !store.hasLoadedFullHistory {
+                    store.loadRemainingHistoryIfNeeded()
+                    store.recordInitialPermissionsFootprint(
+                        standard: .standard,
+                        shared: UserDefaults(suiteName: PersistenceController.appGroupIdentifier)
+                    )
+                }
                 if store.hasExistingUserFootprintForInitialPermissions {
                     UserDefaults.standard.set(true, forKey: InitialPermissionsState.completedKey)
                 } else {

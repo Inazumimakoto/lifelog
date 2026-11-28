@@ -17,7 +17,13 @@ struct HabitsCountdownView: View {
     @State private var showAnniversaryEditor = false
     @State private var editingHabit: Habit?
     @State private var editingAnniversary: Anniversary?
-    @State private var displayMode: DisplayMode = .habits
+    @State private var displayMode: DisplayMode = {
+        #if DEBUG && targetEnvironment(simulator)
+        return ASOScreenshotShowcase.requestedScreen == .countdown ? .countdown : .habits
+        #else
+        return .habits
+        #endif
+    }()
     @State private var selectedHabitForDetail: Habit?
     @State private var selectedSummaryDate: Date?
     @State private var showSettings = false

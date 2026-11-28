@@ -70,6 +70,14 @@ final class AppDataStore: ObservableObject {
     private var healthLoadTask: _Concurrency.Task<Bool, Never>?
     private var healthAuthorizationTask: _Concurrency.Task<Bool, Never>?
     private var hasLoadedHealthSummaries = false
+    private(set) var hasLoadedFullHistory = true
+    private var hasHydratedTasks = true
+    private var hasHydratedDiaries = true
+    private var hasHydratedHabitRecords = true
+    private var hasHydratedCalendarEvents = true
+    private var hasHydratedHealthSummaries = true
+    private var hasHydratedShopping = true
+    private var hasStartedDeferredHealthLoad = false
     private var needsHealthPersistence = false
     private var categoryPaletteObservation: AnyCancellable?
 
@@ -142,7 +150,8 @@ final class AppDataStore: ObservableObject {
          anniversaryNotificationService: NotificationService? = nil,
          dailyNotificationService: NotificationService? = nil,
          diaryReminderDefaults: UserDefaults? = nil,
-         defersNotificationUpdatesUntilStartup: Bool = false) {
+         defersNotificationUpdatesUntilStartup: Bool = false,
+         defersFullHistoryLoad: Bool = false) {
         // Setup SwiftData
         self.modelContext = container.mainContext
         self.taskNotificationService = taskNotificationService ?? NotificationService.shared
@@ -151,7 +160,18 @@ final class AppDataStore: ObservableObject {
         self.dailyNotificationService = dailyNotificationService ?? NotificationService.shared
         self.diaryReminderDefaults = diaryReminderDefaults ?? (startsBackgroundServices ? .standard : nil)
         self.areNotificationUpdatesEnabled = !defersNotificationUpdatesUntilStartup
-        self.shoppingStore = ShoppingStore(container: container)
+        let useStagedStartup = defersFullHistoryLoad && startsBackgroundServices && !PersistenceController.isSimulatorDemoMode
+        let shouldProfile = startsBackgroundServices && StartupProfiler.shared.shouldRecordPrimaryStoreLoad
+        let profiler = StartupProfiler.shared
+
+        self.shoppingStore = shouldProfile
+            ? profiler.measure("store.shoppingStoreInit") {
+                ShoppingStore(container: container, deferInitialLoad: useStagedStartup)
+            }
+            : ShoppingStore(container: container, deferInitialLoad: useStagedStartup)
+        if shouldProfile && !useStagedStartup {
+            profiler.setMetadata("Shopping", value: "items=\(shoppingStore.items.count), places=\(shoppingStore.places.count)")
+        }
 
         // docs/ui-guidelines.md §カレンダー: color-only edits must refresh rows
         // without rewriting events or fetching the external calendar again.
@@ -160,12 +180,36 @@ final class AppDataStore: ObservableObject {
 
         // 1. Run Migration (if needed)
         if startsBackgroundServices && !PersistenceController.isSimulatorDemoMode {
-            MigrationManager.shared.migrate(modelContext: modelContext)
+            if shouldProfile {
+                profiler.measure("store.migrationCheck") {
+                    MigrationManager.shared.migrate(modelContext: modelContext)
+                }
+            } else {
+                MigrationManager.shared.migrate(modelContext: modelContext)
+            }
         }
 
-        loadAppState()
+        if shouldProfile {
+            profiler.measure("store.loadAppState") {
+                _ = loadAppState()
+            }
+        } else {
+            loadAppState()
+        }
         do {
-            try loadStoredRecords()
+            if useStagedStartup {
+                try loadInitialStartupRecords(profile: shouldProfile)
+                self.hasLoadedFullHistory = false
+                self.hasHydratedTasks = false
+                self.hasHydratedDiaries = false
+                self.hasHydratedHabitRecords = false
+                self.hasHydratedCalendarEvents = false
+                self.hasHydratedHealthSummaries = false
+                self.hasHydratedShopping = false
+            } else {
+                try loadStoredRecords(profile: shouldProfile)
+                self.hasLoadedFullHistory = true
+            }
         } catch {
             AppLogger.data.error("Failed to fetch initial data from SwiftData: \(error)")
         }
@@ -174,26 +218,49 @@ final class AppDataStore: ObservableObject {
         // not migrate defaults, seed user data, request integrations or notify.
         guard startsBackgroundServices else { return }
 
-        self.externalCalendarEvents = Self.loadValue(forKey: Self.externalCalendarEventsDefaultsKey, defaultValue: [])
+        if shouldProfile {
+            let defaults = UserDefaults(suiteName: PersistenceController.appGroupIdentifier) ?? UserDefaults.standard
+            let extBytes = defaults.data(forKey: Self.externalCalendarEventsDefaultsKey)?.count ?? 0
+            self.externalCalendarEvents = profiler.measure("store.externalCalJSON", detail: {
+                let kb = String(format: "%.1fKB", Double(extBytes) / 1024.0)
+                return "raw=\(kb)"
+            }) {
+                Self.loadValue(forKey: Self.externalCalendarEventsDefaultsKey, defaultValue: [])
+            }
+            profiler.setMetadata("ExternalCalendar", value: "events=\(externalCalendarEvents.count), json=\(String(format: "%.1fKB", Double(extBytes) / 1024.0))")
+        } else {
+            self.externalCalendarEvents = Self.loadValue(forKey: Self.externalCalendarEventsDefaultsKey, defaultValue: [])
+        }
         let storedRange: ExternalCalendarRange? = Self.loadValue(forKey: Self.externalCalendarRangeDefaultsKey, defaultValue: nil)
         self.externalCalendarRange = storedRange
         if PersistenceController.isSimulatorDemoMode {
             self.externalCalendarEvents = []
             self.externalCalendarRange = nil
         }
-        self.locationVisitTagDefinitions = Self.loadValue(forKey: Self.locationVisitTagsDefaultsKey, defaultValue: [])
-        recordInitialPermissionsFootprint(standard: .standard, shared: UserDefaults(suiteName: PersistenceController.appGroupIdentifier))
-        normalizeLocationVisitTagOrderIfNeeded()
-        seedDefaultLocationVisitTagsIfNeeded()
+        if shouldProfile {
+            profiler.measure("store.postLoadDefaults") {
+                self.locationVisitTagDefinitions = Self.loadValue(forKey: Self.locationVisitTagsDefaultsKey, defaultValue: [])
+                recordInitialPermissionsFootprint(standard: .standard, shared: UserDefaults(suiteName: PersistenceController.appGroupIdentifier))
+                normalizeLocationVisitTagOrderIfNeeded()
+                seedDefaultLocationVisitTagsIfNeeded()
+            }
+            profiler.finishPrimaryStoreLoad()
+        } else {
+            self.locationVisitTagDefinitions = Self.loadValue(forKey: Self.locationVisitTagsDefaultsKey, defaultValue: [])
+            recordInitialPermissionsFootprint(standard: .standard, shared: UserDefaults(suiteName: PersistenceController.appGroupIdentifier))
+            normalizeLocationVisitTagOrderIfNeeded()
+            seedDefaultLocationVisitTagsIfNeeded()
+        }
 
         #if DEBUG && targetEnvironment(simulator)
-        if PersistenceController.isSimulatorDemoMode {
+        if ASOScreenshotShowcase.isEnabled {
+            seedASOScreenshotShowcase()
+        } else if PersistenceController.isSimulatorDemoMode {
             seedSimulatorDemoDataIfNeeded()
         }
         #endif
-        _Concurrency.Task {
-            await backfillHealthRequestedFlagIfNeeded()
-            await loadHealthData()
+        if !useStagedStartup {
+            startDeferredHealthSyncIfNeeded()
         }
         _Concurrency.Task {
             // 起動直後の描画やデータ読込と競合しないよう少し待ってから、
@@ -202,6 +269,235 @@ final class AppDataStore: ObservableObject {
             if await syncExternalCalendarsIfAuthorized() {
                 WidgetCenter.shared.reloadTimelines(ofKind: "ScheduleWidget")
             }
+        }
+    }
+
+    /// Stage 1 startup load: fetches only what Home (Today) needs immediately,
+    /// deferring multi-year history until after the startup logo reveals Home.
+    private func loadInitialStartupRecords(profile: Bool) throws {
+        let profiler = StartupProfiler.shared
+        func run<T>(_ name: String, detail: (() -> String?)? = nil, _ body: () throws -> T) rethrows -> T {
+            if profile {
+                return try profiler.measure(name, detail: detail, body)
+            } else {
+                return try body()
+            }
+        }
+
+        let calendar = Calendar.current
+        let todayStart = calendar.startOfDay(for: Date())
+        let weekAgo = calendar.date(byAdding: .day, value: -7, to: todayStart) ?? todayStart
+        let sixtyDaysAgo = calendar.date(byAdding: .day, value: -60, to: todayStart) ?? todayStart
+
+        // Tasks: incomplete or completed today
+        let sdTasks = try run("stage1.SDTask") {
+            try modelContext.fetch(FetchDescriptor<SDTask>(predicate: #Predicate {
+                if $0.isCompleted == false {
+                    return true
+                } else if let completedAt = $0.completedAt {
+                    return completedAt >= todayStart
+                } else {
+                    return false
+                }
+            }))
+        }
+        self.tasks = sdTasks.map { Task(sd: $0) }
+
+        // DiaryEntries: last 7 days
+        let sdDiaries = try run("stage1.SDDiaryEntry") {
+            try modelContext.fetch(FetchDescriptor<SDDiaryEntry>(predicate: #Predicate {
+                $0.date >= weekAgo
+            }))
+        }
+        self.diaryEntries = Self.normalizeDiaryEntries(sdDiaries.map { DiaryEntry(sd: $0) })
+
+        // Habits (all; tiny) + HabitRecords (last 60 days for immediate streaks)
+        let sdHabits = try run("stage1.SDHabit") {
+            try modelContext.fetch(FetchDescriptor<SDHabit>(sortBy: [SortDescriptor(\.orderIndex)]))
+        }
+        self.habits = sdHabits.map { Habit(sd: $0) }
+
+        let sdRecords = try run("stage1.SDHabitRecord") {
+            try modelContext.fetch(FetchDescriptor<SDHabitRecord>(predicate: #Predicate {
+                $0.date >= sixtyDaysAgo
+            }))
+        }
+        self.habitRecords = sdRecords.map { HabitRecord(sd: $0) }
+        self.habitRecordLookup = HabitRecordLookup(records: habitRecords)
+
+        // Anniversaries (all; tiny)
+        let sdAnniversaries = try run("stage1.SDAnniversary") {
+            try modelContext.fetch(FetchDescriptor<SDAnniversary>(sortBy: [SortDescriptor(\.orderIndex)]))
+        }
+        self.anniversaries = sdAnniversaries.map { Anniversary(sd: $0) }
+
+        // CalendarEvents: recurring series + events ending within/after last 7 days
+        let sdEvents = try run("stage1.SDCalendarEvent") {
+            try modelContext.fetch(FetchDescriptor<SDCalendarEvent>(predicate: #Predicate {
+                $0.recurrenceRuleData != nil || $0.endDate >= weekAgo
+            }))
+        }
+        self.calendarEvents = sdEvents.map { CalendarEvent(sd: $0) }
+        self.calendarExceptions = try run("stage1.SDCalendarEventException") {
+            try modelContext.fetch(FetchDescriptor<SDCalendarEventException>())
+                .map { CalendarEventException(sd: $0) }
+        }
+
+        // Letters & SharedLetters (all; tiny)
+        let sdLetters = try run("stage1.SDLetter") {
+            try modelContext.fetch(FetchDescriptor<SDLetter>())
+        }
+        self.letters = sdLetters.map { Letter(sd: $0) }
+        let sdSharedLetters = try run("stage1.SDSharedLetter") {
+            try modelContext.fetch(FetchDescriptor<SDSharedLetter>(sortBy: [SortDescriptor(\.openedAt, order: .reverse)]))
+        }
+        self.sharedLetters = sdSharedLetters.map { SharedLetter(sd: $0) }
+
+        // HealthSummaries: last 7 days only; full history loads in Stage 2 before any persistence.
+        let sdHealth = try run("stage1.SDHealthSummary") {
+            try modelContext.fetch(FetchDescriptor<SDHealthSummary>(
+                predicate: #Predicate { $0.date >= weekAgo },
+                sortBy: [SortDescriptor(\.date, order: .reverse)]
+            ))
+        }
+        self.healthSummaries = sdHealth.map { HealthSummary(sd: $0) }
+        self.hasLoadedHealthSummaries = false
+
+        // MemoPad
+        let sdMemos = try run("stage1.SDMemoPad") {
+            try modelContext.fetch(FetchDescriptor<SDMemoPad>())
+        }
+        self.memoPad = sdMemos.first.map { MemoPad(sd: $0) } ?? MemoPad()
+
+        if profile {
+            profiler.setMetadata(
+                "Stage1Loaded",
+                value: "tasks=\(tasks.count), diary=\(diaryEntries.count), habitRecs=\(habitRecords.count), events=\(calendarEvents.count), health=\(healthSummaries.count)"
+            )
+        }
+    }
+
+    /// Stage 2 (async incremental): hydrate remaining multi-year history one table
+    /// per runloop turn so Home remains responsive at 60fps right after launch.
+    func loadRemainingHistoryIncrementally() async {
+        guard !hasLoadedFullHistory else { return }
+        saveContext()
+        let start = CFAbsoluteTimeGetCurrent()
+        do {
+            if !hasHydratedTasks {
+                let sdTasks = try modelContext.fetch(FetchDescriptor<SDTask>())
+                self.tasks = sdTasks.map { Task(sd: $0) }
+                hasHydratedTasks = true
+                await _Concurrency.Task.yield()
+            }
+            if !hasHydratedDiaries {
+                let sdDiaries = try modelContext.fetch(FetchDescriptor<SDDiaryEntry>())
+                self.diaryEntries = Self.normalizeDiaryEntries(sdDiaries.map { DiaryEntry(sd: $0) })
+                hasHydratedDiaries = true
+                await _Concurrency.Task.yield()
+            }
+            if !hasHydratedHabitRecords {
+                let sdRecords = try modelContext.fetch(FetchDescriptor<SDHabitRecord>())
+                self.habitRecords = sdRecords.map { HabitRecord(sd: $0) }
+                self.habitRecordLookup = HabitRecordLookup(records: habitRecords)
+                hasHydratedHabitRecords = true
+                await _Concurrency.Task.yield()
+            }
+            if !hasHydratedCalendarEvents {
+                let sdEvents = try modelContext.fetch(FetchDescriptor<SDCalendarEvent>())
+                self.calendarEvents = sdEvents.map { CalendarEvent(sd: $0) }
+                hasHydratedCalendarEvents = true
+                await _Concurrency.Task.yield()
+            }
+            if !hasHydratedHealthSummaries {
+                let sdHealth = try modelContext.fetch(FetchDescriptor<SDHealthSummary>(sortBy: [SortDescriptor(\.date, order: .reverse)]))
+                self.healthSummaries = sdHealth.map { HealthSummary(sd: $0) }
+                self.hasLoadedHealthSummaries = true
+                hasHydratedHealthSummaries = true
+                await _Concurrency.Task.yield()
+            }
+            if !hasHydratedShopping {
+                self.shoppingStore.reloadIfNeeded()
+                hasHydratedShopping = true
+            }
+            finishFullHistoryHydration(elapsedMs: (CFAbsoluteTimeGetCurrent() - start) * 1000.0,
+                                       spanName: "stage2.incrementalHistory")
+        } catch {
+            AppLogger.data.error("Failed to incrementally hydrate full history from SwiftData: \(error)")
+        }
+    }
+
+    /// Stage 2 (synchronous fallback): immediately finishes any remaining unhydrated
+    /// tables when the user switches tabs or triggers an action requiring full history.
+    func loadRemainingHistoryIfNeeded() {
+        guard !hasLoadedFullHistory else { return }
+        saveContext()
+        let start = CFAbsoluteTimeGetCurrent()
+        do {
+            if !hasHydratedTasks {
+                let sdTasks = try modelContext.fetch(FetchDescriptor<SDTask>())
+                self.tasks = sdTasks.map { Task(sd: $0) }
+                hasHydratedTasks = true
+            }
+            if !hasHydratedDiaries {
+                let sdDiaries = try modelContext.fetch(FetchDescriptor<SDDiaryEntry>())
+                self.diaryEntries = Self.normalizeDiaryEntries(sdDiaries.map { DiaryEntry(sd: $0) })
+                hasHydratedDiaries = true
+            }
+            if !hasHydratedHabitRecords {
+                let sdRecords = try modelContext.fetch(FetchDescriptor<SDHabitRecord>())
+                self.habitRecords = sdRecords.map { HabitRecord(sd: $0) }
+                self.habitRecordLookup = HabitRecordLookup(records: habitRecords)
+                hasHydratedHabitRecords = true
+            }
+            if !hasHydratedCalendarEvents {
+                let sdEvents = try modelContext.fetch(FetchDescriptor<SDCalendarEvent>())
+                self.calendarEvents = sdEvents.map { CalendarEvent(sd: $0) }
+                hasHydratedCalendarEvents = true
+            }
+            if !hasHydratedHealthSummaries {
+                let sdHealth = try modelContext.fetch(FetchDescriptor<SDHealthSummary>(sortBy: [SortDescriptor(\.date, order: .reverse)]))
+                self.healthSummaries = sdHealth.map { HealthSummary(sd: $0) }
+                self.hasLoadedHealthSummaries = true
+                hasHydratedHealthSummaries = true
+            }
+            if !hasHydratedShopping {
+                self.shoppingStore.reloadIfNeeded()
+                hasHydratedShopping = true
+            }
+            finishFullHistoryHydration(elapsedMs: (CFAbsoluteTimeGetCurrent() - start) * 1000.0,
+                                       spanName: "stage2.loadRemainingHistory")
+        } catch {
+            AppLogger.data.error("Failed to hydrate full history from SwiftData: \(error)")
+        }
+    }
+
+    private func finishFullHistoryHydration(elapsedMs: Double, spanName: String) {
+        guard !hasLoadedFullHistory else { return }
+        hasLoadedFullHistory = true
+        let profiler = StartupProfiler.shared
+        profiler.recordSpan(spanName, durationMs: elapsedMs)
+        let incompleteTasks = tasks.filter { !$0.isCompleted }.count
+        let photoPathsCount = diaryEntries.reduce(0) { $0 + $1.photoPaths.count + $1.locationPhotoPaths.count }
+        let locationsCount = diaryEntries.reduce(0) { $0 + $1.locations.count }
+        let archivedHabits = habits.filter(\.isArchived).count
+        let recurringEvents = calendarEvents.filter { $0.recurrenceRule != nil }.count
+        let sleepStagesCount = healthSummaries.reduce(0) { $0 + $1.sleepStages.count }
+        profiler.setMetadata("Shopping", value: "items=\(shoppingStore.items.count), places=\(shoppingStore.places.count)")
+        profiler.setMetadata("Tasks", value: "total=\(tasks.count), incomplete=\(incompleteTasks)")
+        profiler.setMetadata("Diary", value: "entries=\(diaryEntries.count), photos=\(photoPathsCount), locations=\(locationsCount)")
+        profiler.setMetadata("Habits", value: "total=\(habits.count) (active=\(habits.count - archivedHabits), archived=\(archivedHabits)), records=\(habitRecords.count)")
+        profiler.setMetadata("Calendar", value: "events=\(calendarEvents.count) (recurring=\(recurringEvents)), exceptions=\(calendarExceptions.count)")
+        profiler.setMetadata("Health", value: "summaries=\(healthSummaries.count), sleepStages=\(sleepStagesCount)")
+        profiler.setMetadata("Other", value: "anniversaries=\(anniversaries.count), letters=\(letters.count), sharedLetters=\(sharedLetters.count)")
+    }
+
+    func startDeferredHealthSyncIfNeeded() {
+        guard !hasStartedDeferredHealthLoad else { return }
+        hasStartedDeferredHealthLoad = true
+        _Concurrency.Task {
+            await backfillHealthRequestedFlagIfNeeded()
+            await loadHealthData()
         }
     }
 
@@ -227,59 +523,126 @@ final class AppDataStore: ObservableObject {
         modelContext = ModelContext(modelContext.container)
         guard loadAppState() else { throw CocoaError(.fileReadUnknown) }
         try loadStoredRecords()
+        hasLoadedFullHistory = true
+        hasHydratedTasks = true
+        hasHydratedDiaries = true
+        hasHydratedHabitRecords = true
+        hasHydratedCalendarEvents = true
+        hasHydratedHealthSummaries = true
+        hasHydratedShopping = true
         try shoppingStore.reloadAfterStoreRecovery()
         refreshNotificationsAfterStartup()
         resumeDiaryPhotoSync()
     }
 
-    private func loadStoredRecords() throws {
+    private func loadStoredRecords(profile: Bool = false) throws {
+        let profiler = StartupProfiler.shared
+        func run<T>(_ name: String, detail: (() -> String?)? = nil, _ body: () throws -> T) rethrows -> T {
+            if profile {
+                return try profiler.measure(name, detail: detail, body)
+            } else {
+                return try body()
+            }
+        }
+
         // Tasks
-        let sdTasks = try modelContext.fetch(FetchDescriptor<SDTask>())
-        self.tasks = sdTasks.map { Task(sd: $0) }
+        let sdTasks = try run("load.SDTask.fetch") {
+            try modelContext.fetch(FetchDescriptor<SDTask>())
+        }
+        self.tasks = run("load.SDTask.map", detail: { "\(sdTasks.count)件" }) {
+            sdTasks.map { Task(sd: $0) }
+        }
 
         // DiaryEntries
-        let sdDiaries = try modelContext.fetch(FetchDescriptor<SDDiaryEntry>())
-        let mappedDiaries = sdDiaries.map { DiaryEntry(sd: $0) }
-        self.diaryEntries = Self.normalizeDiaryEntries(mappedDiaries)
+        let sdDiaries = try run("load.SDDiaryEntry.fetch") {
+            try modelContext.fetch(FetchDescriptor<SDDiaryEntry>())
+        }
+        let mappedDiaries = run("load.SDDiaryEntry.map+JSON", detail: { "\(sdDiaries.count)件" }) {
+            sdDiaries.map { DiaryEntry(sd: $0) }
+        }
+        self.diaryEntries = run("load.SDDiaryEntry.normalize") {
+            Self.normalizeDiaryEntries(mappedDiaries)
+        }
 
         // Habits
-        let sdHabits = try modelContext.fetch(FetchDescriptor<SDHabit>(sortBy: [SortDescriptor(\.orderIndex)]))
+        let sdHabits = try run("load.SDHabit") {
+            try modelContext.fetch(FetchDescriptor<SDHabit>(sortBy: [SortDescriptor(\.orderIndex)]))
+        }
         self.habits = sdHabits.map { Habit(sd: $0) }
 
         // HabitRecords
-        let sdRecords = try modelContext.fetch(FetchDescriptor<SDHabitRecord>())
-        self.habitRecords = sdRecords.map { HabitRecord(sd: $0) }
-        self.habitRecordLookup = HabitRecordLookup(records: habitRecords)
+        let sdRecords = try run("load.SDHabitRecord.fetch") {
+            try modelContext.fetch(FetchDescriptor<SDHabitRecord>())
+        }
+        self.habitRecords = run("load.SDHabitRecord.map", detail: { "\(sdRecords.count)件" }) {
+            sdRecords.map { HabitRecord(sd: $0) }
+        }
+        self.habitRecordLookup = run("load.HabitRecordLookup", detail: { "\(self.habitRecords.count)件" }) {
+            HabitRecordLookup(records: habitRecords)
+        }
 
         // Anniversaries
-        let sdAnniversaries = try modelContext.fetch(FetchDescriptor<SDAnniversary>(sortBy: [SortDescriptor(\.orderIndex)]))
+        let sdAnniversaries = try run("load.SDAnniversary") {
+            try modelContext.fetch(FetchDescriptor<SDAnniversary>(sortBy: [SortDescriptor(\.orderIndex)]))
+        }
         self.anniversaries = sdAnniversaries.map { Anniversary(sd: $0) }
 
         // CalendarEvents (Internal)
-        let sdEvents = try modelContext.fetch(FetchDescriptor<SDCalendarEvent>())
-        self.calendarEvents = sdEvents.map { CalendarEvent(sd: $0) }
-        self.calendarExceptions = try modelContext.fetch(FetchDescriptor<SDCalendarEventException>())
-            .map { CalendarEventException(sd: $0) }
+        let sdEvents = try run("load.SDCalendarEvent.fetch") {
+            try modelContext.fetch(FetchDescriptor<SDCalendarEvent>())
+        }
+        self.calendarEvents = run("load.SDCalendarEvent.map", detail: { "\(sdEvents.count)件" }) {
+            sdEvents.map { CalendarEvent(sd: $0) }
+        }
+        self.calendarExceptions = try run("load.SDCalendarEventException") {
+            try modelContext.fetch(FetchDescriptor<SDCalendarEventException>())
+                .map { CalendarEventException(sd: $0) }
+        }
 
         // Letters
-        let sdLetters = try modelContext.fetch(FetchDescriptor<SDLetter>())
+        let sdLetters = try run("load.SDLetter") {
+            try modelContext.fetch(FetchDescriptor<SDLetter>())
+        }
         self.letters = sdLetters.map { Letter(sd: $0) }
 
         // SharedLetters (他ユーザーからの手紙)
-        let sdSharedLetters = try modelContext.fetch(FetchDescriptor<SDSharedLetter>(sortBy: [SortDescriptor(\.openedAt, order: .reverse)]))
+        let sdSharedLetters = try run("load.SDSharedLetter") {
+            try modelContext.fetch(FetchDescriptor<SDSharedLetter>(sortBy: [SortDescriptor(\.openedAt, order: .reverse)]))
+        }
         self.sharedLetters = sdSharedLetters.map { SharedLetter(sd: $0) }
 
         // HealthSummaries (Cache)
-        let sdHealth = try modelContext.fetch(FetchDescriptor<SDHealthSummary>(sortBy: [SortDescriptor(\.date, order: .reverse)]))
-        self.healthSummaries = sdHealth.map { HealthSummary(sd: $0) }
+        let sdHealth = try run("load.SDHealthSummary.fetch") {
+            try modelContext.fetch(FetchDescriptor<SDHealthSummary>(sortBy: [SortDescriptor(\.date, order: .reverse)]))
+        }
+        self.healthSummaries = run("load.SDHealthSummary.map+stages", detail: { "\(sdHealth.count)件" }) {
+            sdHealth.map { HealthSummary(sd: $0) }
+        }
         hasLoadedHealthSummaries = true
 
         // MemoPad
-        let sdMemos = try modelContext.fetch(FetchDescriptor<SDMemoPad>())
+        let sdMemos = try run("load.SDMemoPad") {
+            try modelContext.fetch(FetchDescriptor<SDMemoPad>())
+        }
         if let first = sdMemos.first {
             self.memoPad = MemoPad(sd: first)
         } else {
             self.memoPad = MemoPad()
+        }
+
+        if profile {
+            let incompleteTasks = tasks.filter { !$0.isCompleted }.count
+            let photoPathsCount = diaryEntries.reduce(0) { $0 + $1.photoPaths.count + $1.locationPhotoPaths.count }
+            let locationsCount = diaryEntries.reduce(0) { $0 + $1.locations.count }
+            let archivedHabits = habits.filter(\.isArchived).count
+            let recurringEvents = calendarEvents.filter { $0.recurrenceRule != nil }.count
+            let sleepStagesCount = healthSummaries.reduce(0) { $0 + $1.sleepStages.count }
+            profiler.setMetadata("Tasks", value: "total=\(tasks.count), incomplete=\(incompleteTasks)")
+            profiler.setMetadata("Diary", value: "entries=\(diaryEntries.count), photos=\(photoPathsCount), locations=\(locationsCount)")
+            profiler.setMetadata("Habits", value: "total=\(habits.count) (active=\(habits.count - archivedHabits), archived=\(archivedHabits)), records=\(habitRecords.count)")
+            profiler.setMetadata("Calendar", value: "events=\(calendarEvents.count) (recurring=\(recurringEvents)), exceptions=\(calendarExceptions.count)")
+            profiler.setMetadata("Health", value: "summaries=\(healthSummaries.count), sleepStages=\(sleepStagesCount)")
+            profiler.setMetadata("Other", value: "anniversaries=\(anniversaries.count), letters=\(letters.count), sharedLetters=\(sharedLetters.count)")
         }
     }
 
@@ -309,6 +672,7 @@ final class AppDataStore: ObservableObject {
     /// Calendar fetches may finish under the logo; use their latest snapshots here.
     /// See docs/ui-guidelines.md §起動時の表示.
     func refreshNotificationsAfterStartup(referenceDate: Date = Date()) {
+        loadRemainingHistoryIfNeeded()
         areNotificationUpdatesEnabled = true
         if hasRefreshedStartupNotifications {
             refreshCalendarRemindersIfNeeded(referenceDate: referenceDate)
@@ -333,6 +697,7 @@ final class AppDataStore: ObservableObject {
     @discardableResult
     func loadHealthData(requestAuthorizationIfNeeded: Bool = false) async -> Bool {
         guard !PersistenceController.isSimulatorDemoMode else { return false }
+        loadRemainingHistoryIfNeeded()
         if requestAuthorizationIfNeeded {
             let preAuthorizationLoadTask = healthLoadTask
             let authorizationTask: _Concurrency.Task<Bool, Never>
@@ -428,6 +793,7 @@ final class AppDataStore: ObservableObject {
 
     /// 指定日の天気データを更新
     func updateWeather(for date: Date, condition: String, high: Double?, low: Double?) {
+        loadRemainingHistoryIfNeeded()
         let calendar = Calendar.current
         let targetDate = calendar.startOfDay(for: date)
 
