@@ -141,11 +141,11 @@ MIT License. See [`LICENSE`](LICENSE).
 <!-- dir-loc-start -->
 | Directory | LOC |
 |:--|--:|
-| `lifelog` | 155,261 |
+| `lifelog` | 156,915 |
 | `promo` | 64,674 |
 | `promo-video` | 51,625 |
-| `lifelogTests` | 18,539 |
-| `docs` | 13,796 |
+| `lifelogTests` | 18,604 |
+| `docs` | 14,066 |
 | `functions` | 10,445 |
 | `work` | 10,223 |
 | `LifelogWidgets` | 5,410 |
